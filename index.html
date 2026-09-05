@@ -197,15 +197,25 @@ section{position:relative;z-index:2}
    ============================================================ */
 .overture{height:100svh;min-height:560px;position:relative;overflow:hidden}
 .ov-media{position:absolute;inset:0;z-index:0}
+.ov-canvas{position:absolute;inset:0;z-index:1;width:100%;height:100%;
+  opacity:0;transition:opacity .8s var(--ease);pointer-events:none}
+.ov-canvas.on{opacity:1}
+.ov-load{position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:5;
+  width:46px;height:46px;pointer-events:none;opacity:0;transition:opacity .4s var(--ease)}
+.ov-load.on{opacity:1}
+.ov-load svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ov-load circle{fill:none;stroke-width:1.5;stroke-linecap:round}
+.ov-load .t{stroke:rgba(233,214,188,.16)}
+.ov-load .p{stroke:var(--rose);transition:stroke-dashoffset .25s linear}
 .ov-media img{width:100%;height:100%;object-fit:cover;object-position:50% 44%;
   will-change:transform}
-.ov-media::after{content:"";position:absolute;inset:0;
+.ov-scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
   background:
     linear-gradient(180deg,rgba(8,7,10,.74) 0%,rgba(8,7,10,.10) 30%,rgba(8,7,10,.55) 66%,rgba(8,7,10,.97) 100%),
     radial-gradient(78% 58% at 50% 42%,transparent 28%,rgba(8,7,10,.55) 100%)}
 @media (min-width:900px){
   .ov-media img{object-position:64% 44%}
-  .ov-media::after{background:
+  .ov-scrim{background:
     linear-gradient(180deg,rgba(8,7,10,.6) 0%,transparent 26%,rgba(8,7,10,.35) 78%,rgba(8,7,10,.92) 100%),
     linear-gradient(90deg,rgba(8,7,10,.94) 0%,rgba(8,7,10,.72) 26%,transparent 56%),
     radial-gradient(80% 62% at 62% 44%,transparent 30%,rgba(8,7,10,.5) 100%)}
@@ -592,6 +602,13 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
          sizes="100vw" width="2136" height="2136" fetchpriority="high"
          alt="A काल watch standing in smoke, rose gold bezel catching a single beam of light.">
   </div>
+  <canvas class="ov-canvas" id="ovCanvas" aria-hidden="true"></canvas>
+  <div class="ov-scrim" aria-hidden="true"></div>
+  <div class="ov-load" id="ovLoad" aria-hidden="true">
+    <svg viewBox="0 0 46 46"><circle class="t" cx="23" cy="23" r="21"></circle>
+      <circle class="p" id="ovLoadArc" cx="23" cy="23" r="21"
+              stroke-dasharray="131.9" stroke-dashoffset="131.9"></circle></svg>
+  </div>
   <div class="ov-inner">
     <h1 class="ov-h">
       <span class="ov-line"><i><span class="deva">काल</span> means time.</i></span>
@@ -825,6 +842,11 @@ const KAAL = {
   price:   "4,999",
   edition: 20,      // how many were made
   sold:    2,       // how many are already on wrists
+
+  // Frame by frame scroll scrub. Drop numbered stills into assets/seq/ as
+  // frame-001.webp, frame-002.webp ... then set count to how many there are.
+  // count: 0 keeps the designed still hero, so this is always safe to ship.
+  sequence: { path: "assets/seq/frame-", ext: ".webp", pad: 3, count: 0 },
   email:   "connect@thekaal.co"
 };
 
@@ -877,6 +899,77 @@ const KAAL = {
   $$('a[href^="mailto:"]').forEach(a =>
     a.addEventListener("click", () => track("Contact", { method: "email" })));
   track("ViewContent", { content_name: "काल Edition 01", currency: "INR", value: 4999 });
+
+  /* ═════════ the scroll scrub ═════════
+     The stills play forward as you scroll down and backward as you scroll up.
+     Frames are decoded up front behind an honest loading ring, drawn to a
+     canvas, and the displayed index is eased so a fast flick glides instead of
+     snapping. If anything here fails the designed still hero simply stays. */
+  const seq = KAAL.sequence || { count: 0 };
+  if (seq.count > 0 && !reduced) (function scrub() {
+    const cv = $("#ovCanvas"), ring = $("#ovLoad"), arc = $("#ovLoadArc");
+    if (!cv) return;
+    const ctx = cv.getContext("2d", { alpha: false });
+    const RING = 2 * Math.PI * 21;
+
+    /* A phone does not need every frame. Taking every second one halves the
+       bytes on the connection least able to spare them. */
+    const step  = innerWidth < 760 ? 2 : 1;
+    const idx   = [];
+    for (let i = 1; i <= seq.count; i += step) idx.push(i);
+    const frames = new Array(idx.length);
+    let decoded = 0, ready = false, raf = 0;
+
+    function size() {
+      const d = Math.min(devicePixelRatio || 1, 2);
+      cv.width  = Math.round(innerWidth  * d);
+      cv.height = Math.round(innerHeight * d);
+      draw(shown, true);
+    }
+    function draw(i, force) {
+      const im = frames[clamp(Math.round(i), 0, frames.length - 1)];
+      if (!im) return;
+      if (!force && im === lastDrawn) return;      // only paint on change
+      lastDrawn = im;
+      const cw = cv.width, ch = cv.height;
+      const s2 = Math.max(cw / im.width, ch / im.height);   // cover
+      const w = im.width * s2, h = im.height * s2;
+      ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
+    }
+    let lastDrawn = null, shown = 0, target = 0;
+
+    function tick() {
+      shown += (target - shown) * 0.18;
+      draw(shown);
+      raf = Math.abs(target - shown) > 0.01 ? requestAnimationFrame(tick) : 0;
+    }
+    function nudge() { if (ready && !raf) raf = requestAnimationFrame(tick); }
+
+    idx.forEach((n, k) => {
+      const im = new Image();
+      im.decoding = "async";
+      im.onload = im.onerror = () => {
+        if (im.naturalWidth) frames[k] = im;
+        decoded++;
+        if (arc) arc.style.strokeDashoffset = (RING * (1 - decoded / idx.length)).toFixed(1);
+        if (decoded === idx.length) {
+          if (!frames.filter(Boolean).length) { ring.classList.remove("on"); return; }
+          ready = true; size(); draw(0, true);
+          cv.classList.add("on"); ring.classList.remove("on");
+          if (window.ScrollTrigger) ScrollTrigger.refresh();
+        }
+      };
+      im.src = seq.path + String(n).padStart(seq.pad, "0") + seq.ext;
+    });
+    setTimeout(() => { if (!ready) ring.classList.add("on"); }, 320);
+    addEventListener("resize", () => { if (ready) size(); });
+
+    window.__kaalScrub = {
+      set(p) { if (!ready) return; target = p * (frames.length - 1); nudge(); },
+      get ready() { return ready; },
+      get count() { return frames.filter(Boolean).length; }
+    };
+  })();
 
   /* ───────── the instrument: dial pips + scroll progress ───────── */
   const instr = $("#instr"), arc = $("#instrArc"), hand = $("#instrHand"), pct = $("#instrPct");
@@ -1004,6 +1097,14 @@ const KAAL = {
     gsap.from(".ov-kick, .ov-cue", {
       opacity: 0, y: 18, duration: 1, ease: "power3.out", stagger: 0.12, delay: 1.05
     });
+
+    /* the scrub rides the overture's own scroll, forward and backward */
+    if (window.__kaalScrub) {
+      ScrollTrigger.create({
+        trigger: "#overture", start: "top top", end: "bottom top", scrub: true,
+        onUpdate: st => window.__kaalScrub.set(st.progress)
+      });
+    }
 
     /* ACT 0 · the hero breathes and lifts away under the scroll */
     gsap.timeline({ scrollTrigger: { trigger: "#overture", start: "top top",

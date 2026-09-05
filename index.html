@@ -57,11 +57,12 @@ document.documentElement.className+=" anim";}catch(e){}})();
 :root{
   --void:#08070A; --ink:#0B0A11; --graphite:#101015;
   --bronze:#14100B; --ember:#1A1208; --goldblack:#120C05;
-  --rose:#C9926A; --rose-lit:#E8B98F; --champagne:#E9D6BC;
-  --jade:#1E4438; --steel:#B9BEC6; --fog:#8A8781;
+  --rose:#C9A227; --rose-lit:#E8C86A; --champagne:#E9D6BC;
+  --jade:#1E6B4F; --steel:#B9BEC6; --fog:#8A8781;
   --hair:rgba(233,214,188,.13);
   --hair-soft:rgba(233,214,188,.07);
   --ground:var(--void);
+  --accent:var(--rose); --accent-lit:var(--rose-lit);
 
   --display:"Bodoni Moda",Georgia,"Times New Roman",serif;
   --body:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -307,6 +308,49 @@ section{position:relative;z-index:2}
   .card{scroll-snap-align:start}
 }
 
+
+/* ============================================================
+   ACT II · the chooser. Twenty watches across four dials, so the
+   page's job is to make someone pick one. Choosing is what turns
+   a viewer into an owner before they have paid anything.
+   ============================================================ */
+.ch-grid{display:grid;gap:clamp(30px,5vw,68px);grid-template-columns:1fr;align-items:center;
+  margin-top:clamp(44px,8vh,96px)}
+@media (min-width:900px){.ch-grid{grid-template-columns:1fr 1fr}}
+.ch-stage{position:relative;display:grid;place-items:center;max-width:min(86vw,460px);
+  margin-inline:auto;width:100%;aspect-ratio:1}
+.ch-hero{width:100%;height:100%;object-fit:cover;border-radius:50%;
+  transition:opacity .38s var(--ease),transform .6s var(--ease-out);
+  box-shadow:0 30px 90px -30px rgba(0,0,0,.9)}
+.ch-hero.swap{opacity:0;transform:scale(.965)}
+.ch-ring{position:absolute;inset:-5%;border-radius:50%;pointer-events:none;
+  border:1px solid var(--hair);
+  box-shadow:0 0 70px -14px var(--accent);opacity:.55;
+  transition:box-shadow .5s var(--ease)}
+.ch-panel{display:flex;flex-direction:column;gap:clamp(18px,2.6vh,26px)}
+.ch-swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(8px,1.4vw,16px)}
+.ch-sw{padding:0;display:flex;flex-direction:column;align-items:center;gap:.6em;
+  border-radius:4px;outline:0;transition:transform .3s var(--ease-out)}
+.ch-sw img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;
+  border:1px solid var(--hair-soft);opacity:.5;
+  transition:opacity .3s var(--ease),border-color .3s var(--ease),box-shadow .3s var(--ease)}
+.ch-sw span{font-family:var(--mono);font-size:.55rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--fog);transition:color .3s var(--ease)}
+.ch-sw:hover img{opacity:.82}
+.ch-sw:focus-visible img{box-shadow:0 0 0 2px var(--accent)}
+.ch-sw.is-on img{opacity:1;border-color:var(--accent);box-shadow:0 0 22px -6px var(--accent)}
+.ch-sw.is-on span{color:var(--champagne)}
+.ch-sw.is-on{transform:translateY(-3px)}
+.ch-read{min-height:5.4em}
+.ch-read h3{font-size:clamp(1.7rem,3.4vw,2.5rem);color:var(--champagne);margin-bottom:.4rem;
+  transition:opacity .3s var(--ease)}
+.ch-read p{color:var(--steel);font-size:clamp(1rem,1.5vw,1.18rem);max-width:30ch;margin:0;
+  transition:opacity .3s var(--ease)}
+.ch-read.swap h3,.ch-read.swap p{opacity:0}
+.ch-panel .cta{align-self:flex-start;
+  background:linear-gradient(100deg,var(--accent-lit),var(--accent))}
+.ch-note{font-size:.85rem;color:var(--fog);max-width:34ch;margin:0}
+
 /* ============================================================
    ACT III · the movement
    ============================================================ */
@@ -403,7 +447,7 @@ section{position:relative;z-index:2}
 .ed-cell.gone{color:rgba(138,135,129,.42);background:rgba(233,214,188,.02);position:relative}
 .ed-cell.gone::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:1px;
   background:rgba(138,135,129,.5);transform:rotate(-14deg)}
-.ed-cell.next{color:#0A0806;background:linear-gradient(140deg,var(--rose-lit),var(--rose));
+.ed-cell.next{color:#0A0806;background:linear-gradient(140deg,var(--accent-lit),var(--accent));
   font-weight:700;box-shadow:0 0 26px -6px rgba(201,146,106,.55)}
 .ed-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7em 1.6em;
   font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
@@ -474,7 +518,7 @@ section{position:relative;z-index:2}
 .cta{
   display:inline-flex;align-items:center;justify-content:center;gap:.9em;
   font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
-  color:#0A0806;background:linear-gradient(100deg,var(--rose-lit),var(--rose));
+  color:#0A0806;background:linear-gradient(100deg,var(--accent-lit),var(--accent));
   text-decoration:none;padding:1.35em 2.4em;border-radius:2px;position:relative;overflow:hidden;
   transition:transform .35s var(--ease-out),box-shadow .35s var(--ease);
   box-shadow:0 0 0 rgba(201,146,106,0)
@@ -539,7 +583,7 @@ section{position:relative;z-index:2}
 .ov-line>i{transform:none}
 .name-word{position:relative;inset:auto;opacity:1}
 .name-slot{height:auto;display:flex;flex-direction:column;gap:.15em}
-.name-word.is-last::before{content:"and, finally, ";font-family:var(--body);
+.name-word.is-last::before{content:"and ";font-family:var(--body);
   font-size:.42em;font-style:normal;color:var(--fog);letter-spacing:.02em}
 .name-tail{opacity:1;margin-top:1.4rem}
 .ed-cell{opacity:1}
@@ -611,14 +655,69 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
   </div>
   <div class="ov-inner">
     <h1 class="ov-h">
-      <span class="ov-line"><i><span class="deva">काल</span> means time.</i></span>
-      <span class="ov-line two"><i>It also means the thing that takes everything.</i></span>
+      <span class="ov-line"><i>Four dials.</i></span>
+      <span class="ov-line"><i>Twenty watches.</i></span>
+      <span class="ov-line two"><i>Then it is over.</i></span>
     </h1>
     <div class="ov-kick">
       <span>Edition <b>01</b></span>
       <span><b data-remaining>18</b> of twenty left</span>
     </div>
     <div class="ov-cue"><span class="bar"></span>Keep scrolling</div>
+  </div>
+</section>
+
+<!-- ═══════════ ACT II · THE CHOOSER ═══════════ -->
+<section class="act choose" id="choose" data-ground="#0B0A11">
+  <div class="wrap">
+    <p class="lab rv">Choose yours</p>
+    <h2 class="rv" style="max-width:9ch;margin-block:1.1rem 0">Which one is you?</h2>
+
+    <div class="ch-grid">
+      <div class="ch-stage">
+        <img class="ch-hero" id="chHero" width="640" height="640" alt=""
+             src="assets/img/dial-black-640.webp"
+             srcset="assets/img/dial-black-240.webp 240w, assets/img/dial-black-480.webp 480w, assets/img/dial-black-640.webp 640w"
+             sizes="(max-width:900px) 86vw, 460px">
+        <span class="ch-ring" aria-hidden="true"></span>
+      </div>
+
+      <div class="ch-panel">
+        <div class="ch-swatches" id="chSwatches" role="radiogroup" aria-label="Choose a dial">
+          <button class="ch-sw is-on" role="radio" aria-checked="true" data-dial="black"
+                  data-name="Onyx" data-accent="#C9A227"
+                  data-line="For the room where nobody needs to know what you paid.">
+            <img src="assets/img/dial-black-240.webp" width="240" height="240" alt="Onyx dial" loading="lazy" decoding="async">
+            <span>Onyx</span></button>
+          <button class="ch-sw" role="radio" aria-checked="false" data-dial="white"
+                  data-name="Ivory" data-accent="#D8CDB4"
+                  data-line="Reads as money from the other side of a table.">
+            <img src="assets/img/dial-white-240.webp" width="240" height="240" alt="Ivory dial" loading="lazy" decoding="async">
+            <span>Ivory</span></button>
+          <button class="ch-sw" role="radio" aria-checked="false" data-dial="green"
+                  data-name="Emerald" data-accent="#2E8B62"
+                  data-line="Green is the one people remember you were wearing.">
+            <img src="assets/img/dial-green-240.webp" width="240" height="240" alt="Emerald dial" loading="lazy" decoding="async">
+            <span>Emerald</span></button>
+          <button class="ch-sw" role="radio" aria-checked="false" data-dial="gold"
+                  data-name="Bullion" data-accent="#E0B640"
+                  data-line="Nobody wears full gold to be subtle. That is the point.">
+            <img src="assets/img/dial-gold-240.webp" width="240" height="240" alt="Bullion dial" loading="lazy" decoding="async">
+            <span>Bullion</span></button>
+        </div>
+
+        <div class="ch-read">
+          <h3 id="chName">Onyx</h3>
+          <p id="chLine">For the room where nobody needs to know what you paid.</p>
+        </div>
+
+        <a class="cta" id="buyDial" href="#" data-cta="chooser">
+          Claim number <span data-next>03</span> · <span id="chCta">Onyx</span>
+        </a>
+        <p class="ch-note">Twenty watches across all four dials. Pick the one you
+          want and the number is held while we reply.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -631,14 +730,14 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
        sizes="(max-width:900px) 40vw, 420px" width="1280" height="720"
        alt="Macro of the white KAAL dial, gold hands and three subdials.">
   <div class="name-stage">
-    <p class="name-eq">In Sanskrit, one word carries all of this</p>
+    <p class="name-eq">Edition 01 comes in four</p>
     <div class="name-slot" id="nameSlot">
-      <span class="name-word">time</span>
-      <span class="name-word">an age</span>
-      <span class="name-word">fate</span>
-      <span class="name-word is-last">the end of things</span>
+      <span class="name-word">Onyx</span>
+      <span class="name-word">Ivory</span>
+      <span class="name-word">Emerald</span>
+      <span class="name-word is-last">Bullion</span>
     </div>
-    <p class="name-tail" id="nameTail">We named a watch after it. On purpose.</p>
+    <p class="name-tail" id="nameTail">Twenty watches between them. Eighteen still unclaimed.</p>
   </div>
 </section>
 
@@ -648,10 +747,12 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
 <!-- ═══════════ ACT V · THE ANCHOR ═══════════ -->
 <section class="act anchor" id="anchor" data-ground="#0B0A11">
   <div class="wrap" style="text-align:center">
-    <p class="lab rv" style="justify-content:center">Edition 01</p>
+    <p class="lab rv" style="justify-content:center">The number</p>
     <div class="price-block">
       <span class="price rv" id="priceEl"><span class="cur">₹</span><span id="priceN">4,999</span></span>
-      <p class="price-sub rv">Free shipping anywhere in India. Seven days to send it back.</p>
+      <p class="price-sub rv" style="max-width:34ch;margin-inline:auto">Steel and gold,
+      four subdials, a tachymeter bezel. Free shipping anywhere in India and seven
+      days to change your mind.</p>
     </div>
   </div>
 </section>
@@ -704,9 +805,9 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
     alt="The green KAAL dial in close up, gold bezel catching the light.">
   <div class="bleed-copy">
     <p class="lab rv">On the wrist</p>
-    <h2 class="rv" style="margin-top:1rem">It sits flat under a cuff.</h2>
-    <p class="lead rv" style="margin-top:1rem">Big enough to be seen across a
-      table. Small enough that nobody thinks you are trying.</p>
+    <h2 class="rv" style="margin-top:1rem">Steel and gold, and it shows.</h2>
+    <p class="lead rv" style="margin-top:1rem">Four subdials, a tachymeter bezel,
+      and a two tone bracelet that catches light from across a room.</p>
   </div>
 </section>
 
@@ -754,14 +855,14 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
 <!-- ═══════════ ACT X · THE CLOSE ═══════════ -->
 <section class="act close" id="buy" data-ground="#120C05">
   <div class="wrap">
-    <p class="counted" id="counted">You have been here 00:00. काल counted every second.</p>
-    <h2 class="rv">Time is the only thing you cannot buy more of.</h2>
+    <p class="counted" id="counted">You have been here 00:00. Eighteen are still unclaimed.</p>
+    <h2 class="rv">Eighteen people get to own one.</h2>
     <p class="lead rv" style="margin:1.6rem auto 0;text-align:center">
-      You can, at least, wear something that takes it seriously. Eighteen people
-      still can. Then nobody can.</p>
+      Pick your dial, take your number, and that is the end of it. There is no
+      restock and no second run.</p>
 
     <div style="margin-top:clamp(30px,5vh,50px)">
-      <a class="cta" id="buyMain" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="close">Claim number <span data-next>03</span> · <span data-price-plain>₹4,999</span></a>
+      <a class="cta" id="buyMain" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="close">Claim number <span data-next>03</span> · <span data-dial-label>Onyx</span> · <span data-price-plain>₹4,999</span></a>
     </div>
 
     <p class="reassure">Tapping that opens an email with your number already in
@@ -983,6 +1084,78 @@ const KAAL = {
     };
   })();
 
+
+  /* ───────── the chooser ─────────
+     Twenty watches across four dials, so picking one is the whole job of this
+     page. The choice drives the big image, the page's accent, both buy buttons
+     and the mail subject, so by the time someone reaches the price they are
+     not looking at "a watch" any more, they are looking at theirs. */
+  /* mix a hex toward white, so every dial gets a real gradient and a
+     highlight rather than one flat block of colour */
+  function lighten(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+      .map(v => Math.round(v + (255 - v) * amt));
+    return "rgb(" + c.join(",") + ")";
+  }
+
+  (function chooser() {
+    const wrap = $("#chSwatches"); if (!wrap) return;
+    const hero = $("#chHero"), name = $("#chName"), line = $("#chLine"),
+          read = $(".ch-read"), ctaLabel = $("#chCta");
+    const btns = $$(".ch-sw", wrap);
+    let current = btns[0];
+
+    function apply(btn, quiet) {
+      if (!btn || btn === current && quiet !== "force") { current = btn || current; }
+      current = btn;
+      const d = btn.dataset;
+      btns.forEach(b => {
+        const on = b === btn;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+        b.tabIndex = on ? 0 : -1;
+      });
+      document.documentElement.style.setProperty("--accent", d.accent);
+      document.documentElement.style.setProperty("--accent-lit", lighten(d.accent, 0.3));
+
+      hero.classList.add("swap"); read.classList.add("swap");
+      setTimeout(() => {
+        hero.src = "assets/img/dial-" + d.dial + "-640.webp";
+        hero.srcset = ["240","480","640"].map(w =>
+          "assets/img/dial-" + d.dial + "-" + w + ".webp " + w + "w").join(", ");
+        hero.alt = d.name + " dial, KAAL Edition 01";
+        name.textContent = d.name; line.textContent = d.line;
+        if (ctaLabel) ctaLabel.textContent = d.name;
+        hero.classList.remove("swap"); read.classList.remove("swap");
+      }, 200);
+
+      /* the dial travels with the visitor all the way to the mail */
+      const sub = "Claiming number " + nextNo + " – KAAL Edition 01, " + d.name;
+      const body = "I want number " + nextNo + " of " + KAAL.edition +
+        ", the " + d.name + " dial, at ₹" + KAAL.price + ".\n\n" +
+        "Name:\nPhone:\nDelivery address:\nWrist size (if you know it):\n";
+      const href = KAAL.buyUrl || ("mailto:" + KAAL.email +
+        "?subject=" + encodeURIComponent(sub) + "&body=" + encodeURIComponent(body));
+      $$("[data-cta]").forEach(el => el.setAttribute("href", href));
+      $$("[data-dial-label]").forEach(el => el.textContent = d.name);
+      if (!quiet) track("CustomizeProduct", { content_name: "dial " + d.name });
+    }
+
+    wrap.addEventListener("click", e => {
+      const b = e.target.closest(".ch-sw"); if (b) apply(b);
+    });
+    wrap.addEventListener("keydown", e => {
+      const i = btns.indexOf(current);
+      let n = null;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") n = btns[(i + 1) % btns.length];
+      if (e.key === "ArrowLeft"  || e.key === "ArrowUp")   n = btns[(i - 1 + btns.length) % btns.length];
+      if (n) { apply(n); n.focus(); e.preventDefault(); }
+    });
+    btns.forEach((b, i) => b.tabIndex = i ? -1 : 0);
+    apply(btns[0], true);
+  })();
+
   /* ───────── the instrument: dial pips + scroll progress ───────── */
   const instr = $("#instr"), arc = $("#instrArc"), hand = $("#instrHand"), pct = $("#instrPct");
   (function pips() {
@@ -1066,7 +1239,7 @@ const KAAL = {
       el.innerHTML = "You have been here " +
         String(Math.floor(s / 60)).padStart(2, "0") + ":" +
         String(s % 60).padStart(2, "0") +
-        '. <span class="deva">काल</span> counted every second.';
+        '. Eighteen are still unclaimed.';
     }, 1000);
   })();
 

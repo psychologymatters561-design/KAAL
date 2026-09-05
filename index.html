@@ -390,7 +390,22 @@ section{position:relative;z-index:2}
 .ed-cell{background:var(--ground);aspect-ratio:1;display:grid;place-items:center;
   font-family:var(--mono);font-size:clamp(.72rem,1.4vw,.95rem);color:var(--fog);
   opacity:0;transition:background-color .6s var(--ease),color .6s var(--ease)}
-.ed-cell.mine{color:var(--rose);background:rgba(201,146,106,.08)}
+.ed-cell.gone{color:rgba(138,135,129,.42);background:rgba(233,214,188,.02);position:relative}
+.ed-cell.gone::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:1px;
+  background:rgba(138,135,129,.5);transform:rotate(-14deg)}
+.ed-cell.next{color:#0A0806;background:linear-gradient(140deg,var(--rose-lit),var(--rose));
+  font-weight:700;box-shadow:0 0 26px -6px rgba(201,146,106,.55)}
+.ed-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7em 1.6em;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--fog);margin-top:1.1rem}
+.ed-status b{font-family:var(--display);font-size:2.4rem;font-weight:400;letter-spacing:-.02em;
+  color:var(--rose-lit);line-height:1;margin-right:.25em}
+.ed-key{display:flex;gap:1.6em;flex-wrap:wrap;font-family:var(--mono);font-size:.56rem;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--fog);margin-top:.9rem}
+.ed-key i{font-style:normal;display:inline-flex;align-items:center;gap:.55em}
+.ed-key i::before{content:"";width:9px;height:9px;border:1px solid var(--hair)}
+.ed-key i.k-gone::before{background:rgba(233,214,188,.02)}
+.ed-key i.k-next::before{background:var(--rose);border-color:var(--rose)}
 
 /* ============================================================
    full-bleed figures
@@ -564,7 +579,7 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
 
 <nav class="nav" id="nav">
   <a class="nav-mark deva" href="#top">काल<span>Edition 01</span></a>
-  <a class="nav-cta" href="#buy" data-price-label>Buy · ₹4,999</a>
+  <a class="nav-cta" href="#buy"><span data-remaining>18</span> left · <span data-price-plain>₹4,999</span></a>
 </nav>
 
 <main id="top">
@@ -584,7 +599,7 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
     </h1>
     <div class="ov-kick">
       <span>Edition <b>01</b></span>
-      <span>Twenty pieces</span>
+      <span><b data-remaining>18</b> of twenty left</span>
       <span>Hand wound</span>
       <span>38&nbsp;mm</span>
     </div>
@@ -806,12 +821,16 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
 <section class="act edition" id="edition" data-ground="#08070A">
   <div class="wrap">
     <p class="lab rv">Edition 01</p>
-    <h2 class="rv" style="max-width:14ch;margin-block:1.1rem 0">Twenty cases. Then this dial is finished.</h2>
-    <div class="ed-grid" id="edGrid" aria-hidden="true"><div class="ed-cell mine">01</div><div class="ed-cell">02</div><div class="ed-cell">03</div><div class="ed-cell">04</div><div class="ed-cell">05</div><div class="ed-cell">06</div><div class="ed-cell">07</div><div class="ed-cell">08</div><div class="ed-cell">09</div><div class="ed-cell">10</div><div class="ed-cell">11</div><div class="ed-cell">12</div><div class="ed-cell">13</div><div class="ed-cell">14</div><div class="ed-cell">15</div><div class="ed-cell">16</div><div class="ed-cell">17</div><div class="ed-cell">18</div><div class="ed-cell">19</div><div class="ed-cell">20</div></div>
-    <p class="lead rv">Every case back is stamped with its own number before it
-      leaves. When the twentieth one ships, this dial does not get made again.
-      Not as a re-run, not in another colour. The next edition will be a
-      different watch.</p>
+    <h2 class="rv" style="max-width:15ch;margin-block:1.1rem 0">Two are gone. Number <span data-next>03</span> is next.</h2>
+    <div class="ed-status rv"><span><b data-remaining>18</b>of twenty left</span><span>Numbers 01 and 02 are on wrists</span></div>
+    <div class="ed-grid" id="edGrid" aria-hidden="true"><div class="ed-cell gone">01</div><div class="ed-cell gone">02</div><div class="ed-cell next">03</div><div class="ed-cell">04</div><div class="ed-cell">05</div><div class="ed-cell">06</div><div class="ed-cell">07</div><div class="ed-cell">08</div><div class="ed-cell">09</div><div class="ed-cell">10</div><div class="ed-cell">11</div><div class="ed-cell">12</div><div class="ed-cell">13</div><div class="ed-cell">14</div><div class="ed-cell">15</div><div class="ed-cell">16</div><div class="ed-cell">17</div><div class="ed-cell">18</div><div class="ed-cell">19</div><div class="ed-cell">20</div></div>
+    <div class="ed-key rv"><i class="k-gone">Claimed</i><i class="k-next">Yours if you want it</i><i>Still open</i></div>
+    <p class="lead rv" style="margin-top:1.6rem">Every case back is stamped with
+      its own number before it leaves, and no number is ever given twice. Two
+      people already have theirs. When the twentieth ships, this dial does not
+      get made again. Not as a re-run, not in another colour. The next edition
+      will be a different watch, and whoever owns one of these twenty will still
+      be the only twenty who ever did.</p>
   </div>
 </section>
 
@@ -909,22 +928,24 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
     <p class="counted" id="counted">You have been here 00:00. काल counted every second.</p>
     <h2 class="rv">Time is the only thing you cannot buy more of.</h2>
     <p class="lead rv" style="margin:1.6rem auto 0;text-align:center">
-      You can, at least, wear something that takes it seriously.</p>
+      You can, at least, wear something that takes it seriously. Eighteen people
+      still can. Then nobody can.</p>
 
     <div style="margin-top:clamp(30px,5vh,50px)">
-      <a class="cta" id="buyMain" href="mailto:connect@thekaal.co?subject=Reserve%20Edition%2001&amp;body=I%20would%20like%20to%20reserve%20Edition%2001.%0A%0AName%3A%0APhone%3A%0AAddress%3A" data-cta="close" data-price-label>Buy Edition 01 · ₹4,999</a>
+      <a class="cta" id="buyMain" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="close">Claim number <span data-next>03</span> · <span data-price-plain>₹4,999</span></a>
     </div>
 
-    <p class="reassure">Not sure about your wrist size, or want a photo of the
-      actual piece before you pay? Write to
-      <a href="mailto:connect@thekaal.co?subject=Question%20before%20I%20buy%20Edition%2001">connect@thekaal.co</a>.
-      A person reads it, usually the same day.</p>
+    <p class="reassure">Tapping that opens an email with your number already in
+      it. Fill in three lines and send. We reply with payment and dispatch,
+      usually the same day, from
+      <a href="mailto:connect@thekaal.co?subject=Question%20before%20I%20claim%20a%20number">connect@thekaal.co</a>.
+      A person reads it, not a form.</p>
 
     <div class="trust">
       <span>Free shipping in India</span>
       <span>7 day returns</span>
       <span>2 year warranty</span>
-      <span>Numbered 1 of 20</span>
+      <span><span data-remaining>18</span> of 20 remain</span>
     </div>
   </div>
 </section>
@@ -966,8 +987,8 @@ html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;p
 </footer>
 
 <div class="buybar" id="buybar">
-  <div class="bb-p"><b data-price-plain>₹4,999</b><span>Edition 01 · 1 of 20</span></div>
-  <a class="cta" id="buyBar" href="mailto:connect@thekaal.co?subject=Reserve%20Edition%2001&amp;body=I%20would%20like%20to%20reserve%20Edition%2001.%0A%0AName%3A%0APhone%3A%0AAddress%3A" data-cta="stickybar">Buy now</a>
+  <div class="bb-p"><b data-price-plain>₹4,999</b><span><span data-remaining>18</span> of 20 left</span></div>
+  <a class="cta" id="buyBar" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="stickybar">Claim <span data-next>03</span></a>
 </div>
 
 <script type="application/ld+json">
@@ -990,7 +1011,8 @@ const KAAL = {
   // so the page is never a dead end.
   buyUrl:  "",
   price:   "4,999",
-  edition: 20,
+  edition: 20,      // how many were made
+  sold:    2,       // how many are already on wrists
   email:   "connect@thekaal.co"
 };
 
@@ -1002,11 +1024,23 @@ const KAAL = {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ───────── checkout wiring + Meta pixel events ───────── */
+  /* The edition is the whole close, so it is derived once from config and
+     written into every place that names it. Change KAAL.sold and the hero,
+     the grid, both buttons, the footer and the mail subject all follow. */
+  const remaining = Math.max(0, KAAL.edition - KAAL.sold);
+  const nextNo    = String(Math.min(KAAL.sold + 1, KAAL.edition)).padStart(2, "0");
+  document.querySelectorAll("[data-remaining]").forEach(el => el.textContent = remaining);
+  document.querySelectorAll("[data-next]").forEach(el => el.textContent = nextNo);
+  document.querySelectorAll("#edGrid .ed-cell").forEach((el, i) => {
+    el.classList.toggle("gone", i < KAAL.sold);
+    el.classList.toggle("next", i === KAAL.sold);
+  });
+
   const fallbackHref =
     "mailto:" + KAAL.email +
-    "?subject=" + encodeURIComponent("Reserve Edition 01") +
+    "?subject=" + encodeURIComponent("Claiming number " + nextNo + " – KAAL Edition 01") +
     "&body=" + encodeURIComponent(
-      "I would like to reserve काल Edition 01 at ₹" + KAAL.price + ".\n\n" +
+      "I want number " + nextNo + " of " + KAAL.edition + ", at ₹" + KAAL.price + ".\n\n" +
       "Name:\nPhone:\nDelivery address:\nWrist size (if you know it):\n");
 
   function track(event, extra) {
@@ -1014,9 +1048,6 @@ const KAAL = {
       try { window.fbq("track", event, extra || {}); } catch (e) {}
     }
   }
-  document.querySelectorAll("[data-price-label]").forEach(el => {
-    el.textContent = el.textContent.replace(/₹[\d,]+/, "₹" + KAAL.price);
-  });
   document.querySelectorAll("[data-price-plain]").forEach(el => {
     el.textContent = "₹" + KAAL.price;
   });
@@ -1101,7 +1132,7 @@ const KAAL = {
     if (g.children.length === KAAL.edition) return;   // the HTML already has them
     let s = "";
     for (let i = 1; i <= KAAL.edition; i++) {
-      s += '<div class="ed-cell' + (i === 1 ? " mine" : "") + '">' +
+      s += '<div class="ed-cell' + (i <= KAAL.sold ? " gone" : i === KAAL.sold + 1 ? " next" : "") + '">' +
            String(i).padStart(2, "0") + "</div>";
     }
     g.innerHTML = s;

@@ -13,6 +13,7 @@ const KAAL = {
   buyUrl:  "",              // ← paste the Razorpay or Shopify payment link here
   price:   "4,999",         // ← every price on the page reads from this
   edition: 20,              // ← how many pieces exist
+  sold:    2,               // ← how many are already claimed
   email:   "connect@thekaal.co"
 };
 ```

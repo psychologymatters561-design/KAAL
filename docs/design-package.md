@@ -53,10 +53,7 @@ The page changes temperature as you travel.
 |---|---|---|
 | 0 Overture | pinned hero, headline assembles line by line | Zeigarnik: line two opens a loop only scrolling closes |
 | I The name | काल fills the screen, meanings replace each other | curiosity payoff, brand memory |
-| II Anatomy rail | five spec cards pan sideways | authority through specificity |
-| III The movement | "No battery. It runs on you." | differentiation from every quartz rival |
-| IV The winding | visitor drags the crown, reserve fills to 38h | IKEA effect: acting on the object precedes owning it |
-| V The anchor | category price truth, then ₹4,999 | anchoring, honestly |
+| V The price | ₹4,999 |
 | VI The edition | 20 numbers count in | scarcity and loss aversion, real |
 | VII In the box | four items, warranty | reduces post-purchase doubt |
 | VIII Worn | wrist shot, 38mm | mental simulation |
@@ -76,3 +73,22 @@ connect@thekaal.co appears three times, each one doing a different job.
 3. In the footer: the single contact line.
 Wording is always "a person replies," never "contact us." The objection being
 answered is "will anyone answer if this goes wrong."
+
+## Correction, 5 Sep 2026
+
+Every specification originally on this page (movement type, jewels, power
+reserve, crystal, water resistance, case size, plating) was lifted from strings
+recovered out of a deleted earlier build. The owner confirmed the watches are
+battery powered quartz, which the page had denied outright.
+
+All of it has been removed rather than rewritten. Fabricating a replacement
+spec would be the same mistake twice. Nothing goes back until the owner sends a
+spec sheet we can point at.
+
+Verified facts this page may use:
+- ₹4,999
+- Edition 01, twenty pieces, two sold
+- connect@thekaal.co
+- Free shipping in India, seven day returns
+- The काल mark, the day and date windows, and the two tone bracelet, all
+  visible in the owner's own photography

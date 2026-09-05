@@ -92,3 +92,22 @@ Verified facts this page may use:
 - Free shipping in India, seven day returns
 - The काल mark, the day and date windows, and the two tone bracelet, all
   visible in the owner's own photography
+
+## Imagery, 5 Sep 2026
+
+The owner supplied a 10.2 second product film: 1280x720, 24fps, a continuous
+push in across four dials on slate that ends on a macro of the green and gold.
+
+That film is now the whole visual system.
+- 27 frames pulled at even intervals drive the scroll scrub in the hero. The
+  camera travels as the visitor scrolls, which is what the brief asked for on
+  its first line.
+- Five stills pulled from the strongest moments carry the sections below.
+- The rose gold काल photography recovered from git history has been deleted.
+
+The film is 720p, so these images are used at moderate sizes and the hero is
+letterboxed rather than upscaled. Higher resolution stills would let the
+sections run larger.
+
+The product wordmark is KAAL in Latin. काल stays where the page explains the
+word, because they are the same word in two scripts.

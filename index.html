@@ -83,7 +83,7 @@ main{position:relative;z-index:3}
   transition:opacity 1.15s var(--ease),transform 1.15s var(--ease)}
 .sc.lit .in{opacity:1;transform:none}
 /* the close must clear the persistent CTA chip on small screens */
-@media (max-width:640px){.sc .in{padding-bottom:3.4rem}}
+@media (max-width:640px){.sc .in{padding-bottom:5.2rem}}
 .no-js .in,.reduced .in{opacity:1;transform:none;transition:none}
 
 /* ---------- type ---------- */
@@ -93,13 +93,16 @@ h1,h2{margin:0;font-family:var(--display);font-weight:300;
   line-height:1.04;letter-spacing:-.021em;
   font-size:clamp(1.95rem,5.6vw,4.9rem);
   text-wrap:balance}
-.lede{max-width:34ch;margin:1.6rem auto 0;color:var(--mute);text-wrap:pretty}
+.lede{max-width:34ch;margin:clamp(1.1rem,3vw,1.6rem) auto 0;color:var(--mute);text-wrap:pretty}
 .lede.wide{max-width:44ch}
 .eng{font-family:var(--body);font-weight:400;font-size:clamp(.62rem,1.5vw,.78rem);
   letter-spacing:.34em;color:var(--gold);text-indent:.34em}
 .eng.dim{color:var(--mute)}
 .rule{width:1px;height:clamp(48px,9vh,96px);margin:2.2rem auto;
   background:linear-gradient(var(--gold),transparent)}
+/* on VOID the mark owns the centre; the rule drops to the foot as a scroll cue */
+.sc[data-sc="1"] .rule{position:absolute;left:50%;bottom:5svh;margin:0;
+  transform:translateX(-50%);height:clamp(40px,7svh,72px)}
 .hair{width:min(160px,40vw);height:1px;background:var(--ash);margin:2rem auto;border:0}
 
 /* the counted number, scene 2 */
@@ -138,21 +141,22 @@ h1,h2{margin:0;font-family:var(--display);font-weight:300;
 .trio span{display:block;margin-top:.5rem;font-size:.7rem;letter-spacing:.2em;color:var(--mute)}
 
 /* ---------- the caseback, scene 7 ---------- */
-.back{width:clamp(158px,38vw,300px);aspect-ratio:1;margin:0 auto 2.4rem;border-radius:50%;
-  display:grid;place-content:center;gap:.9rem;text-align:center;
+.back{width:clamp(184px,48vw,300px);aspect-ratio:1;margin:0 auto clamp(1.4rem,3vw,2.4rem);border-radius:50%;
+  display:grid;place-content:center;gap:clamp(.5rem,1.6vw,.9rem);text-align:center;
   background:
     repeating-conic-gradient(from 0deg,rgba(232,228,220,.05) 0deg 1.2deg,transparent 1.2deg 2.4deg),
     radial-gradient(68% 68% at 34% 26%,#2B2926,#141310 66%,#0C0B09);
   border:1px solid rgba(232,228,220,.13);
   box-shadow:inset 0 2px 3px rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.7)}
-.back .eng{font-size:clamp(.54rem,1.5vw,.7rem)}
+.back .eng{font-size:clamp(.5rem,1.8vw,.7rem)}
 .back .no{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 90;
-  font-size:clamp(1.5rem,5vw,2.6rem);letter-spacing:.02em;color:var(--bone)}
+  font-size:clamp(1.35rem,5vw,2.6rem);letter-spacing:.02em;color:var(--bone)}
 
 /* ---------- the twenty, scene 7 tail ---------- */
-.grid20{display:grid;grid-template-columns:repeat(auto-fit,minmax(2.7rem,1fr));
-  max-width:34rem;margin:2.6rem auto 0;gap:1px;background:var(--ash);border:1px solid var(--ash)}
-.n{background:var(--void);aspect-ratio:1;min-height:2.4rem;display:grid;place-content:center;
+.grid20{display:grid;grid-template-columns:repeat(5,1fr);
+  max-width:34rem;margin:clamp(1.5rem,4vw,2.6rem) auto 0;gap:1px;background:var(--ash);border:1px solid var(--ash)}
+@media (min-width:560px){.grid20{grid-template-columns:repeat(10,1fr)}}
+.n{background:var(--void);aspect-ratio:1;min-height:1.95rem;display:grid;place-content:center;
   font-size:clamp(.68rem,2vw,.78rem);letter-spacing:.09em;color:var(--bone);position:relative}
 .n[data-way=green]{box-shadow:inset 0 -2px 0 #2E5546}
 .n[data-way=black]{box-shadow:inset 0 -2px 0 #3A3733}
@@ -240,7 +244,7 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 2 — REVEAL -->
-  <section class="sc" data-sc="2" style="min-height:120svh">
+  <section class="sc" data-sc="2" style="min-height:110svh">
     <div class="hold"><div class="in">
       <p class="count" aria-label="Zero one to twenty"><span>01</span><i></i><span>20</span></p>
       <p class="lede">Twenty pieces. One design. Never repeated.</p>
@@ -248,7 +252,7 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 3 — COLOURWAY -->
-  <section class="sc" data-sc="3" style="min-height:150svh">
+  <section class="sc" data-sc="3" style="min-height:135svh">
     <div class="hold"><div class="in">
       <h2>One case.<br>Four faces.<br>Twenty pieces.</h2>
       <div class="ways">
@@ -261,14 +265,14 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 4 — EXCLUSIVITY (the refrain, stated alone) -->
-  <section class="sc solo" data-sc="4" style="min-height:110svh">
+  <section class="sc solo" data-sc="4" style="min-height:105svh">
     <div class="hold"><div class="in">
       <h2>Twenty pieces.<br>One design.<br>Never repeated.</h2>
     </div></div>
   </section>
 
   <!-- 5 — PRECISION -->
-  <section class="sc" data-sc="5" style="min-height:125svh">
+  <section class="sc" data-sc="5" style="min-height:115svh">
     <div class="hold"><div class="in">
       <p class="eng dim">Three functions</p>
       <div class="trio">
@@ -281,7 +285,7 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 6 — 24-MONTH BACKING -->
-  <section class="sc" data-sc="6" style="min-height:115svh">
+  <section class="sc" data-sc="6" style="min-height:105svh">
     <div class="hold"><div class="in">
       <h2>Every movement,<br>held to 24 months.</h2>
       <p class="lede wide">Not by a name you’ve heard of — by the piece itself.</p>
@@ -289,7 +293,7 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 7 — NUMBERED ENGRAVING -->
-  <section class="sc" data-sc="7" style="min-height:170svh">
+  <section class="sc" data-sc="7" style="min-height:140svh">
     <div class="hold"><div class="in">
       <div class="back" role="img" aria-label="Caseback engraving reading Series 01, Limited Edition Number 07">
         <p class="eng">SERIES 01</p>
@@ -314,14 +318,14 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 8 — RETIREMENT. the strongest line. the most room. -->
-  <section class="sc vast" data-sc="8" style="min-height:180svh">
+  <section class="sc vast" data-sc="8" style="min-height:170svh">
     <div class="hold"><div class="in">
       <h2>Twenty were made,<br>and we will not<br>make another.</h2>
     </div></div>
   </section>
 
   <!-- 9 — IDENTITY -->
-  <section class="sc solo" data-sc="9" style="min-height:120svh">
+  <section class="sc solo" data-sc="9" style="min-height:110svh">
     <div class="hold"><div class="in">
       <h2>The loud ones borrow a name to be believed.</h2>
       <p class="lede wide">You don’t need one. Neither does this.</p>
@@ -329,7 +333,7 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 10 — CLOSE -->
-  <section class="sc" data-sc="10" id="close" style="min-height:150svh">
+  <section class="sc" data-sc="10" id="close" style="min-height:135svh">
     <div class="hold"><div class="in">
       <h2>Not built for many.</h2>
       <p class="lede wide">Built for twenty who weren’t going to wait for a version two — and don’t need one.</p>
@@ -451,36 +455,48 @@ const KAAL = {
   // away on its own, and the close must not fade when the footer arrives. The
   // pending list empties as the visitor descends, so this costs nothing by the
   // end, and unlike an observer a fast flick cannot skip a scene.
-  var pending = scenes.slice();
-  function latch() {
-    for (var i = pending.length - 1; i >= 0; i--) {
-      var r = pending[i].getBoundingClientRect();
-      // in view, or already scrolled past — a scene above the fold is one you
-      // can only scroll back up into, and it must be readable when you do
-      if (r.top < innerHeight * 0.88 && r.bottom > innerHeight * 0.12 || r.bottom <= innerHeight * 0.12) {
-        pending[i].classList.add("lit"); pending.splice(i, 1);
-      }
-    }
+  // Reveal is driven entirely by IntersectionObserver: no getBoundingClientRect
+  // on the scroll path, so scrolling never forces a synchronous layout.
+  // Reaching scene i means every scene before it was passed, so light those too —
+  // that covers a fast flick or a scrollbar jump without any rect reads.
+  if (reduced) {
+    scenes.forEach(function (s) { s.classList.add("lit"); });
+  } else {
+    var revealIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var upto = scenes.indexOf(e.target);
+        for (var k = 0; k <= upto; k++) {
+          if (!scenes[k].classList.contains("lit")) {
+            scenes[k].classList.add("lit"); revealIO.unobserve(scenes[k]);
+          }
+        }
+      });
+    }, { rootMargin: "-12% 0px -12% 0px", threshold: 0 });
+    scenes.forEach(function (s) { revealIO.observe(s); });
   }
-  if (reduced) scenes.forEach(function (s) { s.classList.add("lit"); });
 
   /* ---------- the quiet persistent CTA, from scene 2 onward ---------- */
+  // The persistent CTA is observed, not polled. It appears once the opening
+  // scene is behind you and hides only while the close is genuinely on screen,
+  // so the footer is never a dead end.
   var closeEl = doc.getElementById("close");
-  function ctaWatch() {
-    var y = window.scrollY || root.scrollTop;
-    var past = y > innerHeight * 0.9;
-    var r = closeEl.getBoundingClientRect();
-    // hide only while the close is genuinely on screen; in the footer it returns,
-    // so the legal reading is never a dead end
-    var onScreen = r.top < innerHeight * 0.75 && r.bottom > innerHeight * 0.25;
-    always.classList.toggle("on", past && !onScreen);
+  var pastFold = false, closeOnScreen = false;
+  function syncChip() { always.classList.toggle("on", pastFold && !closeOnScreen); }
+  function watchChip() {
+    new IntersectionObserver(function (e) {
+      pastFold = !e[0].isIntersecting; syncChip();
+    }, { threshold: 0 }).observe(scenes[0]);
+    new IntersectionObserver(function (e) {
+      closeOnScreen = e[0].isIntersecting; syncChip();
+    }, { rootMargin: "-25% 0px -25% 0px", threshold: 0 }).observe(closeEl);
   }
 
   /* ---------- one scroll value, 0 to 1 ---------- */
-  var progress = 0, eased = 0;
-  function readScroll() {
-    var max = doc.documentElement.scrollHeight - window.innerHeight;
-    progress = max > 0 ? Math.min(1, Math.max(0, (window.scrollY || root.scrollTop) / max)) : 0;
+  var progress = 0, eased = 0, scrollMax = 0;
+  function readScroll() {                       // scrollY only — no layout read
+    progress = scrollMax > 0
+      ? Math.min(1, Math.max(0, (window.scrollY || root.scrollTop) / scrollMax)) : 0;
   }
 
   /* scene depths derive from where each section actually sits, so the camera
@@ -490,6 +506,7 @@ const KAAL = {
   function zAt(f) { return CAM_START + (CAM_END - CAM_START) * f; }
   function measure() {
     var max = doc.documentElement.scrollHeight - innerHeight;
+    scrollMax = max;
     var y = window.scrollY || root.scrollTop;
     centres = [];
     spans = scenes.map(function (s) {
@@ -515,12 +532,16 @@ const KAAL = {
     return t * t * (3 - 2 * t);                // smoothstep the edges
   }
 
-  if (reduced) { ctaWatch(); addEventListener("scroll", ctaWatch, { passive: true }); return; }
+  if (reduced) { watchChip(); return; }
 
-  measure(); readScroll();
-  addEventListener("resize", function () { measure(); readScroll(); }, { passive: true });
-  addEventListener("scroll", function () { readScroll(); ctaWatch(); }, { passive: true });
-  ctaWatch(); latch();
+  measure(); readScroll(); watchChip();
+  // a phone's URL bar fires resize on every scroll direction change; debounce it
+  var reTimer;
+  addEventListener("resize", function () {
+    clearTimeout(reTimer);
+    reTimer = setTimeout(function () { measure(); readScroll(); }, 120);
+  }, { passive: true });
+  addEventListener("scroll", readScroll, { passive: true });
 
   /* ===================================================================
      Depth stage.
@@ -579,7 +600,6 @@ const KAAL = {
   var gl3d = null;                                    // set once Three.js is live
   function frame() {
     if (!running) return;
-    latch();
     eased += (progress - eased) * 0.085;
     mouse.x += (mouse.tx - mouse.x) * 0.045;
     mouse.y += (mouse.ty - mouse.y) * 0.045;
@@ -605,7 +625,9 @@ const KAAL = {
     try { buildGL(); }
     catch (e) { gl3d = null; glCanvas.hidden = true; dustCanvas.hidden = false; }
   };
-  addEventListener("load", function () { doc.head.appendChild(s); });
+  // append after first paint, whether or not `load` has already fired
+  if (doc.readyState === "complete") doc.head.appendChild(s);
+  else addEventListener("load", function () { doc.head.appendChild(s); });
 
   function buildGL() {
     var T = window.THREE; if (!T) return;

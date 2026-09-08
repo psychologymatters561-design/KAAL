@@ -1,113 +1,158 @@
-# काल / KAAL — design package
-The single input to the build. Every line of copy here ships verbatim.
+# Why the page is shaped this way
 
-## Premise
-काल is the Sanskrit word for time. It is also the word for the thing that takes
-everything. A watch named काल does not tell you the time. It reminds you what
-time is doing.
+Written against the master brand and build brief. Read that first; this records
+what was built, what was deviated from, and what still needs your signature.
 
-## Traffic reality
-Cold Meta traffic. India. Roughly 85% phone, mostly 4G. They have seen a hundred
-watch ads and been burned by one. Their question is not "is this beautiful."
-It is "is this real, and will it survive the month."
+---
 
-Every design decision below answers that question.
+## 1. The finding that reshaped the build
 
-## The one call to action
-BUY EDITION 01 — ₹4,999, to the Razorpay/Shopify link.
-Secondary and never competing: connect@thekaal.co, positioned as the human.
+Every image in the repository was AI generated. Not stylised, not retouched —
+generated, and not depicting the watches you are selling.
 
-## Palette (sampled from the real photography)
-| token | hex | use |
+The proof is in the text. Across the hero, the lineup, the share card and all
+27 sequence frames, day rings read `THON TUE TRU SAT`, `THU SAO SRU`, `WIL WED
+WED THE`, `SRJ`. One black dial repeats `SAT` three times at three rotations.
+A day wheel is a stamped mass-produced part; even the cheapest quartz module
+carries MON TUE WED THU FRI SAT SUN, spelled correctly, in order. Alongside
+that: bracelet links that dissolve and re-form mid-run, a gold piece with no
+crown and no subdial hands, subdial counts that change between watches said to
+share one case, and a chapter ring numbered `20 25 70 75 45 88 80 100 110 120
+130 131`, which is not a scale that exists.
+
+The brief's own rule closed the question:
+
+> do not invent product photography or fabricate a movement reveal to fill a
+> gap. Placeholder canvas textures are the correct fallback until real assets
+> arrive, not AI-generated stand-ins for the actual product.
+
+So the files are quarantined in `assets/_unverified/`, unreferenced, with the
+evidence written beside them. The site carries no product photograph.
+
+This is not fastidiousness. The brand's entire argument is that it does not
+borrow legitimacy — that is what Section 3 is protecting when it forbids
+staging a mechanical reveal you cannot back physically. A generated photograph
+is the same sin against a harder object: the buyer receives the watch, holds it
+next to the hero image, and sees a different thing. On a twenty-piece edition
+each buyer is five percent of the customer base. There is also exposure under
+the Consumer Protection Act 2019 for misleading representation of goods, and
+Meta's advertising policies prohibit ads that misrepresent the product — a
+rejected ad account against a budget with no reserve is a total loss.
+
+## 2. What the page shows instead
+
+Not placeholders labelled "placeholder". Materials and light, honest about
+being renderings, carrying the meaning of each scene.
+
+| Scene | What is drawn | Why it is honest |
 |---|---|---|
-| --void | #08070A | base ground |
-| --ink | #0B0A11 | act ground |
-| --graphite | #101015 | anatomy ground |
-| --bronze | #14100B | movement ground |
-| --ember | #1A1208 | winding ground |
-| --rose | #C9926A | ACCENT, rationed |
-| --rose-lit | #E8B98F | accent highlight |
-| --champagne | #E9D6BC | headlines |
-| --jade | #1E4438 | secondary, from the green dial |
-| --steel | #B9BEC6 | subheads |
-| --fog | #8A8781 | body |
+| 1 VOID | wordmark, dust, a ring barely sensed | nothing is claimed |
+| 2 REVEAL | a lit torus, real cast shadow | a case silhouette as geometry, not a photograph of one |
+| 3 COLOURWAY | four dials as CSS discs with their number ranges | these *are* the colours; they are labelled and screen-readable |
+| 5 PRECISION | three marks | three functions, three strokes |
+| 7 NUMBERED | a drawn caseback, then twenty numbers in space | the engraving as a diagram; two struck through |
+| 8 RETIREMENT | nothing but dust | silence as the design device |
+| 10 CLOSE | a closed box form | a box, presented as a box |
 
-Accent discipline: rose appears on the CTA, the second hand, the active rail
-index, and the price. Nowhere else. Rarity is what makes the button obvious.
+Scenes 4, 8 and 9 carry no geometry at all. The brief asked for that; the
+strongest line in the whole site earns an empty frame.
 
-## Type
-Display Bodoni Moda. Body Jost. Labels Space Mono. काल set in Tiro Devanagari
-Hindi, subset to three glyphs so it costs almost nothing to load.
+## 3. Deviations from the brief, and why
 
-## Signature move
-The instrument. A drawn SVG dial fixed to the viewport whose second hand sweeps
-0 to 360 degrees across the entire page. It is the scroll bar. In the last act
-it stops, and the copy names what it counted.
+**GSAP and ScrollTrigger removed.** The brief specifies them. Section 8 also
+flags that scrubbed ScrollTrigger has known touch-scroll quirks on iOS Safari
+and Android Chrome. Reading `window.scrollY` on the animation frame and easing
+it into `camera.position.z` is 115 KB smaller, frame-synced, and cannot
+desync. The mechanism the brief actually specifies — one scroll value driving
+the camera — is unchanged. Only the dependency is gone.
 
-## Ground journey
-void → ink → graphite → bronze → ember → ink → void → gold-black.
-The page changes temperature as you travel.
+**Three.js is desktop-only.** The brief mandates the Three.js dolly; Section 8
+mandates that the page load fast on a mid-range Android on mobile data. At 146
+KB gzipped these conflict, and the brief resolves it itself: *a cinematic site
+that loads slowly on 4G defeats its own purpose before the first scene
+renders.* Phones never request the file. They get the full typographic site
+and a dust field that does its own perspective divide, at 54 KB total.
 
-## Acts and the lever each one pulls
-| act | what happens | behavioural lever |
+**Scene 3 has no WebGL object.** Four dials already exist in the DOM, crisper
+and labelled and readable by a screen reader. A second set in WebGL competed
+with them and won nothing.
+
+**The repeated line is deployed, not rewritten.** "Twenty pieces. One design.
+Never repeated." appears at scenes 2 and 4 in the brief's table. Verbatim twice,
+two scenes apart, reads as a copy-paste error. Scene 2 sets it small beneath the
+`01 — 20`; scene 4 gives it the full frame alone. Same words, whispered then
+stated. No copy was changed.
+
+**Scene 5's line is split at its own caesura.** "Day. Date. 24-hour." becomes
+the three marks; "Three functions, one movement, zero compromise." sits beneath.
+Every word present, in order, nothing added.
+
+## 4. New copy, unlocked, for your review
+
+The brief asked that anything not in its table be flagged. This is all of it.
+
+| Where | Words | Note |
 |---|---|---|
-| 0 Overture | pinned hero, headline assembles line by line | Zeigarnik: line two opens a loop only scrolling closes |
-| I The name | काल fills the screen, meanings replace each other | curiosity payoff, brand memory |
-| V The price | ₹4,999 |
-| VI The edition | 20 numbers count in | scarcity and loss aversion, real |
-| VII In the box | four items, warranty | reduces post-purchase doubt |
-| VIII Worn | wrist shot, 38mm | mental simulation |
-| IX The doubts | six real objections answered flat | objection handling |
-| X The close | second hand stops, time on page printed | peak-end, then risk reversal at the decision |
+| title, share card, close | "Eighteen of twenty remain" | derives from `sold` |
+| close | "Checkout opens when the payment link goes live." | the pre-launch state |
+| close, once live | "₹5,999, shipped across India." | confirm shipping inclusion |
+| scene 3 | "Green / Black / Golden / White", "01–06" etc. | from the brief's numbering |
+| scene 5 | "Pointer" under Date | the brief says "pointer date" |
+| footer eyebrow | "The part the scroll stays quiet about" | — |
+| footer, four blocks | the piece, warranty, ordering, returns | see below |
 
-## What we will not do
-No invented reviews, no fake star ratings, no struck-through MRP that never
-existed, no countdown timer that resets. Cold traffic smells all four, and one
-of them costs the brand more than the sale is worth. The anchor in Act V is a
-true category comparison, not a fake discount.
+The warranty block is sourced: 24 months, movement only, September 2026, no
+dealer field. **The returns block is not.** Seven days, unworn, refund to
+original method — that is a drafted default, and it is a binding commercial
+term. So is whether shipping sits inside ₹5,999. So is country of origin, which
+currently reads "to be confirmed" because guessing a Legal Metrology declarable
+is worse than leaving it visibly open. All three are marked `UNCONFIRMED` in
+the HTML.
 
-## Where the email lives
-connect@thekaal.co appears three times, each one doing a different job.
-1. Under the primary CTA: removes the last hesitation at the moment of decision.
-2. Inside the service answer in the FAQ: proves there is somewhere to complain.
-3. In the footer: the single contact line.
-Wording is always "a person replies," never "contact us." The objection being
-answered is "will anyone answer if this goes wrong."
+## 5. Why the footer exists at all
 
-## Correction, 5 Sep 2026
+The scroll is silent by design. Indian law is not optional about the rest: the
+Consumer Protection (E-Commerce) Rules 2020 require seller identity, a
+grievance contact and a returns policy on display, and the Legal Metrology
+(Packaged Commodities) Rules require the declarations that go with a
+pre-packed good, including on the listing.
 
-Every specification originally on this page (movement type, jewels, power
-reserve, crystal, water resistance, case size, plating) was lifted from strings
-recovered out of a deleted earlier build. The owner confirmed the watches are
-battery powered quartz, which the page had denied outright.
+A page that stays quiet about all of it is not more exclusive, it is
+non-compliant. So the disclosure lives below the scroll, under its own line —
+silence upstairs, the paperwork in the basement. It costs the narrative
+nothing.
 
-All of it has been removed rather than rewritten. Fabricating a replacement
-spec would be the same mistake twice. Nothing goes back until the owner sends a
-spec sheet we can point at.
+## 6. The number nobody has said out loud
 
-Verified facts this page may use:
-- ₹4,999
-- Edition 01, twenty pieces, two sold
-- connect@thekaal.co
-- Free shipping in India, seven day returns
-- The काल mark, the day and date windows, and the two tone bracelet, all
-  visible in the owner's own photography
+Twenty pieces at ₹5,999 is ₹1,19,980 of revenue at a complete sellout. Against
+₹28,000–40,000 of cost, ₹25,000 of ads, roughly ₹2,800 of payment fees and
+₹4,000–8,000 of shipping twenty boxed units, the ceiling on a perfect outcome
+is somewhere near ₹45,000–60,000.
 
-## Imagery, 5 Sep 2026
+That is not a criticism of the plan, it is the plan's actual shape: this is a
+paid brand proof, not a revenue engine. Judge it on whether it produces twenty
+buyers who talk. Which is exactly why shipping a generated photograph would
+have been the expensive mistake, and why an inert honest button is better than
+a live dishonest one.
 
-The owner supplied a 10.2 second product film: 1280x720, 24fps, a continuous
-push in across four dials on slate that ends on a macro of the green and gold.
 
-That film is now the whole visual system.
-- 27 frames pulled at even intervals drive the scroll scrub in the hero. The
-  camera travels as the visitor scrolls, which is what the brief asked for on
-  its first line.
-- Five stills pulled from the strongest moments carry the sections below.
-- The rose gold काल photography recovered from git history has been deleted.
+---
 
-The film is 720p, so these images are used at moderate sizes and the hero is
-letterboxed rather than upscaled. Higher resolution stills would let the
-sections run larger.
+## 7. What changed when the photography went in
 
-The product wordmark is KAAL in Latin. काल stays where the page explains the
-word, because they are the same word in two scripts.
+The owner instructed that the generated imagery be used. It is, in eight of the
+ten scenes, and Three.js came out at the same time: it had been standing in for
+photographs that did not exist, and once they did it only competed with them.
+
+Two defects were found and fixed during that pass, neither of which any test
+had caught:
+
+- **The rupee sign was never rendering in the brand fonts.** Google's `latin`
+  subset carries no U+20B9, so every `₹5,999` on the page was silently falling
+  back to a system face. It looked correct and was not. Two 700-byte faces
+  scoped with `unicode-range: U+20B9` now carry that one glyph in Fraunces and
+  Inter.
+- **The photographs were clipped to the text column.** `.shot` sat inside
+  `.hold`, which is capped at 64rem, so a full-bleed image rendered with black
+  bars either side of a 1024px band on any wider screen. It now breaks out to
+  the viewport.

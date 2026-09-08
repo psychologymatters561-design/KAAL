@@ -3,1388 +3,695 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KAAL · Edition 01. Eighteen of twenty left.</title>
-<meta name="description" content="KAAL, from काल, the word for time. Edition 01 is twenty numbered watches in four dials. Two are gone. ₹4,999, free shipping across India.">
-<meta name="theme-color" content="#08070A">
+<title>KAAL — Series 01. Eighteen of twenty remain.</title>
+<meta name="description" content="Twenty numbered watches. One case design. Two are gone and we will not make another. Series 01, ₹5,999, shipped across India.">
+<meta name="theme-color" content="#0A0908">
+<meta name="color-scheme" content="dark">
 <link rel="canonical" href="https://thekaal.co/">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/img/og.jpg">
-
-<meta property="og:type" content="website">
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="KAAL">
 <meta property="og:url" content="https://thekaal.co/">
-<meta property="og:title" content="KAAL Edition 01. Eighteen of twenty left.">
-<meta property="og:description" content="Twenty numbered watches. Two are gone. ₹4,999.">
+<meta property="og:title" content="KAAL — Series 01. Eighteen of twenty remain.">
+<meta property="og:description" content="Twenty were made, and we will not make another.">
 <meta property="og:image" content="https://thekaal.co/assets/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="KAAL. Twenty were made, and we will not make another.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KAAL — Series 01. Eighteen of twenty remain.">
+<meta name="twitter:description" content="Twenty were made, and we will not make another.">
+<meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
-<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/fonts/BodoniModa-400.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/fonts/SpaceMono-400.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/fonts/Tiro-kaal.woff2">
-<style>
-@font-face{font-family:'Bodoni Moda';font-style:normal;font-weight:400 700;font-display:swap;src:url(assets/fonts/BodoniModa-400.woff2) format('woff2')}
-@font-face{font-family:'Bodoni Moda';font-style:italic;font-weight:400 700;font-display:swap;src:url(assets/fonts/BodoniModa-400i.woff2) format('woff2')}
-@font-face{font-family:'Jost';font-style:normal;font-weight:300 500;font-display:swap;src:url(assets/fonts/Jost-300.woff2) format('woff2')}
-@font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fonts/SpaceMono-400.woff2) format('woff2')}
-@font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url(assets/fonts/SpaceMono-700.woff2) format('woff2')}
-@font-face{font-family:'Tiro Devanagari Hindi';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fonts/Tiro-kaal.woff2) format('woff2');unicode-range:U+915,U+932,U+93e}
-</style>
-<!-- ═══════════════════════════════════════════════════════════════
-     META PIXEL
-     Paste the pixel snippet from Events Manager between these two
-     comment lines. The page already fires the events for you:
-       ViewContent      on load
-       CustomizeProduct when someone winds the dial
-       InitiateCheckout on Buy, once the payment link is set
-       Lead             on Buy while it is still the email fallback
-       Contact          on any click of connect@thekaal.co
-     ═══════════════════════════════════════════════════════════════ -->
-<!-- END META PIXEL -->
-
-<script>
-/* Opt into motion only when JS runs and motion is welcome. If this line never
-   executes, the CSS above renders the finished static page instead. */
-(function(){try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches)
-document.documentElement.className+=" anim";}catch(e){}})();
-</script>
-<link rel="preload" as="image" href="assets/img/lineup-1200.webp" imagesrcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" imagesizes="100vw" fetchpriority="high">
+<link rel="preload" href="assets/fonts/Fraunces-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
 
 <style>
-/* ============================================================
-   काल · tokens
-   ============================================================ */
+@font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-opsz.woff2) format('woff2-variations'),url(assets/fonts/Fraunces-opsz.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap}
+/* Google's latin subset carries no rupee, so ₹ was silently falling back to a
+   system face. These two carry that one glyph in the right family. */
+@font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-rupee.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap;unicode-range:U+20B9}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap;unicode-range:U+20B9}
+
 :root{
-  --void:#08070A; --ink:#0B0A11; --graphite:#101015;
-  --bronze:#14100B; --ember:#1A1208; --goldblack:#120C05;
-  --rose:#C9A227; --rose-lit:#E8C86A; --champagne:#E9D6BC;
-  --jade:#1E6B4F; --steel:#B9BEC6; --fog:#8A8781;
-  --hair:rgba(233,214,188,.13);
-  --hair-soft:rgba(233,214,188,.07);
-  --ground:var(--void);
-  --accent:var(--rose); --accent-lit:var(--rose-lit);
-
-  --display:"Bodoni Moda",Georgia,"Times New Roman",serif;
-  --body:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --mono:"Space Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --deva:"Tiro Devanagari Hindi",var(--display);
-
-  --gut:clamp(20px,5vw,64px);
-  --max:1240px;
-  --ease:cubic-bezier(.22,.61,.36,1);
-  --ease-out:cubic-bezier(.16,1,.3,1);
+  --void:#0A0908;
+  --bone:#E8E4DC;
+  --ash:#3D3A36;
+  --gold:#B8935A;
+  --mute:#8A857C;          /* lifted ash — 5.5:1 on void, passes AA */
+  --display:Fraunces,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --gut:clamp(1.25rem,5vw,4rem);
+  --maxw:64rem;
 }
 
 *,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-html,body{margin:0;padding:0}
+html{background:var(--void);-webkit-text-size-adjust:100%}
 body{
-  background:var(--ground);
-  color:var(--fog);
-  font-family:var(--body);
-  font-weight:300;
-  font-size:clamp(15px,1.05vw,17px);
-  line-height:1.62;
+  margin:0;background:var(--void);color:var(--bone);
+  font-family:var(--body);font-weight:300;
+  font-size:clamp(.95rem,.5vw + .85rem,1.1rem);line-height:1.7;
+  letter-spacing:.005em;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
   overflow-x:hidden;
-  transition:background-color 1.1s var(--ease);
-  -webkit-font-smoothing:antialiased;
 }
-img{display:block;max-width:100%;height:auto}
+img,svg{display:block;max-width:100%}
 a{color:inherit}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-::selection{background:var(--rose);color:#0A0806}
 
-/* film grain, fixed, whisper level */
-.grain{
-  position:fixed;inset:-50%;z-index:60;pointer-events:none;
-  opacity:.048;mix-blend-mode:overlay;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation:grainshift 5s steps(5) infinite;
-}
-@keyframes grainshift{
-  0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}
-  40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-2%)}
-  80%{transform:translate(3%,1%)}100%{transform:translate(0,0)}
-}
-/* corner vignette so every act sits in a pool of light */
-.vig{position:fixed;inset:0;z-index:1;pointer-events:none;
-  background:radial-gradient(120% 85% at 50% 42%,transparent 38%,rgba(0,0,0,.55) 100%)}
+/* ---------- focus, always visible, never removed ---------- */
+:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:1px}
+.skip{position:absolute;left:-9999px;top:0;z-index:999;background:var(--void);color:var(--bone);
+  padding:.9rem 1.3rem;border:1px solid var(--gold);font-size:.85rem}
+.skip:focus{left:1rem;top:1rem}
 
-/* ============================================================
-   type
-   ============================================================ */
-h1,h2,h3{margin:0;font-family:var(--display);font-weight:400;color:var(--champagne);
-  line-height:.98;letter-spacing:-.025em}
-h1{font-size:clamp(2.6rem,7.4vw,6.4rem)}
-h2{font-size:clamp(2.1rem,5.6vw,4.6rem)}
-h3{font-size:clamp(1.35rem,2.5vw,2rem);line-height:1.08}
-p{margin:0 0 1.1em}
-.deva{font-family:var(--deva);font-weight:400;letter-spacing:0}
-.lab{
-  font-family:var(--mono);font-size:.62rem;font-weight:400;
-  letter-spacing:.26em;text-transform:uppercase;color:var(--rose);
-  display:flex;align-items:center;gap:.85em;
-}
-.lab::before{content:"";width:clamp(20px,4vw,46px);height:1px;background:var(--rose);opacity:.55;flex:none}
-.lead{font-size:clamp(1.02rem,1.55vw,1.28rem);color:var(--steel);max-width:46ch;line-height:1.55}
-.small{font-size:.82rem;color:var(--fog);line-height:1.6}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.champ{color:var(--champagne)}
-.rose{color:var(--rose)}
+/* ---------- the depth stage: fixed behind everything ---------- */
+#stage{position:fixed;inset:0;z-index:0;pointer-events:none;contain:layout paint}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#stage canvas[hidden]{display:none}
+#grain{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.032;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>")}
+#vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(120% 85% at 50% 45%,transparent 38%,rgba(10,9,8,.72) 100%)}
 
-/* ============================================================
-   layout
-   ============================================================ */
-.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut);position:relative;z-index:2}
-section{position:relative;z-index:2}
-.act{padding-block:clamp(80px,12vh,158px)}
-.rule{height:1px;background:var(--hair);border:0;margin:0}
+/* ---------- scroll body ---------- */
+main{position:relative;z-index:3}
+.sc{position:relative;display:flex;align-items:center;justify-content:center;
+  padding:0 var(--gut);isolation:isolate}
+.hold{position:sticky;top:0;min-height:100svh;height:auto;display:flex;align-items:center;
+  justify-content:center;width:100%;max-width:var(--maxw);margin-inline:auto;
+  padding-block:6svh}
+.in{width:100%;text-align:center;
+  opacity:0;transform:translate3d(0,26px,0);
+  transition:opacity 1.15s var(--ease),transform 1.15s var(--ease)}
+.sc.lit .in{opacity:1;transform:none}
+/* the close must clear the persistent CTA chip on small screens */
+@media (max-width:640px){.sc .in{padding-bottom:5.2rem}}
+.no-js .in,.reduced .in{opacity:1;transform:none;transition:none}
 
-/* ============================================================
-   the instrument · signature element, the page's own dial
-   ============================================================ */
-.instr{
-  position:fixed;z-index:40;pointer-events:none;
-  right:clamp(14px,2.4vw,34px);bottom:clamp(14px,2.4vw,34px);
-  width:clamp(52px,5.2vw,76px);aspect-ratio:1;
-  opacity:0;transition:opacity .7s var(--ease);
-}
-.instr.on{opacity:.92}
-.instr svg{width:100%;height:100%;overflow:visible}
-.instr .ring{fill:none;stroke:var(--hair);stroke-width:1}
-.instr .arc{fill:none;stroke:var(--rose);stroke-width:1.4;stroke-linecap:round;
-  transform:rotate(-90deg);transform-origin:50% 50%}
-.instr .hand{stroke:var(--rose-lit);stroke-width:1.2;stroke-linecap:round;
-  transform-origin:50% 50%}
-.instr .pip{stroke:var(--champagne);stroke-width:1;opacity:.3}
-.instr .hub{fill:var(--rose)}
-.instr-pct{
-  position:absolute;inset:0;display:grid;place-items:center;
-  font-family:var(--mono);font-size:.5rem;letter-spacing:.06em;color:var(--fog);
-}
-@media (max-width:560px){
-  .instr{right:auto;left:0;bottom:auto;top:0;width:100%;height:2px;aspect-ratio:auto}
-  .instr svg,.instr-pct{display:none}
-  .instr::after{content:"";position:absolute;inset:0 auto 0 0;
-    width:calc(var(--prog,0) * 100%);background:linear-gradient(90deg,var(--rose),var(--rose-lit))}
-}
+/* ---------- photography ---------- */
+.shot{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);
+  z-index:-1;overflow:hidden;pointer-events:none;
+  opacity:0;transition:opacity 1.5s var(--ease)}
+.sc.lit .shot{opacity:1}
+.shot img,.shot canvas{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;transform:scale(1.1);
+  transition:transform 2.6s var(--ease)}
+.sc.lit .shot img,.sc.lit .shot canvas{transform:scale(1)}
+/* the vignette is what keeps the type legible over a photograph and lets the
+   dial printing read as texture rather than as something to be read */
+.shot::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(115% 88% at 50% 45%,rgba(10,9,8,.38) 0%,rgba(10,9,8,.80) 55%,var(--void) 100%)}
+.shot.deep::after{background:radial-gradient(120% 92% at 50% 48%,rgba(10,9,8,.58) 0%,rgba(10,9,8,.88) 52%,var(--void) 100%)}
+.no-js .shot,.reduced .shot{opacity:1}
+.no-js .shot img,.reduced .shot img{transform:none}
 
-/* ============================================================
-   nav
-   ============================================================ */
-.nav{
-  position:fixed;top:0;left:0;right:0;z-index:50;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:clamp(14px,2vw,22px) var(--gut);
-  transition:background-color .5s var(--ease),backdrop-filter .5s var(--ease),border-color .5s var(--ease);
-  border-bottom:1px solid transparent;
-}
-.nav.stuck{background:rgba(8,7,10,.72);backdrop-filter:blur(14px) saturate(1.2);border-bottom-color:var(--hair-soft)}
-.nav-mark{font-family:var(--deva);font-size:clamp(1.15rem,2vw,1.5rem);color:var(--champagne);
-  text-decoration:none;letter-spacing:.02em;line-height:1}
-.nav-mark span{font-family:var(--mono);font-size:.54rem;letter-spacing:.3em;color:var(--fog);
-  display:block;margin-top:.35em;text-transform:uppercase}
-.nav-cta{
-  font-family:var(--mono);font-size:.63rem;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--champagne);text-decoration:none;padding:.72em 1.25em;
-  border:1px solid var(--hair);border-radius:2px;
-  transition:border-color .35s var(--ease),color .35s var(--ease),background-color .35s var(--ease);
-}
-.nav-cta:hover{border-color:var(--rose);color:var(--rose-lit);background:rgba(201,146,106,.07)}
-@media (max-width:560px){.nav-cta{display:none}}
+/* ---------- type ---------- */
+.mark{width:clamp(190px,32vw,410px);margin-inline:auto;color:var(--bone)}
+h1,h2{margin:0;font-family:var(--display);font-weight:300;
+  font-variation-settings:'opsz' 144;
+  line-height:1.04;letter-spacing:-.021em;
+  font-size:clamp(1.95rem,5.6vw,4.9rem);
+  text-wrap:balance}
+.lede{max-width:34ch;margin:clamp(1.1rem,3vw,1.6rem) auto 0;color:var(--mute);text-wrap:pretty}
+.lede.wide{max-width:44ch}
+.eng{font-family:var(--body);font-weight:400;font-size:clamp(.62rem,1.5vw,.78rem);
+  letter-spacing:.34em;color:var(--gold);text-indent:.34em}
+.eng.dim{color:var(--mute)}
+.rule{width:1px;height:clamp(48px,9vh,96px);margin:2.2rem auto;
+  background:linear-gradient(var(--gold),transparent)}
+/* on VOID the mark owns the centre; the rule drops to the foot as a scroll cue */
+.sc[data-sc="1"] .rule{position:absolute;left:50%;bottom:5svh;margin:0;
+  transform:translateX(-50%);height:clamp(40px,7svh,72px)}
+.hair{width:min(160px,40vw);height:1px;background:var(--ash);margin:2rem auto;border:0}
 
-/* ============================================================
-   ACT 0 · overture
-   ============================================================ */
-.overture{height:100svh;min-height:560px;position:relative;overflow:hidden}
-.ov-media{position:absolute;inset:0;z-index:0}
-.ov-canvas{position:absolute;inset:0;z-index:1;width:100%;height:100%;
-  opacity:0;transition:opacity .8s var(--ease);pointer-events:none}
-.ov-canvas.on{opacity:1}
-.ov-load{position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:5;
-  width:46px;height:46px;pointer-events:none;opacity:0;transition:opacity .4s var(--ease)}
-.ov-load.on{opacity:1}
-.ov-load svg{width:100%;height:100%;transform:rotate(-90deg)}
-.ov-load circle{fill:none;stroke-width:1.5;stroke-linecap:round}
-.ov-load .t{stroke:rgba(233,214,188,.16)}
-.ov-load .p{stroke:var(--rose);transition:stroke-dashoffset .25s linear}
-.ov-media img{width:100%;height:100%;object-fit:cover;object-position:50% 44%;
-  will-change:transform}
-.ov-scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
+/* the counted number, scene 2 */
+.count{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 144;
+  font-size:clamp(3.6rem,15vw,11rem);line-height:.92;letter-spacing:-.03em;
+  display:flex;align-items:center;justify-content:center;gap:clamp(.5rem,3vw,2rem)}
+.count span{display:block}
+.count i{display:block;width:clamp(28px,7vw,86px);height:1px;background:var(--gold);font-style:normal}
+
+/* scene 4 + 8 + 9 carry the weight alone */
+.solo h2{font-size:clamp(2.2rem,7.2vw,6.4rem)}
+.vast h2{font-size:clamp(2.4rem,8.4vw,7.6rem);letter-spacing:-.028em}
+
+/* ---------- colourways, scene 3 ---------- */
+.ways{display:flex;flex-wrap:wrap;gap:clamp(1.1rem,4vw,3.4rem);justify-content:center;margin-top:2.6rem}
+.way{width:clamp(66px,13vw,116px);text-align:center}
+.disc{aspect-ratio:1;border-radius:50%;position:relative;
+  border:1px solid rgba(232,228,220,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 14px 40px rgba(0,0,0,.6)}
+.disc::after{content:"";position:absolute;inset:14%;border-radius:50%;
+  border:1px solid rgba(255,255,255,.07)}
+.way b{display:block;margin-top:.85rem;font-weight:400;font-size:.72rem;letter-spacing:.2em;color:var(--bone)}
+.way em{display:block;font-style:normal;font-size:.68rem;letter-spacing:.16em;color:var(--mute);margin-top:.25rem}
+.d-green{background:url(assets/img/dial-green-240.webp) center/cover no-repeat,#141210}
+.d-black{background:url(assets/img/dial-black-240.webp) center/cover no-repeat,#141210}
+.d-gold{background:url(assets/img/dial-gold-240.webp) center/cover no-repeat,#141210}
+.d-white{background:url(assets/img/dial-white-240.webp) center/cover no-repeat,#141210}
+
+/* ---------- three functions, scene 5 ---------- */
+.trio{display:flex;flex-wrap:wrap;justify-content:center;gap:0;margin-top:2.4rem;
+  border-top:1px solid var(--ash);border-bottom:1px solid var(--ash)}
+.trio div{flex:1 1 8rem;padding:1.5rem .6rem;border-left:1px solid var(--ash)}
+.trio div:first-child{border-left:0}
+.trio b{display:block;font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 60;
+  font-size:clamp(1.15rem,3vw,1.75rem);letter-spacing:-.01em}
+.trio span{display:block;margin-top:.5rem;font-size:.7rem;letter-spacing:.2em;color:var(--mute)}
+
+/* ---------- the caseback, scene 7 ---------- */
+.back{width:clamp(184px,48vw,300px);aspect-ratio:1;margin:0 auto clamp(1.4rem,3vw,2.4rem);border-radius:50%;
+  display:grid;place-content:center;gap:clamp(.5rem,1.6vw,.9rem);text-align:center;
   background:
-    linear-gradient(180deg,rgba(8,7,10,.74) 0%,rgba(8,7,10,.10) 30%,rgba(8,7,10,.55) 66%,rgba(8,7,10,.97) 100%),
-    radial-gradient(78% 58% at 50% 42%,transparent 28%,rgba(8,7,10,.55) 100%)}
-@media (min-width:900px){
-  .ov-media img{object-position:64% 44%}
-  .ov-scrim{background:
-    linear-gradient(180deg,rgba(8,7,10,.6) 0%,transparent 26%,rgba(8,7,10,.35) 78%,rgba(8,7,10,.92) 100%),
-    linear-gradient(90deg,rgba(8,7,10,.94) 0%,rgba(8,7,10,.72) 26%,transparent 56%),
-    radial-gradient(80% 62% at 62% 44%,transparent 30%,rgba(8,7,10,.5) 100%)}
-  .ov-inner{align-items:flex-start}
-  .ov-h{max-width:13ch}
-}
-.ov-inner{
-  position:relative;z-index:3;height:100%;max-width:var(--max);margin-inline:auto;
-  padding:clamp(84px,11vh,120px) var(--gut) clamp(74px,10vh,104px);
-  display:flex;flex-direction:column;justify-content:flex-end;gap:clamp(18px,3vh,30px)
-}
-.ov-h{font-size:clamp(2.35rem,6.6vw,5.6rem);max-width:15ch}
-.ov-line{display:block;overflow:hidden}
-.ov-line>i{display:block;font-style:normal;transform:translateY(105%);will-change:transform}
-.ov-h .two{color:var(--steel);font-style:italic;font-size:.62em;line-height:1.12;
-  letter-spacing:-.015em;margin-top:.3em;max-width:22ch}
-.ov-kick{display:flex;flex-wrap:wrap;gap:.6em 1.4em;font-family:var(--mono);
-  font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;color:var(--fog)}
-.ov-kick b{color:var(--rose);font-weight:400}
-.ov-cue{display:flex;align-items:center;gap:.9em;font-family:var(--mono);
-  font-size:.58rem;letter-spacing:.24em;text-transform:uppercase;color:var(--fog)}
-.ov-cue .bar{width:52px;height:1px;background:var(--hair);position:relative;overflow:hidden}
-.ov-cue .bar::after{content:"";position:absolute;inset:0;width:34%;background:var(--rose);
-  animation:cue 2.4s var(--ease) infinite}
-@keyframes cue{0%{transform:translateX(-110%)}55%{transform:translateX(300%)}100%{transform:translateX(300%)}}
+    repeating-conic-gradient(from 0deg,rgba(232,228,220,.05) 0deg 1.2deg,transparent 1.2deg 2.4deg),
+    radial-gradient(68% 68% at 34% 26%,#2B2926,#141310 66%,#0C0B09);
+  border:1px solid rgba(232,228,220,.13);
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.7)}
+.back .eng{font-size:clamp(.5rem,1.8vw,.7rem)}
+.back .no{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 90;
+  font-size:clamp(1.35rem,5vw,2.6rem);letter-spacing:.02em;color:var(--bone)}
 
-/* ============================================================
-   ACT I · the name
-   ============================================================ */
-.name{height:100svh;display:grid;place-items:center;overflow:hidden;position:relative}
-.name-mark{
-  font-family:var(--deva);color:var(--champagne);line-height:1;
-  font-size:clamp(7rem,30vw,22rem);opacity:.1;position:absolute;
-  left:50%;top:50%;translate:-50% -50%;pointer-events:none;user-select:none;
-  will-change:transform,opacity
-}
-.name-stage{position:relative;z-index:3;text-align:center;padding-inline:var(--gut);width:100%}
-.name-eq{font-family:var(--mono);font-size:.66rem;letter-spacing:.3em;text-transform:uppercase;
-  color:var(--fog);margin-bottom:clamp(18px,3vh,32px)}
-.name-slot{position:relative;height:clamp(3.4rem,9.5vw,8rem);margin-bottom:clamp(20px,4vh,44px)}
-.name-word{
-  position:absolute;inset:0;display:grid;place-items:center;
-  font-family:var(--display);font-size:clamp(2.4rem,8vw,6.6rem);color:var(--champagne);
-  letter-spacing:-.03em;opacity:0;will-change:transform,opacity
-}
-.name-word.is-last{font-style:italic;color:var(--rose-lit)}
-.name-tail{max-width:34ch;margin-inline:auto;color:var(--steel);
-  font-size:clamp(1rem,1.6vw,1.3rem);opacity:0}
-.name-photo{
-  position:absolute;right:clamp(-40px,-3vw,0px);bottom:-8%;width:clamp(180px,26vw,420px);
-  opacity:.5;filter:saturate(.85);pointer-events:none;z-index:2;will-change:transform;
-  mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent)
-}
-@media (max-width:720px){.name-photo{display:none}}
+/* ---------- the twenty, scene 7 tail ---------- */
+.grid20{display:grid;grid-template-columns:repeat(5,1fr);
+  max-width:34rem;margin:clamp(1.5rem,4vw,2.6rem) auto 0;gap:1px;background:var(--ash);border:1px solid var(--ash)}
+@media (min-width:560px){.grid20{grid-template-columns:repeat(10,1fr)}}
+.n{background:var(--void);aspect-ratio:1;min-height:1.95rem;display:grid;place-content:center;
+  font-size:clamp(.68rem,2vw,.78rem);letter-spacing:.09em;color:var(--bone);position:relative}
+.n[data-way=green]{box-shadow:inset 0 -2px 0 #2E5546}
+.n[data-way=black]{box-shadow:inset 0 -2px 0 #3A3733}
+.n[data-way=gold] {box-shadow:inset 0 -2px 0 #B8935A}
+.n[data-way=white]{box-shadow:inset 0 -2px 0 #DEDACF}
+.n.gone{color:var(--ash)}
+.n.gone::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:1px;background:var(--ash)}
 
-/* ============================================================
-   ACT II · the anatomy rail
-   ============================================================ */
-.rail{height:100svh;overflow:hidden;position:relative;display:flex;flex-direction:column;justify-content:center}
-.rail-head{padding-inline:var(--gut);max-width:var(--max);margin-inline:auto;width:100%;
-  display:flex;justify-content:space-between;align-items:flex-end;gap:1.6rem;
-  margin-bottom:clamp(26px,5vh,54px)}
-.rail-idx{position:relative;padding-bottom:.55rem;border-bottom:1px solid var(--hair);
-  flex:1;text-align:right;max-width:220px}
-.rail-head h2{max-width:11ch}
-.rail-idx{font-family:var(--mono);font-size:.66rem;letter-spacing:.22em;color:var(--fog);white-space:nowrap}
-.rail-idx b{color:var(--rose);font-weight:400}
-.rail-track{display:flex;gap:clamp(16px,2.4vw,34px);padding-inline:var(--gut);width:max-content;will-change:transform}
-.card{
-  width:clamp(228px,29vw,352px);flex:none;position:relative;
-  border:1px solid var(--hair-soft);border-radius:3px;overflow:hidden;
-  background:linear-gradient(165deg,rgba(233,214,188,.045),rgba(233,214,188,.008));
-  display:flex;flex-direction:column;
-}
-.card-img{position:relative;aspect-ratio:4/3;overflow:hidden;background:#0b0a0e}
-.card-img img{width:100%;height:100%;object-fit:cover;opacity:.82;will-change:transform}
-.card-img::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(180deg,transparent 40%,rgba(8,7,10,.85))}
-.card-body{padding:clamp(18px,2vw,26px);display:flex;flex-direction:column;gap:.55rem;flex:1}
-.card-n{font-family:var(--mono);font-size:.58rem;letter-spacing:.24em;color:var(--rose)}
-.card-v{font-family:var(--display);font-size:clamp(2.2rem,4.4vw,3.4rem);color:var(--champagne);
-  line-height:.9;letter-spacing:-.03em}
-.card-v em{font-style:normal;font-size:.36em;color:var(--fog);letter-spacing:.02em;margin-left:.35em}
-.card-t{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--steel)}
-.card-d{font-size:.87rem;color:var(--fog);line-height:1.55;margin:0}
-@media (prefers-reduced-motion:reduce){
-  .rail{height:auto;padding-block:clamp(70px,10vh,120px)}
-  .rail-track{width:auto;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:1rem}
-  .card{scroll-snap-align:start}
-}
+/* ---------- close ---------- */
+.price{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 120;
+  font-size:clamp(2rem,7vw,4.4rem);letter-spacing:-.02em;margin:0}
+.cta{display:inline-block;margin-top:2.2rem;padding:1.05rem 2.5rem;
+  font-size:.78rem;letter-spacing:.26em;text-indent:.26em;font-weight:400;
+  color:var(--bone);text-decoration:none;
+  border:1px solid var(--gold);background:transparent;
+  transition:background .5s var(--ease),color .5s var(--ease)}
+.cta:hover,.cta:focus-visible{background:var(--gold);color:var(--void)}
+.cta[aria-disabled=true]{border-color:var(--ash);color:var(--mute);cursor:default;pointer-events:none}
+.cta-note{margin-top:1rem;font-size:.76rem;color:var(--mute);letter-spacing:.02em}
 
+/* persistent quiet CTA — for the visitor who decided at scene 2 */
+#always{position:fixed;z-index:6;right:var(--gut);bottom:calc(var(--gut) * .8);
+  font-size:.68rem;letter-spacing:.2em;text-decoration:none;color:var(--mute);
+  padding:.7rem 1.1rem;border:1px solid var(--ash);background:rgba(10,9,8,.82);
+  backdrop-filter:blur(6px);
+  opacity:0;transform:translate3d(0,10px,0);pointer-events:none;
+  transition:opacity .7s var(--ease),transform .7s var(--ease),color .4s,border-color .4s}
+#always.on{opacity:1;transform:none;pointer-events:auto}
+#always:hover,#always:focus-visible{color:var(--bone);border-color:var(--gold)}
 
-/* ============================================================
-   ACT II · the chooser. Twenty watches across four dials, so the
-   page's job is to make someone pick one. Choosing is what turns
-   a viewer into an owner before they have paid anything.
-   ============================================================ */
-.ch-grid{display:grid;gap:clamp(30px,5vw,68px);grid-template-columns:1fr;align-items:center;
-  margin-top:clamp(44px,8vh,96px)}
-@media (min-width:900px){.ch-grid{grid-template-columns:1fr 1fr}}
-.ch-stage{position:relative;display:grid;place-items:center;max-width:min(86vw,460px);
-  margin-inline:auto;width:100%;aspect-ratio:1}
-.ch-hero{width:100%;height:100%;object-fit:cover;border-radius:50%;
-  transition:opacity .38s var(--ease),transform .6s var(--ease-out);
-  box-shadow:0 30px 90px -30px rgba(0,0,0,.9)}
-.ch-hero.swap{opacity:0;transform:scale(.965)}
-.ch-ring{position:absolute;inset:-5%;border-radius:50%;pointer-events:none;
-  border:1px solid var(--hair);
-  box-shadow:0 0 70px -14px var(--accent);opacity:.55;
-  transition:box-shadow .5s var(--ease)}
-.ch-panel{display:flex;flex-direction:column;gap:clamp(18px,2.6vh,26px)}
-.ch-swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(8px,1.4vw,16px)}
-.ch-sw{padding:0;display:flex;flex-direction:column;align-items:center;gap:.6em;
-  border-radius:4px;outline:0;transition:transform .3s var(--ease-out)}
-.ch-sw img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;
-  border:1px solid var(--hair-soft);opacity:.5;
-  transition:opacity .3s var(--ease),border-color .3s var(--ease),box-shadow .3s var(--ease)}
-.ch-sw span{font-family:var(--mono);font-size:.55rem;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--fog);transition:color .3s var(--ease)}
-.ch-sw:hover img{opacity:.82}
-.ch-sw:focus-visible img{box-shadow:0 0 0 2px var(--accent)}
-.ch-sw.is-on img{opacity:1;border-color:var(--accent);box-shadow:0 0 22px -6px var(--accent)}
-.ch-sw.is-on span{color:var(--champagne)}
-.ch-sw.is-on{transform:translateY(-3px)}
-.ch-read{min-height:5.4em}
-.ch-read h3{font-size:clamp(1.7rem,3.4vw,2.5rem);color:var(--champagne);margin-bottom:.4rem;
-  transition:opacity .3s var(--ease)}
-.ch-read p{color:var(--steel);font-size:clamp(1rem,1.5vw,1.18rem);max-width:30ch;margin:0;
-  transition:opacity .3s var(--ease)}
-.ch-read.swap h3,.ch-read.swap p{opacity:0}
-.ch-panel .cta{align-self:flex-start;
-  background:linear-gradient(100deg,var(--accent-lit),var(--accent))}
-.ch-note{font-size:.85rem;color:var(--fog);max-width:34ch;margin:0}
+/* ---------- footer: the disclosure the scroll stays silent about ---------- */
+footer{position:relative;z-index:3;border-top:1px solid var(--ash);
+  padding:clamp(3rem,9vw,6rem) var(--gut) clamp(2.4rem,7vw,4rem);
+  background:var(--void)}
+.fin{max-width:var(--maxw);margin-inline:auto}
+.fgrid{display:grid;gap:clamp(1.8rem,5vw,3.4rem);
+  grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr));margin-top:2.6rem}
+footer h3{margin:0 0 .8rem;font-size:.68rem;letter-spacing:.24em;font-weight:400;color:var(--gold)}
+footer p,footer li{font-size:.83rem;line-height:1.75;color:var(--mute);margin:0 0 .6rem}
+footer ul{margin:0;padding:0;list-style:none}
+footer a{color:var(--mute);text-underline-offset:3px}
+footer a:hover{color:var(--bone)}
+.legalbar{margin-top:clamp(2.4rem,6vw,3.6rem);padding-top:1.6rem;border-top:1px solid var(--ash);
+  display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;font-size:.74rem;color:var(--mute)}
 
-/* ============================================================
-   ACT III · the movement
-   ============================================================ */
-.move{position:relative;overflow:hidden}
-.move-grid{display:grid;gap:clamp(34px,6vw,80px);align-items:center;
-  grid-template-columns:1fr;max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
-@media (min-width:900px){.move-grid{grid-template-columns:1.05fr .95fr}}
-.move-copy{display:flex;flex-direction:column;gap:clamp(16px,2.4vh,26px)}
-.move-copy h2{max-width:12ch}
-.move-fig{position:relative;border-radius:3px;overflow:hidden}
-.move-fig img{width:100%;will-change:clip-path,transform}
-.move-fig figcaption{position:absolute;left:0;bottom:0;right:0;padding:1.1rem 1.2rem;
-  font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--steel);background:linear-gradient(0deg,rgba(8,7,10,.9),transparent)}
-.stats{display:flex;flex-wrap:wrap;gap:1.6rem 2.6rem;border-top:1px solid var(--hair);padding-top:1.5rem}
-.stat b{display:block;font-family:var(--display);font-size:clamp(1.6rem,3vw,2.3rem);
-  color:var(--champagne);line-height:1;letter-spacing:-.02em;font-weight:400}
-.stat span{font-family:var(--mono);font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--fog)}
-
-/* ============================================================
-   ACT IV · the winding (the interactive moment)
-   ============================================================ */
-.wind-grid{display:grid;gap:clamp(36px,6vw,72px);align-items:center;grid-template-columns:1fr;
-  max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
-@media (min-width:900px){.wind-grid{grid-template-columns:.92fr 1.08fr}}
-.wind-stage{position:relative;display:grid;place-items:center;aspect-ratio:1;
-  max-width:min(84vw,470px);margin-inline:auto;width:100%;touch-action:pan-y;
-  cursor:grab;user-select:none;-webkit-user-select:none;border-radius:50%;outline:0}
-.wind-stage:active{cursor:grabbing}
-.wind-stage:focus-visible{box-shadow:0 0 0 2px var(--rose)}
-.wind-stage svg{width:100%;height:100%;overflow:visible}
-.w-face{fill:none;stroke:var(--hair);stroke-width:1}
-.w-tick{stroke:var(--champagne);opacity:.22;stroke-width:1}
-.w-tick.maj{opacity:.5;stroke-width:1.6}
-.w-arc-bg{fill:none;stroke:rgba(233,214,188,.09);stroke-width:5;stroke-linecap:round}
-.w-arc{fill:none;stroke:url(#wg);stroke-width:5;stroke-linecap:round;
-  transform:rotate(-90deg);transform-origin:50% 50%}
-.w-hand{stroke:var(--champagne);stroke-linecap:round;transform-origin:50% 50%}
-.w-sec{stroke:var(--rose);stroke-width:1.2;stroke-linecap:round;transform-origin:50% 50%}
-.w-hub{fill:var(--rose)}
-.w-crown{fill:rgba(201,146,106,.16);stroke:var(--rose);stroke-width:1.2}
-.wind-read{display:flex;align-items:baseline;justify-content:center;gap:.75em;
-  margin-top:clamp(18px,2.6vh,30px)}
-.wind-read b{font-family:var(--display);font-size:clamp(2.4rem,6vw,3.6rem);
-  color:var(--champagne);line-height:.85;font-weight:400;letter-spacing:-.03em;
-  min-width:2.2ch;text-align:right;font-variant-numeric:tabular-nums}
-.wind-read span{font-family:var(--mono);font-size:.56rem;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--fog)}
-.wind-hint{margin-top:.7rem;font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--rose);text-align:center;transition:opacity .5s var(--ease)}
-.wind-hint.gone{opacity:0}
-.wind-copy{display:flex;flex-direction:column;gap:clamp(16px,2.4vh,26px)}
-.wind-copy h2{max-width:13ch}
-.wind-swap{min-height:5.6em}
-.wind-swap p:last-child{margin-bottom:0}
-
-/* ============================================================
-   ACT V · the anchor
-   ============================================================ */
-.anchor-grid{display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--hair);
-  border-bottom:1px solid var(--hair)}
-@media (min-width:820px){.anchor-grid{grid-template-columns:1fr 1fr}}
-.col{padding:clamp(30px,4.4vw,58px) clamp(22px,3vw,44px)}
-.col+.col{border-top:1px solid var(--hair)}
-@media (min-width:820px){.col+.col{border-top:0;border-left:1px solid var(--hair)}}
-.col-a{opacity:.62}
-.col h3{font-size:clamp(1.15rem,2vw,1.6rem);margin-bottom:1.1rem}
-.col-a h3{color:var(--fog);font-family:var(--body);font-weight:300;
-  font-size:.98rem;letter-spacing:.01em}
-.col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.72rem}
-.col li{display:flex;gap:.85em;align-items:baseline;font-size:.94rem}
-.col li::before{content:"";width:5px;height:5px;flex:none;border-radius:50%;
-  background:var(--fog);transform:translateY(-2px)}
-.col-b li::before{background:var(--rose)}
-.col-b li{color:var(--steel)}
-.price-block{text-align:center;padding-block:clamp(36px,5.5vw,66px) 0}
-.price-lead{font-family:var(--mono);font-size:.63rem;letter-spacing:.24em;text-transform:uppercase;
-  color:var(--fog);margin-bottom:1.1rem}
-.price{font-family:var(--display);font-size:clamp(3.4rem,13vw,8rem);color:var(--champagne);
-  line-height:.88;letter-spacing:-.04em;display:block}
-.price .cur{font-size:.42em;vertical-align:.42em;color:var(--rose);margin-right:.08em}
-.price-sub{margin-top:1.2rem;font-size:.92rem;color:var(--fog)}
-
-/* ============================================================
-   ACT VI · the edition
-   ============================================================ */
-.ed-grid{display:grid;grid-template-columns:repeat(5,1fr);
-  gap:1px;background:var(--hair-soft);border:1px solid var(--hair-soft);
-  margin-block:clamp(28px,4vh,46px);max-width:760px}
-@media (min-width:760px){.ed-grid{grid-template-columns:repeat(10,1fr)}}
-.ed-cell{background:var(--ground);aspect-ratio:1;display:grid;place-items:center;
-  font-family:var(--mono);font-size:clamp(.72rem,1.4vw,.95rem);color:var(--fog);
-  opacity:0;transition:background-color .6s var(--ease),color .6s var(--ease)}
-.ed-cell.gone{color:rgba(138,135,129,.42);background:rgba(233,214,188,.02);position:relative}
-.ed-cell.gone::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:1px;
-  background:rgba(138,135,129,.5);transform:rotate(-14deg)}
-.ed-cell.next{color:#0A0806;background:linear-gradient(140deg,var(--accent-lit),var(--accent));
-  font-weight:700;box-shadow:0 0 26px -6px rgba(201,146,106,.55)}
-.ed-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7em 1.6em;
-  font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--fog);margin-top:1.1rem}
-.ed-status b{font-family:var(--display);font-size:2.4rem;font-weight:400;letter-spacing:-.02em;
-  color:var(--rose-lit);line-height:1;margin-right:.25em}
-.ed-key{display:flex;gap:1.6em;flex-wrap:wrap;font-family:var(--mono);font-size:.56rem;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--fog);margin-top:.9rem}
-.ed-key i{font-style:normal;display:inline-flex;align-items:center;gap:.55em}
-.ed-key i::before{content:"";width:9px;height:9px;border:1px solid var(--hair)}
-.ed-key i.k-gone::before{background:rgba(233,214,188,.02)}
-.ed-key i.k-next::before{background:var(--rose);border-color:var(--rose)}
-
-/* ============================================================
-   full-bleed figures
-   ============================================================ */
-.bleed{position:relative;height:clamp(58vh,74vh,760px);overflow:hidden}
-.bleed img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;will-change:transform}
-.bleed::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(8,7,10,.75),rgba(8,7,10,.2) 40%,rgba(8,7,10,.9))}
-.bleed-copy{position:absolute;z-index:3;inset:auto 0 0 0;padding:0 var(--gut) clamp(38px,7vh,74px);
-  max-width:var(--max);margin-inline:auto}
-.bleed-copy h2{max-width:14ch}
-
-/* ============================================================
-   ACT VII · in the box
-   ============================================================ */
-.box-grid{display:grid;gap:clamp(30px,5vw,70px);grid-template-columns:1fr;align-items:center;
-  max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
-@media (min-width:900px){.box-grid{grid-template-columns:1fr 1fr}}
-.box-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--hair)}
-.box-list li{display:flex;gap:1.2em;align-items:baseline;padding:1.05rem 0;
-  border-bottom:1px solid var(--hair-soft)}
-.box-list .n{font-family:var(--mono);font-size:.6rem;color:var(--rose);flex:none;letter-spacing:.1em}
-.box-list .t{color:var(--champagne);font-size:1rem}
-.box-list .d{color:var(--fog);font-size:.85rem;margin-left:auto;text-align:right;max-width:20ch}
-@media (max-width:600px){.box-list .d{display:none}}
-
-/* ============================================================
-   ACT IX · the doubts
-   ============================================================ */
-.faq{border-top:1px solid var(--hair);margin-top:clamp(26px,4vh,44px)}
-.q{border-bottom:1px solid var(--hair-soft)}
-.q summary{
-  list-style:none;cursor:pointer;padding:clamp(18px,2.4vw,26px) 0;
-  display:flex;gap:1.2em;align-items:baseline;color:var(--champagne);
-  font-size:clamp(1rem,1.7vw,1.2rem);transition:color .3s var(--ease)
-}
-.q summary::-webkit-details-marker{display:none}
-.q summary:hover{color:var(--rose-lit)}
-.q summary .sig{font-family:var(--mono);font-size:.6rem;color:var(--rose);flex:none;
-  transition:transform .4s var(--ease)}
-.q[open] summary .sig{transform:rotate(45deg)}
-.q .a{padding:0 0 clamp(20px,2.6vw,30px) calc(1.2em + 2.4ch);max-width:62ch}
-@media (max-width:560px){.q .a{padding-left:0}}
-.q .a p:last-child{margin-bottom:0}
-
-/* ============================================================
-   the close + CTA
-   ============================================================ */
-.close{text-align:center;position:relative;overflow:hidden}
-.close::before{content:"";position:absolute;left:50%;top:38%;translate:-50% -50%;
-  width:min(120vw,1100px);aspect-ratio:1;pointer-events:none;
-  background:radial-gradient(circle,rgba(201,146,106,.14),transparent 62%)}
-.close h2{max-width:17ch;margin-inline:auto}
-.counted{font-family:var(--mono);font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;
-  color:var(--rose);margin-bottom:clamp(20px,3.4vh,36px)}
-.cta{
-  display:inline-flex;align-items:center;justify-content:center;gap:.9em;
-  font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
-  color:#0A0806;background:linear-gradient(100deg,var(--accent-lit),var(--accent));
-  text-decoration:none;padding:1.35em 2.4em;border-radius:2px;position:relative;overflow:hidden;
-  transition:transform .35s var(--ease-out),box-shadow .35s var(--ease);
-  box-shadow:0 0 0 rgba(201,146,106,0)
-}
-.cta:hover{transform:translateY(-2px);box-shadow:0 14px 42px -12px rgba(201,146,106,.5)}
-.cta:active{transform:translateY(0)}
-.cta::after{content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;
-  background:linear-gradient(100deg,transparent,rgba(255,255,255,.42),transparent);
-  transition:left .7s var(--ease)}
-.cta:hover::after{left:130%}
-.cta.ghost{background:none;color:var(--champagne);border:1px solid var(--hair);box-shadow:none}
-.cta.ghost:hover{border-color:var(--rose);color:var(--rose-lit)}
-.reassure{margin-top:clamp(20px,3vh,30px);font-size:.9rem;color:var(--fog);max-width:38ch;
-  margin-inline:auto;line-height:1.6}
-.reassure a{color:var(--champagne);text-decoration:none;border-bottom:1px solid var(--rose);
-  padding-bottom:1px;transition:color .3s var(--ease)}
-.reassure a:hover{color:var(--rose-lit)}
-.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:.7em 1.8em;
-  margin-top:clamp(26px,4vh,42px);font-family:var(--mono);font-size:.58rem;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--fog)}
-.trust span{display:flex;align-items:center;gap:.55em}
-.trust span::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--rose)}
-
-/* sticky mobile buy bar */
-.buybar{
-  position:fixed;left:0;right:0;bottom:0;z-index:55;
-  display:flex;align-items:center;gap:1rem;
-  padding:.85rem var(--gut) calc(.85rem + env(safe-area-inset-bottom));
-  background:rgba(8,7,10,.9);backdrop-filter:blur(16px);
-  border-top:1px solid var(--hair);
-  transform:translateY(110%);transition:transform .5s var(--ease-out)
-}
-.buybar.up{transform:translateY(0)}
-.buybar .bb-p{flex:1;min-width:0}
-.buybar .bb-p b{display:block;font-family:var(--display);font-size:1.15rem;color:var(--champagne);
-  line-height:1;font-weight:400}
-.buybar .bb-p span{font-family:var(--mono);font-size:.52rem;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--fog)}
-.buybar .cta{padding:1.05em 1.7em;font-size:.64rem;flex:none}
-@media (min-width:900px){.buybar{display:none}}
-
-/* footer */
-.foot{border-top:1px solid var(--hair);padding-block:clamp(44px,7vh,80px) clamp(90px,12vh,110px)}
-.foot-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2rem 3rem;align-items:flex-start}
-.foot-mark{font-family:var(--deva);font-size:2rem;color:var(--champagne);line-height:1}
-.foot-mark span{display:block;font-family:var(--mono);font-size:.54rem;letter-spacing:.3em;
-  color:var(--fog);margin-top:.5em;text-transform:uppercase}
-.foot-col h4{margin:0 0 .9rem;font-family:var(--mono);font-size:.58rem;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--rose);font-weight:400}
-.foot-col a,.foot-col p{display:block;color:var(--fog);text-decoration:none;font-size:.88rem;
-  margin:0 0 .55rem;transition:color .3s var(--ease)}
-.foot-col a:hover{color:var(--champagne)}
-.foot-bot{margin-top:clamp(34px,5vh,60px);padding-top:1.6rem;border-top:1px solid var(--hair-soft);
-  display:flex;flex-wrap:wrap;justify-content:space-between;gap:1rem;
-  font-family:var(--mono);font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--fog)}
-
-/* ============================================================
-   motion is opt-in. Without JS, without GSAP, or with reduced
-   motion, the page below is the finished static site.
-   ============================================================ */
-.rv{opacity:1;transform:none}
-.ov-line>i{transform:none}
-.name-word{position:relative;inset:auto;opacity:1}
-.name-slot{height:auto;display:flex;flex-direction:column;gap:.15em}
-.name-word.is-last::before{content:"and ";font-family:var(--body);
-  font-size:.42em;font-style:normal;color:var(--fog);letter-spacing:.02em}
-.name-tail{opacity:1;margin-top:1.4rem}
-.ed-cell{opacity:1}
-.name-mark{opacity:.1}
-
-html.anim .rv{opacity:0;transform:translateY(26px)}
-html.anim .ov-line>i{transform:translateY(105%)}
-html.anim .name-slot{height:clamp(3.4rem,9.5vw,8rem);display:block}
-html.anim .name-word{position:absolute;inset:0;display:grid;place-items:center;opacity:0}
-html.anim .name-word.is-last::before{content:none}
-html.anim .name-tail{opacity:0;margin-top:0}
-html.anim .ed-cell{opacity:0}
-html.anim .name-mark{opacity:0}
-
-/* the rail is a swipeable row until GSAP turns it into a pinned pan */
-.rail{height:auto;padding-block:clamp(70px,10vh,120px)}
-.rail-track{width:auto;overflow-x:auto;scroll-snap-type:x mandatory;
-  padding-bottom:1.2rem;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.rail-track::-webkit-scrollbar{display:none}
-.card{scroll-snap-align:center}
-html.anim .rail{height:100svh;padding-block:0}
-html.anim .rail-track{width:max-content;overflow:visible;scroll-snap-type:none;padding-bottom:0}
-
+/* ---------- reduced motion: settle everything, run nothing ---------- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
-    transition-duration:.001ms!important}
-  .grain{display:none}
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .in{opacity:1!important;transform:none!important}
+  #stage{display:none}
 }
+@media (max-width:640px){
+  .trio div{flex:1 1 100%;border-left:0;border-top:1px solid var(--ash)}
+  .trio div:first-child{border-top:0}
+}
+@media print{#stage,#grain,#vignette,#always{display:none}}
 </style>
 </head>
-<body>
-<div class="grain" aria-hidden="true"></div>
-<div class="vig" aria-hidden="true"></div>
+<body class="no-js">
 
-<!-- the instrument: this page's own dial, and its scroll bar -->
-<div class="instr" id="instr" aria-hidden="true" style="--prog:0">
-  <svg viewBox="0 0 64 64">
-    <circle class="ring" cx="32" cy="32" r="30"></circle>
-    <circle class="arc" id="instrArc" cx="32" cy="32" r="30"
-            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
-    <g id="instrPips"></g>
-    <line class="hand" id="instrHand" x1="32" y1="32" x2="32" y2="10"></line>
-    <circle class="hub" cx="32" cy="32" r="1.7"></circle>
-  </svg>
-  <div class="instr-pct mono" id="instrPct">00</div>
-</div>
+<a class="skip" href="#close">Skip to the close</a>
 
-<nav class="nav" id="nav">
-  <a class="nav-mark" href="#top" style="font-family:var(--display);letter-spacing:.14em">KAAL<span>Edition 01</span></a>
-  <a class="nav-cta" href="#buy"><span data-remaining>18</span> left · <span data-price-plain>₹4,999</span></a>
-</nav>
+<div id="stage" aria-hidden="true"><canvas id="dust"></canvas></div>
+<div id="vignette" aria-hidden="true"></div>
+<div id="grain" aria-hidden="true"></div>
 
-<main id="top">
+<main id="scroll">
 
-<!-- ═══════════ ACT 0 · OVERTURE ═══════════ -->
-<section class="overture" id="overture" data-ground="#08070A">
-  <div class="ov-media" id="ovMedia">
-    <img src="assets/img/lineup-768.webp"
-         srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w"
-         sizes="100vw" width="1280" height="720" fetchpriority="high"
-         alt="Four KAAL watches lined up on slate: black, white, green and gold dials, each on a two tone steel and gold bracelet.">
-  </div>
-  <canvas class="ov-canvas" id="ovCanvas" aria-hidden="true"></canvas>
-  <div class="ov-scrim" aria-hidden="true"></div>
-  <div class="ov-load" id="ovLoad" aria-hidden="true">
-    <svg viewBox="0 0 46 46"><circle class="t" cx="23" cy="23" r="21"></circle>
-      <circle class="p" id="ovLoadArc" cx="23" cy="23" r="21"
-              stroke-dasharray="131.9" stroke-dashoffset="131.9"></circle></svg>
-  </div>
-  <div class="ov-inner">
-    <h1 class="ov-h">
-      <span class="ov-line"><i>Four dials.</i></span>
-      <span class="ov-line"><i>Twenty watches.</i></span>
-      <span class="ov-line two"><i>Then it is over.</i></span>
-    </h1>
-    <div class="ov-kick">
-      <span>Edition <b>01</b></span>
-      <span><b data-remaining>18</b> of twenty left</span>
-    </div>
-    <div class="ov-cue"><span class="bar"></span>Keep scrolling</div>
-  </div>
-</section>
+  <!-- 1 — VOID -->
+  <section class="sc" data-sc="1" style="min-height:100svh">
+    <div class="hold"><div class="in">
+      <h1 class="mark" aria-label="KAAL">
+        <svg viewBox="0 0 380 120" role="img" aria-label="KAAL" focusable="false">
+          <g fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="butt" stroke-linejoin="miter">
+            <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100"/>
+            <path d="M108 100 L140 20 L172 100 M121 78 H159"/>
+            <path d="M208 100 L240 20 L272 100"/>
+            <path d="M308 20 V100 H356"/>
+          </g>
+        </svg>
+      </h1>
+      <div class="rule"></div>
+    </div></div>
+  </section>
 
-<!-- ═══════════ ACT II · THE CHOOSER ═══════════ -->
-<section class="act choose" id="choose" data-ground="#0B0A11">
-  <div class="wrap">
-    <p class="lab rv">Choose yours</p>
-    <h2 class="rv" style="max-width:9ch;margin-block:1.1rem 0">Which one is you?</h2>
+  <!-- 2 — REVEAL -->
+  <section class="sc" data-sc="2" style="min-height:110svh">
+    <div class="hold">
+      <div class="shot" aria-hidden="true"><img src="assets/img/green-768.webp" srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w" sizes="100vw" alt="" decoding="async"></div>
+<div class="in">
+      <p class="count" aria-label="Zero one to twenty"><span>01</span><i></i><span>20</span></p>
+      <p class="lede">Twenty pieces. One design. Never repeated.</p>
+    </div></div>
+  </section>
 
-    <div class="ch-grid">
-      <div class="ch-stage">
-        <img class="ch-hero" id="chHero" width="640" height="640" alt=""
-             src="assets/img/dial-black-640.webp"
-             srcset="assets/img/dial-black-240.webp 240w, assets/img/dial-black-480.webp 480w, assets/img/dial-black-640.webp 640w"
-             sizes="(max-width:900px) 86vw, 460px">
-        <span class="ch-ring" aria-hidden="true"></span>
+  <!-- 3 — COLOURWAY -->
+  <section class="sc" data-sc="3" style="min-height:135svh">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/approach-768.webp" srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
+      <h2>One case.<br>Four faces.<br>Twenty pieces.</h2>
+      <div class="ways">
+        <div class="way"><div class="disc d-green"></div><b>Green</b><em>01–06</em></div>
+        <div class="way"><div class="disc d-black"></div><b>Black</b><em>07–10</em></div>
+        <div class="way"><div class="disc d-gold"></div><b>Golden</b><em>11–14</em></div>
+        <div class="way"><div class="disc d-white"></div><b>White</b><em>15–20</em></div>
       </div>
+    </div></div>
+  </section>
 
-      <div class="ch-panel">
-        <div class="ch-swatches" id="chSwatches" role="radiogroup" aria-label="Choose a dial">
-          <button class="ch-sw is-on" role="radio" aria-checked="true" data-dial="black"
-                  data-name="Onyx" data-accent="#C9A227"
-                  data-line="For the room where nobody needs to know what you paid.">
-            <img src="assets/img/dial-black-240.webp" width="240" height="240" alt="Onyx dial" loading="lazy" decoding="async">
-            <span>Onyx</span></button>
-          <button class="ch-sw" role="radio" aria-checked="false" data-dial="white"
-                  data-name="Ivory" data-accent="#D8CDB4"
-                  data-line="Reads as money from the other side of a table.">
-            <img src="assets/img/dial-white-240.webp" width="240" height="240" alt="Ivory dial" loading="lazy" decoding="async">
-            <span>Ivory</span></button>
-          <button class="ch-sw" role="radio" aria-checked="false" data-dial="green"
-                  data-name="Emerald" data-accent="#2E8B62"
-                  data-line="Green is the one people remember you were wearing.">
-            <img src="assets/img/dial-green-240.webp" width="240" height="240" alt="Emerald dial" loading="lazy" decoding="async">
-            <span>Emerald</span></button>
-          <button class="ch-sw" role="radio" aria-checked="false" data-dial="gold"
-                  data-name="Bullion" data-accent="#E0B640"
-                  data-line="Nobody wears full gold to be subtle. That is the point.">
-            <img src="assets/img/dial-gold-240.webp" width="240" height="240" alt="Bullion dial" loading="lazy" decoding="async">
-            <span>Bullion</span></button>
-        </div>
+  <!-- 4 — EXCLUSIVITY (the refrain, stated alone) -->
+  <section class="sc solo" data-sc="4" style="min-height:105svh">
+    <div class="hold"><div class="in">
+      <h2>Twenty pieces.<br>One design.<br>Never repeated.</h2>
+    </div></div>
+  </section>
 
-        <div class="ch-read">
-          <h3 id="chName">Onyx</h3>
-          <p id="chLine">For the room where nobody needs to know what you paid.</p>
-        </div>
-
-        <a class="cta" id="buyDial" href="#" data-cta="chooser">
-          Claim number <span data-next>03</span> · <span id="chCta">Onyx</span>
-        </a>
-        <p class="ch-note">Twenty watches across all four dials. Pick the one you
-          want and the number is held while we reply.</p>
+  <!-- 5 — PRECISION -->
+  <section class="sc" data-sc="5" style="min-height:115svh">
+    <div class="hold">
+      <div class="shot" aria-hidden="true"><img src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
+      <p class="eng dim">Three functions</p>
+      <div class="trio">
+        <div><b>Day</b></div>
+        <div><b>Date</b><span>Pointer</span></div>
+        <div><b>24-hour</b></div>
       </div>
-    </div>
-  </div>
-</section>
+      <p class="lede wide">Three functions, one movement, zero compromise.</p>
+    </div></div>
+  </section>
 
-<!-- ═══════════ ACT I · THE NAME ═══════════ -->
-<section class="name" id="name" data-ground="#0B0A11">
-  <div class="name-mark deva" id="nameMark" aria-hidden="true">काल</div>
-  <img class="name-photo" id="namePhoto" loading="lazy" decoding="async"
-       src="assets/img/whitedial-768.webp"
-       srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w"
-       sizes="(max-width:900px) 40vw, 420px" width="1280" height="720"
-       alt="Macro of the white KAAL dial, gold hands and three subdials.">
-  <div class="name-stage">
-    <p class="name-eq">Edition 01 comes in four</p>
-    <div class="name-slot" id="nameSlot">
-      <span class="name-word">Onyx</span>
-      <span class="name-word">Ivory</span>
-      <span class="name-word">Emerald</span>
-      <span class="name-word is-last">Bullion</span>
-    </div>
-    <p class="name-tail" id="nameTail">Twenty watches between them. Eighteen still unclaimed.</p>
-  </div>
-</section>
+  <!-- 6 — 24-MONTH BACKING -->
+  <section class="sc" data-sc="6" style="min-height:105svh">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
+      <h2>Every movement,<br>held to 24 months.</h2>
+      <p class="lede wide">Not by a name you’ve heard of — by the piece itself.</p>
+    </div></div>
+  </section>
 
+  <!-- 7 — NUMBERED ENGRAVING -->
+  <section class="sc" data-sc="7" style="min-height:140svh">
+    <div class="hold">
+      <div class="shot deep" id="seqshot" aria-hidden="true">
+        <img id="seqfallback" src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async">
+        <canvas id="seq" hidden></canvas>
+      </div>
+<div class="in">
+      <div class="back" role="img" aria-label="Caseback engraving reading Series 01, Limited Edition Number 07">
+        <p class="eng">SERIES 01</p>
+        <p class="no">NO. 07</p>
+        <p class="eng dim">LIMITED EDITION</p>
+      </div>
+      <p class="lede wide">Every piece carries its number. No one else will ever hold this one.</p>
+      <!-- state mirrors the SOLD list in the config block below; JS re-renders it from there -->
+      <div class="grid20" id="grid20" role="list" aria-label="The twenty numbers">
+        <span class="n gone" data-way="green" role="listitem">01</span><span class="n gone" data-way="green" role="listitem">02</span>
+        <span class="n" data-way="green" role="listitem">03</span><span class="n" data-way="green" role="listitem">04</span>
+        <span class="n" data-way="green" role="listitem">05</span><span class="n" data-way="green" role="listitem">06</span>
+        <span class="n" data-way="black" role="listitem">07</span><span class="n" data-way="black" role="listitem">08</span>
+        <span class="n" data-way="black" role="listitem">09</span><span class="n" data-way="black" role="listitem">10</span>
+        <span class="n" data-way="gold" role="listitem">11</span><span class="n" data-way="gold" role="listitem">12</span>
+        <span class="n" data-way="gold" role="listitem">13</span><span class="n" data-way="gold" role="listitem">14</span>
+        <span class="n" data-way="white" role="listitem">15</span><span class="n" data-way="white" role="listitem">16</span>
+        <span class="n" data-way="white" role="listitem">17</span><span class="n" data-way="white" role="listitem">18</span>
+        <span class="n" data-way="white" role="listitem">19</span><span class="n" data-way="white" role="listitem">20</span>
+      </div>
+    </div></div>
+  </section>
 
+  <!-- 8 — RETIREMENT. the strongest line. the most room. -->
+  <section class="sc vast" data-sc="8" style="min-height:170svh">
+    <div class="hold"><div class="in">
+      <h2>Twenty were made,<br>and we will not<br>make another.</h2>
+    </div></div>
+  </section>
 
+  <!-- 9 — IDENTITY -->
+  <section class="sc solo" data-sc="9" style="min-height:110svh">
+    <div class="hold"><div class="in">
+      <h2>The loud ones borrow a name to be believed.</h2>
+      <p class="lede wide">You don’t need one. Neither does this.</p>
+    </div></div>
+  </section>
 
-<!-- ═══════════ ACT V · THE ANCHOR ═══════════ -->
-<section class="act anchor" id="anchor" data-ground="#0B0A11">
-  <div class="wrap" style="text-align:center">
-    <p class="lab rv" style="justify-content:center">The number</p>
-    <div class="price-block">
-      <span class="price rv" id="priceEl"><span class="cur">₹</span><span id="priceN">4,999</span></span>
-      <p class="price-sub rv" style="max-width:34ch;margin-inline:auto">Steel and gold,
-      four subdials, a tachymeter bezel. Free shipping anywhere in India and seven
-      days to change your mind.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ ACT VI · THE EDITION ═══════════ -->
-<section class="act edition" id="edition" data-ground="#08070A">
-  <div class="wrap">
-    <p class="lab rv">Edition 01</p>
-    <h2 class="rv" style="max-width:15ch;margin-block:1.1rem 0">Two are gone. Number <span data-next>03</span> is next.</h2>
-    <div class="ed-status rv"><span><b data-remaining>18</b>of twenty left</span><span>Numbers 01 and 02 are on wrists</span></div>
-    <div class="ed-grid" id="edGrid" aria-hidden="true"><div class="ed-cell gone">01</div><div class="ed-cell gone">02</div><div class="ed-cell next">03</div><div class="ed-cell">04</div><div class="ed-cell">05</div><div class="ed-cell">06</div><div class="ed-cell">07</div><div class="ed-cell">08</div><div class="ed-cell">09</div><div class="ed-cell">10</div><div class="ed-cell">11</div><div class="ed-cell">12</div><div class="ed-cell">13</div><div class="ed-cell">14</div><div class="ed-cell">15</div><div class="ed-cell">16</div><div class="ed-cell">17</div><div class="ed-cell">18</div><div class="ed-cell">19</div><div class="ed-cell">20</div></div>
-    <div class="ed-key rv"><i class="k-gone">Claimed</i><i class="k-next">Yours if you want it</i><i>Still open</i></div>
-    <p class="lead rv" style="margin-top:1.6rem">Every case back is stamped with
-      its own number before it leaves, and no number is ever given twice. Two
-      people already have theirs. When the twentieth ships, this dial does not
-      get made again. Not as a re-run, not in another colour. The next edition
-      will be a different watch, and whoever owns one of these twenty will still
-      be the only twenty who ever did.</p>
-  </div>
-</section>
-
-<!-- ═══════════ ACT VII · IN THE BOX ═══════════ -->
-<section class="act boxact" id="boxact" data-ground="#0B0A11">
-  <div class="box-grid">
-    <figure class="rv" style="margin:0;border-radius:3px;overflow:hidden">
-      <img loading="lazy" decoding="async"
-        src="assets/img/approach-768.webp"
-        srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w"
-        sizes="(max-width:900px) 92vw, 560px" width="1280" height="720"
-        alt="The camera closing in on the white and green KAAL dials.">
-    </figure>
-    <div>
-      <p class="lab rv">What arrives</p>
-      <h2 class="rv" style="margin-block:1.1rem 1.6rem;max-width:11ch">What arrives.</h2>
-      <ul class="box-list">
-        <li class="rv"><span class="n">01</span><span class="t">The watch</span><span class="d">On its steel bracelet</span></li>
-        <li class="rv"><span class="n">02</span><span class="t">A polishing cloth</span></li>
-        <li class="rv"><span class="n">03</span><span class="t">Your number, on card</span><span class="d">Matched to the case back</span></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ ACT VIII · WORN ═══════════ -->
-<section class="bleed" id="worn" data-ground="#101015">
-  <img loading="lazy" decoding="async" id="wornImg"
-    src="assets/img/green-768.webp"
-    srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w"
-    sizes="100vw" width="1280" height="720"
-    alt="The green KAAL dial in close up, gold bezel catching the light.">
-  <div class="bleed-copy">
-    <p class="lab rv">On the wrist</p>
-    <h2 class="rv" style="margin-top:1rem">Steel and gold, and it shows.</h2>
-    <p class="lead rv" style="margin-top:1rem">Four subdials, a tachymeter bezel,
-      and a two tone bracelet that catches light from across a room.</p>
-  </div>
-</section>
-
-<!-- ═══════════ ACT IX · THE DOUBTS ═══════════ -->
-<section class="act doubts" id="doubts" data-ground="#08070A">
-  <div class="wrap">
-    <p class="lab rv">Before you buy</p>
-    <h2 class="rv" style="max-width:13ch;margin-block:1.1rem 0">The things people actually ask us.</h2>
-
-    <div class="faq">
-      <details class="q rv"><summary><span class="sig">+</span>Is this just a generic watch with a new name on the dial?</summary>
-        <div class="a"><p>The dial, the case finish and the bracelet are ours,
-          drawn for this edition, and the काल mark is stamped on every one. Like
-          almost every independent brand at this price, we do not build the
-          movement ourselves. We would rather write that down than let you find
-          out later.</p></div></details>
-
-      <details class="q rv"><summary><span class="sig">+</span>Will the rose gold wear off?</summary>
-        <div class="a"><p>Write to us before you buy and we will tell you exactly
-          how the finish is applied and how it wears. We would rather answer that
-          in a sentence you can hold us to than in a line of marketing.</p></div></details>
-
-      <details class="q rv"><summary><span class="sig">+</span>What happens if it stops working?</summary>
-        <div class="a"><p>You write to
-          <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> and a person
-          answers, usually the same day. There is no ticket number and no call
-          centre. Ask us for the warranty terms in writing before you pay, and
-          we will send them.</p></div></details>
-
-      <details class="q rv"><summary><span class="sig">+</span>Will it fit my wrist?</summary>
-        <div class="a"><p>Send us your wrist measurement at
-          <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> and we will
-          tell you honestly whether it sits well, and adjust the bracelet before
-          it ships. We would rather lose the sale than have it come back.</p></div></details>
-
-      <details class="q rv"><summary><span class="sig">+</span>How fast does it ship, and what if I hate it?</summary>
-        <div class="a"><p>Dispatched within 48 hours, anywhere in India, free.
-          Seven days from the day it lands to send it back for a full refund,
-          worn or unworn, no questions typed into a form. We only ask that the
-          box comes back with it.</p></div></details>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ ACT X · THE CLOSE ═══════════ -->
-<section class="act close" id="buy" data-ground="#120C05">
-  <div class="wrap">
-    <p class="counted" id="counted">You have been here 00:00. Eighteen are still unclaimed.</p>
-    <h2 class="rv">Eighteen people get to own one.</h2>
-    <p class="lead rv" style="margin:1.6rem auto 0;text-align:center">
-      Pick your dial, take your number, and that is the end of it. There is no
-      restock and no second run.</p>
-
-    <div style="margin-top:clamp(30px,5vh,50px)">
-      <a class="cta" id="buyMain" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="close">Claim number <span data-next>03</span> · <span data-dial-label>Onyx</span> · <span data-price-plain>₹4,999</span></a>
-    </div>
-
-    <p class="reassure">Tapping that opens an email with your number already in
-      it. Fill in three lines and send. We reply with payment and dispatch,
-      usually the same day, from
-      <a href="mailto:connect@thekaal.co?subject=Question%20before%20I%20claim%20a%20number">connect@thekaal.co</a>.
-      A person reads it, not a form.</p>
-
-    <div class="trust">
-      <span>Free shipping in India</span>
-      <span>7 day returns</span>
-      <span>2 year warranty</span>
-      <span><span data-remaining>18</span> of 20 remain</span>
-    </div>
-  </div>
-</section>
+  <!-- 10 — CLOSE -->
+  <section class="sc" data-sc="10" id="close" style="min-height:135svh">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/lineup-768.webp" srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
+      <h2>Not built for many.</h2>
+      <p class="lede wide">Built for twenty who weren’t going to wait for a version two — and don’t need one.</p>
+      <hr class="hair">
+      <p class="price">₹<span data-price>5,999</span></p>
+      <p class="eng dim" style="margin-top:1rem"><span data-remaining>Eighteen</span> of twenty remain</p>
+      <a class="cta" id="cta" href="#close" aria-disabled="true">Reserve your number</a>
+      <p class="cta-note" id="ctaNote">Checkout opens when the payment link goes live.</p>
+    </div></div>
+  </section>
 
 </main>
 
-<footer class="foot" data-ground="#08070A">
-  <div class="wrap">
-    <div class="foot-top">
-      <div class="foot-mark" style="font-family:var(--display);letter-spacing:.14em">KAAL<span>Edition 01 · 2026</span></div>
+<a id="always" href="#close">Reserve your number</a>
 
-      <div class="foot-col">
-        <h4>Talk to us</h4>
-        <a href="mailto:connect@thekaal.co">connect@thekaal.co</a>
-        <p>A person reads every one, usually the same day.</p>
+<footer>
+  <div class="fin">
+    <p class="eng dim">The part the scroll stays quiet about</p>
+    <div class="fgrid">
+      <div>
+        <h3>THE PIECE</h3>
+        <ul>
+          <li>Japanese quartz movement, multi-function: day, pointer date, 24-hour.</li>
+          <li>Metal case, two-tone steel and gold bracelet.</li>
+          <li>One case design across four dials. Twenty pieces, numbered 01 to 20, engraved on the caseback.</li>
+          <li>Wooden presentation box, fabric covered, engraved tags.</li>
+        </ul>
       </div>
-
-      <div class="foot-col">
-        <h4>The watch</h4>
-        <a href="#move">The movement</a>
-        <a href="#anchor">Price and comparison</a>
-        <a href="#doubts">Questions</a>
+      <div>
+        <h3>WARRANTY</h3>
+        <ul>
+          <li>24 months from manufacture, movement only.</li>
+          <li>Manufacture date September 2026, printed on the card.</li>
+          <li>Sold direct. There is no dealer, so there is no dealer signature and no purchase-date field to fill.</li>
+          <li>Warranty claims: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
+        </ul>
       </div>
-
-      <div class="foot-col">
-        <h4>Terms</h4>
-        <p>Free shipping across India</p>
-        <p>Seven day returns</p>
-        <p>Two year movement warranty</p>
+      <!-- UNCONFIRMED: shipping inclusion and country of origin are not sourced
+           to the owner. Both are legally declarable. Confirm before ads run. -->
+      <div>
+        <h3>ORDERING</h3>
+        <ul>
+          <li>₹<span data-price>5,999</span> inclusive of all applicable taxes.</li>
+          <li>Shipped across India. Shipping included in the price.</li>
+          <li>Sold only here. Not on any marketplace, and not over WhatsApp or direct message.</li>
+          <li>Questions before you decide: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
+        </ul>
+      </div>
+      <!-- UNCONFIRMED: this returns window and its conditions were drafted, not
+           supplied. They are a binding commercial term. Owner must confirm. -->
+      <div>
+        <h3>RETURNS</h3>
+        <ul>
+          <li>Seven days from delivery, unworn, with box, card and tags intact.</li>
+          <li>Refund to the original payment method once the piece is received and checked.</li>
+          <li>A returned number goes back into the twenty. It is not resold as a new one.</li>
+          <li>Start a return: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
+        </ul>
       </div>
     </div>
-
-    <div class="foot-bot">
-      <span>KAAL · thekaal.co</span>
-      <span>Edition 01 · Twenty numbered</span>
-      <span>© 2026 KAAL</span>
+    <div class="legalbar">
+      <span>KAAL</span>
+      <span data-seller>Seller and grievance contact: connect@thekaal.co</span>
+      <span data-origin>Country of origin: to be confirmed</span>
+      <span>&copy; 2026</span>
     </div>
   </div>
 </footer>
 
-<div class="buybar" id="buybar">
-  <div class="bb-p"><b data-price-plain>₹4,999</b><span><span data-remaining>18</span> of 20 left</span></div>
-  <a class="cta" id="buyBar" href="mailto:connect@thekaal.co?subject=Claiming%20number%2003%20%E2%80%93%20KAAL%20Edition%2001&amp;body=I%20want%20number%2003%20of%20twenty.%0A%0AName%3A%0APhone%3A%0ADelivery%20address%3A%0AWrist%20size%20(if%20you%20know%20it)%3A%0A" data-cta="stickybar">Claim <span data-next>03</span></a>
-</div>
-
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Product","name":"KAAL Edition 01",
-"description":"काल Edition 01, limited to twenty numbered watches.",
-"image":"https://thekaal.co/assets/img/og.jpg","brand":{"@type":"Brand","name":"KAAL"},
-"offers":{"@type":"Offer","price":"4999","priceCurrency":"INR","availability":"https://schema.org/LimitedAvailability","url":"https://thekaal.co/#buy"}}
-</script>
-
-<script src="assets/js/gsap.min.js" defer></script>
-<script src="assets/js/ScrollTrigger.min.js" defer></script>
 <script>
-/* ══════════════════════════════════════════════════════════
-   काल · configuration
-   Change these four lines and the whole page updates.
-   ══════════════════════════════════════════════════════════ */
+/* ===================================================================
+   KAAL — the only things you edit before launch.
+   =================================================================== */
 const KAAL = {
-  // Paste the Razorpay or Shopify payment link here.
-  // While it is empty, every Buy button opens a pre written email instead,
-  // so the page is never a dead end.
-  buyUrl:  "",
-  price:   "4,999",
-  edition: 20,      // how many were made
-  sold:    2,       // how many are already on wrists
-
-  // Frame by frame scroll scrub. Drop numbered stills into assets/seq/ as
-  // frame-001.webp, frame-002.webp ... then set count to how many there are.
-  // count: 0 keeps the designed still hero, so this is always safe to ship.
-  sequence: { path: "assets/seq/frame-", ext: ".webp", pad: 3, count: 27 },
-  email:   "connect@thekaal.co"
+  checkout: "",            // ← the live Razorpay payment-page URL. Nothing else to change.
+  price:    "5,999",       // every price on the page and in the footer reads from this
+  edition:  20,
+  sold:     [1, 2]         // the numbers already claimed. Add to this as pieces go.
 };
+/* =================================================================== */
 
 (function () {
   "use strict";
-  const $  = (s, c) => (c || document).querySelector(s);
-  const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
-  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var doc = document, root = doc.documentElement, body = doc.body;
+  body.classList.remove("no-js");
 
-  /* ───────── checkout wiring + Meta pixel events ───────── */
-  /* The edition is the whole close, so it is derived once from config and
-     written into every place that names it. Change KAAL.sold and the hero,
-     the grid, both buttons, the footer and the mail subject all follow. */
-  const remaining = Math.max(0, KAAL.edition - KAAL.sold);
-  const nextNo    = String(Math.min(KAAL.sold + 1, KAAL.edition)).padStart(2, "0");
-  document.querySelectorAll("[data-remaining]").forEach(el => el.textContent = remaining);
-  document.querySelectorAll("[data-next]").forEach(el => el.textContent = nextNo);
-  document.querySelectorAll("#edGrid .ed-cell").forEach((el, i) => {
-    el.classList.toggle("gone", i < KAAL.sold);
-    el.classList.toggle("next", i === KAAL.sold);
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) body.classList.add("reduced");
+
+  /* ---------- config flows outward ---------- */
+  var WORDS = ["zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+               "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen",
+               "Eighteen","Nineteen","Twenty"];
+  var remaining = KAAL.edition - KAAL.sold.length;
+
+  [].forEach.call(doc.querySelectorAll("[data-price]"), function (el) { el.textContent = KAAL.price; });
+  [].forEach.call(doc.querySelectorAll("[data-remaining]"), function (el) {
+    el.textContent = WORDS[remaining] || String(remaining);
   });
 
-  const fallbackHref =
-    "mailto:" + KAAL.email +
-    "?subject=" + encodeURIComponent("Claiming number " + nextNo + " – KAAL Edition 01") +
-    "&body=" + encodeURIComponent(
-      "I want number " + nextNo + " of " + KAAL.edition + ", at ₹" + KAAL.price + ".\n\n" +
-      "Name:\nPhone:\nDelivery address:\nWrist size (if you know it):\n");
+  // the printed grid is the no-JavaScript fallback; config is authoritative here
+  [].forEach.call(doc.querySelectorAll("#grid20 .n"), function (el, i) {
+    el.classList.toggle("gone", KAAL.sold.indexOf(i + 1) !== -1);
+  });
 
-  function track(event, extra) {
-    if (typeof window.fbq === "function") {
-      try { window.fbq("track", event, extra || {}); } catch (e) {}
-    }
+  var cta = doc.getElementById("cta"), note = doc.getElementById("ctaNote"), always = doc.getElementById("always");
+  if (KAAL.checkout) {
+    cta.href = KAAL.checkout; cta.removeAttribute("aria-disabled"); cta.rel = "noopener";
+    always.href = KAAL.checkout; always.rel = "noopener";
+    note.textContent = "₹" + KAAL.price + ", shipped across India.";
+  } else {
+    note.textContent = "Checkout opens when the payment link goes live.";
   }
-  document.querySelectorAll("[data-price-plain]").forEach(el => {
-    el.textContent = "₹" + KAAL.price;
-  });
 
-  const href = KAAL.buyUrl || fallbackHref;
-  $$("[data-cta]").forEach(el => {
-    el.setAttribute("href", href);
-    if (KAAL.buyUrl) { el.setAttribute("target", "_blank"); el.setAttribute("rel", "noopener"); }
-    el.addEventListener("click", () => {
-      track(KAAL.buyUrl ? "InitiateCheckout" : "Lead",
-            { content_name: "काल Edition 01", value: 4999, currency: "INR",
-              placement: el.getAttribute("data-cta") });
-    });
-  });
-  $$('a[href^="mailto:"]').forEach(a =>
-    a.addEventListener("click", () => track("Contact", { method: "email" })));
-  track("ViewContent", { content_name: "काल Edition 01", currency: "INR", value: 4999 });
-
-  /* ═════════ the scroll scrub ═════════
-     The stills play forward as you scroll down and backward as you scroll up.
-     Frames are decoded up front behind an honest loading ring, drawn to a
-     canvas, and the displayed index is eased so a fast flick glides instead of
-     snapping. If anything here fails the designed still hero simply stays. */
-  const seq = KAAL.sequence || { count: 0 };
-  if (seq.count > 0 && !reduced) (function scrub() {
-    const cv = $("#ovCanvas"), ring = $("#ovLoad"), arc = $("#ovLoadArc");
-    if (!cv) return;
-    const ctx = cv.getContext("2d", { alpha: false });
-    const RING = 2 * Math.PI * 21;
-
-    /* A phone does not need every frame. Taking every second one halves the
-       bytes on the connection least able to spare them. */
-    const step  = innerWidth < 760 ? 2 : 1;
-    const idx   = [];
-    for (let i = 1; i <= seq.count; i += step) idx.push(i);
-    const frames = new Array(idx.length);
-    let decoded = 0, ready = false, raf = 0;
-
-    function size() {
-      const d = Math.min(devicePixelRatio || 1, 2);
-      cv.width  = Math.round(innerWidth  * d);
-      cv.height = Math.round(innerHeight * d);
-      draw(shown, true);
-    }
-    function draw(i, force) {
-      const im = frames[clamp(Math.round(i), 0, frames.length - 1)];
-      if (!im) return;
-      if (!force && im === lastDrawn) return;      // only paint on change
-      lastDrawn = im;
-      const cw = cv.width, ch = cv.height;
-      /* A 16:9 frame covered into a 9:19.5 phone throws away two thirds of the
-         width, and the width is where the four watches are. When the viewport
-         is much taller than the footage, fit the width instead and let the
-         page's own black fill above and below. The footage edges are already
-         near black, so the seam does not read. */
-      const tall = (ch / cw) > (im.height / im.width) * 1.35;
-      const s2 = tall ? cw / im.width
-                      : Math.max(cw / im.width, ch / im.height);
-      const w = im.width * s2, h = im.height * s2;
-      if (tall) {
-        ctx.fillStyle = getComputedStyle(document.documentElement)
-          .getPropertyValue("--ground").trim() || "#08070A";
-        ctx.fillRect(0, 0, cw, ch);
-      }
-      ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
-    }
-    let lastDrawn = null, shown = 0, target = 0;
-
-    function tick() {
-      shown += (target - shown) * 0.18;
-      draw(shown);
-      raf = Math.abs(target - shown) > 0.01 ? requestAnimationFrame(tick) : 0;
-    }
-    function nudge() { if (ready && !raf) raf = requestAnimationFrame(tick); }
-
-    idx.forEach((n, k) => {
-      const im = new Image();
-      im.decoding = "async";
-      im.onload = im.onerror = () => {
-        if (im.naturalWidth) frames[k] = im;
-        decoded++;
-        if (arc) arc.style.strokeDashoffset = (RING * (1 - decoded / idx.length)).toFixed(1);
-        if (decoded === idx.length) {
-          if (!frames.filter(Boolean).length) { ring.classList.remove("on"); return; }
-          ready = true; size(); draw(0, true);
-          cv.classList.add("on"); ring.classList.remove("on");
-          if (window.ScrollTrigger) ScrollTrigger.refresh();
+  /* ---------- captions reveal on approach ---------- */
+  var scenes = [].slice.call(doc.querySelectorAll(".sc"));
+  // Latched reveal, checked on the animation frame rather than by observer.
+  // A scene that has been reached stays revealed — the sticky hold carries it
+  // away on its own, and the close must not fade when the footer arrives. The
+  // pending list empties as the visitor descends, so this costs nothing by the
+  // end, and unlike an observer a fast flick cannot skip a scene.
+  // Reveal is driven entirely by IntersectionObserver: no getBoundingClientRect
+  // on the scroll path, so scrolling never forces a synchronous layout.
+  // Reaching scene i means every scene before it was passed, so light those too —
+  // that covers a fast flick or a scrollbar jump without any rect reads.
+  if (reduced) {
+    scenes.forEach(function (s) { s.classList.add("lit"); });
+  } else {
+    var revealIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var upto = scenes.indexOf(e.target);
+        for (var k = 0; k <= upto; k++) {
+          if (!scenes[k].classList.contains("lit")) {
+            scenes[k].classList.add("lit"); revealIO.unobserve(scenes[k]);
+          }
+          if (k >= 5) startSeq();          // begin fetching frames a scene early
         }
-      };
-      im.src = seq.path + String(n).padStart(seq.pad, "0") + seq.ext;
-    });
-    setTimeout(() => { if (!ready) ring.classList.add("on"); }, 320);
-    addEventListener("resize", () => { if (ready) size(); });
-
-    window.__kaalScrub = {
-      set(p) { if (!ready) return; target = p * (frames.length - 1); nudge(); },
-      get ready() { return ready; },
-      get count() { return frames.filter(Boolean).length; }
-    };
-  })();
-
-
-  /* ───────── the chooser ─────────
-     Twenty watches across four dials, so picking one is the whole job of this
-     page. The choice drives the big image, the page's accent, both buy buttons
-     and the mail subject, so by the time someone reaches the price they are
-     not looking at "a watch" any more, they are looking at theirs. */
-  /* mix a hex toward white, so every dial gets a real gradient and a
-     highlight rather than one flat block of colour */
-  function lighten(hex, amt) {
-    const n = parseInt(hex.slice(1), 16);
-    const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-      .map(v => Math.round(v + (255 - v) * amt));
-    return "rgb(" + c.join(",") + ")";
-  }
-
-  (function chooser() {
-    const wrap = $("#chSwatches"); if (!wrap) return;
-    const hero = $("#chHero"), name = $("#chName"), line = $("#chLine"),
-          read = $(".ch-read"), ctaLabel = $("#chCta");
-    const btns = $$(".ch-sw", wrap);
-    let current = btns[0];
-
-    function apply(btn, quiet) {
-      if (!btn || btn === current && quiet !== "force") { current = btn || current; }
-      current = btn;
-      const d = btn.dataset;
-      btns.forEach(b => {
-        const on = b === btn;
-        b.classList.toggle("is-on", on);
-        b.setAttribute("aria-checked", on ? "true" : "false");
-        b.tabIndex = on ? 0 : -1;
       });
-      document.documentElement.style.setProperty("--accent", d.accent);
-      document.documentElement.style.setProperty("--accent-lit", lighten(d.accent, 0.3));
-
-      hero.classList.add("swap"); read.classList.add("swap");
-      setTimeout(() => {
-        hero.src = "assets/img/dial-" + d.dial + "-640.webp";
-        hero.srcset = ["240","480","640"].map(w =>
-          "assets/img/dial-" + d.dial + "-" + w + ".webp " + w + "w").join(", ");
-        hero.alt = d.name + " dial, KAAL Edition 01";
-        name.textContent = d.name; line.textContent = d.line;
-        if (ctaLabel) ctaLabel.textContent = d.name;
-        hero.classList.remove("swap"); read.classList.remove("swap");
-      }, 200);
-
-      /* the dial travels with the visitor all the way to the mail */
-      const sub = "Claiming number " + nextNo + " – KAAL Edition 01, " + d.name;
-      const body = "I want number " + nextNo + " of " + KAAL.edition +
-        ", the " + d.name + " dial, at ₹" + KAAL.price + ".\n\n" +
-        "Name:\nPhone:\nDelivery address:\nWrist size (if you know it):\n";
-      const href = KAAL.buyUrl || ("mailto:" + KAAL.email +
-        "?subject=" + encodeURIComponent(sub) + "&body=" + encodeURIComponent(body));
-      $$("[data-cta]").forEach(el => el.setAttribute("href", href));
-      $$("[data-dial-label]").forEach(el => el.textContent = d.name);
-      if (!quiet) track("CustomizeProduct", { content_name: "dial " + d.name });
-    }
-
-    wrap.addEventListener("click", e => {
-      const b = e.target.closest(".ch-sw"); if (b) apply(b);
-    });
-    wrap.addEventListener("keydown", e => {
-      const i = btns.indexOf(current);
-      let n = null;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") n = btns[(i + 1) % btns.length];
-      if (e.key === "ArrowLeft"  || e.key === "ArrowUp")   n = btns[(i - 1 + btns.length) % btns.length];
-      if (n) { apply(n); n.focus(); e.preventDefault(); }
-    });
-    btns.forEach((b, i) => b.tabIndex = i ? -1 : 0);
-    apply(btns[0], true);
-  })();
-
-  /* ───────── the instrument: dial pips + scroll progress ───────── */
-  const instr = $("#instr"), arc = $("#instrArc"), hand = $("#instrHand"), pct = $("#instrPct");
-  (function pips() {
-    const g = $("#instrPips"); if (!g) return;
-    let s = "";
-    for (let i = 0; i < 12; i++) {
-      const a = (i * 30) * Math.PI / 180;
-      const x1 = 32 + Math.sin(a) * 26, y1 = 32 - Math.cos(a) * 26;
-      const x2 = 32 + Math.sin(a) * 29, y2 = 32 - Math.cos(a) * 29;
-      s += '<line class="pip" x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2) +
-           '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2) + '"/>';
-    }
-    g.innerHTML = s;
-  })();
-
-  const CIRC = 2 * Math.PI * 30;
-  let stopped = false;
-  function progress() {
-    if (stopped) return;
-    const h = document.documentElement;
-    const max = h.scrollHeight - innerHeight;
-    const p = max > 0 ? clamp(scrollY / max, 0, 1) : 0;
-    instr.style.setProperty("--prog", p.toFixed(4));
-    if (arc)  arc.style.strokeDashoffset = (CIRC * (1 - p)).toFixed(2);
-    if (hand) hand.style.transform = "rotate(" + (p * 360).toFixed(2) + "deg)";
-    if (pct)  pct.textContent = String(Math.round(p * 100)).padStart(2, "0");
-  }
-  addEventListener("scroll", progress, { passive: true });
-  addEventListener("resize", progress);
-  progress();
-  setTimeout(() => instr.classList.add("on"), 900);
-
-  /* ───────── nav + sticky buy bar ───────── */
-  const nav = $("#nav"), buybar = $("#buybar");
-  let barEarned = false;
-  function chrome() {
-    nav.classList.toggle("stuck", scrollY > 40);
-    buybar.classList.toggle("up", barEarned);
-  }
-  addEventListener("scroll", chrome, { passive: true });
-  if (!document.documentElement.classList.contains("anim")) {
-    addEventListener("scroll", () => {
-      const gate = document.querySelector("#edition");
-      if (gate) barEarned = scrollY > gate.offsetTop - innerHeight * 0.8;
-    }, { passive: true });
-  }
-  chrome();
-
-  /* ───────── the ground shifts colour as you travel ───────── */
-  const grounds = $$("[data-ground]");
-  function ground() {
-    const mid = scrollY + innerHeight * 0.45;
-    let c = grounds[0] && grounds[0].dataset.ground;
-    for (const el of grounds) if (el.offsetTop <= mid) c = el.dataset.ground;
-    if (c) document.documentElement.style.setProperty("--ground", c);
-  }
-  addEventListener("scroll", ground, { passive: true });
-  addEventListener("resize", ground);
-  ground();
-  function setGround(c) { document.documentElement.style.setProperty("--ground", c); }
-
-  /* ───────── the edition grid ───────── */
-  (function edition() {
-    const g = $("#edGrid"); if (!g) return;
-    if (g.children.length === KAAL.edition) return;   // the HTML already has them
-    let s = "";
-    for (let i = 1; i <= KAAL.edition; i++) {
-      s += '<div class="ed-cell' + (i <= KAAL.sold ? " gone" : i === KAAL.sold + 1 ? " next" : "") + '">' +
-           String(i).padStart(2, "0") + "</div>";
-    }
-    g.innerHTML = s;
-  })();
-
-  /* ───────── time on page, printed in the close ───────── */
-  (function counter() {
-    const el = $("#counted"); if (!el) return;
-    const t0 = Date.now();
-    setInterval(() => {
-      if (stopped) return;
-      const s = Math.floor((Date.now() - t0) / 1000);
-      el.innerHTML = "You have been here " +
-        String(Math.floor(s / 60)).padStart(2, "0") + ":" +
-        String(s % 60).padStart(2, "0") +
-        '. Eighteen are still unclaimed.';
-    }, 1000);
-  })();
-
-  /* ───────── pointer parallax, desktop pointers only ───────── */
-  if (!reduced && matchMedia("(pointer: fine)").matches) {
-    const layers = [
-      { el: $("#ovMedia"),   k: 16 },
-      { el: $("#nameMark"),  k: 26 },
-      { el: $("#namePhoto"), k: -34 }
-    ].filter(l => l.el);
-    let tx = 0, ty = 0, cx = 0, cy = 0, live = false;
-    addEventListener("pointermove", e => {
-      tx = (e.clientX / innerWidth - 0.5) * 2;
-      ty = (e.clientY / innerHeight - 0.5) * 2;
-      if (!live) { live = true; requestAnimationFrame(loop); }
-    }, { passive: true });
-    function loop() {
-      cx += (tx - cx) * 0.06; cy += (ty - cy) * 0.06;
-      layers.forEach(l => {
-        l.el.style.setProperty("--mx", (cx * l.k).toFixed(2) + "px");
-        l.el.style.setProperty("--my", (cy * l.k).toFixed(2) + "px");
-        l.el.style.translate = "var(--mx) var(--my)";
-      });
-      if (Math.abs(tx - cx) > 0.001 || Math.abs(ty - cy) > 0.001) requestAnimationFrame(loop);
-      else live = false;
-    }
+    }, { rootMargin: "-12% 0px -12% 0px", threshold: 0 });
+    scenes.forEach(function (s) { revealIO.observe(s); });
   }
 
-  /* ═════════ GSAP: everything that is driven by scroll ═════════ */
-  function scenes() {
-    if (!window.gsap || !window.ScrollTrigger) { document.documentElement.classList.remove("anim"); return; }
-    gsap.registerPlugin(ScrollTrigger);
-
-    if (reduced) { document.documentElement.classList.remove("anim"); return; }
-
-    /* ACT 0 · the headline assembles line by line */
-    gsap.to(".ov-line > i", {
-      y: "0%", duration: 1.25, ease: "expo.out", stagger: 0.16, delay: 0.35
-    });
-    gsap.from(".ov-kick, .ov-cue", {
-      opacity: 0, y: 18, duration: 1, ease: "power3.out", stagger: 0.12, delay: 1.05
-    });
-
-    /* the scrub rides the overture's own scroll, forward and backward */
-    if (window.__kaalScrub) {
-      ScrollTrigger.create({
-        trigger: "#overture", start: "top top", end: "bottom top", scrub: true,
-        onUpdate: st => window.__kaalScrub.set(st.progress)
-      });
-    }
-
-    /* ACT 0 · the hero breathes and lifts away under the scroll */
-    gsap.timeline({ scrollTrigger: { trigger: "#overture", start: "top top",
-      end: "bottom top", scrub: 0.6 } })
-      .fromTo("#ovMedia img", { scale: 1.14, yPercent: 0 },
-                              { scale: 1.0, yPercent: -7, ease: "none" }, 0)
-      .to(".ov-inner", { yPercent: -14, opacity: 0.15, ease: "none" }, 0);
-
-    /* ACT I · the name, meanings replacing each other on the scrub */
-    const words = $$(".name-word");
-    const nameTl = gsap.timeline({ scrollTrigger: { trigger: "#name", start: "top top",
-      end: "+=200%", pin: true, scrub: 0.7 } });
-    nameTl.fromTo("#nameMark", { scale: 0.72, opacity: 0 },
-                               { scale: 1, opacity: 0.12, ease: "none", duration: 1 }, 0);
-    words.forEach((w, i) => {
-      nameTl.fromTo(w, { opacity: 0, y: 46, filter: "blur(9px)" },
-        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.7, ease: "power2.out" }, 0.55 + i * 0.9);
-      if (i < words.length - 1) {
-        nameTl.to(w, { opacity: 0, y: -46, filter: "blur(9px)", duration: 0.55,
-          ease: "power2.in" }, 0.55 + i * 0.9 + 0.72);
-      }
-    });
-    nameTl.fromTo("#nameTail", { opacity: 0, y: 26 },
-      { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.55 + words.length * 0.9);
-    nameTl.fromTo("#namePhoto", { yPercent: 22 }, { yPercent: -14, ease: "none",
-      duration: nameTl.duration() }, 0);
-
-    /* the full bleed wrist shot drifts */
-    gsap.fromTo("#wornImg", { yPercent: -9, scale: 1.12 }, { yPercent: 9, scale: 1.12,
-      ease: "none", scrollTrigger: { trigger: "#worn", start: "top bottom",
-        end: "bottom top", scrub: 0.5 } });
-
-    /* the price counts up when it lands */
-    const pn = $("#priceN");
-    if (pn) {
-      const obj = { v: 0 };
-      gsap.to(obj, { v: 4999, duration: 1.5, ease: "power2.out",
-        scrollTrigger: { trigger: "#priceEl", start: "top 85%" },
-        onUpdate: () => { pn.textContent = Math.round(obj.v).toLocaleString("en-IN"); } });
-    }
-
-    /* the twenty numbers arrive one by one */
-    gsap.to(".ed-cell", { opacity: 1, duration: 0.5, ease: "power1.out",
-      stagger: { each: 0.045, from: "start" },
-      scrollTrigger: { trigger: "#edGrid", start: "top 84%" } });
-
-    /* every .rv element rises into place */
-    $$(".rv").forEach(el => {
-      gsap.to(el, { opacity: 1, y: 0, duration: 1.05, ease: "power3.out",
-        scrollTrigger: { trigger: el, start: "top 88%" } });
-    });
-
-    /* the close: the second hand stops, and the copy says so */
-    ScrollTrigger.create({
-      trigger: "#buy", start: "top 55%",
-      onEnter: () => {
-        stopped = true;
-        instr.style.setProperty("--prog", "1");
-        if (arc) arc.style.strokeDashoffset = "0";
-        if (pct) pct.textContent = "END";
-      },
-      onLeaveBack: () => { stopped = false; progress(); }
-    });
-
-    /* Pinning moves elements out of normal flow, so offsetTop stops telling
-       the truth. Hand the ground over to ScrollTrigger, which knows where
-       every section really starts. */
-    removeEventListener("scroll", ground);
-    removeEventListener("resize", ground);
-    grounds.forEach((el, i) => {
-      ScrollTrigger.create({
-        trigger: el, start: "top 55%", end: "bottom 55%",
-        onEnter:     () => setGround(el.dataset.ground),
-        onEnterBack: () => setGround(el.dataset.ground)
-      });
-      if (i === 0) setGround(el.dataset.ground);
-    });
-
-    /* The buy bar arrives once the visitor has met the watch and its specs,
-       not on the first screen where they have been sold nothing yet. */
-    ScrollTrigger.create({
-      trigger: "#edition", start: "top 90%",
-      onEnter:     () => { barEarned = true;  chrome(); },
-      onLeaveBack: () => { barEarned = false; chrome(); }
-    });
-
-    ScrollTrigger.addEventListener("refresh", () => { chrome(); });
-    addEventListener("load", () => ScrollTrigger.refresh());
+  /* ---------- the quiet persistent CTA, from scene 2 onward ---------- */
+  // The persistent CTA is observed, not polled. It appears once the opening
+  // scene is behind you and hides only while the close is genuinely on screen,
+  // so the footer is never a dead end.
+  var closeEl = doc.getElementById("close");
+  var pastFold = false, closeOnScreen = false;
+  function syncChip() { always.classList.toggle("on", pastFold && !closeOnScreen); }
+  function watchChip() {
+    new IntersectionObserver(function (e) {
+      pastFold = !e[0].isIntersecting; syncChip();
+    }, { threshold: 0 }).observe(scenes[0]);
+    new IntersectionObserver(function (e) {
+      closeOnScreen = e[0].isIntersecting; syncChip();
+    }, { rootMargin: "-25% 0px -25% 0px", threshold: 0 }).observe(closeEl);
   }
 
-  let started = false;
-  function boot() { if (started) return; started = true; scenes(); }
-  if (document.readyState === "complete") boot();
-  else addEventListener("load", boot, { once: true });
-  setTimeout(boot, 4000);   // CDN blocked or slow: show the static page rather than nothing
+  /* ---------- one scroll value, 0 to 1 ---------- */
+  var progress = 0, eased = 0, scrollMax = 0;
+  function readScroll() {                       // scrollY only — no layout read
+    progress = scrollMax > 0
+      ? Math.min(1, Math.max(0, (window.scrollY || root.scrollTop) / scrollMax)) : 0;
+  }
+
+  /* scene depths derive from where each section actually sits, so the camera
+     arrives at a scene's geometry exactly as its caption centres */
+  var CAM_START = 4, CAM_END = -33;
+  var spans = [], centres = [];
+  function zAt(f) { return CAM_START + (CAM_END - CAM_START) * f; }
+  function measure() {
+    var max = doc.documentElement.scrollHeight - innerHeight;
+    scrollMax = max;
+    var y = window.scrollY || root.scrollTop;
+    centres = [];
+    spans = scenes.map(function (s) {
+      var r = s.getBoundingClientRect(), top = r.top + y;
+      var cl = function (v) { return Math.min(1, Math.max(0, v)); };
+      centres.push(cl(max > 0 ? (top + r.height / 2 - innerHeight * 0.5) / max : 0));
+      return { a: cl(max > 0 ? (top - innerHeight * 0.5) / max : 0),
+               b: cl(max > 0 ? (top + r.height - innerHeight * 0.5) / max : 0) };
+    });
+  }
+  // Ownership is measured from a scene's centre out to its neighbours' centres.
+  // At its own centre a scene's geometry is fully present; at the next scene's
+  // centre it is exactly gone. Two actors can never crowd one frame.
+  function ownership(i, prog) {
+    var c = centres[i]; if (c == null) return 0;
+    var prev = centres[i - 1] != null ? centres[i - 1] : c - 0.1;
+    var next = centres[i + 1] != null ? centres[i + 1] : c + 0.1;
+    var reach = prog < c ? c - prev : next - c;
+    if (reach <= 0) return 0;
+    var t = 1 - Math.abs(prog - c) / reach;
+    if (t <= 0) return 0;
+    t = Math.min(1, t / 0.62);                 // hold full through the middle
+    return t * t * (3 - 2 * t);                // smoothstep the edges
+  }
+
+  if (reduced) { watchChip(); return; }
+
+  measure(); readScroll(); watchChip();
+  // a phone's URL bar fires resize on every scroll direction change; debounce it
+  var reTimer;
+  addEventListener("resize", function () {
+    clearTimeout(reTimer);
+    reTimer = setTimeout(function () { measure(); readScroll(); }, 120);
+  }, { passive: true });
+  addEventListener("scroll", readScroll, { passive: true });
+
+  /* ===================================================================
+     Depth stage. A dust field with its own perspective divide, ~2KB, running
+     everywhere. The photographs carry the scenes; this carries the air.
+     =================================================================== */
+  var dustCanvas = doc.getElementById("dust");
+  var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+  addEventListener("pointermove", function (e) {
+    mouse.tx = (e.clientX / innerWidth - 0.5) * 2;
+    mouse.ty = (e.clientY / innerHeight - 0.5) * 2;
+  }, { passive: true });
+
+  var running = true;
+  doc.addEventListener("visibilitychange", function () {
+    running = !doc.hidden; if (running) requestAnimationFrame(frame);
+  });
+
+  /* ---------- Tier 1 ---------- */
+  var ctx = dustCanvas.getContext("2d", { alpha: true });
+  var dpr = Math.min(2, devicePixelRatio || 1), W = 0, H = 0;
+  var motes = [];
+  for (var i = 0; i < 130; i++) {
+    motes.push({ x: (Math.random() - .5) * 26, y: (Math.random() - .5) * 16, z: -Math.random() * 40 + 4,
+                 r: Math.random() * .9 + .25, a: Math.random() * .5 + .12 });
+  }
+  function sizeCanvas() {
+    dpr = Math.min(2, devicePixelRatio || 1);
+    W = dustCanvas.width = Math.floor(innerWidth * dpr);
+    H = dustCanvas.height = Math.floor(innerHeight * dpr);
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  sizeCanvas();
+  addEventListener("resize", sizeCanvas, { passive: true });
+
+  function drawDust(camZ) {
+    var w = innerWidth, h = innerHeight, f = h * 0.9;
+    ctx.clearRect(0, 0, w, h);
+    for (var i = 0; i < motes.length; i++) {
+      var m = motes[i], dz = m.z - camZ;
+      if (dz > -0.4) continue;                       // behind the camera
+      var s = f / -dz;
+      var x = w / 2 + (m.x - mouse.x * 0.5) * s;
+      var y = h / 2 + (m.y - mouse.y * 0.35) * s;
+      if (x < -20 || x > w + 20 || y < -20 || y > h + 20) continue;
+      var fade = Math.max(0, Math.min(1, 1 - (-dz) / 34));
+      ctx.globalAlpha = m.a * fade * 0.6;
+      ctx.fillStyle = "#E8E4DC";
+      ctx.beginPath(); ctx.arc(x, y, Math.max(.3, m.r * s * .02), 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame() {
+    if (!running) return;
+    eased += (progress - eased) * 0.085;
+    mouse.x += (mouse.tx - mouse.x) * 0.045;
+    mouse.y += (mouse.ty - mouse.y) * 0.045;
+    var camZ = CAM_START + (CAM_END - CAM_START) * eased;
+    drawDust(camZ);
+    drawSeq(eased);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- the twenty-seven frame sequence, scrubbed by scroll ----------
+     Three.js used to live here. It existed to stand in for photography that did
+     not exist yet. The photographs are in now, so 600 KB of WebGL would only
+     muddy them and cost every desktop visitor the download. This is what
+     replaces it: the real frames, driven by the same scroll value. */
+  var SEQ_N = 27;
+  var seqImgs = [], seqDone = 0, seqReady = false, seqStarted = false, seqCtx = null;
+  var seqCanvas = doc.getElementById("seq"), seqFallback = doc.getElementById("seqfallback");
+
+  function startSeq() {
+    if (seqStarted || reduced || !seqCanvas) return;
+    // 1.1 MB of frames is a desktop luxury, never a cost on cellular
+    if (!matchMedia("(min-width: 760px) and (pointer: fine)").matches) return;
+    seqStarted = true;
+    for (var i = 1; i <= SEQ_N; i++) {
+      (function (n) {
+        var im = new Image();
+        im.decoding = "async";
+        im.onload = im.onerror = function () {
+          if (++seqDone === SEQ_N) {
+            seqReady = true;
+            seqCanvas.hidden = false;
+            if (seqFallback) seqFallback.hidden = true;
+          }
+        };
+        im.src = "assets/seq/frame-" + ("00" + n).slice(-3) + ".webp";
+        seqImgs[n - 1] = im;
+      })(i);
+    }
+  }
+
+  function drawSeq(prog) {
+    if (!seqReady) return;
+    var sp = spans[6];
+    if (!sp || sp.b <= sp.a) return;
+    var t = Math.min(1, Math.max(0, (prog - sp.a) / (sp.b - sp.a)));
+    var im = seqImgs[Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)))];
+    if (!im || !im.complete || !im.naturalWidth) return;
+    if (!seqCtx) seqCtx = seqCanvas.getContext("2d");
+    if (!seqCtx) return;
+    var d = Math.min(2, devicePixelRatio || 1);
+    var w = Math.round(seqCanvas.clientWidth * d), h = Math.round(seqCanvas.clientHeight * d);
+    if (!w || !h) return;
+    if (seqCanvas.width !== w || seqCanvas.height !== h) { seqCanvas.width = w; seqCanvas.height = h; }
+    var s = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+    seqCtx.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
 })();
 </script>
 </body>

@@ -90,20 +90,45 @@ main{position:relative;z-index:3}
 @media (max-width:640px){.sc .in{padding-bottom:5.2rem}}
 .no-js .in,.reduced .in{opacity:1;transform:none;transition:none}
 
-/* ---------- photography ---------- */
-.shot{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);
+/* ---------- photography ----------
+   The photograph is a framed still standing in the upper part of the frame.
+   It is not a background the type sits on top of, and two things follow from
+   that — both of which matter more than the composition does.
+
+   Legibility. Bone on void is 15.7:1. Bone over a lit dial is a coin toss,
+   and the build before this one had to pour a vignette over every photograph
+   to win that toss, which is exactly why the images read as murky. Move the
+   type off the picture and the vignette stops being load bearing, so the
+   photographs are allowed to be bright.
+
+   Sharpness. A 1200 px photograph stretched across a 2560 px monitor is being
+   asked for detail it does not have, and no amount of shader can invent it.
+   Held to a 1180 px plate it is doubled at worst on a retina panel and
+   exactly itself on everything else. That is the whole fix for "not blurry",
+   and it costs nothing but restraint.
+
+   --pl-top and --pl-h define the band. The WebGL tier reads these same two
+   computed values and projects its plate into the same rectangle, so the two
+   tiers frame the shot identically and switching between them cannot jump. */
+.has-plate{--pl-top:9svh;--pl-h:46svh;--pl-gap:63svh}
+.sc[data-sc="3"]{--pl-top:8svh;--pl-h:44svh;--pl-gap:60svh}
+.sc[data-sc="7"]{--pl-top:5svh;--pl-h:29svh;--pl-gap:39svh}
+.has-plate .hold{align-items:flex-start;padding-top:var(--pl-gap);padding-bottom:4svh}
+.shot{position:absolute;top:var(--pl-top);left:50%;transform:translateX(-50%);
+  width:min(calc(100vw - 2 * var(--gut)),1180px);height:var(--pl-h);
   z-index:-1;overflow:hidden;pointer-events:none;
   opacity:0;transition:opacity 1.5s var(--ease)}
 .sc.lit .shot{opacity:1}
 .shot img,.shot canvas{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;display:block;transform:scale(1.1);
+  object-fit:cover;display:block;transform:scale(1.06);
   transition:transform 2.6s var(--ease)}
 .sc.lit .shot img,.sc.lit .shot canvas{transform:scale(1)}
-/* the vignette is what keeps the type legible over a photograph and lets the
-   dial printing read as texture rather than as something to be read */
+/* A light scrim only. It settles the corners into the void and keeps the
+   printing on the dials reading as texture; it is no longer holding up any
+   text, so it no longer has to drown the picture. */
 .shot::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(115% 88% at 50% 45%,rgba(10,9,8,.38) 0%,rgba(10,9,8,.80) 55%,var(--void) 100%)}
-.shot.deep::after{background:radial-gradient(120% 92% at 50% 48%,rgba(10,9,8,.58) 0%,rgba(10,9,8,.88) 52%,var(--void) 100%)}
+  background:radial-gradient(128% 100% at 50% 46%,transparent 34%,rgba(10,9,8,.42) 78%,rgba(10,9,8,.86) 100%)}
+.shot.deep::after{background:radial-gradient(128% 100% at 50% 46%,transparent 28%,rgba(10,9,8,.52) 74%,rgba(10,9,8,.9) 100%)}
 .no-js .shot,.reduced .shot{opacity:1}
 .no-js .shot img,.reduced .shot img{transform:none}
 
@@ -223,6 +248,17 @@ footer a:hover{color:var(--bone)}
 .legalbar{margin-top:clamp(2.4rem,6vw,3.6rem);padding-top:1.6rem;border-top:1px solid var(--ash);
   display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;font-size:.74rem;color:var(--mute)}
 
+/* ---------- the WebGL tier ----------
+   When the corridor is real the DOM photographs become texture sources and
+   nothing more: they stay in the document, decoded, and stop being painted.
+   The fixed vignette also steps back, because every plate now carries its
+   own scrim in the shader and two of them stacked reads as mud. */
+.gl .shot{opacity:0!important;transition:none}
+.gl .shot::after{display:none}
+.gl #dust{display:none}
+.gl #vignette{background:radial-gradient(125% 90% at 50% 45%,transparent 52%,rgba(10,9,8,.5) 100%)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+
 /* ---------- reduced motion: settle everything, run nothing ---------- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -234,6 +270,14 @@ footer a:hover{color:var(--bone)}
   .trio div{flex:1 1 100%;border-left:0;border-top:1px solid var(--ash)}
   .trio div:first-child{border-top:0}
 }
+/* A 16:9 plate in a portrait frame is short and wide, so a band that reads as
+   generous on a laptop reads as a hole on a phone. Tighten it, and close the
+   distance to the line underneath. */
+@media (max-width:700px){
+  .has-plate{--pl-top:8svh;--pl-h:34svh;--pl-gap:46svh}
+  .sc[data-sc="3"]{--pl-top:7svh;--pl-h:32svh;--pl-gap:43svh}
+  .sc[data-sc="7"]{--pl-top:5svh;--pl-h:25svh;--pl-gap:33svh}
+}
 @media print{#stage,#grain,#vignette,#always{display:none}}
 </style>
 </head>
@@ -241,7 +285,7 @@ footer a:hover{color:var(--bone)}
 
 <a class="skip" href="#close">Skip to the close</a>
 
-<div id="stage" aria-hidden="true"><canvas id="dust"></canvas></div>
+<div id="stage" aria-hidden="true"><canvas id="gl"></canvas><canvas id="dust"></canvas></div>
 <div id="vignette" aria-hidden="true"></div>
 <div id="grain" aria-hidden="true"></div>
 
@@ -265,9 +309,9 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 2 — REVEAL -->
-  <section class="sc" data-sc="2" style="min-height:110svh">
+  <section class="sc has-plate" data-sc="2" style="min-height:110svh">
     <div class="hold">
-      <div class="shot" aria-hidden="true"><img src="assets/img/green-768.webp" srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w" sizes="100vw" alt="" decoding="async"></div>
+      <div class="shot" aria-hidden="true" data-plate="reveal"><img src="assets/img/green-768.webp" srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" decoding="async"></div>
 <div class="in">
       <p class="count" aria-label="Zero one to twenty"><span>01</span><i></i><span>20</span></p>
       <p class="lede">Twenty pieces. One design. Never repeated.</p>
@@ -275,9 +319,12 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 3 — COLOURWAY -->
-  <section class="sc" data-sc="3" style="min-height:135svh">
+  <section class="sc has-plate" data-sc="3" style="min-height:190svh">
     <div class="hold">
-      <div class="shot deep" aria-hidden="true"><img src="assets/img/approach-768.webp" srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+      <div class="shot deep" id="seqshot" data-plate="sequence" aria-hidden="true">
+        <img id="seqfallback" src="assets/img/approach-768.webp" srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" decoding="async">
+        <canvas id="seq" hidden></canvas>
+      </div>
 <div class="in">
       <h2>One case.<br>Four faces.<br>Twenty pieces.</h2>
       <div class="ways">
@@ -297,9 +344,9 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 5 — PRECISION -->
-  <section class="sc" data-sc="5" style="min-height:115svh">
+  <section class="sc has-plate" data-sc="5" style="min-height:115svh">
     <div class="hold">
-      <div class="shot" aria-hidden="true"><img src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+      <div class="shot" aria-hidden="true" data-plate="precision"><img src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
 <div class="in">
       <p class="eng dim">Three functions</p>
       <div class="trio">
@@ -312,9 +359,9 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 6 — 24-MONTH BACKING -->
-  <section class="sc" data-sc="6" style="min-height:105svh">
+  <section class="sc has-plate" data-sc="6" style="min-height:105svh">
     <div class="hold">
-      <div class="shot deep" aria-hidden="true"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+      <div class="shot deep" aria-hidden="true" data-plate="backing"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
 <div class="in">
       <h2>Every movement,<br>held to 24 months.</h2>
       <p class="lede wide">Not by a name you’ve heard of — by the piece itself.</p>
@@ -322,12 +369,9 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 7 — NUMBERED ENGRAVING -->
-  <section class="sc" data-sc="7" style="min-height:140svh">
+  <section class="sc has-plate" data-sc="7" style="min-height:140svh">
     <div class="hold">
-      <div class="shot deep" id="seqshot" aria-hidden="true">
-        <img id="seqfallback" src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async">
-        <canvas id="seq" hidden></canvas>
-      </div>
+      <div class="shot deep" data-plate="engraving" aria-hidden="true"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
 <div class="in">
       <div class="back" role="img" aria-label="Caseback engraving reading Series 01, Limited Edition Number 07">
         <p class="eng">SERIES 01</p>
@@ -367,9 +411,9 @@ footer a:hover{color:var(--bone)}
   </section>
 
   <!-- 10 — CLOSE -->
-  <section class="sc" data-sc="10" id="close" style="min-height:135svh">
+  <section class="sc has-plate" data-sc="10" id="close" style="min-height:135svh">
     <div class="hold">
-      <div class="shot deep" aria-hidden="true"><img src="assets/img/lineup-768.webp" srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+      <div class="shot deep" aria-hidden="true" data-plate="close"><img src="assets/img/lineup-768.webp" srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
 <div class="in">
       <h2>Not built for many.</h2>
       <p class="lede wide">Built for twenty who weren’t going to wait for a version two — and don’t need one.</p>
@@ -539,17 +583,29 @@ const KAAL = {
   /* scene depths derive from where each section actually sits, so the camera
      arrives at a scene's geometry exactly as its caption centres */
   var CAM_START = 4, CAM_END = -33;
-  var spans = [], centres = [];
+  var spans = [], centres = [], holdTop = [], holdEnd = [];
   function zAt(f) { return CAM_START + (CAM_END - CAM_START) * f; }
   function measure() {
     var max = doc.documentElement.scrollHeight - innerHeight;
     scrollMax = max;
     var y = window.scrollY || root.scrollTop;
-    centres = [];
+    centres = []; holdTop = []; holdEnd = [];
     spans = scenes.map(function (s) {
       var r = s.getBoundingClientRect(), top = r.top + y;
       var cl = function (v) { return Math.min(1, Math.max(0, v)); };
       centres.push(cl(max > 0 ? (top + r.height / 2 - innerHeight * 0.5) / max : 0));
+
+      /* Where this scene's caption is pinned, and where it starts sliding.
+         A sticky hold rides the top of the frame from the moment its section
+         reaches it until the section's bottom catches its own bottom edge —
+         after that it scrolls away like anything else. The WebGL plate has to
+         know both numbers, or the photograph hangs in the air while the words
+         underneath it leave without it. */
+      var hold = s.querySelector(".hold");
+      var hh = hold ? hold.getBoundingClientRect().height : innerHeight;
+      holdTop.push(top);
+      holdEnd.push(top + r.height - hh);
+
       return { a: cl(max > 0 ? (top - innerHeight * 0.5) / max : 0),
                b: cl(max > 0 ? (top + r.height - innerHeight * 0.5) / max : 0) };
     });
@@ -572,19 +628,60 @@ const KAAL = {
   if (reduced) { watchChip(); return; }
 
   measure(); readScroll(); watchChip();
-  // a phone's URL bar fires resize on every scroll direction change; debounce it
+
+  /* Every depth in the world is derived from where a section actually sits,
+     so a stale measurement is not a rounding error — it points the camera at
+     the wrong scene. The first measurement is taken before the webfonts have
+     swapped in, and Fraunces is a different height from Times, so every
+     section below the first moves the moment it lands. Left unwatched, the
+     photograph for one scene is still filling the frame when the next scene
+     centres, which is exactly the fault this hunted down.
+
+     A ResizeObserver on the scroll body catches all of it — fonts swapping,
+     images landing, a phone's URL bar collapsing — without polling and
+     without reading a rect on the scroll path. */
+  function remeasure() { measure(); readScroll(); if (world) world.layout(); }
+
   var reTimer;
-  addEventListener("resize", function () {
+  function remeasureSoon() {
     clearTimeout(reTimer);
-    reTimer = setTimeout(function () { measure(); readScroll(); }, 120);
-  }, { passive: true });
+    reTimer = setTimeout(remeasure, 120);       // coalesce bursts into one read
+  }
+  addEventListener("resize", remeasureSoon, { passive: true });
   addEventListener("scroll", readScroll, { passive: true });
+  addEventListener("load", remeasureSoon, { passive: true });
+  if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(remeasureSoon).catch(function () {});
+  if (window.ResizeObserver) {
+    new ResizeObserver(remeasureSoon).observe(doc.getElementById("scroll"));
+  }
 
   /* ===================================================================
-     Depth stage. A dust field with its own perspective divide, ~2KB, running
-     everywhere. The photographs carry the scenes; this carries the air.
+     THE WORLD.
+
+     Two tiers, chosen at runtime, both driven by the same single scroll
+     value. Neither is a downgrade of the other; they are two ways of
+     drawing the same corridor.
+
+       Tier A  WebGL. A real PerspectiveCamera dollies from z +4 to z -34.
+               The photographs are textures on planes standing at fixed
+               depths along that corridor, so the parallax between them is
+               computed by a projection matrix rather than faked by a
+               transform. Dust is a point cloud with its own perspective
+               divide. Haze planes pass the lens. Desktop only: it costs
+               600 KB of library and a WebGL context, and neither belongs
+               on a mid-range Android on cellular data.
+
+       Tier B  The same photographs as DOM images, the same scroll value,
+               a 2 KB dust field that does its own perspective divide.
+               This is what phones, reduced-motion and no-WebGL get, and
+               it is the tier the ad budget actually lands on.
      =================================================================== */
+
+  var world = null;
+  var stage = doc.getElementById("stage");
   var dustCanvas = doc.getElementById("dust");
+  var glCanvas = doc.getElementById("gl");
+
   var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   addEventListener("pointermove", function (e) {
     mouse.tx = (e.clientX / innerWidth - 0.5) * 2;
@@ -596,7 +693,7 @@ const KAAL = {
     running = !doc.hidden; if (running) requestAnimationFrame(frame);
   });
 
-  /* ---------- Tier 1 ---------- */
+  /* ---------- Tier B: the dust field, ~2 KB, running until GL takes over ---- */
   var ctx = dustCanvas.getContext("2d", { alpha: true });
   var dpr = Math.min(2, devicePixelRatio || 1), W = 0, H = 0;
   var motes = [];
@@ -631,26 +728,16 @@ const KAAL = {
     ctx.globalAlpha = 1;
   }
 
-  function frame() {
-    if (!running) return;
-    eased += (progress - eased) * 0.085;
-    mouse.x += (mouse.tx - mouse.x) * 0.045;
-    mouse.y += (mouse.ty - mouse.y) * 0.045;
-    var camZ = CAM_START + (CAM_END - CAM_START) * eased;
-    drawDust(camZ);
-    drawSeq(eased);
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-
   /* ---------- the twenty-seven frame sequence, scrubbed by scroll ----------
-     Three.js used to live here. It existed to stand in for photography that did
-     not exist yet. The photographs are in now, so 600 KB of WebGL would only
-     muddy them and cost every desktop visitor the download. This is what
-     replaces it: the real frames, driven by the same scroll value. */
+     Shared by both tiers. Tier B paints it into its own canvas; Tier A hands
+     the same canvas to the GPU as a texture, re-uploading only on the frames
+     where the index actually changes — twenty-seven times over the whole
+     scene, not sixty times a second. */
   var SEQ_N = 27;
+  var SEQ_SCENE = 2;                 // scene 3, zero-indexed — "One case. Four faces."
   var seqImgs = [], seqDone = 0, seqReady = false, seqStarted = false, seqCtx = null;
   var seqCanvas = doc.getElementById("seq"), seqFallback = doc.getElementById("seqfallback");
+  var seqIndex = -1, seqDirty = false;
 
   function startSeq() {
     if (seqStarted || reduced || !seqCanvas) return;
@@ -664,8 +751,7 @@ const KAAL = {
         im.onload = im.onerror = function () {
           if (++seqDone === SEQ_N) {
             seqReady = true;
-            seqCanvas.hidden = false;
-            if (seqFallback) seqFallback.hidden = true;
+            if (!glOn) { seqCanvas.hidden = false; if (seqFallback) seqFallback.hidden = true; }
           }
         };
         im.src = "assets/seq/frame-" + ("00" + n).slice(-3) + ".webp";
@@ -676,21 +762,447 @@ const KAAL = {
 
   function drawSeq(prog) {
     if (!seqReady) return;
-    var sp = spans[6];
+    var sp = spans[SEQ_SCENE];
     if (!sp || sp.b <= sp.a) return;
     var t = Math.min(1, Math.max(0, (prog - sp.a) / (sp.b - sp.a)));
-    var im = seqImgs[Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)))];
+    // The move was recorded pushing in on the row of four. Played backwards it
+    // pulls out from one dial to all four, which is the sentence this scene is
+    // already making — one case, four faces — so the camera says it too.
+    var idx = (SEQ_N - 1) - Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)));
+    var im = seqImgs[idx];
     if (!im || !im.complete || !im.naturalWidth) return;
     if (!seqCtx) seqCtx = seqCanvas.getContext("2d");
     if (!seqCtx) return;
-    var d = Math.min(2, devicePixelRatio || 1);
-    var w = Math.round(seqCanvas.clientWidth * d), h = Math.round(seqCanvas.clientHeight * d);
-    if (!w || !h) return;
+
+    // Under GL the canvas is a texture source, so it is sized to the frame
+    // itself: no resample on the way in, no resample the shader has to undo.
+    var w, h;
+    if (glOn) {
+      w = im.naturalWidth; h = im.naturalHeight;
+      if (idx === seqIndex) return;                  // nothing changed, no upload
+    } else {
+      var d = Math.min(2, devicePixelRatio || 1);
+      w = Math.round(seqCanvas.clientWidth * d);
+      h = Math.round(seqCanvas.clientHeight * d);
+      if (!w || !h) return;
+    }
     if (seqCanvas.width !== w || seqCanvas.height !== h) { seqCanvas.width = w; seqCanvas.height = h; }
     var s = Math.max(w / im.naturalWidth, h / im.naturalHeight);
     var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
     seqCtx.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    seqIndex = idx; seqDirty = true;
   }
+
+  /* ===================================================================
+     Tier A — the WebGL corridor
+     =================================================================== */
+
+  /* declared here so remeasure() above can reach it before liftOff builds it */
+  var glOn = false;
+
+  function glWanted() {
+    if (reduced) return false;
+    // A WebGL context and 600 KB of library are a desktop luxury. The phone
+    // gets Tier B, which is the tier the ad spend actually lands on.
+    if (!matchMedia("(min-width: 900px) and (pointer: fine)").matches) return false;
+    try {
+      var c = doc.createElement("canvas");
+      return !!(window.WebGLRenderingContext &&
+                (c.getContext("webgl") || c.getContext("experimental-webgl")));
+    } catch (e) { return false; }
+  }
+
+  var PLATE_VERT = [
+    "varying vec2 vUv;",
+    "void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }"
+  ].join("\n");
+
+  /* The plate shader is doing three jobs at once, and each one is load bearing.
+
+     sharpen  An unsharp mask. The photographs are 1200 px on the long edge and
+              a plate is wider than that on a retina desktop, so the GPU is
+              magnifying. Re-adding the difference between the texel and its
+              four neighbours restores the acutance that bilinear magnification
+              takes out. It is the difference between "a photo scaled up" and
+              "a photo", and it costs four extra taps.
+     feather  The plate has no edge. A rectangle floating in space reads as a
+              picture pasted onto a page; a plate whose alpha falls to nothing
+              before it ends reads as light in a room. This is what makes the
+              photographs part of the world instead of on top of it.
+     scrim    A radial darkening. It is what keeps bone type legible over a
+              photograph, and it keeps the printing on the dials reading as
+              texture rather than as something a visitor stops to read. */
+  var PLATE_FRAG = [
+    "precision highp float;",
+    "uniform sampler2D map;",
+    "uniform vec2  texel;",
+    "uniform vec2  uvScale;",
+    "uniform float sharpen;",
+    "uniform float opacity;",
+    "uniform vec2  feather;",
+    "uniform float scrim;",
+    "varying vec2 vUv;",
+    "void main(){",
+    "  vec2 uv = (vUv - 0.5) * uvScale + 0.5;",
+    "  vec3 c = texture2D(map, uv).rgb;",
+    "  vec3 b = (texture2D(map, uv + vec2(texel.x, 0.0)).rgb",
+    "         +  texture2D(map, uv - vec2(texel.x, 0.0)).rgb",
+    "         +  texture2D(map, uv + vec2(0.0, texel.y)).rgb",
+    "         +  texture2D(map, uv - vec2(0.0, texel.y)).rgb) * 0.25;",
+    "  c = clamp(c + (c - b) * sharpen, 0.0, 1.0);",
+    "  vec2 d = abs(vUv - 0.5) * 2.0;",
+    "  float e = (1.0 - smoothstep(1.0 - feather.x, 1.0, d.x))",
+    "          * (1.0 - smoothstep(1.0 - feather.y, 1.0, d.y));",
+    "  float r = length((vUv - 0.5) * vec2(1.12, 1.0));",
+    "  float vig = 1.0 - smoothstep(0.24, 0.80, r) * scrim;",
+    "  gl_FragColor = vec4(c * vig, opacity * e);",
+    "}"
+  ].join("\n");
+
+  var DUST_VERT = [
+    "attribute float aSize;",
+    "attribute float aAlpha;",
+    "uniform float uPix;",
+    "varying float vA;",
+    "void main(){",
+    "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+    "  float dist = -mv.z;",
+    "  vA = aAlpha * smoothstep(44.0, 8.0, dist) * smoothstep(0.4, 3.0, dist);",
+    "  gl_PointSize = clamp(aSize * uPix / max(dist, 0.001), 0.4, 22.0);",
+    "  gl_Position = projectionMatrix * mv;",
+    "}"
+  ].join("\n");
+
+  var DUST_FRAG = [
+    "precision mediump float;",
+    "varying float vA;",
+    "void main(){",
+    "  vec2 p = gl_PointCoord - 0.5;",
+    "  float d = length(p);",
+    "  if (d > 0.5) discard;",
+    "  gl_FragColor = vec4(0.910, 0.894, 0.863, (1.0 - smoothstep(0.0, 0.5, d)) * vA);",
+    "}"
+  ].join("\n");
+
+  /* A plate is 1200 px on the long edge. Past about this width in CSS pixels
+     it is being asked to cover more screen than it has detail for, and the
+     unsharp mask starts sharpening its own interpolation. Capping the plate
+     is what keeps the photograph looking like a photograph.
+     Raise this the day 4K sources land in assets/img — see README. */
+  var PLATE_MAX_CSS_W = 1240;
+
+  /* How far in front of the lens a plate stands when its scene centres.
+
+     This number is the whole argument between "real perspective" and "a
+     layout that holds still". The camera crosses roughly 3.7 world units
+     between one scene centre and the next, so a plate held 6 units away
+     swells about 2.4x as the camera passes it — genuinely three
+     dimensional, and it walks straight through the caption underneath.
+     Held 12 units away the same pass is about 1.12x: still a real
+     projection, still parallax against dust that sits at its own depths,
+     but a swell the frame can absorb. Depth you can feel beats depth that
+     breaks the page. */
+  var FOCUS = 12;
+
+  function smooth(a, b, x) {                     // the GLSL smoothstep, in JS
+    var t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+
+  function buildWorld(THREE) {
+    var renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas: glCanvas, alpha: true, antialias: true, powerPreference: "high-performance"
+      });
+    } catch (e) { return null; }
+
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    renderer.setSize(innerWidth, innerHeight, false);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 120);
+    var maxAniso = renderer.capabilities.getMaxAnisotropy();
+    var quad = new THREE.PlaneGeometry(1, 1);
+
+    /* ---- the photographs, standing at their own depths ---- */
+    var plates = [];
+    [].forEach.call(doc.querySelectorAll("[data-plate]"), function (holder) {
+      var sceneEl = holder.closest(".sc");
+      var idx = scenes.indexOf(sceneEl);
+      if (idx < 0) return;
+
+      var isSeq = holder.getAttribute("data-plate") === "sequence";
+      var src = isSeq ? seqCanvas : holder.querySelector("img");
+      if (!src) return;
+
+      var tex = new THREE.Texture(src);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.minFilter = THREE.LinearFilter;         // 1200x675 is not power-of-two:
+      tex.magFilter = THREE.LinearFilter;         // no mipmaps in WebGL1, and we
+      tex.generateMipmaps = false;                // only ever magnify anyway
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.anisotropy = maxAniso;
+
+      var mat = new THREE.ShaderMaterial({
+        uniforms: {
+          map:     { value: tex },
+          texel:   { value: new THREE.Vector2(1 / 1200, 1 / 675) },
+          uvScale: { value: new THREE.Vector2(1, 1) },
+          sharpen: { value: 0.40 },
+          opacity: { value: 0 },
+          feather: { value: new THREE.Vector2(0.20, 0.34) },
+          scrim:   { value: holder.classList.contains("deep") ? 0.34 : 0.24 }
+        },
+        vertexShader: PLATE_VERT,
+        fragmentShader: PLATE_FRAG,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false
+      });
+
+      var mesh = new THREE.Mesh(quad, mat);
+      mesh.renderOrder = 10 - idx;                // far plates draw first
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+
+      var p = { mesh: mesh, mat: mat, tex: tex, idx: idx, isSeq: isSeq,
+                aspect: 16 / 9, holder: holder, ready: false };
+
+      if (isSeq) {
+        p.ready = false;                          // becomes true on the first painted frame
+      } else {
+        var mark = function () {
+          if (!src.naturalWidth) return;
+          p.aspect = src.naturalWidth / src.naturalHeight;
+          mat.uniforms.texel.value.set(1 / src.naturalWidth, 1 / src.naturalHeight);
+          tex.needsUpdate = true; p.ready = true; layout();
+        };
+        if (src.complete && src.naturalWidth) mark();
+        else src.addEventListener("load", mark, { once: true });
+      }
+      plates.push(p);
+    });
+
+    /* ---- dust: a real point cloud with a real perspective divide ---- */
+    var N = 900;
+    var pos = new Float32Array(N * 3), siz = new Float32Array(N), alp = new Float32Array(N);
+    for (var i = 0; i < N; i++) {
+      pos[i * 3]     = (Math.random() - 0.5) * 34;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 22;
+      pos[i * 3 + 2] = 4 - Math.random() * 44;
+      siz[i] = Math.random() * 1.5 + 0.35;
+      alp[i] = Math.random() * 0.20 + 0.03;
+    }
+    var dg = new THREE.BufferGeometry();
+    dg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    dg.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+    dg.setAttribute("aAlpha", new THREE.BufferAttribute(alp, 1));
+    var dm = new THREE.ShaderMaterial({
+      uniforms: { uPix: { value: innerHeight * 0.030 } },
+      vertexShader: DUST_VERT, fragmentShader: DUST_FRAG,
+      transparent: true, depthTest: false, depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    var dust = new THREE.Points(dg, dm);
+    dust.frustumCulled = false;
+    dust.renderOrder = 20;
+    scene.add(dust);
+
+    /* ---- haze: a few very faint slabs the lens passes through, so the
+            corridor has air in it and not just objects ---- */
+    var hazes = [];
+    var hazeMat = function (op) {
+      return new THREE.ShaderMaterial({
+        uniforms: { opacity: { value: op } },
+        vertexShader: PLATE_VERT,
+        fragmentShader: [
+          "precision mediump float;",
+          "uniform float opacity;",
+          "varying vec2 vUv;",
+          "void main(){",
+          "  float r = length(vUv - 0.5) * 2.0;",
+          "  gl_FragColor = vec4(0.44, 0.40, 0.34, (1.0 - smoothstep(0.0, 1.0, r)) * opacity);",
+          "}"
+        ].join("\n"),
+        transparent: true, depthTest: false, depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+    };
+    for (var hz = 0; hz < 5; hz++) {
+      var hm = new THREE.Mesh(quad, hazeMat(0.030 + Math.random() * 0.022));
+      hm.position.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, 2 - hz * 8.5);
+      hm.scale.set(30, 20, 1);
+      hm.renderOrder = 1;
+      hm.frustumCulled = false;
+      scene.add(hm);
+      hazes.push(hm);
+    }
+
+    /* ---- where each plate stands, and how big it is when the camera meets it ---- */
+    /* The stylesheet already decided where the photograph goes. Rather than
+       keep a second copy of that decision in here and watch the two drift, the
+       band is read back off the DOM plate — one getComputedStyle per plate per
+       resize, never on the scroll path — and projected into world units at the
+       focus distance. The two tiers cannot disagree, because there is only one
+       number. */
+    function layout() {
+      var vFov = camera.fov * Math.PI / 180;
+      var visH = 2 * Math.tan(vFov / 2) * FOCUS;   // world units the lens sees at FOCUS
+      var visW = visH * camera.aspect;
+      var vh = innerHeight, vw = innerWidth;
+
+      for (var i = 0; i < plates.length; i++) {
+        var p = plates[i];
+        var cs = getComputedStyle(p.holder);
+        var bandTop = parseFloat(cs.top) || vh * 0.08;
+        var bandH   = parseFloat(cs.height) || vh * 0.5;
+        var bandW   = parseFloat(cs.width) || Math.min(vw, PLATE_MAX_CSS_W);
+        if (bandH <= 0 || bandW <= 0) continue;
+
+        // the band, in world units at the focus distance
+        var wH = visH * (bandH / vh);
+        var wW = visW * (bandW / vw);
+        p.baseW = wW; p.baseH = wH;                 // render() breathes around this
+
+        // its centre, measured down from the top of the frame
+        var cFrac = (bandTop + bandH / 2) / vh;
+        p.baseY = (1 - 2 * cFrac) * (visH / 2);
+        p.mesh.position.z = zAt(centres[p.idx] != null ? centres[p.idx] : 0) - FOCUS;
+
+        // cover-fit, the same crop object-fit:cover gives the DOM tier
+        var bandAspect = bandW / bandH;
+        if (p.aspect > bandAspect) p.mat.uniforms.uvScale.value.set(bandAspect / p.aspect, 1);
+        else                       p.mat.uniforms.uvScale.value.set(1, p.aspect / bandAspect);
+      }
+      // an already-cached photograph fires its load handler while this function
+      // is still being defined, so the dust material may not exist yet
+      if (dm) dm.uniforms.uPix.value = innerHeight * 0.030;
+    }
+
+    function resize() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+      renderer.setSize(innerWidth, innerHeight, false);
+      layout();
+    }
+
+    function render(prog) {
+      camera.position.z = CAM_START + (CAM_END - CAM_START) * prog;
+      // pure translation, no rotation: the parallax stays honest
+      camera.position.x = mouse.x * 0.62;
+      camera.position.y = -mouse.y * 0.38;
+
+      /* Ownership alone is not enough to hide a neighbour. A plate the camera
+         has nearly reached fills the entire frame, so even three percent of it
+         is a full-screen wash over the scene you are actually reading — and
+         the eased camera is always a little behind the scroll, so there is
+         always a little of it. The fix is the one a camera would use: a depth
+         of field. A plate exists only inside a narrow window either side of
+         its focus distance, and since the lens travels about 3.7 units
+         between scene centres, a neighbour is always outside that window no
+         matter how far behind the easing has fallen. */
+      var camZ = camera.position.z;
+      for (var i = 0; i < plates.length; i++) {
+        var p = plates[i];
+        var op = 0;
+        if (p.ready) {
+          var d = camZ - p.mesh.position.z;              // distance in front of the lens
+          var env = smooth(FOCUS - 2.7, FOCUS - 1.3, d) * (1 - smooth(FOCUS + 1.3, FOCUS + 2.7, d));
+          op = ownership(p.idx, prog) * env;
+
+          /* Left to pure perspective a plate grows by 1/d, so a tall scene —
+             scene 3 runs 190svh so the lens can carry the pull-back — swells
+             it about 1.3x and its bottom edge walks down into the caption.
+             Scaling the mesh by (d/FOCUS)^0.65 leaves projected size going as
+             d^-0.35 instead of d^-1: about a nine percent breathe rather than
+             a thirty percent lunge. The plate still sits at its true depth, so
+             it still parallaxes against the dust and the haze, which is where
+             the depth is actually read from. What is given up is a swell the
+             page could not contain anyway. */
+          var k = Math.pow(Math.max(d, 0.001) / FOCUS, 0.65);
+          p.mesh.scale.set(p.baseW * k, p.baseH * k, 1);
+
+          /* Follow the caption. Before the scene arrives its hold sits below
+             the top of the frame; after the sticky window closes the hold
+             climbs out of it. Either way the photograph travels with the words
+             it belongs to, which is the difference between a picture behind
+             the page and a picture on the same page. */
+          var sy = prog * scrollMax;
+          var off = Math.max(0, holdTop[p.idx] - sy) - Math.max(0, sy - holdEnd[p.idx]);
+          var worldPerPx = (2 * Math.tan(camera.fov * Math.PI / 360) * d) / innerHeight;
+          p.mesh.position.y = p.baseY - off * worldPerPx;
+        }
+        p.mat.uniforms.opacity.value = op;
+        p.mesh.visible = op > 0.002;
+      }
+      if (seqDirty) { seqTex && (seqTex.needsUpdate = true); seqDirty = false; }
+      renderer.render(scene, camera);
+    }
+
+    var seqTex = null;
+    for (var pi = 0; pi < plates.length; pi++) {
+      if (plates[pi].isSeq) { seqTex = plates[pi].tex; plates[pi].seqRef = true; }
+    }
+    function noteSeqReady() {
+      for (var i = 0; i < plates.length; i++) {
+        if (plates[i].isSeq && !plates[i].ready && seqCanvas.width) {
+          plates[i].aspect = seqCanvas.width / seqCanvas.height;
+          plates[i].mat.uniforms.texel.value.set(1 / seqCanvas.width, 1 / seqCanvas.height);
+          plates[i].ready = true; layout();
+        }
+      }
+    }
+
+    layout(); resize();
+    return { render: render, resize: resize, layout: layout,
+             noteSeqReady: noteSeqReady, renderer: renderer };
+  }
+
+  /* ---------- bring the library in, but never before the page is up ------- */
+  function liftOff() {
+    if (!glWanted()) return;
+    var s = doc.createElement("script");
+    s.src = "assets/js/three.min.js";
+    s.async = true;
+    s.onload = function () {
+      if (!window.THREE) return;
+      world = buildWorld(window.THREE);
+      if (!world) return;
+      glOn = true;
+      body.classList.add("gl");
+      // the DOM images stay in the document — they are the texture source —
+      // but the browser must stop painting them over the world
+      if (seqFallback) seqFallback.hidden = true;
+      if (seqCanvas) seqCanvas.hidden = true;
+      startSeq();
+      addEventListener("resize", function () { world.resize(); }, { passive: true });
+    };
+    s.onerror = function () { /* Tier B is already running; nothing to undo */ };
+    doc.head.appendChild(s);
+  }
+  if (doc.readyState === "complete") setTimeout(liftOff, 60);
+  else addEventListener("load", function () { setTimeout(liftOff, 60); }, { once: true });
+
+  /* ---------- one frame, both tiers ---------- */
+  function frame() {
+    if (!running) return;
+    eased += (progress - eased) * 0.085;
+    mouse.x += (mouse.tx - mouse.x) * 0.045;
+    mouse.y += (mouse.ty - mouse.y) * 0.045;
+
+    drawSeq(eased);
+    if (glOn && world) {
+      if (seqDirty) world.noteSeqReady();
+      world.render(eased);
+    } else {
+      drawDust(CAM_START + (CAM_END - CAM_START) * eased);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 
 })();
 </script>

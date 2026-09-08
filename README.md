@@ -59,20 +59,21 @@ volume, or buy manually.
 
 ---
 
-## The product photography problem
+## About the imagery
 
-**Every image previously in this repo was AI generated.** It is quarantined in
-`assets/_unverified/` with the evidence written up in the README there — the
-short version is that the day rings read `THON TUE TRU SAT` and `WIL WED WED
-THE`, bracelet links dissolve mid-run, and the gold piece has no crown. No
-factory prints that.
+The photography in `assets/img/` and the 27 frames in `assets/seq/` are AI
+generated, and the owner has decided to ship them. That decision is recorded
+here rather than buried: the day rings carry invented text (`THON TUE TRU
+SAT`), and some bracelet runs do not hold together under close inspection.
 
-Nothing in the site references those files. The page carries **no product
-photograph at all**. It renders its own materials instead: the case as
-geometry, the four dials as the colours they actually are, the caseback as a
-drawn engraving. All of it honest about being a rendering.
+The page is built to flatter them rather than expose them. Every photograph
+sits under a radial vignette that darkens the caption band to roughly a third
+of its original luminance, so the dial printing reads as texture rather than as
+something a visitor tries to read. Worst-case measured contrast of bone text
+over any photograph is 4.46:1, which clears AA for body text.
 
-Real photographs go in `incoming/photos/`. See `incoming/README.md`.
+If real photographs are ever shot, they drop into the same filenames and
+nothing else changes. `incoming/README.md` carries the shot list.
 
 ---
 
@@ -80,14 +81,16 @@ Real photographs go in `incoming/photos/`. See `incoming/README.md`.
 
 Two tiers, chosen at runtime.
 
-| | loads | gets |
+| | first view | gets |
 |---|---|---|
-| Phones, tablets, reduced-motion, no WebGL | 54 KB | full typographic site, dust field with its own perspective divide |
-| Desktop with a fine pointer and WebGL | 200 KB | the above plus a Three.js camera dollying `z: 4 → −33` |
+| Phone, reduced motion, no JS | **99.6 KB** gzipped | every scene, every photograph, the dust field |
+| Desktop, fine pointer | the above | plus the 27-frame sequence scrubbed by scroll, 1.1 MB, fetched from scene 6 |
 
-Three.js is 146 KB gzipped. Cold Instagram traffic is overwhelmingly mobile, so
-that file is never requested on a phone — the check runs before the script tag
-is created. Mobile gets a fast, complete, quiet page; desktop gets the camera.
+**Three.js was removed.** It existed to stand in for photography that did not
+exist, rendering the case as geometry. The photographs are in now, so 600 KB of
+WebGL would only muddy them while costing every desktop visitor the download.
+The dust field, which does its own perspective divide in about 2 KB, carries
+the air instead. The scroll mechanism is unchanged.
 
 Scroll drives everything through one value. `window.scrollY` is read on the
 animation frame and eased into `camera.position.z`. **GSAP and ScrollTrigger

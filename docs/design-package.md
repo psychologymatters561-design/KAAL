@@ -134,3 +134,25 @@ paid brand proof, not a revenue engine. Judge it on whether it produces twenty
 buyers who talk. Which is exactly why shipping a generated photograph would
 have been the expensive mistake, and why an inert honest button is better than
 a live dishonest one.
+
+
+---
+
+## 7. What changed when the photography went in
+
+The owner instructed that the generated imagery be used. It is, in eight of the
+ten scenes, and Three.js came out at the same time: it had been standing in for
+photographs that did not exist, and once they did it only competed with them.
+
+Two defects were found and fixed during that pass, neither of which any test
+had caught:
+
+- **The rupee sign was never rendering in the brand fonts.** Google's `latin`
+  subset carries no U+20B9, so every `₹5,999` on the page was silently falling
+  back to a system face. It looked correct and was not. Two 700-byte faces
+  scoped with `unicode-range: U+20B9` now carry that one glyph in Fraunces and
+  Inter.
+- **The photographs were clipped to the text column.** `.shot` sat inside
+  `.hold`, which is capped at 64rem, so a full-bleed image rendered with black
+  bars either side of a 1024px band on any wider screen. It now breaks out to
+  the viewport.

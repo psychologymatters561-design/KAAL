@@ -29,6 +29,10 @@
 <style>
 @font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-opsz.woff2) format('woff2-variations'),url(assets/fonts/Fraunces-opsz.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap}
 @font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap}
+/* Google's latin subset carries no rupee, so ₹ was silently falling back to a
+   system face. These two carry that one glyph in the right family. */
+@font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-rupee.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap;unicode-range:U+20B9}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap;unicode-range:U+20B9}
 
 :root{
   --void:#0A0908;
@@ -86,6 +90,23 @@ main{position:relative;z-index:3}
 @media (max-width:640px){.sc .in{padding-bottom:5.2rem}}
 .no-js .in,.reduced .in{opacity:1;transform:none;transition:none}
 
+/* ---------- photography ---------- */
+.shot{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);
+  z-index:-1;overflow:hidden;pointer-events:none;
+  opacity:0;transition:opacity 1.5s var(--ease)}
+.sc.lit .shot{opacity:1}
+.shot img,.shot canvas{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;transform:scale(1.1);
+  transition:transform 2.6s var(--ease)}
+.sc.lit .shot img,.sc.lit .shot canvas{transform:scale(1)}
+/* the vignette is what keeps the type legible over a photograph and lets the
+   dial printing read as texture rather than as something to be read */
+.shot::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(115% 88% at 50% 45%,rgba(10,9,8,.38) 0%,rgba(10,9,8,.80) 55%,var(--void) 100%)}
+.shot.deep::after{background:radial-gradient(120% 92% at 50% 48%,rgba(10,9,8,.58) 0%,rgba(10,9,8,.88) 52%,var(--void) 100%)}
+.no-js .shot,.reduced .shot{opacity:1}
+.no-js .shot img,.reduced .shot img{transform:none}
+
 /* ---------- type ---------- */
 .mark{width:clamp(190px,32vw,410px);margin-inline:auto;color:var(--bone)}
 h1,h2{margin:0;font-family:var(--display);font-weight:300;
@@ -126,10 +147,10 @@ h1,h2{margin:0;font-family:var(--display);font-weight:300;
   border:1px solid rgba(255,255,255,.07)}
 .way b{display:block;margin-top:.85rem;font-weight:400;font-size:.72rem;letter-spacing:.2em;color:var(--bone)}
 .way em{display:block;font-style:normal;font-size:.68rem;letter-spacing:.16em;color:var(--mute);margin-top:.25rem}
-.d-green{background:radial-gradient(135% 108% at 50% 4%,#3A6B58,#1B3A28 58%,#102518)}
-.d-black{background:radial-gradient(135% 108% at 50% 4%,#33302C,#161512 58%,#0B0A09)}
-.d-gold {background:radial-gradient(135% 108% at 50% 4%,#EBD2A2,#B8935A 55%,#6E5430)}
-.d-white{background:radial-gradient(135% 108% at 50% 4%,#FFFFFF,#E3DFD5 58%,#9E998F)}
+.d-green{background:url(assets/img/dial-green-240.webp) center/cover no-repeat,#141210}
+.d-black{background:url(assets/img/dial-black-240.webp) center/cover no-repeat,#141210}
+.d-gold{background:url(assets/img/dial-gold-240.webp) center/cover no-repeat,#141210}
+.d-white{background:url(assets/img/dial-white-240.webp) center/cover no-repeat,#141210}
 
 /* ---------- three functions, scene 5 ---------- */
 .trio{display:flex;flex-wrap:wrap;justify-content:center;gap:0;margin-top:2.4rem;
@@ -220,7 +241,7 @@ footer a:hover{color:var(--bone)}
 
 <a class="skip" href="#close">Skip to the close</a>
 
-<div id="stage" aria-hidden="true"><canvas id="dust"></canvas><canvas id="gl" hidden></canvas></div>
+<div id="stage" aria-hidden="true"><canvas id="dust"></canvas></div>
 <div id="vignette" aria-hidden="true"></div>
 <div id="grain" aria-hidden="true"></div>
 
@@ -245,7 +266,9 @@ footer a:hover{color:var(--bone)}
 
   <!-- 2 — REVEAL -->
   <section class="sc" data-sc="2" style="min-height:110svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot" aria-hidden="true"><img src="assets/img/green-768.webp" srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w" sizes="100vw" alt="" decoding="async"></div>
+<div class="in">
       <p class="count" aria-label="Zero one to twenty"><span>01</span><i></i><span>20</span></p>
       <p class="lede">Twenty pieces. One design. Never repeated.</p>
     </div></div>
@@ -253,7 +276,9 @@ footer a:hover{color:var(--bone)}
 
   <!-- 3 — COLOURWAY -->
   <section class="sc" data-sc="3" style="min-height:135svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/approach-768.webp" srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
       <h2>One case.<br>Four faces.<br>Twenty pieces.</h2>
       <div class="ways">
         <div class="way"><div class="disc d-green"></div><b>Green</b><em>01–06</em></div>
@@ -273,7 +298,9 @@ footer a:hover{color:var(--bone)}
 
   <!-- 5 — PRECISION -->
   <section class="sc" data-sc="5" style="min-height:115svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot" aria-hidden="true"><img src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
       <p class="eng dim">Three functions</p>
       <div class="trio">
         <div><b>Day</b></div>
@@ -286,7 +313,9 @@ footer a:hover{color:var(--bone)}
 
   <!-- 6 — 24-MONTH BACKING -->
   <section class="sc" data-sc="6" style="min-height:105svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
       <h2>Every movement,<br>held to 24 months.</h2>
       <p class="lede wide">Not by a name you’ve heard of — by the piece itself.</p>
     </div></div>
@@ -294,7 +323,12 @@ footer a:hover{color:var(--bone)}
 
   <!-- 7 — NUMBERED ENGRAVING -->
   <section class="sc" data-sc="7" style="min-height:140svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot deep" id="seqshot" aria-hidden="true">
+        <img id="seqfallback" src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async">
+        <canvas id="seq" hidden></canvas>
+      </div>
+<div class="in">
       <div class="back" role="img" aria-label="Caseback engraving reading Series 01, Limited Edition Number 07">
         <p class="eng">SERIES 01</p>
         <p class="no">NO. 07</p>
@@ -334,7 +368,9 @@ footer a:hover{color:var(--bone)}
 
   <!-- 10 — CLOSE -->
   <section class="sc" data-sc="10" id="close" style="min-height:135svh">
-    <div class="hold"><div class="in">
+    <div class="hold">
+      <div class="shot deep" aria-hidden="true"><img src="assets/img/lineup-768.webp" srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" sizes="100vw" alt="" loading="lazy" decoding="async"></div>
+<div class="in">
       <h2>Not built for many.</h2>
       <p class="lede wide">Built for twenty who weren’t going to wait for a version two — and don’t need one.</p>
       <hr class="hair">
@@ -470,6 +506,7 @@ const KAAL = {
           if (!scenes[k].classList.contains("lit")) {
             scenes[k].classList.add("lit"); revealIO.unobserve(scenes[k]);
           }
+          if (k >= 5) startSeq();          // begin fetching frames a scene early
         }
       });
     }, { rootMargin: "-12% 0px -12% 0px", threshold: 0 });
@@ -544,13 +581,10 @@ const KAAL = {
   addEventListener("scroll", readScroll, { passive: true });
 
   /* ===================================================================
-     Depth stage.
-     Tier 1 — a dust field with its own perspective divide. ~2KB, runs anywhere.
-     Tier 2 — Three.js takes over on a desktop pointer with working WebGL.
+     Depth stage. A dust field with its own perspective divide, ~2KB, running
+     everywhere. The photographs carry the scenes; this carries the air.
      =================================================================== */
   var dustCanvas = doc.getElementById("dust");
-  var glCanvas = doc.getElementById("gl");
-  var wantsGL = matchMedia("(min-width: 900px) and (pointer: fine)").matches;
   var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   addEventListener("pointermove", function (e) {
     mouse.tx = (e.clientX / innerWidth - 0.5) * 2;
@@ -597,199 +631,67 @@ const KAAL = {
     ctx.globalAlpha = 1;
   }
 
-  var gl3d = null;                                    // set once Three.js is live
   function frame() {
     if (!running) return;
     eased += (progress - eased) * 0.085;
     mouse.x += (mouse.tx - mouse.x) * 0.045;
     mouse.y += (mouse.ty - mouse.y) * 0.045;
     var camZ = CAM_START + (CAM_END - CAM_START) * eased;
-    if (gl3d) gl3d.render(camZ, mouse, eased); else drawDust(camZ);
+    drawDust(camZ);
+    drawSeq(eased);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 
-  /* ---------- Tier 2: load Three.js only where it earns its bytes ---------- */
-  function webglOK() {
-    try {
-      var c = doc.createElement("canvas");
-      return !!(window.WebGLRenderingContext && (c.getContext("webgl") || c.getContext("experimental-webgl")));
-    } catch (e) { return false; }
+  /* ---------- the twenty-seven frame sequence, scrubbed by scroll ----------
+     Three.js used to live here. It existed to stand in for photography that did
+     not exist yet. The photographs are in now, so 600 KB of WebGL would only
+     muddy them and cost every desktop visitor the download. This is what
+     replaces it: the real frames, driven by the same scroll value. */
+  var SEQ_N = 27;
+  var seqImgs = [], seqDone = 0, seqReady = false, seqStarted = false, seqCtx = null;
+  var seqCanvas = doc.getElementById("seq"), seqFallback = doc.getElementById("seqfallback");
+
+  function startSeq() {
+    if (seqStarted || reduced || !seqCanvas) return;
+    // 1.1 MB of frames is a desktop luxury, never a cost on cellular
+    if (!matchMedia("(min-width: 760px) and (pointer: fine)").matches) return;
+    seqStarted = true;
+    for (var i = 1; i <= SEQ_N; i++) {
+      (function (n) {
+        var im = new Image();
+        im.decoding = "async";
+        im.onload = im.onerror = function () {
+          if (++seqDone === SEQ_N) {
+            seqReady = true;
+            seqCanvas.hidden = false;
+            if (seqFallback) seqFallback.hidden = true;
+          }
+        };
+        im.src = "assets/seq/frame-" + ("00" + n).slice(-3) + ".webp";
+        seqImgs[n - 1] = im;
+      })(i);
+    }
   }
-  if (!wantsGL || !webglOK()) return;
 
-  var s = doc.createElement("script");
-  s.src = "assets/js/three.min.js";
-  s.defer = true;
-  s.onload = function () {
-    try { buildGL(); }
-    catch (e) { gl3d = null; glCanvas.hidden = true; dustCanvas.hidden = false; }
-  };
-  // append after first paint, whether or not `load` has already fired
-  if (doc.readyState === "complete") doc.head.appendChild(s);
-  else addEventListener("load", function () { doc.head.appendChild(s); });
-
-  function buildGL() {
-    var T = window.THREE; if (!T) return;
-
-    var renderer = new T.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
-    renderer.setSize(innerWidth, innerHeight, false);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = T.PCFSoftShadowMap;
-
-    var scene = new T.Scene();
-    scene.fog = new T.FogExp2(0x0A0908, 0.036);
-
-    var camera = new T.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 120);
-    camera.position.set(0, 0, CAM_START);
-
-    scene.add(new T.AmbientLight(0xE8E4DC, 0.20));
-    var key = new T.SpotLight(0xFFF4E4, 2.1, 46, 0.62, 0.7, 1.4);
-    key.position.set(5.5, 7, 6); key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024); key.shadow.camera.near = 1; key.shadow.camera.far = 46;
-    key.shadow.bias = -0.0016; key.shadow.normalBias = 0.022;
-    scene.add(key, key.target);
-    var warm = new T.PointLight(0xB8935A, 1.15, 30, 2);
-    scene.add(warm);
-
-    // an actor sits just beyond the far end of its own scene, so the camera
-    // closes on it through that scene and never flies through it
-    var VIEW = 6.2;
-    var Z = function (i) { return centres[i] != null ? zAt(centres[i]) - VIEW : -i * 3.6; };
-
-    // actors fade with their scene's ownership of the scroll
-    var actors = [];
-    function stage(obj, sceneIndex, shadows) {
-      obj.traverse(function (o) {
-        if (o.material) { o.material.transparent = true; o.userData.o0 = o.material.opacity; }
-      });
-      actors.push({ o: obj, i: sceneIndex, sh: !!shadows });
-    }
-    function dress(a, v) {
-      a.o.visible = v > 0.012;
-      a.o.traverse(function (o) {
-        if (o.material) o.material.opacity = (o.userData.o0 != null ? o.userData.o0 : 1) * v;
-        if (a.sh) o.castShadow = v > 0.45;
-      });
-    }
-
-    /* scene 2 — the case, as geometry. Not a photograph of one. */
-    var ring = new T.Mesh(
-      new T.TorusGeometry(1.28, 0.095, 22, 128),
-      new T.MeshStandardMaterial({ color: 0xC9C4BA, metalness: 0.94, roughness: 0.26 }));
-    ring.position.set(0, 0, Z(1)); ring.castShadow = true;
-    scene.add(ring); stage(ring, 1, true);
-    var backdrop = new T.Mesh(
-      new T.PlaneGeometry(30, 18),
-      new T.MeshStandardMaterial({ color: 0x14120F, metalness: 0.1, roughness: 0.95 }));
-    backdrop.position.set(0, 0, Z(1) - 3.6); backdrop.receiveShadow = true;
-    scene.add(backdrop); stage(backdrop, 1, false);
-
-    /* Scene 3 belongs to the four dials in the DOM — crisper, labelled, and
-       readable by a screen reader. A second set in WebGL would only compete. */
-
-    /* scene 5 — three functions, three marks */
-    var bars = new T.Group();
-    [-1, 0, 1].forEach(function (k) {
-      var b = new T.Mesh(
-        new T.BoxGeometry(1.5, 0.035, 0.035),
-        new T.MeshStandardMaterial({ color: 0xE8E4DC, metalness: 0.5, roughness: 0.4 }));
-      b.position.set(0, k * 0.55, 0); bars.add(b);
-    });
-    bars.position.z = Z(4); scene.add(bars); stage(bars, 4, false);
-
-    /* scene 7 — the twenty. the one bold moment: the camera flies through them. */
-    function label(text, struck) {
-      var c = doc.createElement("canvas"); c.width = 256; c.height = 128;
-      var x = c.getContext("2d");
-      x.clearRect(0, 0, 256, 128);
-      x.fillStyle = struck ? "#4A4640" : "#E8E4DC";
-      x.font = "300 76px InterV, system-ui, sans-serif";
-      x.textAlign = "center"; x.textBaseline = "middle";
-      x.fillText(text, 128, 66);
-      if (struck) {
-        x.strokeStyle = "#4A4640"; x.lineWidth = 4;
-        x.beginPath(); x.moveTo(72, 66); x.lineTo(184, 66); x.stroke();
-      }
-      var t = new T.CanvasTexture(c);
-      t.anisotropy = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1;
-      return t;
-    }
-    var twenty = new T.Group();
-    for (var n = 1; n <= KAAL.edition; n++) {
-      var struck = KAAL.sold.indexOf(n) !== -1;
-      var pl = new T.Mesh(
-        new T.PlaneGeometry(0.62, 0.31),
-        new T.MeshBasicMaterial({ map: label(("0" + n).slice(-2), struck), transparent: true,
-                                  opacity: struck ? 0.4 : 0.92, depthWrite: false }));
-      var ang = (n / KAAL.edition) * Math.PI * 4.2;
-      var rad = 2.3 + (n % 3) * 0.85;
-      pl.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad * 0.62, (n - 10.5) * 0.52);
-      twenty.add(pl);
-    }
-    twenty.position.z = Z(6); scene.add(twenty); stage(twenty, 6, false);
-
-    /* scene 10 — the box. a closed form, honestly a box. */
-    var box = new T.Group();
-    var boxBody = new T.Mesh(
-      new T.BoxGeometry(1.85, 0.52, 1.35),
-      new T.MeshStandardMaterial({ color: 0x15120F, metalness: 0.06, roughness: 0.96 }));
-    var boxLid = new T.Mesh(                       // the engraved tag catches the light
-      new T.BoxGeometry(1.87, 0.035, 1.37),
-      new T.MeshStandardMaterial({ color: 0x2A2622, metalness: 0.35, roughness: 0.62 }));
-    boxLid.position.y = 0.275;
-    boxBody.castShadow = boxLid.castShadow = true;
-    box.add(boxBody, boxLid);
-    box.position.set(0, -1.5, Z(9)); box.rotation.set(0.1, -0.52, 0);
-    scene.add(box); stage(box, 9, true);
-
-    /* dust, now with real depth */
-    var pn = 900, pos = new Float32Array(pn * 3);
-    for (var p = 0; p < pn; p++) {
-      pos[p * 3]     = (Math.random() - 0.5) * 30;
-      pos[p * 3 + 1] = (Math.random() - 0.5) * 20;
-      pos[p * 3 + 2] = CAM_START - Math.random() * 42;
-    }
-    var dust = new T.Points(
-      new T.BufferGeometry().setAttribute("position", new T.BufferAttribute(pos, 3)),
-      new T.PointsMaterial({ color: 0xE8E4DC, size: 0.035, transparent: true, opacity: 0.5,
-                             sizeAttenuation: true, depthWrite: false }));
-    scene.add(dust);
-
-    addEventListener("resize", function () {
-      camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight, false);
-    }, { passive: true });
-
-    // hand off: the dust canvas retires, the lit scene takes the stage
-    glCanvas.hidden = false;
-    dustCanvas.hidden = true;
-    if (ctx) ctx.clearRect(0, 0, innerWidth, innerHeight);
-    var t0 = performance.now();
-
-    gl3d = { render: function (camZ, m, prog) {
-      var t = (performance.now() - t0) / 1000;
-      camera.position.z = camZ;
-      camera.position.x = m.x * 0.55;
-      camera.position.y = -m.y * 0.34;
-      camera.lookAt(0, 0, camZ - 6);
-
-      for (var k = 0; k < actors.length; k++) dress(actors[k], ownership(actors[k].i, prog));
-
-      ring.rotation.z = prog * 2.4;
-      ring.rotation.x = 0.35 + Math.sin(t * 0.25) * 0.06;
-      twenty.rotation.z = prog * 0.8;
-      bars.rotation.y = Math.sin(t * 0.3) * 0.25;
-      box.rotation.y = -0.52 + Math.sin(t * 0.22) * 0.11;
-
-      key.position.set(5.5 + Math.sin(t * 0.3) * 1.6, 7, camZ + 6);
-      key.target.position.set(0, 0, camZ - 5); key.target.updateMatrixWorld();
-      warm.position.set(-3.4, -1.2, camZ - 2.5);
-
-      renderer.render(scene, camera);
-    } };
+  function drawSeq(prog) {
+    if (!seqReady) return;
+    var sp = spans[6];
+    if (!sp || sp.b <= sp.a) return;
+    var t = Math.min(1, Math.max(0, (prog - sp.a) / (sp.b - sp.a)));
+    var im = seqImgs[Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)))];
+    if (!im || !im.complete || !im.naturalWidth) return;
+    if (!seqCtx) seqCtx = seqCanvas.getContext("2d");
+    if (!seqCtx) return;
+    var d = Math.min(2, devicePixelRatio || 1);
+    var w = Math.round(seqCanvas.clientWidth * d), h = Math.round(seqCanvas.clientHeight * d);
+    if (!w || !h) return;
+    if (seqCanvas.width !== w || seqCanvas.height !== h) { seqCanvas.width = w; seqCanvas.height = h; }
+    var s = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+    seqCtx.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
   }
+
 })();
 </script>
 </body>

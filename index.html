@@ -273,7 +273,7 @@ footer a:hover{color:var(--bone)}
 /* A 16:9 plate in a portrait frame is short and wide, so a band that reads as
    generous on a laptop reads as a hole on a phone. Tighten it, and close the
    distance to the line underneath. */
-@media (max-width:700px){
+@media (max-width:899px){
   .has-plate{--pl-top:8svh;--pl-h:34svh;--pl-gap:46svh}
   .sc[data-sc="3"]{--pl-top:7svh;--pl-h:32svh;--pl-gap:43svh}
   .sc[data-sc="7"]{--pl-top:5svh;--pl-h:25svh;--pl-gap:33svh}
@@ -741,23 +741,44 @@ const KAAL = {
 
   function startSeq() {
     if (seqStarted || reduced || !seqCanvas) return;
-    // 1.1 MB of frames is a desktop luxury, never a cost on cellular
-    if (!matchMedia("(min-width: 760px) and (pointer: fine)").matches) return;
     seqStarted = true;
+    // 1.1 MB at 1100 px on a laptop, 744 KB at 720 px on a phone. The move
+    // matters more than the resolution it is carried at.
+    var dir = matchMedia("(min-width: 900px)").matches ? "assets/seq/" : "assets/seq/m/";
     for (var i = 1; i <= SEQ_N; i++) {
       (function (n) {
         var im = new Image();
         im.decoding = "async";
         im.onload = im.onerror = function () {
-          if (++seqDone === SEQ_N) {
+          seqDone++;
+          /* Start the moment a few frames are here rather than waiting for the
+             set. On cellular that is the difference between a scene that works
+             immediately and sharpens as it fills in, and a still photograph
+             until the last byte of the twenty-seventh frame lands. */
+          if (!seqReady && seqDone >= 3) {
             seqReady = true;
             if (!glOn) { seqCanvas.hidden = false; if (seqFallback) seqFallback.hidden = true; }
           }
         };
-        im.src = "assets/seq/frame-" + ("00" + n).slice(-3) + ".webp";
+        im.src = dir + "frame-" + ("00" + n).slice(-3) + ".webp";
         seqImgs[n - 1] = im;
       })(i);
     }
+  }
+
+  function loadedAt(i) {
+    var im = seqImgs[i];
+    return (im && im.complete && im.naturalWidth) ? im : null;
+  }
+  // the frame the scroll asked for, or the closest one that has actually arrived
+  function nearestLoaded(i) {
+    var im = loadedAt(i);
+    if (im) return { im: im, i: i };
+    for (var d = 1; d < SEQ_N; d++) {
+      im = loadedAt(i - d); if (im) return { im: im, i: i - d };
+      im = loadedAt(i + d); if (im) return { im: im, i: i + d };
+    }
+    return null;
   }
 
   function drawSeq(prog) {
@@ -768,9 +789,10 @@ const KAAL = {
     // The move was recorded pushing in on the row of four. Played backwards it
     // pulls out from one dial to all four, which is the sentence this scene is
     // already making — one case, four faces — so the camera says it too.
-    var idx = (SEQ_N - 1) - Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)));
-    var im = seqImgs[idx];
-    if (!im || !im.complete || !im.naturalWidth) return;
+    var want = (SEQ_N - 1) - Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)));
+    var got = nearestLoaded(want);
+    if (!got) return;
+    var idx = got.i, im = got.im;
     if (!seqCtx) seqCtx = seqCanvas.getContext("2d");
     if (!seqCtx) return;
 
@@ -800,11 +822,23 @@ const KAAL = {
   /* declared here so remeasure() above can reach it before liftOff builds it */
   var glOn = false;
 
+  /* This gate used to read `(min-width: 900px) and (pointer: fine)`, and that
+     was the single worst mistake in the build. `pointer: fine` is false on
+     every phone and every tablet, so the corridor, the camera, the dust and
+     the pull-back were all invisible to anyone reviewing the site on the
+     device the ads actually land on. The brief asks for the whole page to
+     move; it does not ask for it to move only where a mouse is plugged in.
+
+     What is left is a capability test, not a taste test: does this device
+     have a WebGL context, enough screen to compose into, and enough memory
+     to be worth it. Everything that made this desktop-only is now handled by
+     spending less on a phone rather than by spending nothing. */
+  var lite = false;                        // true on phones and small tablets
+
   function glWanted() {
     if (reduced) return false;
-    // A WebGL context and 600 KB of library are a desktop luxury. The phone
-    // gets Tier B, which is the tier the ad spend actually lands on.
-    if (!matchMedia("(min-width: 900px) and (pointer: fine)").matches) return false;
+    if (innerWidth < 340) return false;               // below this nothing composes
+    if (navigator.deviceMemory && navigator.deviceMemory < 2) return false;
     try {
       var c = doc.createElement("canvas");
       return !!(window.WebGLRenderingContext &&
@@ -913,11 +947,16 @@ const KAAL = {
     var renderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        canvas: glCanvas, alpha: true, antialias: true, powerPreference: "high-performance"
+        canvas: glCanvas, alpha: true, antialias: !lite,
+        powerPreference: lite ? "default" : "high-performance"
       });
     } catch (e) { return null; }
 
-    renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    // A phone's DPR is often 3. Rendering a fragment shader with five texture
+    // taps at 3x on a mobile GPU is where this would fall over, so it is capped
+    // at 1.5 there — which on a 400 CSS px wide screen is still 600 real pixels
+    // of plate, more than the photograph has to give.
+    renderer.setPixelRatio(Math.min(lite ? 1.5 : 2, devicePixelRatio || 1));
     renderer.setSize(innerWidth, innerHeight, false);
     renderer.outputEncoding = THREE.sRGBEncoding;
 
@@ -986,7 +1025,7 @@ const KAAL = {
     });
 
     /* ---- dust: a real point cloud with a real perspective divide ---- */
-    var N = 900;
+    var N = lite ? 320 : 900;
     var pos = new Float32Array(N * 3), siz = new Float32Array(N), alp = new Float32Array(N);
     for (var i = 0; i < N; i++) {
       pos[i * 3]     = (Math.random() - 0.5) * 34;
@@ -1030,7 +1069,7 @@ const KAAL = {
         blending: THREE.AdditiveBlending
       });
     };
-    for (var hz = 0; hz < 5; hz++) {
+    for (var hz = 0; hz < (lite ? 3 : 5); hz++) {
       var hm = new THREE.Mesh(quad, hazeMat(0.030 + Math.random() * 0.022));
       hm.position.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, 2 - hz * 8.5);
       hm.scale.set(30, 20, 1);
@@ -1082,9 +1121,12 @@ const KAAL = {
     }
 
     function resize() {
+      lite = !matchMedia("(min-width: 900px)").matches;   // rotation can change this
       camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+      // must repeat the lite cap: resize() runs right after construction and
+      // would otherwise put a phone straight back onto a 3x buffer
+      renderer.setPixelRatio(Math.min(lite ? 1.5 : 2, devicePixelRatio || 1));
       renderer.setSize(innerWidth, innerHeight, false);
       layout();
     }
@@ -1163,6 +1205,7 @@ const KAAL = {
 
   /* ---------- bring the library in, but never before the page is up ------- */
   function liftOff() {
+    lite = !matchMedia("(min-width: 900px)").matches;
     if (!glWanted()) return;
     var s = doc.createElement("script");
     s.src = "assets/js/three.min.js";

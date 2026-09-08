@@ -79,23 +79,50 @@ nothing else changes. `incoming/README.md` carries the shot list.
 
 ## How the page renders
 
-Two tiers, chosen at runtime. Neither is a cut-down of the other; they are two
-ways of drawing the same corridor.
+Everything moves everywhere. The corridor is a real Three.js
+`PerspectiveCamera` dollying z +4 → −34; the photographs are textures on planes
+standing at their own depths, so the parallax between them is a projection
+matrix rather than a transform. Dust is a point cloud with its own perspective
+divide, and haze slabs pass the lens.
 
-| | who gets it | what it is |
+**This was gated to desktop and that was wrong.** The gate read
+`(min-width: 900px) and (pointer: fine)`, and `pointer: fine` is false on every
+phone and every tablet — so the camera, the dust and the pull-back were
+invisible on exactly the devices Meta traffic arrives on, and invisible to the
+owner reviewing his own site on a phone. The gate is now a capability test:
+a WebGL context, ≥340 px of width, and `navigator.deviceMemory` ≥ 2 where the
+browser reports it.
+
+A phone is paid for by spending less, not by spending nothing:
+
+| | phone / small tablet | laptop and up |
 |---|---|---|
-| **A** | desktop, fine pointer, ≥900 px, WebGL present | a real Three.js `PerspectiveCamera` dollying z +4 → −34. The photographs are textures on planes standing at their own depths, so the parallax between them is a projection matrix. Dust is a point cloud with its own perspective divide; haze slabs pass the lens. |
-| **B** | phones, reduced motion, no WebGL, no JS | the same photographs as DOM images, the same scroll value, a 2 KB dust field. **Three.js is never fetched.** This is the tier the ad budget actually lands on. |
+| device pixel ratio | capped **1.5** | capped 2 |
+| antialiasing | off | on |
+| dust points | 320 | 900 |
+| haze slabs | 3 | 5 |
+| scroll frames | `assets/seq/m/`, 720 px, **744 KB** | `assets/seq/`, 1100 px, 1.1 MB |
 
-First view on a phone is about **119 KB**, of which 42 KB is the two fonts.
-Desktop adds 145 KB gzipped of Three.js, deferred until after first paint, and
-1.1 MB of scroll frames fetched a scene early.
+A phone's DPR is often 3, and a five-tap fragment shader at 3× is where this
+would have fallen over. At 1.5× on a 400 px screen the plate is still 600 real
+pixels wide, which is more than the photograph has to give anyway.
+
+First paint is unchanged at roughly **119 KB** — Three.js is deferred until
+after `load`, so it never delays the first screen. The scroll frames arrive
+progressively and the sequence starts on the third frame rather than the
+twenty-seventh, so on cellular the scene works immediately and sharpens as it
+fills in instead of sitting on a still until the last byte.
+
+Falling back is still honest: no WebGL, no JavaScript, or
+`prefers-reduced-motion` each get the same photographs as DOM images, the same
+scroll value, and a 2 KB dust field.
 
 **Scroll is never hijacked.** `window.scrollY` is read on the animation frame
 and eased into `camera.position.z`. GSAP and ScrollTrigger stay out: a scrubbed
 ScrollTrigger is the known source of touch-scroll bugs on iOS Safari and
 Android Chrome, and there is nothing here to desync because nothing calls
-`preventDefault`. Verified with real touch events, not mouse events pretending.
+`preventDefault`. Verified with real dispatched touch events, not mouse events
+pretending.
 
 ### The photograph is a framed still, not a background
 
@@ -173,12 +200,13 @@ but says plainly that this has not been watched on hardware.
 ```
 index.html               the whole site
 assets/fonts/            Fraunces and Inter, subset, self hosted, 21 KB each
-assets/js/three.min.js   r128, self hosted, desktop only, deferred
+assets/js/three.min.js   r128, self hosted, deferred until after load
 assets/seq-src/          the crop the generated pull-back was anchored on
 assets/img/og.jpg        the share card, typographic
 assets/brand/            the KA∧L wordmark
 assets/_unverified/      the AI generated images. Not referenced. Read its README.
 incoming/                where real photographs land
+assets/seq/m/            the same 27 frames at 720px, for phones
 incoming/PICKUP.md       five paid-for files still sitting in Higgsfield
 docs/design-package.md   why the page is shaped this way
 ```

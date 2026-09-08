@@ -25,6 +25,15 @@ are not a scale that exists.
 That is the owner's call, not the build's. Deleting is one command once the
 decision is made.
 
+## Status
+
+The owner has since decided to use generated product imagery, produced by a
+different method: dials, casebacks and tags prompted blank so the generator
+writes nothing, with the real type composited afterward in the brand fonts.
+That removes the specific defect catalogued below — invented lettering — which
+is what made this set unusable. These particular files remain unusable and
+remain unreferenced.
+
 ## Why it can never ship
 
 The brand's entire argument is that it does not borrow legitimacy. A buyer

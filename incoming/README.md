@@ -36,10 +36,37 @@ so they sort: `01.jpg`, `02.jpg`.
 
 Optional. The camera move works without it.
 
-## 3. What I will not put back
+## 3. Generated imagery, if you go that route
 
-Do not send me a spec sheet to publish. The following stay off the page as a
-standing rule, not a preference:
+You have decided to use generated product imagery. Fine — it is your brand and
+your call. The method matters enormously, so here is the one that does not
+repeat the last failure.
+
+The old set died on invented text: day rings reading `THON TUE TRU SAT`, dials
+carrying a wordmark the generator hallucinated. The fix is to never let the
+generator write anything.
+
+- Prompt every dial, caseback and box tag **blank**. No text, no numerals, no
+  logo, no date window. Just material, form and light.
+- Composite the real type afterward in Fraunces and Inter — the wordmark, the
+  `NO. XX`, the `SERIES 01`. Real fonts, correct spelling, every time.
+- Keep the physical spec honest: two-tone steel and gold bracelet, one case
+  across four dials, quartz. Never a gear train, never an exposed movement,
+  never water.
+
+The line that still cannot be crossed: whatever a buyer sees before paying has
+to match what arrives in the box. A dramatic, dark, partial rendering of your
+actual design is defensible. A dial with markings your watches do not have is
+not, and that is a refund and a public post from someone who is five percent of
+your customer base.
+
+Drop generated files in `incoming/photos/` like any other image and say which
+is the hero.
+
+## 4. What stays off the page regardless
+
+Do not send me a spec sheet to publish. The following stay off as a standing
+rule, not a preference:
 
 - **Water resistance.** No claim, in any wording, ever. There is no warranty
   behind it and the phrasing invites someone to test it.

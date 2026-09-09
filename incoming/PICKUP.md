@@ -41,9 +41,21 @@ Upscales of the photographs already on the page, at 3840 on the long edge.
 | `2f0d3886-f9db-465b-8022-b42e74e2453e` | three-quarter row, scene 7 | `incoming/photos/trio-4k.png` |
 | `388e3f8b-acd7-4efd-b36a-482e57107157` | green and gold macro, scene 5 | `incoming/photos/whitedial-4k.png` |
 
-A fifth upscale, `green-1200.webp`, was never started — the plan hit a four
-concurrent job ceiling and by then the download wall made a fifth pointless.
-Two credits, any time you want it.
+### A fifth upscale, run 2026-09-09
+
+| job | that is the | save as |
+|---|---|---|
+| `0820c056-d1cf-4f3e-9657-b31e292b9484` | see below | `incoming/photos/<name>-4k.png` |
+
+Output is 4096×2304, same settings as the four above. Its source was media
+`2e44b013`, which is one of the five wide shots imported on 8 September — it
+is **not** the lineup and **not** `green-1200`, both of which are accounted
+for elsewhere, so it is one of *approach*, *trio* or *whitedial*. I cannot
+narrow it further from here because the Higgsfield CDN is unreachable from
+this session, so I have never seen the pixels. You will know which it is in
+one glance; name the file to match and it drops straight in.
+
+`green-1200.webp` still has no 4K version. Two credits, any time you want it.
 
 ## What happens when they land
 

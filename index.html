@@ -259,6 +259,82 @@ footer a:hover{color:var(--bone)}
 .gl #vignette{background:radial-gradient(125% 90% at 50% 45%,transparent 52%,rgba(10,9,8,.5) 100%)}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block}
 
+/* ---------- the drawn thread, and one entrance per moment ----------
+   The skill's whole-site standard asks for four things: particles at whisper
+   level, easing on everything, lines that draw themselves on scroll, and a
+   unique entrance per moment. The first two were already here. These are the
+   other two, kept to this brand's register: cold, quiet, nothing that waves.
+
+   Every one of these is a transform or an opacity, so the compositor does all
+   of it and the scroll path never learns they exist. */
+
+/* The rail. A hairline drawing itself down the page, carrying twenty ticks,
+   struck back where a number is gone. */
+#rail{position:fixed;left:calc(var(--gut) * .46);top:15svh;bottom:15svh;width:12px;
+  z-index:4;pointer-events:none;opacity:0;transition:opacity 1.4s var(--ease)}
+#rail.on{opacity:1}
+#rail svg{width:100%;height:100%;display:block;overflow:visible}
+.r-track{stroke:var(--ash);stroke-width:1;vector-effect:non-scaling-stroke}
+.r-draw{stroke:var(--gold);stroke-width:1;vector-effect:non-scaling-stroke;
+  stroke-dasharray:1000;stroke-dashoffset:1000}
+.r-ticks line{stroke:var(--ash);stroke-width:1;vector-effect:non-scaling-stroke;
+  transition:stroke .6s var(--ease),opacity .6s var(--ease)}
+.r-ticks line.lit{stroke:var(--bone)}
+.r-ticks line.sold{opacity:.26}
+
+/* A phone has no room for a rail beside the type, so the same value draws a
+   hairline across the top of the frame instead. */
+#prog{position:fixed;left:0;right:0;top:0;height:1px;z-index:5;pointer-events:none;
+  background:rgba(61,58,54,.5);opacity:0;transition:opacity 1s var(--ease)}
+#prog.on{opacity:1}
+#prog i{display:block;height:100%;background:var(--gold);transform:scaleX(0);transform-origin:0 50%}
+@media (min-width:900px){#prog{display:none}}
+@media (max-width:899px){#rail{display:none}}
+
+/* 1 VOID. The wordmark draws itself, stroke after stroke, out of nothing. */
+.mark path{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 2.1s var(--ease)}
+.sc.lit .mark path{stroke-dashoffset:0}
+.mark path:nth-child(2){transition-delay:.16s}
+.mark path:nth-child(3){transition-delay:.32s}
+.mark path:nth-child(4){transition-delay:.48s}
+.sc[data-sc="1"] .rule{transform:translateX(-50%) scaleY(0);transform-origin:50% 0;
+  transition:transform 1.5s var(--ease) 1.1s}
+.sc[data-sc="1"].lit .rule{transform:translateX(-50%) scaleY(1)}
+
+/* 2 REVEAL. The gold bar between the numbers draws out from its own centre. */
+.count i{transform:scaleX(0);transition:transform 1.3s var(--ease) .5s}
+.sc.lit .count i{transform:scaleX(1)}
+
+/* 4 EXCLUSIVITY. The refrain settles into place instead of rising into it. */
+.sc[data-sc="4"] .in{transform:none;letter-spacing:.13em;
+  transition:opacity 1.5s var(--ease),letter-spacing 1.8s var(--ease)}
+.sc[data-sc="4"].lit .in{letter-spacing:normal}
+
+/* 8 RETIREMENT. The strongest line on the site arrives slightly too close and
+   settles back, and it is the only text anywhere here allowed to glow. */
+.sc[data-sc="8"] .in{transform:scale(1.05);
+  transition:opacity 1.6s var(--ease),transform 2.3s var(--ease)}
+.sc[data-sc="8"].lit .in{transform:none}
+.sc[data-sc="8"] h2{transition:text-shadow 2.6s var(--ease)}
+.sc[data-sc="8"].lit h2{text-shadow:0 0 40px rgba(232,228,220,.15)}
+
+/* 9 IDENTITY. Opens downward rather than rising. */
+.sc[data-sc="9"] .in{transform:none;clip-path:inset(0 0 100% 0);
+  transition:opacity 1.1s var(--ease),clip-path 1.7s var(--ease)}
+.sc[data-sc="9"].lit .in{clip-path:inset(0 0 0 0)}
+
+/* 10 CLOSE. The rule above the price draws itself out from the middle. */
+.hair{transform:scaleX(0);transition:transform 1.5s var(--ease) .35s}
+.sc.lit .hair{transform:scaleX(1)}
+
+/* None of the above may hide anything when the animation is not running. */
+.no-js .mark path,.reduced .mark path{stroke-dashoffset:0;transition:none}
+.no-js .count i,.reduced .count i,.no-js .hair,.reduced .hair{transform:none}
+.no-js .sc[data-sc="1"] .rule,.reduced .sc[data-sc="1"] .rule{transform:translateX(-50%)}
+.no-js .sc[data-sc="4"] .in,.reduced .sc[data-sc="4"] .in{letter-spacing:normal}
+.no-js .sc[data-sc="9"] .in,.reduced .sc[data-sc="9"] .in{clip-path:none}
+.no-js #rail,.no-js #prog,.reduced #rail,.reduced #prog{display:none}
+
 /* ---------- reduced motion: settle everything, run nothing ---------- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -289,6 +365,21 @@ footer a:hover{color:var(--bone)}
 <div id="vignette" aria-hidden="true"></div>
 <div id="grain" aria-hidden="true"></div>
 
+<!-- The signature element. A hairline that draws itself down the page as the
+     visitor descends, carrying twenty ticks: one per piece, struck through
+     where a number is gone. Numbered markers are a generic device almost
+     everywhere; here the content genuinely is a sequence of twenty, which is
+     the one context where the device is earned. Driven off the same eased
+     scroll value the camera uses, so it costs nothing extra per frame. -->
+<div id="rail" aria-hidden="true">
+  <svg viewBox="0 0 12 1000" preserveAspectRatio="none" focusable="false">
+    <line class="r-track" x1="6" y1="0" x2="6" y2="1000"/>
+    <line class="r-draw"  x1="6" y1="0" x2="6" y2="1000"/>
+    <g class="r-ticks"></g>
+  </svg>
+</div>
+<div id="prog" aria-hidden="true"><i></i></div>
+
 <main id="scroll">
 
   <!-- 1 — VOID -->
@@ -297,10 +388,10 @@ footer a:hover{color:var(--bone)}
       <h1 class="mark" aria-label="KAAL">
         <svg viewBox="0 0 380 120" role="img" aria-label="KAAL" focusable="false">
           <g fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="butt" stroke-linejoin="miter">
-            <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100"/>
-            <path d="M108 100 L140 20 L172 100 M121 78 H159"/>
-            <path d="M208 100 L240 20 L272 100"/>
-            <path d="M308 20 V100 H356"/>
+            <path pathLength="1" d="M24 20 V100 M24 66 L72 20 M24 66 L74 100"/>
+            <path pathLength="1" d="M108 100 L140 20 L172 100 M121 78 H159"/>
+            <path pathLength="1" d="M208 100 L240 20 L272 100"/>
+            <path pathLength="1" d="M308 20 V100 H356"/>
           </g>
         </svg>
       </h1>
@@ -520,6 +611,9 @@ const KAAL = {
   });
 
   var cta = doc.getElementById("cta"), note = doc.getElementById("ctaNote"), always = doc.getElementById("always");
+  var rail = doc.getElementById("rail"), prog = doc.getElementById("prog");
+  var railDraw = rail && rail.querySelector(".r-draw");
+  var progBar = prog && prog.querySelector("i");
   if (KAAL.checkout) {
     cta.href = KAAL.checkout; cta.removeAttribute("aria-disabled"); cta.rel = "noopener";
     always.href = KAAL.checkout; always.rel = "noopener";
@@ -563,7 +657,12 @@ const KAAL = {
   // so the footer is never a dead end.
   var closeEl = doc.getElementById("close");
   var pastFold = false, closeOnScreen = false;
-  function syncChip() { always.classList.toggle("on", pastFold && !closeOnScreen); }
+  function syncChip() {
+    always.classList.toggle("on", pastFold && !closeOnScreen);
+    // the thread appears once the opening scene is behind you, never over it
+    if (rail) rail.classList.toggle("on", pastFold);
+    if (prog) prog.classList.toggle("on", pastFold);
+  }
   function watchChip() {
     new IntersectionObserver(function (e) {
       pastFold = !e[0].isIntersecting; syncChip();
@@ -571,6 +670,37 @@ const KAAL = {
     new IntersectionObserver(function (e) {
       closeOnScreen = e[0].isIntersecting; syncChip();
     }, { rootMargin: "-25% 0px -25% 0px", threshold: 0 }).observe(closeEl);
+  }
+
+  /* ---------- the thread, and the twenty ticks on it ---------- */
+  var ticks = [];
+  (function buildTicks() {
+    var g = rail && rail.querySelector(".r-ticks");
+    if (!g) return;
+    var NS = "http://www.w3.org/2000/svg";
+    for (var i = 0; i < KAAL.edition; i++) {
+      var y = 1000 * (i + 0.5) / KAAL.edition;
+      var ln = doc.createElementNS(NS, "line");
+      ln.setAttribute("x1", 1); ln.setAttribute("x2", 11);
+      ln.setAttribute("y1", y); ln.setAttribute("y2", y);
+      if (KAAL.sold.indexOf(i + 1) !== -1) ln.setAttribute("class", "sold");
+      g.appendChild(ln);
+      ticks.push({ el: ln, at: (i + 0.5) / KAAL.edition, lit: false });
+    }
+  })();
+
+  var lastDraw = -1, lastProg = -1;
+  function drawThread(p) {
+    // the animation frame runs sixty times a second; the DOM is written only
+    // on the frames where a value actually moved
+    var d = Math.round((1 - p) * 1000);
+    if (railDraw && d !== lastDraw) { railDraw.style.strokeDashoffset = d; lastDraw = d; }
+    var sx = Math.round(p * 1000) / 1000;
+    if (progBar && sx !== lastProg) { progBar.style.transform = "scaleX(" + sx + ")"; lastProg = sx; }
+    for (var i = 0; i < ticks.length; i++) {
+      var t = ticks[i], on = p >= t.at;
+      if (on !== t.lit) { t.el.classList.toggle("lit", on); t.lit = on; }
+    }
   }
 
   /* ---------- one scroll value, 0 to 1 ---------- */
@@ -1236,6 +1366,7 @@ const KAAL = {
     mouse.x += (mouse.tx - mouse.x) * 0.045;
     mouse.y += (mouse.ty - mouse.y) * 0.045;
 
+    drawThread(eased);
     drawSeq(eased);
     if (glOn && world) {
       if (seqDirty) world.noteSeqReady();

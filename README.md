@@ -148,6 +148,33 @@ The plate shader also runs a four-tap unsharp mask, because the GPU is still
 magnifying, and feathers its own edges so the picture dissolves into the void
 instead of ending at a rectangle.
 
+### The drawn thread
+
+The 10k-websites skill's whole-site standard asks for four things: particles at
+whisper level, easing on everything, lines that draw themselves on scroll, and a
+unique entrance per moment. The first two were already here. The other two are
+the rail and the per-scene entrances.
+
+The rail is a hairline that draws itself down the page as the visitor descends,
+carrying twenty ticks, two of them struck back because those numbers are gone.
+Numbered markers are a generic device almost everywhere. Here the content
+genuinely is a sequence of twenty, which is the one context where the device is
+earned rather than decorative. It runs off the same eased scroll value the
+camera uses, writes to the DOM only on the frames where a value actually moved,
+and is a transform and a dash offset, so the compositor does all of it. Below
+900px the rail would crowd the type, so the same value draws a hairline across
+the top of the frame instead.
+
+The entrances that earn their own: the wordmark draws itself stroke by stroke
+out of nothing; the refrain in scene 4 settles from open letter-spacing rather
+than rising; scene 8 arrives slightly too close and settles back, and is the
+only text on the site allowed to glow; scene 9 opens downward. Everything else
+keeps the common rise, because varying every single one would be noise.
+
+None of it may hide anything when the animation is not running: the wordmark,
+the rules and the hairlines all have explicit no-JS and reduced-motion states,
+verified rather than assumed.
+
 ### Three things that are not obvious from reading the code
 
 - **Plates have a depth of field.** Ownership alone cannot hide a neighbour: a

@@ -459,6 +459,11 @@ a{color:inherit}
 .nojs .door-rule{width:min(24rem,70%)}
 .nojs .mark path{stroke-dashoffset:0}
 .nojs .stage .still{opacity:1}
+/* Nothing can be selected without script, so the cells must not invite a
+   click they cannot honour. They stay readable, and keep saying which
+   face each number carries. */
+.nojs .pick{cursor:default}
+.nojs .pick:not([disabled]):hover{border-color:var(--line);background-color:transparent}
 .nojs .hero{height:100svh}
 .nojs .nav{opacity:1;transform:none;pointer-events:auto}
 </style>
@@ -678,8 +683,50 @@ a{color:inherit}
     <p class="sub rise">Pick the number you want. The face it carries is already decided, and it is shown on the number. Struck numbers are gone.</p>
 
     <ul class="twenty" id="grid" role="group" aria-label="Choose your number">
-      <!-- Printed here so the grid exists without JavaScript. Script
-           overwrites it from the config on load. -->
+      <!-- Printed here so the twenty exist without JavaScript. The script
+           rebuilds this from KAAL.dials and KAAL.sold on load, so the config
+           is the source of truth and this is only the fallback. Edit both if
+           you change the config and care about the no-JavaScript view. -->
+      <li><button type="button" class="pick" data-n="1" aria-pressed="false" disabled
+        style="--tint:rgba(237,232,223,.13)" aria-label="Number 01, Bone dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="2" aria-pressed="false" disabled
+        style="--tint:rgba(190,190,188,.085)" aria-label="Number 02, Onyx dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="3" aria-pressed="false"
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 03, Brass dial">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+      <li><button type="button" class="pick" data-n="4" aria-pressed="false"
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 04, Jade dial">04<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+      <li><button type="button" class="pick" data-n="5" aria-pressed="false"
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 05, Onyx dial">05<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="6" aria-pressed="false"
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 06, Bone dial">06<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="7" aria-pressed="false"
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 07, Jade dial">07<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+      <li><button type="button" class="pick" data-n="8" aria-pressed="false"
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 08, Brass dial">08<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+      <li><button type="button" class="pick" data-n="9" aria-pressed="false"
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 09, Onyx dial">09<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="10" aria-pressed="false"
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 10, Bone dial">10<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="11" aria-pressed="false"
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 11, Jade dial">11<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+      <li><button type="button" class="pick" data-n="12" aria-pressed="false"
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 12, Brass dial">12<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+      <li><button type="button" class="pick" data-n="13" aria-pressed="false"
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 13, Onyx dial">13<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="14" aria-pressed="false"
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 14, Bone dial">14<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="15" aria-pressed="false"
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 15, Jade dial">15<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+      <li><button type="button" class="pick" data-n="16" aria-pressed="false"
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 16, Brass dial">16<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+      <li><button type="button" class="pick" data-n="17" aria-pressed="false"
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 17, Bone dial">17<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="18" aria-pressed="false"
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 18, Onyx dial">18<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="19" aria-pressed="false"
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 19, Brass dial">19<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+      <li><button type="button" class="pick" data-n="20" aria-pressed="false"
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 20, Jade dial">20<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
     </ul>
 
     <div class="claim">

@@ -76,9 +76,15 @@ film: "assets/video/hero.mp4",
 
 ---
 
-## The share card → `assets/img/og.jpg`
+## The share card is already done
 
-The file sitting there now is from the old build and shows the earlier AI
-imagery. Replace it with a 1200×630 crop of shot 8 (the four on slate) with
-the wordmark over it, or leave it typographic. It is what appears when
-somebody pastes the link into WhatsApp, so it is worth ten minutes.
+`assets/img/og.jpg` has been regenerated. The old one showed the earlier AI
+imagery; the new one is typographic, carries the wordmark, the four dials and
+the line, and claims nothing the product cannot back.
+
+It is what appears when somebody pastes the link into WhatsApp, which is how
+this will actually travel in India, so it was worth doing properly rather than
+leaving as a to-do.
+
+If you ever change the price or the line, the source is `docs/og-card.html`.
+Open it in a browser at 1200x630 and screenshot it, or re-render it headless.

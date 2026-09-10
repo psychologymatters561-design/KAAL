@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations');font-weight:300 600;font-style:normal}
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1200px;height:630px;background:#080908;color:#EDE8DF;overflow:hidden;position:relative;
+  font-family:InterV,sans-serif;display:grid;place-items:center}
+.glow{position:absolute;inset:0;background:
+  radial-gradient(58% 44% at 50% 42%,rgba(198,161,91,.10),rgba(8,9,8,0) 70%)}
+.grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+.wrap{position:relative;display:grid;justify-items:center;gap:0}
+.mark{width:300px}
+.mark svg{width:100%;height:auto;display:block}
+.mark path{fill:none;stroke:#EDE8DF;stroke-width:5.5}
+.sub{margin-top:26px;font-size:13px;letter-spacing:.55em;text-transform:uppercase;color:#A39C90}
+.line{margin-top:52px;font-family:Instrument,serif;font-size:52px;line-height:1.12;
+  letter-spacing:-.02em;text-align:center;max-width:20ch}
+.line em{font-style:italic;color:#E0BE7C}
+.dials{margin-top:54px;display:flex;gap:22px}
+.d{width:34px;height:34px;border-radius:50%;border:1px solid rgba(237,232,223,.18);
+  box-shadow:inset 0 -9px 16px rgba(0,0,0,.55),inset 0 5px 10px rgba(255,255,255,.12)}
+.foot{position:absolute;bottom:40px;left:0;right:0;display:flex;justify-content:space-between;
+  padding:0 64px;font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:#868073}
+.rule{position:absolute;top:0;left:64px;right:64px;height:1px;background:rgba(237,232,223,.09)}
+</style></head><body>
+<div class="glow"></div>
+<div class="wrap">
+  <div class="mark"><svg viewBox="0 0 380 120"><g fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100"/><path d="M108 100 L140 20 L172 100"/>
+    <path d="M208 100 L240 20 L272 100"/><path d="M308 20 V100 H356"/></g></svg></div>
+  <p class="sub">Series 01</p>
+  <p class="line">Twenty watches.<br>Then the design <em>retires</em>.</p>
+  <div class="dials">
+    <span class="d" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span>
+    <span class="d" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span>
+    <span class="d" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span>
+    <span class="d" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span>
+  </div>
+</div>
+<div class="grain"></div>
+<div class="foot"><span>Handmade &nbsp;·&nbsp; Numbered</span><span>thekaal.co</span></div>
+</body></html>

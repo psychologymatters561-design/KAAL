@@ -164,6 +164,9 @@ top instead.
 Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 
 - No JavaScript errors and no page errors in any tier
+- No horizontal overflow at 360, 390, 768, 1024, 1440 or 2560 px
+- Keyboard: every number reachable and selectable with Enter, focus ring
+  measured at 2px gold, sold numbers correctly unreachable
 - All eleven acts reveal in order on desktop and on a phone
 - Scroll to film mapping measured linear across eight sample points, and
   correct in reverse
@@ -173,8 +176,10 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - No text sits over a photograph anywhere on the page
 - Keyboard focus visible on every focusable element
 - `prefers-reduced-motion`: settled, film never fetched, dust removed
-- JavaScript disabled: every act, the grid, the footer and the button render
-- No horizontal overflow at 393px
+- JavaScript disabled: all eleven acts, **all twenty numbers with the two
+  struck**, the footer and the button all render, and nothing is left invisible
+  behind a reveal that will never fire. The twenty are printed into the HTML;
+  the config rebuilds them on load.
 - The main animation loop measured **asleep** when idle rather than assumed to be
 
 Still needs a person, and no headless browser substitutes for it: **a real
@@ -189,6 +194,7 @@ assets/img/              the photographs (see incoming/DROP.md)
 assets/brand/            the KΛΛL wordmark, both A's bare, matching the dial
 incoming/DROP.md         the eight filenames and the film encode
 docs/design-package.md   why the page is shaped the way it is
+docs/og-card.html        source for the share card, re-render at 1200x630
 ```
 
 **Dead weight still in the repo, kept rather than deleted without asking:**

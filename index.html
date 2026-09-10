@@ -494,7 +494,7 @@ a{color:inherit}
   <div class="stage" id="stage">
     <video id="film" muted playsinline preload="none" disablepictureinpicture
            aria-hidden="true" tabindex="-1"></video>
-    <img class="still on" id="still" src="assets/img/hero-still.webp"
+    <img class="still on" id="still" src="assets/img/hero-still.webp" data-frame="auto"
          alt="A KAAL Series 01 watch with a gold dial and a two tone steel bracelet, lit by candlelight on a dark stone plinth.">
 
     <div class="ring" id="ring" aria-hidden="true">
@@ -539,7 +539,7 @@ a{color:inherit}
       <p class="sub rise"><strong>The design retires with the twentieth buyer.</strong> That is the whole promise, and it is the only one that cannot be walked back.</p>
     </div>
     <div class="plate rise" data-par="0.06">
-      <img src="assets/img/stone-day.webp" loading="lazy" decoding="async"
+      <img src="assets/img/stone-day.webp" data-frame="8p" loading="lazy" decoding="async"
            alt="A KAAL watch with a silver white dial and gold bezel resting on a broken concrete slab in daylight.">
     </div>
   </div>
@@ -553,7 +553,7 @@ a{color:inherit}
     <p class="sub rise">You do not choose the face. You choose a number, and the number already has one. Every number was given its dial before this page went live.</p>
   </div>
   <div class="plate plate-wide rise" data-par="0.09" style="margin-top:clamp(2.6rem,7vh,5rem)">
-    <img src="assets/img/four.webp" loading="lazy" decoding="async"
+    <img src="assets/img/four.webp" data-frame="30p" loading="lazy" decoding="async"
          alt="All four Series 01 dials arranged on wet black slate: green, black, gold and silver white, each with a gold bezel and two tone bracelet.">
   </div>
   <div class="hold">
@@ -575,7 +575,7 @@ a{color:inherit}
       <p class="sub rise">Sunray brushed, lacquered, then cut by the same gold bezel every piece carries. In a room it is a dark dial. Under a window it is not.</p>
     </div>
     <div class="plate plate-tall rise" data-par="0.08">
-      <img src="assets/img/jade-wide.webp" loading="lazy" decoding="async"
+      <img src="assets/img/jade-wide.webp" data-frame="45p" loading="lazy" decoding="async"
            alt="A KAAL watch with a deep green dial standing on dark slate, lit through green mist by a shaft of light.">
     </div>
   </div>
@@ -589,7 +589,7 @@ a{color:inherit}
     <p class="sub rise">Series 01 is water resistant. Caught in weather, washed at a basin, worn through a downpour on the way to somewhere better: none of that is a story, and none of it is your problem.</p>
   </div>
   <div class="plate plate-wide rise" data-par="0.1" style="margin-top:clamp(2.6rem,7vh,5rem)">
-    <img src="assets/img/onyx-rain.webp" loading="lazy" decoding="async"
+    <img src="assets/img/onyx-rain.webp" data-frame="58p" loading="lazy" decoding="async"
          alt="Close view of the black dial with gold indices and gold hands, beaded with water on a wet black surface.">
   </div>
 </section>
@@ -603,7 +603,7 @@ a{color:inherit}
       <p class="sub rise">A full brass dial is a decision, not a default. It is the piece in the series that does not wait to be noticed, and the one most likely to go first.</p>
     </div>
     <div class="plate plate-tall rise" data-par="0.07">
-      <img src="assets/img/ember-smoke.webp" loading="lazy" decoding="async"
+      <img src="assets/img/ember-smoke.webp" data-frame="72p" loading="lazy" decoding="async"
            alt="A KAAL watch with a brass gold dial in warm smoke and golden bokeh light.">
     </div>
   </div>
@@ -618,7 +618,7 @@ a{color:inherit}
       <p class="sub rise">A pale dial shows every flaw in a finish, which is exactly why it is in the series. Day ring, twenty four hour counter and pointer date, all legible at arm's length in daylight.</p>
     </div>
     <div class="plate plate-tall rise" data-par="0.08">
-      <img src="assets/img/stone-studio.webp" loading="lazy" decoding="async"
+      <img src="assets/img/stone-studio.webp" data-frame="20p" loading="lazy" decoding="async"
            alt="A KAAL watch with a silver white dial photographed three quarters on a pale concrete block against a grey wall.">
     </div>
   </div>
@@ -649,7 +649,7 @@ a{color:inherit}
       <p class="sub rise"><strong>Two years on the movement.</strong> Not the strap, not the glass, not a scratch you put there. The heart.</p>
     </div>
     <div class="plate plate-tall rise" data-par="0.06">
-      <img src="assets/img/jade-close.webp" loading="lazy" decoding="async"
+      <img src="assets/img/jade-close.webp" data-frame="88p" loading="lazy" decoding="async"
            alt="Macro view of the green dial showing the day ring, the twenty four hour counter and the pointer date subdial.">
     </div>
   </div>
@@ -817,6 +817,13 @@ var KAAL = {
   edition:  20,
   sold:     [1, 2],
   film:     "https://res.cloudinary.com/zuc7oxyj/video/upload/v1788959635/090901_1788957849218.mp4",
+
+  /* Stills pulled from the film itself, by Cloudinary, at a percentage of
+     its duration so this works whatever length it is. These are a safety
+     net, never the plan: any real photograph at the matching filename in
+     assets/img/ is loaded first and wins. When all eight land, nothing
+     here is ever requested again. Set to "" to switch the net off. */
+  frames:   "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_1500,c_limit,q_auto/v1788959635/090901_1788957849218.jpg",
   dials: {
     1:"bone",  2:"onyx",  3:"brass", 4:"jade",  5:"onyx",
     6:"bone",  7:"jade",  8:"brass", 9:"onyx", 10:"bone",
@@ -1007,7 +1014,17 @@ function driveWorld(){
       than a broken glyph, so the page is whole before the shoot lands
       and whole again if a file ever goes missing in production. ──── */
 (function missingArt(){
+  /* Three steps down, and each one is still a designed state:
+     the photograph, then a frame lifted out of the film, then a panel.
+     Nothing on this page ever renders as a broken image glyph. */
+  function tryFilmFrame(img){
+    if(!KAAL.frames || img.dataset.tried || !img.dataset.frame) return false;
+    img.dataset.tried = "1";
+    img.src = KAAL.frames.replace("{T}", img.dataset.frame);
+    return true;
+  }
   function fallback(img){
+    if(tryFilmFrame(img)) return;
     var plate = img.closest(".plate");
     if(plate){
       if(plate.classList.contains("void-plate")) return;

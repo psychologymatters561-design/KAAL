@@ -11,14 +11,20 @@ Cloudinary.
 
 ## Before the ads run
 
-### 1. Upload the eight photographs and the film
+### 1. Upload the eight photographs
 
 `incoming/DROP.md` is the whole job, with the exact filenames. The page is
 already wired to them.
 
-Nothing breaks while they are missing. Every photograph that has not landed
-renders as a designed panel reading "photograph pending" instead of a broken
-image icon, so the site can go live before the files do.
+**The site is live without them.** Every picture falls back in three steps,
+and each step is a designed state: the photograph at its filename, then a
+still cut out of your own film by Cloudinary at a percentage of its duration,
+then a panel. Nothing ever renders as a broken image icon.
+
+The frames are a safety net, not the plan, and nobody has inspected them:
+this build environment cannot reach Cloudinary, so they were wired but never
+seen. Look at the live site and judge them. A real photograph at the matching
+filename wins outright and switches its frame off for good.
 
 ### 2. The payment link
 

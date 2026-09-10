@@ -32,9 +32,20 @@ one of them is worth a careful export, it is that one.
 wider than about 1180 CSS pixels, so anything beyond 1600 is bytes your buyer
 pays for and never sees.
 
-Until they land the page does not break. Each missing picture renders as a
-designed panel reading "photograph pending", so you can put the site live
-today and drop the images in after.
+Until they land the page does not break, and it is not empty either. Each
+missing picture falls back to a still cut out of your own film by Cloudinary,
+at a set percentage of its duration, and only falls back to a designed panel
+if that cannot be reached. The site is live now on that basis.
+
+Those frames are a safety net, not the plan. A frame of a moving product video
+is never as good as a photograph composed to be one, and I have not been able
+to see them: this session cannot reach Cloudinary, so I wired the frames but
+have never looked at them. **Open the site and look.** If any frame is blurred
+or mid-motion, change its percentage in `KAAL.frames` usage on that picture
+(the `data-frame` attribute), or set `frames: ""` to go back to panels.
+
+The moment a real photograph exists at its filename below, it wins outright
+and its frame is never requested again.
 
 ---
 

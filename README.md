@@ -101,38 +101,66 @@ of consecutive numbers carrying one colour to shop from.
 
 ## How the page renders
 
-### The film is the scroll
+### The film is the scroll, and it is not a video
 
-The hero is a real `<video>` whose transport is the scrollbar. Scroll position
-inside a 340vh section maps to `currentTime`, eased, and the page is never
-hijacked: nothing calls `preventDefault`, so there is no wheel to fight and no
-touch momentum to reinvent. What makes it feel like silk is that every derived
-value carries weight, not that the scrollbar was taken away.
+The hero does not scrub a `<video>`, and that is the single most
+important decision in the page.
 
-Three details earned their place, and each one is a bug that was found by
-running the thing rather than reasoning about it:
+Setting `video.currentTime` forces the decoder to jump to the nearest
+**keyframe** and decode forward to the target. A normal export carries a
+keyframe every one to three seconds, so one seek costs fifty to two
+hundred milliseconds and lands on a chunky boundary. Drive that from
+scroll and you get five to fifteen updates a second, visibly stepping.
+No amount of easing hides it, because it is the codec, not the
+animation. That is exactly what the first version of this page did and
+exactly why it looked glitchy.
 
-- **The film is fetched as a Blob, not streamed.** A ranged seek against a CDN
-  is where scroll video usually falls apart. Behind an honest loading ring
-  that reports real bytes, and only if the file is big enough to be worth
-  waiting for.
-- **Seeks are gated, and measured against the request rather than the clock.**
-  The browser snaps a seek to the nearest decodable frame, so a target landing
-  between two frames reads back as a miss on every frame, and the page sits
-  there seeking forever without arriving. Comparing to what was last asked for
-  makes arriving unambiguous.
-- **A video that has never played does not reliably paint on a bare
-  `currentTime` write.** One muted play, immediately paused, wakes the decoder.
+So the film is delivered as frames. Cloudinary cuts stills out of the
+same video on demand, they are preloaded, and scroll paints them to a
+canvas. No decoder in the loop, no keyframes, no seeks. Painting an
+already decoded image is effectively free, so it is frame exact and
+cannot stutter. This is how the scroll films on the product pages you
+have seen are actually built.
 
-Verified against a timecoded test clip: scroll 15% put the film at 15%, 60% at
-60%, 100% at 100%, and scrolling back up ran it backwards. Frames confirmed
-painting by drawing the video to a canvas and reading pixels, not by assuming.
+Measured against a 48 frame test sequence, not reasoned about:
+
+| | |
+|---|---|
+| scroll position to painted frame | exact at all nine sample points |
+| distinct frames over a slow drag | 47 of 48 |
+| largest gap between painted frames | **1**, meaning no stepping at all |
+| backwards jumps during a forward drag | **0** |
+| a flick from top to bottom | decelerates over 14 paints, lands exactly on target |
+
+Three details earned their place, each one a defect found by running it:
+
+- **The opening frame is fetched alone and first.** Requesting frames in
+  a clever order is not enough: they all go out together, multiplex, and
+  finish in any order. Going live on "any three have landed" opened the
+  hero on whichever frame won the race and then eased backwards to the
+  one the scrollbar was on, which read as the film rewinding the instant
+  it appeared.
+- **Going live is conditional on something being paintable**, never on a
+  request merely having finished. An opening frame that errored used to
+  take the still down with it and leave a black hero.
+- **The wordmark clears the frame.** A product film keeps its subject in
+  the middle, and so does a centred wordmark. It lifts away between three
+  and sixteen percent so the watch gets the screen.
+
+The hero is 230vh, not 340. At 340 it took two and a half screens of
+scrolling to play the film through, which is what read as slow.
+
+`KAAL.frameCount` is the one dial that trades smoothness against bytes.
+48 on a laptop at 1280px wide, 24 on a phone at 720px.
 
 ### Five gates serve the still instead
 
-The film is never fetched when any one of these is true: reduced motion is
-requested, the viewport is under 900px, Save-Data is on, the connection
-reports 2g or 3g, or there is no film configured. Those visitors get shot 7 as
+The frames are never fetched when any one of these is true: reduced
+motion is requested, the viewport is under 340px, Save-Data is on, the
+connection reports 2g, or there is no film configured. **Phones are no
+longer locked out**: a phone is paid for by spending less rather than
+nothing, so it gets the film at 24 frames and 720px instead of 48 and
+1280. Those visitors get shot 7 as
 a full hero, which was composed to be a complete first screen on its own.
 `?film=1` forces the film on for reviewing the real thing on your own phone.
 
@@ -174,8 +202,13 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - Keyboard: every number reachable and selectable with Enter, focus ring
   measured at 2px gold, sold numbers correctly unreachable
 - All eleven acts reveal in order on desktop and on a phone
-- Scroll to film mapping measured linear across eight sample points, and
-  correct in reverse
+- Scroll to frame mapping exact at nine sample points and correct in
+  reverse; largest gap between painted frames measured at 1, with zero
+  backwards jumps during a forward drag
+- All four loader branches exercised: frames available on desktop and on
+  a phone, every frame blocked, and the opening frame alone failing. The
+  still keeps the screen whenever nothing is paintable; there is no
+  state that shows a black hero.
 - Contrast on void: bone **16.3:1**, secondary **7.3:1**, tertiary **5.1:1**,
   gold **8.2:1**, and the button's dark-on-gold **8.2:1**. Bone measured on all
   four world backgrounds, worst case **15.6:1**. Everything passes AA.

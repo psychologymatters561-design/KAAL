@@ -1,242 +1,201 @@
-# KAAL — thekaal.co
+# KAAL, thekaal.co
 
 Series 01. Twenty numbered watches, one case design, four dials. A scroll
-driven landing page built for cold traffic from Meta ads.
+driven landing page built to sell to cold traffic.
 
-One `index.html`, plain CSS, vanilla JavaScript, no build step, no npm, nothing
-loaded from another domain.
+One `index.html`, plain CSS, vanilla JavaScript, no build step, no npm, and
+nothing loaded from another domain except the film while it still lives on
+Cloudinary.
 
 ---
 
 ## Before the ads run
 
-### 1. The payment link
+### 1. Upload the eight photographs and the film
 
-Open `index.html`, find `const KAAL = {` near the bottom. Four lines govern the
-whole page.
+`incoming/DROP.md` is the whole job, with the exact filenames. The page is
+already wired to them.
+
+Nothing breaks while they are missing. Every photograph that has not landed
+renders as a designed panel reading "photograph pending" instead of a broken
+image icon, so the site can go live before the files do.
+
+### 2. The payment link
+
+Find `var KAAL = {` near the bottom of `index.html`. Five lines govern the
+commercial behaviour of the entire page.
 
 ```js
-const KAAL = {
-  checkout: "",            // ← the live Razorpay payment-page URL
+var KAAL = {
+  checkout: "",            // the live Razorpay payment-page URL
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
-  sold:     [1, 2]         // the numbers already claimed
+  sold:     [1, 2],        // the numbers already claimed
+  film:     "https://res.cloudinary.com/...",
+  dials:    { 1:"bone", 2:"onyx", 3:"brass", ... }
 };
 ```
 
 While `checkout` is empty the button is visibly inert and says so: *"Checkout
-opens when the payment link goes live."* No dead `href="#"`, no email funnel,
-no ambiguity. Paste the URL and the button becomes a real link everywhere it
-appears. Nothing else changes.
+opens when the payment link goes live."* No dead `href="#"`, no fake funnel.
+Paste the URL and every button on the page becomes real, and carries the
+chosen number through as `?kaal_no=07`.
 
-**Use a Razorpay Payment Page with stock limits, not a bare payment link.**
-This is a static site on GitHub Pages with no backend, so it cannot know a
-piece has sold. Razorpay's own inventory limit can, and closes the page when
-the count runs out. Without that, two people can buy number 07.
+**Use a Razorpay Payment Page with a stock limit of 20, not a bare payment
+link.** This is a static site on GitHub Pages with no backend, so it cannot
+know a piece has sold. Razorpay's own inventory limit can, and closes the page
+when the count runs out. Without it, two people can buy number 07.
 
-`sold` drives the strike-throughs on the twenty, the remaining count, the
-`<title>` and the share card. The grid printed in the HTML is the
-no-JavaScript fallback; the config overrides it on load.
+`sold` drives the strike-throughs on the twenty, the remaining count, the rail
+ticks, the nav, the sticky bar and the `<title>`.
 
-### 2. Confirm what was drafted, not supplied
+### 3. Confirm what was drafted, not supplied
 
-Search `UNCONFIRMED` in `index.html`. Three commercial terms in the footer were
-written to fill a legally required gap, not sourced from you:
+Search `UNCONFIRMED` in `index.html`. Two things in the footer are required on
+display by the Consumer Protection (E-Commerce) Rules 2020 and are not yet
+sourced from you:
 
-- the seven-day returns window and its conditions
-- whether shipping is included in ₹5,999
-- country of origin (currently reads "to be confirmed")
+- registered seller name, address, GSTIN, and the grievance officer's name,
+  email and phone
+- country of origin, a declarable under the Legal Metrology (Packaged
+  Commodities) Rules
 
-These are binding, and the last is a declarable under the Legal Metrology
-(Packaged Commodities) Rules. Fix the words before spending money on traffic.
+Also confirm whether shipping genuinely sits inside ₹5,999, which the footer
+currently states.
 
-### 3. Meta pixel
+### 4. Meta pixel
 
-There is no pixel in the page yet. Note that twenty pieces is smaller than
-Meta's learning-phase threshold of roughly fifty conversions per week, so you
-will never optimise for Purchase. Optimise on an upper-funnel event that has
-volume, or buy manually.
+There is no pixel in the page yet. Twenty pieces is far below Meta's
+learning-phase threshold of roughly fifty conversions per week, so you will
+never optimise for Purchase. Optimise on an upper-funnel event that has volume,
+or buy manually.
 
 ---
 
-## About the imagery
+## The one commercial mechanic worth understanding
 
-The photography in `assets/img/` and the 27 frames in `assets/seq/` are AI
-generated, and the owner has decided to ship them. That decision is recorded
-here rather than buried: the day rings carry invented text (`THON TUE TRU
-SAT`), and some bracelet runs do not hold together under close inspection.
+**The number is the product. The dial is an attribute of the number.**
 
-The page is built to flatter them rather than expose them. Every photograph
-sits under a radial vignette that darkens the caption band to roughly a third
-of its original luminance, so the dial printing reads as texture rather than as
-something a visitor tries to read. Worst-case measured contrast of bone text
-over any photograph is 4.46:1, which clears AA for body text.
+Every one of the twenty numbers is bound to a dial in `KAAL.dials` before the
+page goes live. A buyer chooses a number and sees which face it carries. They
+keep full agency, so nobody is gambling at the moment of payment, which is
+where uncertainty kills a sale. And you keep control of the mix, so no single
+colour can sit unsold because everybody wanted a different one.
 
-If real photographs are ever shot, they drop into the same filenames and
-nothing else changes. `incoming/README.md` carries the shot list.
+The lever nobody notices: **a number that has not been bought was never
+promised to anyone.** If brass stalls, re-point the unsold numbers in
+`KAAL.dials` and the mix rebalances silently. Buyers only ever see the current
+state. Nothing was misrepresented, because nothing about an unsold number was
+ever stated as permanent.
+
+The current mix is five of each, interleaved on purpose so there is no block
+of consecutive numbers carrying one colour to shop from.
 
 ---
 
 ## How the page renders
 
-Everything moves everywhere. The corridor is a real Three.js
-`PerspectiveCamera` dollying z +4 → −34; the photographs are textures on planes
-standing at their own depths, so the parallax between them is a projection
-matrix rather than a transform. Dust is a point cloud with its own perspective
-divide, and haze slabs pass the lens.
+### The film is the scroll
 
-**This was gated to desktop and that was wrong.** The gate read
-`(min-width: 900px) and (pointer: fine)`, and `pointer: fine` is false on every
-phone and every tablet — so the camera, the dust and the pull-back were
-invisible on exactly the devices Meta traffic arrives on, and invisible to the
-owner reviewing his own site on a phone. The gate is now a capability test:
-a WebGL context, ≥340 px of width, and `navigator.deviceMemory` ≥ 2 where the
-browser reports it.
+The hero is a real `<video>` whose transport is the scrollbar. Scroll position
+inside a 340vh section maps to `currentTime`, eased, and the page is never
+hijacked: nothing calls `preventDefault`, so there is no wheel to fight and no
+touch momentum to reinvent. What makes it feel like silk is that every derived
+value carries weight, not that the scrollbar was taken away.
 
-A phone is paid for by spending less, not by spending nothing:
+Three details earned their place, and each one is a bug that was found by
+running the thing rather than reasoning about it:
 
-| | phone / small tablet | laptop and up |
-|---|---|---|
-| device pixel ratio | capped **1.5** | capped 2 |
-| antialiasing | off | on |
-| dust points | 320 | 900 |
-| haze slabs | 3 | 5 |
-| scroll frames | `assets/seq/m/`, 720 px, **744 KB** | `assets/seq/`, 1100 px, 1.1 MB |
+- **The film is fetched as a Blob, not streamed.** A ranged seek against a CDN
+  is where scroll video usually falls apart. Behind an honest loading ring
+  that reports real bytes, and only if the file is big enough to be worth
+  waiting for.
+- **Seeks are gated, and measured against the request rather than the clock.**
+  The browser snaps a seek to the nearest decodable frame, so a target landing
+  between two frames reads back as a miss on every frame, and the page sits
+  there seeking forever without arriving. Comparing to what was last asked for
+  makes arriving unambiguous.
+- **A video that has never played does not reliably paint on a bare
+  `currentTime` write.** One muted play, immediately paused, wakes the decoder.
 
-A phone's DPR is often 3, and a five-tap fragment shader at 3× is where this
-would have fallen over. At 1.5× on a 400 px screen the plate is still 600 real
-pixels wide, which is more than the photograph has to give anyway.
+Verified against a timecoded test clip: scroll 15% put the film at 15%, 60% at
+60%, 100% at 100%, and scrolling back up ran it backwards. Frames confirmed
+painting by drawing the video to a canvas and reading pixels, not by assuming.
 
-First paint is unchanged at roughly **119 KB** — Three.js is deferred until
-after `load`, so it never delays the first screen. The scroll frames arrive
-progressively and the sequence starts on the third frame rather than the
-twenty-seventh, so on cellular the scene works immediately and sharpens as it
-fills in instead of sitting on a still until the last byte.
+### Five gates serve the still instead
 
-Falling back is still honest: no WebGL, no JavaScript, or
-`prefers-reduced-motion` each get the same photographs as DOM images, the same
-scroll value, and a 2 KB dust field.
+The film is never fetched when any one of these is true: reduced motion is
+requested, the viewport is under 900px, Save-Data is on, the connection
+reports 2g or 3g, or there is no film configured. Those visitors get shot 7 as
+a full hero, which was composed to be a complete first screen on its own.
+`?film=1` forces the film on for reviewing the real thing on your own phone.
 
-**Scroll is never hijacked.** `window.scrollY` is read on the animation frame
-and eased into `camera.position.z`. GSAP and ScrollTrigger stay out: a scrubbed
-ScrollTrigger is the known source of touch-scroll bugs on iOS Safari and
-Android Chrome, and there is nothing here to desync because nothing calls
-`preventDefault`. Verified with real dispatched touch events, not mouse events
-pretending.
+The page is also complete with **no images and no film at all**, which is the
+state it is in right now.
 
-### The photograph is a framed still, not a background
+### One continuous world
 
-This is the one decision the rest of the design hangs off. The picture sits in
-a band in the upper part of the frame; the type lives in the void underneath
-it. Two things follow.
+A single fixed layer sits behind everything and its colour is a function of
+which act owns the middle of the screen. Five worlds: void, stone, jade, onyx,
+ember. That is what makes ten sections read as one building rather than a
+stack of pages.
 
-**Legibility.** Bone on void is 15.7:1. Bone over a lit dial is a coin toss,
-and the build before this one had to pour a vignette over every photograph to
-win that toss — which is exactly why the images read as murky. With nothing
-resting on the picture the scrim is decoration, so the photographs are allowed
-to be bright.
+### Entrances that earn their own
 
-**Sharpness.** A 1200 px photograph stretched over a 2560 px monitor is being
-asked for detail it does not have, and no shader invents it. Held to an 1180 px
-plate it is doubled at worst on a retina panel and exactly itself on
-everything else. That is the whole of the fix, and it costs nothing but
-restraint. `PLATE_MAX_CSS_W` in `index.html` is the cap; raise it the day 4K
-sources land. See `incoming/PICKUP.md` — four of them are already paid for and
-waiting.
+Most things rise, because varying every single one is noise. The exceptions:
+the wordmark draws itself stroke by stroke out of nothing; the four dials deal
+in like cards; the returns section arrives from both sides and meets in the
+middle, because that is what a door does; and the line about who this is for
+has **no entrance at all**. On a page where everything moves, arriving already
+still is the loudest entrance available.
 
-The plate shader also runs a four-tap unsharp mask, because the GPU is still
-magnifying, and feathers its own edges so the picture dissolves into the void
-instead of ending at a rectangle.
+### The rail
 
-### The drawn thread
-
-The 10k-websites skill's whole-site standard asks for four things: particles at
-whisper level, easing on everything, lines that draw themselves on scroll, and a
-unique entrance per moment. The first two were already here. The other two are
-the rail and the per-scene entrances.
-
-The rail is a hairline that draws itself down the page as the visitor descends,
-carrying twenty ticks, two of them struck back because those numbers are gone.
-Numbered markers are a generic device almost everywhere. Here the content
-genuinely is a sequence of twenty, which is the one context where the device is
-earned rather than decorative. It runs off the same eased scroll value the
-camera uses, writes to the DOM only on the frames where a value actually moved,
-and is a transform and a dash offset, so the compositor does all of it. Below
-900px the rail would crowd the type, so the same value draws a hairline across
-the top of the frame instead.
-
-The entrances that earn their own: the wordmark draws itself stroke by stroke
-out of nothing; the refrain in scene 4 settles from open letter-spacing rather
-than rising; scene 8 arrives slightly too close and settles back, and is the
-only text on the site allowed to glow; scene 9 opens downward. Everything else
-keeps the common rise, because varying every single one would be noise.
-
-None of it may hide anything when the animation is not running: the wordmark,
-the rules and the hairlines all have explicit no-JS and reduced-motion states,
-verified rather than assumed.
-
-### Three things that are not obvious from reading the code
-
-- **Plates have a depth of field.** Ownership alone cannot hide a neighbour: a
-  plate the lens has nearly reached fills the whole frame, so three percent of
-  it is a full-screen wash, and the eased camera is always slightly behind the
-  scroll. A plate now exists only inside a narrow window either side of its
-  focus distance, and the lens travels ~3.7 units between scene centres, so a
-  neighbour is always outside it.
-- **Plates follow their caption.** A sticky hold rides the top of the frame
-  until its section's bottom catches it, then it climbs away. The plate carries
-  the same displacement, so a picture and the words it belongs to move as one
-  unit rather than the photograph hanging in the air while the line leaves.
-- **Depth is measured, not assumed.** Every depth derives from where a section
-  actually sits, so a stale measurement points the camera at the wrong scene. A
-  `ResizeObserver` on the scroll body catches webfonts swapping, images landing
-  and a phone's URL bar collapsing.
-
-### Scene 3 carries the move
-
-The 27 recorded frames were shot pushing in on the row of four. Played
-backwards they pull out from one dial to all four — which is the sentence that
-scene is already making, so the camera says it too. Desktop only; phones get
-the still.
+A hairline draws itself down the page carrying twenty ticks, two struck
+because those numbers are gone. A numbered rail is a generic device almost
+everywhere. Here the content genuinely is a sequence of twenty, which is the
+one context where it is earned. Under 1180px it becomes a hairline across the
+top instead.
 
 ---
 
 ## Verified
 
-Chromium at 1440×900 and as a Pixel 5, both settled, run rather than reasoned
-about.
+Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 
-- No console errors, no page errors, no failed requests, in either tier
-- All ten scenes reveal in order, on wheel and on **real dispatched touch
-  events** — a swipe run drives 0 → 9778 px with all ten lit
-- Contrast on void: bone **15.69:1**, secondary **5.43:1**, gold **6.97:1** —
-  all pass AA. No text sits over a photograph anywhere on the page.
-- Keyboard focus visible on every focusable element: 2 px gold ring, measured
-- `prefers-reduced-motion`: settled, stage removed, Three.js never fetched
-- JavaScript disabled: all ten scenes, six photographs, footer and button render
-- Phone first view ≈119 KB; Three.js confirmed **not** requested on mobile
-- OG, Twitter and canonical tags all resolve
+- No JavaScript errors and no page errors in any tier
+- All eleven acts reveal in order on desktop and on a phone
+- Scroll to film mapping measured linear across eight sample points, and
+  correct in reverse
+- Contrast on void: bone **16.3:1**, secondary **7.3:1**, tertiary **5.1:1**,
+  gold **8.2:1**, and the button's dark-on-gold **8.2:1**. Bone measured on all
+  four world backgrounds, worst case **15.6:1**. Everything passes AA.
+- No text sits over a photograph anywhere on the page
+- Keyboard focus visible on every focusable element
+- `prefers-reduced-motion`: settled, film never fetched, dust removed
+- JavaScript disabled: every act, the grid, the footer and the button render
+- No horizontal overflow at 393px
+- The main animation loop measured **asleep** when idle rather than assumed to be
 
-Still needs a person, and no headless browser can stand in for it: **an actual
-mid-range Android handset on actual mobile data**, and a real Lighthouse run.
-The software renderer here manages 7 fps, which says nothing about a real GPU
-but says plainly that this has not been watched on hardware.
+Still needs a person, and no headless browser substitutes for it: **a real
+mid-range Android on real mobile data**, and a Lighthouse run.
 
 ## What is in here
 
 ```
 index.html               the whole site
-assets/fonts/            Fraunces and Inter, subset, self hosted, 21 KB each
-assets/js/three.min.js   r128, self hosted, deferred until after load
-assets/seq-src/          the crop the generated pull-back was anchored on
-assets/img/og.jpg        the share card, typographic
-assets/brand/            the KA∧L wordmark
-assets/_unverified/      the AI generated images. Not referenced. Read its README.
-incoming/                where real photographs land
-assets/seq/m/            the same 27 frames at 720px, for phones
-incoming/PICKUP.md       five paid-for files still sitting in Higgsfield
-docs/design-package.md   why the page is shaped this way
+assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
+assets/img/              the photographs (see incoming/DROP.md)
+assets/brand/            the KΛΛL wordmark, both A's bare, matching the dial
+incoming/DROP.md         the eight filenames and the film encode
+docs/design-package.md   why the page is shaped the way it is
 ```
 
-Published by GitHub Pages at the domain in `CNAME`, from whichever branch Pages
-is pointed at. `.nojekyll` keeps the files as they are.
+**Dead weight still in the repo, kept rather than deleted without asking:**
+`assets/js/three.min.js`, `assets/seq/`, `assets/seq-src/` and the older
+`assets/img/*.webp` renderings are no longer referenced by anything. They cost
+a visitor nothing, because nothing requests them, but they are about 4 MB of
+history. Say the word and they go in one commit.
+
+Published by GitHub Pages at the domain in `CNAME`. `.nojekyll` keeps the
+files as they are.

@@ -2,1382 +2,1224 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KAAL — Series 01. Eighteen of twenty remain.</title>
-<meta name="description" content="Twenty numbered watches. One case design. Two are gone and we will not make another. Series 01, ₹5,999, shipped across India.">
-<meta name="theme-color" content="#0A0908">
-<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAAL Series 01 · Twenty watches, then the design retires</title>
+<meta name="description" content="Twenty numbered watches. One case, four faces, finished by hand. When the twentieth ships, Series 01 is retired and never made again.">
+<meta name="theme-color" content="#080908">
 <link rel="canonical" href="https://thekaal.co/">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<meta property="og:type" content="product">
+<meta property="og:type" content="website">
 <meta property="og:site_name" content="KAAL">
 <meta property="og:url" content="https://thekaal.co/">
-<meta property="og:title" content="KAAL — Series 01. Eighteen of twenty remain.">
-<meta property="og:description" content="Twenty were made, and we will not make another.">
+<meta property="og:title" content="KAAL Series 01 · twenty pieces, then it retires">
+<meta property="og:description" content="One case, four faces, twenty numbers. You do not choose the face. You choose a number, and the number already has one.">
 <meta property="og:image" content="https://thekaal.co/assets/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="KAAL. Twenty were made, and we will not make another.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="KAAL — Series 01. Eighteen of twenty remain.">
-<meta name="twitter:description" content="Twenty were made, and we will not make another.">
+<meta name="twitter:title" content="KAAL Series 01 · twenty pieces, then it retires">
+<meta name="twitter:description" content="One case, four faces, twenty numbers. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
-<link rel="preload" href="assets/fonts/Fraunces-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
 
 <style>
+/* ─────────────────────────────────────────────────────────────
+   TYPE. Instrument Serif carries every statement; Inter carries
+   everything a person has to actually read. Both self hosted, both
+   latin subsets, together 43 KB.
+
+   The unicode-range on Instrument Serif is not decoration. Its latin
+   subset has no U+20B9, so without the range declared the browser
+   would assume it covers the rupee and paint tofu. Declared, the
+   glyph falls through the stack to InterV, which carries a 608 byte
+   face holding that one character.
+   ───────────────────────────────────────────────────────────── */
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-italic-latin.woff2) format('woff2');font-weight:400;font-style:italic;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap;unicode-range:U+20B9}
 @font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-opsz.woff2) format('woff2-variations'),url(assets/fonts/Fraunces-opsz.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap}
-@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap}
-/* Google's latin subset carries no rupee, so ₹ was silently falling back to a
-   system face. These two carry that one glyph in the right family. */
-@font-face{font-family:Fraunces;src:url(assets/fonts/Fraunces-rupee.woff2) format('woff2');font-weight:300;font-style:normal;font-display:swap;unicode-range:U+20B9}
-@font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 500;font-style:normal;font-display:swap;unicode-range:U+20B9}
 
 :root{
-  --void:#0A0908;
-  --bone:#E8E4DC;
-  --ash:#3D3A36;
-  --gold:#B8935A;
-  --mute:#8A857C;          /* lifted ash — 5.5:1 on void, passes AA */
-  --display:Fraunces,'Times New Roman',serif;
-  --body:InterV,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --ease:cubic-bezier(.16,1,.3,1);
-  --gut:clamp(1.25rem,5vw,4rem);
-  --maxw:64rem;
+  /* Every colour below was sampled off the photographs, so the page and
+     the pictures read as one room rather than a picture in a page. */
+  --void:#080908;          /* the room */
+  --void-2:#0E0F0D;
+  --bone:#EDE8DF;          /* concrete highlight */
+  --mute:#A39C90;          /* 7.3:1 on void */
+  --faint:#868073;         /* 4.84:1 at worst across the five worlds, passes AA */
+  --ghost:#4A463F;         /* decorative marks only, never text */
+  --line:#221F1C;
+  --gold:#C6A15B;          /* the bezel */
+  --gold-lit:#E0BE7C;
+
+  /* the four worlds */
+  --w-stone:#12100E;  --w-stone-f:#D8D0C2;
+  --w-jade:#08120C;   --w-jade-f:#4E8A65;
+  --w-onyx:#050505;   --w-onyx-f:#C6A15B;
+  --w-ember:#140C04;  --w-ember-f:#D19B3F;
+
+  --display:Instrument,Fraunces,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
+
+  --ease:cubic-bezier(.16,1,.3,1);        /* the house curve */
+  --ease-soft:cubic-bezier(.22,.61,.36,1);
+  --gut:clamp(1.25rem,5vw,4.5rem);
+  --hold:min(72rem,100% - var(--gut) * 2);
 }
 
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--void);-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0}
 body{
-  margin:0;background:var(--void);color:var(--bone);
-  font-family:var(--body);font-weight:300;
-  font-size:clamp(.95rem,.5vw + .85rem,1.1rem);line-height:1.7;
-  letter-spacing:.005em;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  background:var(--void);
+  color:var(--bone);
+  font-family:var(--body);
+  font-weight:300;
+  font-size:clamp(1rem,.94rem + .3vw,1.125rem);
+  line-height:1.6;
   overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
 }
-img,svg{display:block;max-width:100%}
+img,video,svg{display:block;max-width:100%}
 a{color:inherit}
+::selection{background:var(--gold);color:var(--void)}
 
-/* ---------- focus, always visible, never removed ---------- */
-:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:1px}
-.skip{position:absolute;left:-9999px;top:0;z-index:999;background:var(--void);color:var(--bone);
-  padding:.9rem 1.3rem;border:1px solid var(--gold);font-size:.85rem}
-.skip:focus{left:1rem;top:1rem}
+/* Focus is visible on everything, always. Measured 2px gold ring. */
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
 
-/* ---------- the depth stage: fixed behind everything ---------- */
-#stage{position:fixed;inset:0;z-index:0;pointer-events:none;contain:layout paint}
-#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-#stage canvas[hidden]{display:none}
-#grain{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.032;mix-blend-mode:screen;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>")}
-#vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
-  background:radial-gradient(120% 85% at 50% 45%,transparent 38%,rgba(10,9,8,.72) 100%)}
+.hold{width:var(--hold);margin-inline:auto}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-/* ---------- scroll body ---------- */
-main{position:relative;z-index:3}
-.sc{position:relative;display:flex;align-items:center;justify-content:center;
-  padding:0 var(--gut);isolation:isolate}
-.hold{position:sticky;top:0;min-height:100svh;height:auto;display:flex;align-items:center;
-  justify-content:center;width:100%;max-width:var(--maxw);margin-inline:auto;
-  padding-block:6svh}
-.in{width:100%;text-align:center;
-  opacity:0;transform:translate3d(0,26px,0);
-  transition:opacity 1.15s var(--ease),transform 1.15s var(--ease)}
-.sc.lit .in{opacity:1;transform:none}
-/* the close must clear the persistent CTA chip on small screens */
-@media (max-width:640px){.sc .in{padding-bottom:5.2rem}}
-.no-js .in,.reduced .in{opacity:1;transform:none;transition:none}
+/* ── The fixed environment. One layer, one colour, lerped by scroll.
+      This is what makes the site read as a single continuous world
+      instead of a stack of sections. ───────────────────────────── */
+.world{position:fixed;inset:0;z-index:-2;background:var(--void);transition:background-color .9s var(--ease-soft);pointer-events:none}
+.dust{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5}
+.grain{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
 
-/* ---------- photography ----------
-   The photograph is a framed still standing in the upper part of the frame.
-   It is not a background the type sits on top of, and two things follow from
-   that — both of which matter more than the composition does.
+/* ── Type scale ──────────────────────────────────────────────── */
+.statement{
+  font-family:var(--display);
+  font-weight:400;
+  font-size:clamp(2.4rem,1.1rem + 6.2vw,7rem);
+  line-height:.98;
+  letter-spacing:-.022em;
+  margin:0;
+  text-wrap:balance;
+}
+.statement em{font-style:italic;color:var(--gold-lit)}
+.sub{
+  font-size:clamp(1.02rem,.96rem + .38vw,1.3rem);
+  line-height:1.62;
+  color:var(--mute);
+  max-width:44ch;
+  margin:1.6rem 0 0;
+  font-weight:300;
+}
+.sub strong{color:var(--bone);font-weight:400}
+.label{
+  font-size:.6875rem;
+  letter-spacing:.42em;
+  text-transform:uppercase;
+  color:var(--faint);
+  font-weight:500;
+  margin:0 0 2.2rem;
+  display:flex;align-items:center;gap:.9rem;
+}
+.label::after{content:"";flex:1;height:1px;background:currentColor;opacity:.34;
+  transform:scaleX(0);transform-origin:left;transition:transform 1.5s var(--ease) .18s}
+.lit .label::after{transform:scaleX(1)}
+.num{font-variant-numeric:tabular-nums}
 
-   Legibility. Bone on void is 15.7:1. Bone over a lit dial is a coin toss,
-   and the build before this one had to pour a vignette over every photograph
-   to win that toss, which is exactly why the images read as murky. Move the
-   type off the picture and the vignette stops being load bearing, so the
-   photographs are allowed to be bright.
+/* ── Nav. Thin, fixed, and it does not appear until the hero has
+      done its job. Selling before desire is the standard mistake. ─ */
+.nav{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;align-items:center;
+  gap:1.4rem;padding:1.05rem var(--gut);
+  background:linear-gradient(to bottom,rgba(8,9,8,.86),rgba(8,9,8,0));
+  opacity:0;transform:translate3d(0,-100%,0);
+  transition:opacity .7s var(--ease),transform .9s var(--ease);pointer-events:none}
+.nav.show{opacity:1;transform:none;pointer-events:auto;
+  background:linear-gradient(to bottom,rgba(8,9,8,.97) 0%,rgba(8,9,8,.88) 55%,rgba(8,9,8,0) 100%);
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.nav-mark{width:74px;flex:0 0 auto}
+.nav-mark svg{width:100%;height:auto;fill:var(--bone)}
+.nav-rem{margin-left:auto;font-size:.6875rem;letter-spacing:.28em;text-transform:uppercase;color:var(--mute)}
+@media (max-width:640px){.nav-rem{display:none}}
 
-   Sharpness. A 1200 px photograph stretched across a 2560 px monitor is being
-   asked for detail it does not have, and no amount of shader can invent it.
-   Held to a 1180 px plate it is doubled at worst on a retina panel and
-   exactly itself on everything else. That is the whole fix for "not blurry",
-   and it costs nothing but restraint.
+/* ── The button. One shape, used everywhere, and its words change
+      with what the visitor has already committed to. ───────────── */
+.buy{
+  display:inline-flex;align-items:center;justify-content:center;gap:.7rem;
+  font-family:var(--body);font-size:.8125rem;font-weight:500;
+  letter-spacing:.15em;text-transform:uppercase;
+  color:var(--void);background:var(--gold);
+  border:1px solid var(--gold);border-radius:999px;
+  padding:1.02rem 2.1rem;text-decoration:none;cursor:pointer;
+  position:relative;overflow:hidden;isolation:isolate;
+  transition:background-color .5s var(--ease),color .5s var(--ease),
+             transform .5s var(--ease),box-shadow .6s var(--ease);
+  box-shadow:0 0 0 0 rgba(198,161,91,0);
+}
+.buy::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--gold-lit);
+  transform:translate3d(0,101%,0);transition:transform .55s var(--ease)}
+.buy:hover::before,.buy:focus-visible::before{transform:none}
+.buy:hover,.buy:focus-visible{box-shadow:0 12px 40px -12px rgba(198,161,91,.55)}
+.buy:active{transform:scale(.978)}
+.buy.small{padding:.78rem 1.5rem;font-size:.75rem}
+/* No live payment link yet, so the button says so instead of pretending. */
+.buy.inert{background:transparent;color:var(--mute);border-color:var(--line);
+  cursor:default;letter-spacing:.09em;text-transform:none;font-size:.8125rem;
+  padding:.95rem 1.7rem;box-shadow:none}
+.buy.inert::before{display:none}
+.buy-note{font-size:.8125rem;color:var(--mute);margin:1rem 0 0;letter-spacing:.01em}
 
-   --pl-top and --pl-h define the band. The WebGL tier reads these same two
-   computed values and projects its plate into the same rectangle, so the two
-   tiers frame the shot identically and switching between them cannot jump. */
-.has-plate{--pl-top:9svh;--pl-h:46svh;--pl-gap:63svh}
-.sc[data-sc="3"]{--pl-top:8svh;--pl-h:44svh;--pl-gap:60svh}
-.sc[data-sc="7"]{--pl-top:5svh;--pl-h:29svh;--pl-gap:39svh}
-.has-plate .hold{align-items:flex-start;padding-top:var(--pl-gap);padding-bottom:4svh}
-.shot{position:absolute;top:var(--pl-top);left:50%;transform:translateX(-50%);
-  width:min(calc(100vw - 2 * var(--gut)),1180px);height:var(--pl-h);
-  z-index:-1;overflow:hidden;pointer-events:none;
-  opacity:0;transition:opacity 1.5s var(--ease)}
-.sc.lit .shot{opacity:1}
-.shot img,.shot canvas{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;display:block;transform:scale(1.06);
-  transition:transform 2.6s var(--ease)}
-.sc.lit .shot img,.sc.lit .shot canvas{transform:scale(1)}
-/* A light scrim only. It settles the corners into the void and keeps the
-   printing on the dials reading as texture; it is no longer holding up any
-   text, so it no longer has to drown the picture. */
-.shot::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(128% 100% at 50% 46%,transparent 34%,rgba(10,9,8,.42) 78%,rgba(10,9,8,.86) 100%)}
-.shot.deep::after{background:radial-gradient(128% 100% at 50% 46%,transparent 28%,rgba(10,9,8,.52) 74%,rgba(10,9,8,.9) 100%)}
-.no-js .shot,.reduced .shot{opacity:1}
-.no-js .shot img,.reduced .shot img{transform:none}
-
-/* ---------- type ---------- */
-.mark{width:clamp(190px,32vw,410px);margin-inline:auto;color:var(--bone)}
-h1,h2{margin:0;font-family:var(--display);font-weight:300;
-  font-variation-settings:'opsz' 144;
-  line-height:1.04;letter-spacing:-.021em;
-  font-size:clamp(1.95rem,5.6vw,4.9rem);
-  text-wrap:balance}
-.lede{max-width:34ch;margin:clamp(1.1rem,3vw,1.6rem) auto 0;color:var(--mute);text-wrap:pretty}
-.lede.wide{max-width:44ch}
-.eng{font-family:var(--body);font-weight:400;font-size:clamp(.62rem,1.5vw,.78rem);
-  letter-spacing:.34em;color:var(--gold);text-indent:.34em}
-.eng.dim{color:var(--mute)}
-.rule{width:1px;height:clamp(48px,9vh,96px);margin:2.2rem auto;
-  background:linear-gradient(var(--gold),transparent)}
-/* on VOID the mark owns the centre; the rule drops to the foot as a scroll cue */
-.sc[data-sc="1"] .rule{position:absolute;left:50%;bottom:5svh;margin:0;
-  transform:translateX(-50%);height:clamp(40px,7svh,72px)}
-.hair{width:min(160px,40vw);height:1px;background:var(--ash);margin:2rem auto;border:0}
-
-/* the counted number, scene 2 */
-.count{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 144;
-  font-size:clamp(3.6rem,15vw,11rem);line-height:.92;letter-spacing:-.03em;
-  display:flex;align-items:center;justify-content:center;gap:clamp(.5rem,3vw,2rem)}
-.count span{display:block}
-.count i{display:block;width:clamp(28px,7vw,86px);height:1px;background:var(--gold);font-style:normal}
-
-/* scene 4 + 8 + 9 carry the weight alone */
-.solo h2{font-size:clamp(2.2rem,7.2vw,6.4rem)}
-.vast h2{font-size:clamp(2.4rem,8.4vw,7.6rem);letter-spacing:-.028em}
-
-/* ---------- colourways, scene 3 ---------- */
-.ways{display:flex;flex-wrap:wrap;gap:clamp(1.1rem,4vw,3.4rem);justify-content:center;margin-top:2.6rem}
-.way{width:clamp(66px,13vw,116px);text-align:center}
-.disc{aspect-ratio:1;border-radius:50%;position:relative;
-  border:1px solid rgba(232,228,220,.14);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 14px 40px rgba(0,0,0,.6)}
-.disc::after{content:"";position:absolute;inset:14%;border-radius:50%;
-  border:1px solid rgba(255,255,255,.07)}
-.way b{display:block;margin-top:.85rem;font-weight:400;font-size:.72rem;letter-spacing:.2em;color:var(--bone)}
-.way em{display:block;font-style:normal;font-size:.68rem;letter-spacing:.16em;color:var(--mute);margin-top:.25rem}
-.d-green{background:url(assets/img/dial-green-240.webp) center/cover no-repeat,#141210}
-.d-black{background:url(assets/img/dial-black-240.webp) center/cover no-repeat,#141210}
-.d-gold{background:url(assets/img/dial-gold-240.webp) center/cover no-repeat,#141210}
-.d-white{background:url(assets/img/dial-white-240.webp) center/cover no-repeat,#141210}
-
-/* ---------- three functions, scene 5 ---------- */
-.trio{display:flex;flex-wrap:wrap;justify-content:center;gap:0;margin-top:2.4rem;
-  border-top:1px solid var(--ash);border-bottom:1px solid var(--ash)}
-.trio div{flex:1 1 8rem;padding:1.5rem .6rem;border-left:1px solid var(--ash)}
-.trio div:first-child{border-left:0}
-.trio b{display:block;font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 60;
-  font-size:clamp(1.15rem,3vw,1.75rem);letter-spacing:-.01em}
-.trio span{display:block;margin-top:.5rem;font-size:.7rem;letter-spacing:.2em;color:var(--mute)}
-
-/* ---------- the caseback, scene 7 ---------- */
-.back{width:clamp(184px,48vw,300px);aspect-ratio:1;margin:0 auto clamp(1.4rem,3vw,2.4rem);border-radius:50%;
-  display:grid;place-content:center;gap:clamp(.5rem,1.6vw,.9rem);text-align:center;
+/* ── HERO. The stage is sticky inside a tall scroller; scroll position
+      inside that scroller is the video's transport. ─────────────── */
+.hero{position:relative;height:340vh}
+@media (max-width:820px){.hero{height:300vh}}
+.stage{position:sticky;top:0;height:100svh;overflow:hidden;
+  display:grid;place-items:center;background:var(--void)}
+.stage video,.stage .still{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center;
+  opacity:0;transition:opacity 1.2s var(--ease-soft);
+  transform:scale(1.045);will-change:transform}
+.stage video.on,.stage .still.on{opacity:1}
+/* Scrims. Cinema practice: the picture keeps its middle, the words get
+   their own ground at top and bottom. */
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
   background:
-    repeating-conic-gradient(from 0deg,rgba(232,228,220,.05) 0deg 1.2deg,transparent 1.2deg 2.4deg),
-    radial-gradient(68% 68% at 34% 26%,#2B2926,#141310 66%,#0C0B09);
-  border:1px solid rgba(232,228,220,.13);
-  box-shadow:inset 0 2px 3px rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.7)}
-.back .eng{font-size:clamp(.5rem,1.8vw,.7rem)}
-.back .no{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 90;
-  font-size:clamp(1.35rem,5vw,2.6rem);letter-spacing:.02em;color:var(--bone)}
+    linear-gradient(to bottom,rgba(8,9,8,.78) 0%,rgba(8,9,8,.18) 26%,rgba(8,9,8,0) 44%),
+    linear-gradient(to top,rgba(8,9,8,.9) 0%,rgba(8,9,8,.42) 26%,rgba(8,9,8,0) 56%),
+    radial-gradient(120% 78% at 50% 50%,rgba(8,9,8,0) 42%,rgba(8,9,8,.6) 100%)}
 
-/* ---------- the twenty, scene 7 tail ---------- */
-.grid20{display:grid;grid-template-columns:repeat(5,1fr);
-  max-width:34rem;margin:clamp(1.5rem,4vw,2.6rem) auto 0;gap:1px;background:var(--ash);border:1px solid var(--ash)}
-@media (min-width:560px){.grid20{grid-template-columns:repeat(10,1fr)}}
-.n{background:var(--void);aspect-ratio:1;min-height:1.95rem;display:grid;place-content:center;
-  font-size:clamp(.68rem,2vw,.78rem);letter-spacing:.09em;color:var(--bone);position:relative}
-.n[data-way=green]{box-shadow:inset 0 -2px 0 #2E5546}
-.n[data-way=black]{box-shadow:inset 0 -2px 0 #3A3733}
-.n[data-way=gold] {box-shadow:inset 0 -2px 0 #B8935A}
-.n[data-way=white]{box-shadow:inset 0 -2px 0 #DEDACF}
-.n.gone{color:var(--ash)}
-.n.gone::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:1px;background:var(--ash)}
+.hero-ui{position:relative;z-index:3;width:var(--hold);height:100%;
+  display:grid;grid-template-rows:1fr auto 1fr;align-items:center;
+  padding:calc(4.2rem + env(safe-area-inset-top)) 0 calc(2rem + env(safe-area-inset-bottom))}
 
-/* ---------- close ---------- */
-.price{font-family:var(--display);font-weight:300;font-variation-settings:'opsz' 120;
-  font-size:clamp(2rem,7vw,4.4rem);letter-spacing:-.02em;margin:0}
-.cta{display:inline-block;margin-top:2.2rem;padding:1.05rem 2.5rem;
-  font-size:.78rem;letter-spacing:.26em;text-indent:.26em;font-weight:400;
-  color:var(--bone);text-decoration:none;
-  border:1px solid var(--gold);background:transparent;
-  transition:background .5s var(--ease),color .5s var(--ease)}
-.cta:hover,.cta:focus-visible{background:var(--gold);color:var(--void)}
-.cta[aria-disabled=true]{border-color:var(--ash);color:var(--mute);cursor:default;pointer-events:none}
-.cta-note{margin-top:1rem;font-size:.76rem;color:var(--mute);letter-spacing:.02em}
+/* The wordmark draws itself out of nothing. It is the only thing on the
+   page that arrives by being drawn rather than by moving. */
+.markwrap{grid-row:2;justify-self:center;display:grid;justify-items:center}
+.mark{width:min(46vw,338px)}
+.mark svg{width:100%;height:auto;overflow:visible}
+/* The mark is a stroked letterform. Filling it turns the A's into solid
+   triangles and the L into a wedge, so it draws and then it stops. */
+.mark path{
+  fill:none;stroke:var(--bone);stroke-width:5.5;
+  stroke-dasharray:var(--len,340);stroke-dashoffset:var(--len,340);
+  transition:stroke-dashoffset 2.05s var(--ease-soft) var(--wait,.3s)}
+.drawn .mark path{stroke-dashoffset:0}
 
-/* persistent quiet CTA — for the visitor who decided at scene 2 */
-#always{position:fixed;z-index:6;right:var(--gut);bottom:calc(var(--gut) * .8);
-  font-size:.68rem;letter-spacing:.2em;text-decoration:none;color:var(--mute);
-  padding:.7rem 1.1rem;border:1px solid var(--ash);background:rgba(10,9,8,.82);
-  backdrop-filter:blur(6px);
-  opacity:0;transform:translate3d(0,10px,0);pointer-events:none;
-  transition:opacity .7s var(--ease),transform .7s var(--ease),color .4s,border-color .4s}
-#always.on{opacity:1;transform:none;pointer-events:auto}
-#always:hover,#always:focus-visible{color:var(--bone);border-color:var(--gold)}
+.mark-sub{margin:1.55rem 0 0;
+  font-size:.6875rem;letter-spacing:.52em;text-transform:uppercase;color:var(--mute);
+  opacity:0;transform:translate3d(0,10px,0);
+  transition:opacity 1s var(--ease) 1.5s,transform 1s var(--ease) 1.5s}
+.drawn .mark-sub{opacity:1;transform:none}
 
-/* ---------- footer: the disclosure the scroll stays silent about ---------- */
-footer{position:relative;z-index:3;border-top:1px solid var(--ash);
-  padding:clamp(3rem,9vw,6rem) var(--gut) clamp(2.4rem,7vw,4rem);
-  background:var(--void)}
-.fin{max-width:var(--maxw);margin-inline:auto}
-.fgrid{display:grid;gap:clamp(1.8rem,5vw,3.4rem);
-  grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr));margin-top:2.6rem}
-footer h3{margin:0 0 .8rem;font-size:.68rem;letter-spacing:.24em;font-weight:400;color:var(--gold)}
-footer p,footer li{font-size:.83rem;line-height:1.75;color:var(--mute);margin:0 0 .6rem}
-footer ul{margin:0;padding:0;list-style:none}
-footer a{color:var(--mute);text-underline-offset:3px}
-footer a:hover{color:var(--bone)}
-.legalbar{margin-top:clamp(2.4rem,6vw,3.6rem);padding-top:1.6rem;border-top:1px solid var(--ash);
-  display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;font-size:.74rem;color:var(--mute)}
+/* Caption bands. Each holds its own slice of the scrub and is paced so a
+   reader at a normal scroll speed gets it whole. */
+.caps{grid-row:3;align-self:end;position:relative;min-height:9.2rem}
+.cap{position:absolute;left:0;right:0;bottom:0;margin:0;
+  font-family:var(--display);font-weight:400;
+  font-size:clamp(1.55rem,1rem + 2.5vw,3.15rem);
+  line-height:1.08;letter-spacing:-.016em;text-wrap:balance;
+  opacity:0;transform:translate3d(0,26px,0);
+  transition:opacity .75s var(--ease),transform .95s var(--ease);
+  text-shadow:0 2px 40px rgba(8,9,8,.75)}
+.cap.on{opacity:1;transform:none}
+.cap em{font-style:italic;color:var(--gold-lit)}
 
-/* ---------- the WebGL tier ----------
-   When the corridor is real the DOM photographs become texture sources and
-   nothing more: they stay in the document, decoded, and stop being painted.
-   The fixed vignette also steps back, because every plate now carries its
-   own scrim in the shader and two of them stacked reads as mud. */
-.gl .shot{opacity:0!important;transition:none}
-.gl .shot::after{display:none}
-.gl #dust{display:none}
-.gl #vignette{background:radial-gradient(125% 90% at 50% 45%,transparent 52%,rgba(10,9,8,.5) 100%)}
-#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cue{grid-row:3;justify-self:center;align-self:end;position:absolute;bottom:1.1rem;left:50%;
+  transform:translateX(-50%);display:grid;justify-items:center;gap:.55rem;
+  font-size:.625rem;letter-spacing:.36em;text-transform:uppercase;color:var(--faint);
+  transition:opacity .6s var(--ease)}
+.cue i{display:block;width:1px;height:34px;background:linear-gradient(var(--mute),transparent);
+  animation:drip 2.6s var(--ease-soft) infinite}
+@keyframes drip{0%{transform:scaleY(0);transform-origin:top}
+  45%{transform:scaleY(1);transform-origin:top}
+  46%{transform:scaleY(1);transform-origin:bottom}
+  100%{transform:scaleY(0);transform-origin:bottom}}
 
-/* ---------- the drawn thread, and one entrance per moment ----------
-   The skill's whole-site standard asks for four things: particles at whisper
-   level, easing on everything, lines that draw themselves on scroll, and a
-   unique entrance per moment. The first two were already here. These are the
-   other two, kept to this brand's register: cold, quiet, nothing that waves.
+/* Honest loading ring. It only shows if the video is big enough to wait
+   for, and it reports real bytes, not a fake animation. */
+.ring{position:absolute;z-index:4;bottom:2.2rem;right:var(--gut);display:flex;align-items:center;gap:.7rem;
+  font-size:.625rem;letter-spacing:.3em;text-transform:uppercase;color:var(--faint);
+  opacity:0;transition:opacity .5s var(--ease)}
+.ring.on{opacity:1}
+.ring svg{width:20px;height:20px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:1.5}
+.ring .trk{stroke:var(--line)}
+.ring .bar{stroke:var(--gold);stroke-dasharray:56.5;stroke-dashoffset:56.5;transition:stroke-dashoffset .25s linear}
 
-   Every one of these is a transform or an opacity, so the compositor does all
-   of it and the scroll path never learns they exist. */
+/* ── ACTS. Each is a room in one continuous building. ──────────── */
+.act{position:relative;padding:clamp(6rem,17vh,13rem) 0;z-index:1}
+.act > .hold{position:relative}
+.act-tall{padding-block:clamp(9rem,26vh,20rem)}
+.act p:last-child{margin-bottom:0}
 
-/* The rail. A hairline drawing itself down the page, carrying twenty ticks,
-   struck back where a number is gone. */
-#rail{position:fixed;left:calc(var(--gut) * .46);top:15svh;bottom:15svh;width:12px;
-  z-index:4;pointer-events:none;opacity:0;transition:opacity 1.4s var(--ease)}
-#rail.on{opacity:1}
-#rail svg{width:100%;height:100%;display:block;overflow:visible}
-.r-track{stroke:var(--ash);stroke-width:1;vector-effect:non-scaling-stroke}
-.r-draw{stroke:var(--gold);stroke-width:1;vector-effect:non-scaling-stroke;
-  stroke-dasharray:1000;stroke-dashoffset:1000}
-.r-ticks line{stroke:var(--ash);stroke-width:1;vector-effect:non-scaling-stroke;
-  transition:stroke .6s var(--ease),opacity .6s var(--ease)}
-.r-ticks line.lit{stroke:var(--bone)}
-.r-ticks line.sold{opacity:.26}
+/* The common entrance. Everything rises unless it has earned its own. */
+.rise{opacity:0;transform:translate3d(0,42px,0);
+  transition:opacity 1.05s var(--ease),transform 1.15s var(--ease)}
+.lit .rise{opacity:1;transform:none}
+.lit .rise:nth-child(2){transition-delay:.09s}
+.lit .rise:nth-child(3){transition-delay:.17s}
+.lit .rise:nth-child(4){transition-delay:.25s}
+.lit .rise:nth-child(5){transition-delay:.33s}
 
-/* A phone has no room for a rail beside the type, so the same value draws a
-   hairline across the top of the frame instead. */
-#prog{position:fixed;left:0;right:0;top:0;height:1px;z-index:5;pointer-events:none;
-  background:rgba(61,58,54,.5);opacity:0;transition:opacity 1s var(--ease)}
-#prog.on{opacity:1}
-#prog i{display:block;height:100%;background:var(--gold);transform:scaleX(0);transform-origin:0 50%}
-@media (min-width:900px){#prog{display:none}}
-@media (max-width:899px){#rail{display:none}}
+/* Photographs. A framed still with its own light, never a background,
+   and never with type resting on it. Bone on void is 15.5:1; bone on a
+   lit dial is a coin toss, and the previous build had to drown every
+   picture in a vignette to win that toss. Keeping the words off the
+   picture buys the photographs the right to be bright. */
+.plate{position:relative;margin:clamp(2.6rem,7vh,5.5rem) 0 0;
+  border-radius:2px;overflow:hidden;background:var(--void-2);
+  clip-path:inset(0 round 2px)}
+.plate img{width:100%;height:auto;transform:scale(1.09) translate3d(0,var(--par,0),0);
+  will-change:transform;transition:transform .1s linear}
+.plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 130px 20px rgba(8,9,8,.5)}
+.plate-tall{max-width:min(46rem,100%);margin-inline:auto}
+.plate-wide{width:100vw;margin-inline:calc(50% - 50vw);border-radius:0;clip-path:none}
+.plate-wide::after{box-shadow:inset 0 0 200px 40px rgba(8,9,8,.62)}
+/* A photograph that has not landed yet must not render as a browser's
+   broken image glyph. It becomes a material panel instead: the act's own
+   world colour, a hairline, and the alt text as a caption. The page stays
+   whole, and the day the files arrive nothing here changes. */
+.plate.void-plate{background:
+    radial-gradient(120% 90% at 30% 18%,rgba(237,232,223,.055),rgba(237,232,223,0) 62%),
+    linear-gradient(150deg,rgba(237,232,223,.035),rgba(8,9,8,0) 55%);
+  border:1px solid var(--line);min-height:min(58vh,26rem);
+  display:grid;place-items:center;padding:2.5rem}
+.plate.void-plate img{display:none}
+.plate.void-plate::after{box-shadow:none}
+.plate .await{margin:0;max-width:34ch;text-align:center;
+  font-size:.6875rem;letter-spacing:.3em;text-transform:uppercase;color:var(--faint);line-height:2}
+.plate-cap{margin:.95rem 0 0;font-size:.6875rem;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--faint)}
 
-/* 1 VOID. The wordmark draws itself, stroke after stroke, out of nothing. */
-.mark path{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 2.1s var(--ease)}
-.sc.lit .mark path{stroke-dashoffset:0}
-.mark path:nth-child(2){transition-delay:.16s}
-.mark path:nth-child(3){transition-delay:.32s}
-.mark path:nth-child(4){transition-delay:.48s}
-.sc[data-sc="1"] .rule{transform:translateX(-50%) scaleY(0);transform-origin:50% 0;
-  transition:transform 1.5s var(--ease) 1.1s}
-.sc[data-sc="1"].lit .rule{transform:translateX(-50%) scaleY(1)}
+/* Two-column act: words left, picture right, and neither crowds. */
+.split{display:grid;gap:clamp(2.2rem,6vw,5rem);align-items:center}
+@media (min-width:940px){
+  .split{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
+  .split .plate{margin-top:0}
+  .split.flip .col-a{order:2}
+}
 
-/* 2 REVEAL. The gold bar between the numbers draws out from its own centre. */
-.count i{transform:scaleX(0);transition:transform 1.3s var(--ease) .5s}
-.sc.lit .count i{transform:scaleX(1)}
+/* ── The four faces. Chips deal in like cards: their own entrance. ── */
+.four{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));
+  gap:clamp(.7rem,2vw,1.4rem);margin:clamp(2.6rem,7vh,4.4rem) 0 0;list-style:none;padding:0}
+.face{border:1px solid var(--line);border-radius:2px;padding:1.35rem 1.2rem 1.15rem;
+  background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0));
+  opacity:0;transform:translate3d(0,34px,0) rotate(var(--tilt,-1.4deg));
+  transition:opacity .8s var(--ease),transform .95s var(--ease),border-color .5s var(--ease)}
+.lit .face{opacity:1;transform:none}
+.lit .face:nth-child(1){transition-delay:.05s}
+.lit .face:nth-child(2){transition-delay:.15s}
+.lit .face:nth-child(3){transition-delay:.25s}
+.lit .face:nth-child(4){transition-delay:.35s}
+.face:hover{border-color:var(--faint)}
+.disc{width:2.3rem;height:2.3rem;border-radius:50%;margin:0 0 1rem;
+  border:1px solid rgba(237,232,223,.16);
+  box-shadow:inset 0 -7px 14px rgba(0,0,0,.5),inset 0 4px 9px rgba(255,255,255,.11)}
+.face h3{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:0;letter-spacing:-.01em}
+.face .nums{margin:.5rem 0 0;font-size:.75rem;letter-spacing:.16em;color:var(--faint);font-variant-numeric:tabular-nums}
 
-/* 4 EXCLUSIVITY. The refrain settles into place instead of rising into it. */
-.sc[data-sc="4"] .in{transform:none;letter-spacing:.13em;
-  transition:opacity 1.5s var(--ease),letter-spacing 1.8s var(--ease)}
-.sc[data-sc="4"].lit .in{letter-spacing:normal}
+/* ── Facts row ─────────────────────────────────────────────────── */
+.facts{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:2px;overflow:hidden;margin:clamp(2.6rem,7vh,4.4rem) 0 0;
+  grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))}
+.fact{background:var(--void);padding:1.7rem 1.5rem}
+.fact dt{font-size:.625rem;letter-spacing:.32em;text-transform:uppercase;color:var(--faint);margin:0 0 .7rem}
+.fact dd{margin:0;font-family:var(--display);font-size:1.45rem;line-height:1.2;letter-spacing:-.01em}
+.fact p{margin:.55rem 0 0;font-size:.8125rem;color:var(--mute);line-height:1.5}
 
-/* 8 RETIREMENT. The strongest line on the site arrives slightly too close and
-   settles back, and it is the only text anywhere here allowed to glow. */
-.sc[data-sc="8"] .in{transform:scale(1.05);
-  transition:opacity 1.6s var(--ease),transform 2.3s var(--ease)}
-.sc[data-sc="8"].lit .in{transform:none}
-.sc[data-sc="8"] h2{transition:text-shadow 2.6s var(--ease)}
-.sc[data-sc="8"].lit h2{text-shadow:0 0 40px rgba(232,228,220,.15)}
+/* ── THE DOOR. Text arrives from both sides and meets in the middle,
+      because that is what a door does. Its own entrance, earned. ── */
+.door{display:grid;justify-items:center;text-align:center;gap:1.4rem}
+.door .leaf{opacity:0;transition:opacity 1.1s var(--ease),transform 1.3s var(--ease)}
+.door .leaf-l{transform:translate3d(-13vw,0,0)}
+.door .leaf-r{transform:translate3d(13vw,0,0)}
+.lit .door .leaf{opacity:1;transform:none}
+.door .sub{text-align:center;max-width:40ch;margin-inline:auto}
+.door-rule{width:0;height:1px;background:var(--gold);opacity:.5;
+  transition:width 1.5s var(--ease) .5s}
+.lit .door-rule{width:min(24rem,70%)}
 
-/* 9 IDENTITY. Opens downward rather than rising. */
-.sc[data-sc="9"] .in{transform:none;clip-path:inset(0 0 100% 0);
-  transition:opacity 1.1s var(--ease),clip-path 1.7s var(--ease)}
-.sc[data-sc="9"].lit .in{clip-path:inset(0 0 0 0)}
+/* ── STILLNESS. The one moment on the site with no entrance at all.
+      In a page where everything moves, arriving already still is the
+      loudest possible entrance. ─────────────────────────────────── */
+.still-act{text-align:center}
+.still-act .statement{font-size:clamp(2rem,1rem + 4.6vw,4.4rem);line-height:1.1}
+.still-act .statement + .statement{margin-top:.6rem;color:var(--mute)}
 
-/* 10 CLOSE. The rule above the price draws itself out from the middle. */
-.hair{transform:scaleX(0);transition:transform 1.5s var(--ease) .35s}
-.sc.lit .hair{transform:scaleX(1)}
+/* ── THE TWENTY. The interactive moment and the conversion mechanic
+      are deliberately the same object. ─────────────────────────── */
+.twenty{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:clamp(.4rem,1.1vw,.7rem);margin:clamp(2.4rem,6vh,3.6rem) 0 0;padding:0;
+  list-style:none;max-width:34rem}
+@media (max-width:430px){.twenty{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.pick{position:relative;width:100%;aspect-ratio:1;display:grid;place-items:center;
+  align-content:center;padding-bottom:.55rem;
+  background:transparent;border:1px solid var(--line);border-radius:2px;
+  color:var(--bone);font-family:var(--display);font-size:1.42rem;font-weight:400;
+  cursor:pointer;font-variant-numeric:tabular-nums;
+  opacity:0;transform:translate3d(0,20px,0) scale(.94);
+  transition:opacity .5s var(--ease),transform .6s var(--ease),
+             border-color .35s var(--ease),background-color .35s var(--ease),color .35s var(--ease)}
+.lit .pick{opacity:1;transform:none}
+.pick{background-image:linear-gradient(165deg,var(--tint,transparent),transparent 72%)}
+.pick .dot{position:absolute;bottom:.5rem;left:50%;margin-left:-.32rem;
+  width:.64rem;height:.64rem;border-radius:50%;
+  border:1px solid rgba(8,9,8,.5);
+  box-shadow:inset 0 -1px 2px rgba(0,0,0,.5),inset 0 1px 1px rgba(255,255,255,.22)}
+.pick:not([disabled]):not([aria-pressed="true"]):hover{border-color:var(--gold);background:rgba(198,161,91,.09)}
+.pick[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--void)}
+.pick[aria-pressed="true"] .dot{box-shadow:inset 0 -1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(8,9,8,.35)}
+.pick[disabled]{cursor:default;color:var(--faint);border-color:#161412;opacity:.999}
+.pick[disabled]::after{content:"";position:absolute;left:14%;right:14%;top:50%;height:1px;
+  background:var(--faint);transform:rotate(-32deg)}
+.pick[disabled] .dot{opacity:.25}
 
-/* None of the above may hide anything when the animation is not running. */
-.no-js .mark path,.reduced .mark path{stroke-dashoffset:0;transition:none}
-.no-js .count i,.reduced .count i,.no-js .hair,.reduced .hair{transform:none}
-.no-js .sc[data-sc="1"] .rule,.reduced .sc[data-sc="1"] .rule{transform:translateX(-50%)}
-.no-js .sc[data-sc="4"] .in,.reduced .sc[data-sc="4"] .in{letter-spacing:normal}
-.no-js .sc[data-sc="9"] .in,.reduced .sc[data-sc="9"] .in{clip-path:none}
-.no-js #rail,.no-js #prog,.reduced #rail,.reduced #prog{display:none}
+.claim{margin:clamp(2.2rem,6vh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
+.claim-state{font-size:.8125rem;color:var(--mute);min-height:1.4em;margin:0 0 1.1rem;letter-spacing:.01em}
 
-/* ---------- reduced motion: settle everything, run nothing ---------- */
+/* ── Sticky call to action. It does not exist until the visitor has
+      seen the four faces. Before desire, a buy bar is just noise. ── */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:7;
+  padding:.85rem var(--gut) calc(.85rem + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:1rem;
+  background:rgba(8,9,8,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+  transform:translate3d(0,102%,0);transition:transform .8s var(--ease);pointer-events:none}
+.dock.show{transform:none;pointer-events:auto}
+.dock-txt{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
+.dock .buy{margin-left:auto;flex:0 0 auto}
+@media (max-width:560px){.dock-txt{display:none}.dock .buy{margin:0;width:100%}}
+
+/* ── The rail. A hairline that draws itself down the page carrying the
+      twenty, two of them struck. A numbered rail is generic almost
+      everywhere; here the content genuinely is a sequence of twenty,
+      which is the one case where the device is earned. ──────────── */
+.rail{position:fixed;left:calc(var(--gut) * .42);top:0;bottom:0;width:1px;z-index:6;
+  pointer-events:none;opacity:0;transition:opacity .8s var(--ease)}
+.rail.show{opacity:1}
+.rail-line{position:absolute;left:0;top:14vh;bottom:14vh;width:1px;background:var(--line)}
+.rail-fill{position:absolute;left:0;top:14vh;width:1px;background:var(--gold);height:0;opacity:.55}
+.rail-t{position:absolute;left:-3px;width:7px;height:1px;background:var(--ghost)}
+.rail-t.gone{background:var(--ghost);opacity:.45}
+.rail-t.gone::after{content:"";position:absolute;left:-2px;top:-2px;width:11px;height:5px;
+  border-top:1px solid var(--faint);transform:rotate(-38deg);opacity:.7}
+@media (max-width:1180px){.rail{display:none}}
+/* Below that width the same value draws a hairline across the top instead. */
+.tick-top{position:fixed;top:0;left:0;height:1px;background:var(--gold);z-index:8;width:0;opacity:.6}
+@media (min-width:1181px){.tick-top{display:none}}
+
+/* ── Footer. The scroll stays silent; Indian e-commerce law is not
+      optional about the rest, so the paperwork lives in the basement. ─ */
+.foot{border-top:1px solid var(--line);padding:clamp(3.5rem,9vh,6rem) 0 3rem;
+  margin-top:clamp(4rem,11vh,8rem);position:relative;z-index:1;background:var(--void)}
+.foot-grid{display:grid;gap:clamp(1.8rem,4vw,3rem);
+  grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}
+.foot h4{font-size:.625rem;letter-spacing:.32em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 .85rem;font-weight:500}
+.foot p{margin:0 0 .6rem;font-size:.8125rem;line-height:1.65;color:var(--mute)}
+.foot a{color:var(--mute);text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:var(--line);transition:color .3s ease,text-decoration-color .3s ease}
+.foot a:hover{color:var(--bone);text-decoration-color:var(--faint)}
+.foot-end{margin-top:clamp(2.5rem,6vh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:1rem;align-items:center;
+  font-size:.75rem;color:var(--faint)}
+
+/* ── Anyone who asked for less motion gets a complete, still site. ── */
 @media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
-    transition-duration:.001ms!important;scroll-behavior:auto!important}
-  .in{opacity:1!important;transform:none!important}
-  #stage{display:none}
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
+  .rise,.face,.pick,.mark-sub,.cap{opacity:1!important;transform:none!important}
+  .door .leaf{opacity:1!important;transform:none!important}
+  .mark path{stroke-dashoffset:0!important}
+  .label::after{transform:scaleX(1)!important}
+  .door-rule{width:min(24rem,70%)!important}
+  .stage video{display:none}
+  .stage .still{opacity:1!important;transform:none!important}
+  .cue,.grain,.dust{display:none}
+  .hero{height:100svh}
+  .plate img{transform:none!important}
 }
-@media (max-width:640px){
-  .trio div{flex:1 1 100%;border-left:0;border-top:1px solid var(--ash)}
-  .trio div:first-child{border-top:0}
-}
-/* A 16:9 plate in a portrait frame is short and wide, so a band that reads as
-   generous on a laptop reads as a hole on a phone. Tighten it, and close the
-   distance to the line underneath. */
-@media (max-width:899px){
-  .has-plate{--pl-top:8svh;--pl-h:34svh;--pl-gap:46svh}
-  .sc[data-sc="3"]{--pl-top:7svh;--pl-h:32svh;--pl-gap:43svh}
-  .sc[data-sc="7"]{--pl-top:5svh;--pl-h:25svh;--pl-gap:33svh}
-}
-@media print{#stage,#grain,#vignette,#always{display:none}}
+/* Same for anyone without JavaScript: nothing is hidden by default that
+   only script can bring back. */
+.nojs .rise,.nojs .face,.nojs .pick,.nojs .cap,.nojs .mark-sub{opacity:1;transform:none}
+.nojs .door .leaf{opacity:1;transform:none}
+.nojs .label::after{transform:scaleX(1)}
+.nojs .door-rule{width:min(24rem,70%)}
+.nojs .mark path{stroke-dashoffset:0}
+.nojs .stage .still{opacity:1}
+.nojs .hero{height:100svh}
+.nojs .nav{opacity:1;transform:none;pointer-events:auto}
 </style>
 </head>
-<body class="no-js">
+<body class="nojs">
+<script>document.body.classList.remove('nojs')</script>
 
-<a class="skip" href="#close">Skip to the close</a>
+<div class="world" id="world" aria-hidden="true"></div>
+<canvas class="dust" id="dust" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="tick-top" id="tickTop" aria-hidden="true"></div>
 
-<div id="stage" aria-hidden="true"><canvas id="gl"></canvas><canvas id="dust"></canvas></div>
-<div id="vignette" aria-hidden="true"></div>
-<div id="grain" aria-hidden="true"></div>
-
-<!-- The signature element. A hairline that draws itself down the page as the
-     visitor descends, carrying twenty ticks: one per piece, struck through
-     where a number is gone. Numbered markers are a generic device almost
-     everywhere; here the content genuinely is a sequence of twenty, which is
-     the one context where the device is earned. Driven off the same eased
-     scroll value the camera uses, so it costs nothing extra per frame. -->
-<div id="rail" aria-hidden="true">
-  <svg viewBox="0 0 12 1000" preserveAspectRatio="none" focusable="false">
-    <line class="r-track" x1="6" y1="0" x2="6" y2="1000"/>
-    <line class="r-draw"  x1="6" y1="0" x2="6" y2="1000"/>
-    <g class="r-ticks"></g>
-  </svg>
+<div class="rail" id="rail" aria-hidden="true">
+  <div class="rail-line"></div><div class="rail-fill" id="railFill"></div>
 </div>
-<div id="prog" aria-hidden="true"><i></i></div>
 
-<main id="scroll">
+<header class="nav" id="nav">
+  <a class="nav-mark" href="#top" aria-label="KAAL, back to top">
+    <svg viewBox="0 0 380 120" aria-hidden="true"><g fill="currentColor"><path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M108 100 L140 20 L172 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M208 100 L240 20 L272 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M308 20 V100 H356" stroke="currentColor" stroke-width="7" fill="none"/></g></svg>
+  </a>
+  <span class="nav-rem"><span id="navRem">Eighteen</span> of twenty remain</span>
+</header>
 
-  <!-- 1 — VOID -->
-  <section class="sc" data-sc="1" style="min-height:100svh">
-    <div class="hold"><div class="in">
-      <h1 class="mark" aria-label="KAAL">
-        <svg viewBox="0 0 380 120" role="img" aria-label="KAAL" focusable="false">
-          <g fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="butt" stroke-linejoin="miter">
-            <path pathLength="1" d="M24 20 V100 M24 66 L72 20 M24 66 L74 100"/>
-            <path pathLength="1" d="M108 100 L140 20 L172 100 M121 78 H159"/>
-            <path pathLength="1" d="M208 100 L240 20 L272 100"/>
-            <path pathLength="1" d="M308 20 V100 H356"/>
-          </g>
-        </svg>
-      </h1>
-      <div class="rule"></div>
-    </div></div>
-  </section>
+<main id="top">
 
-  <!-- 2 — REVEAL -->
-  <section class="sc has-plate" data-sc="2" style="min-height:110svh">
-    <div class="hold">
-      <div class="shot" aria-hidden="true" data-plate="reveal"><img src="assets/img/green-768.webp" srcset="assets/img/green-480.webp 480w, assets/img/green-768.webp 768w, assets/img/green-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" decoding="async"></div>
-<div class="in">
-      <p class="count" aria-label="Zero one to twenty"><span>01</span><i></i><span>20</span></p>
-      <p class="lede">Twenty pieces. One design. Never repeated.</p>
-    </div></div>
-  </section>
+<!-- ════════ THE HERO. Scroll is the transport. ════════ -->
+<section class="hero" id="hero" aria-label="KAAL Series 01">
+  <div class="stage" id="stage">
+    <video id="film" muted playsinline preload="none" disablepictureinpicture
+           aria-hidden="true" tabindex="-1"></video>
+    <img class="still on" id="still" src="assets/img/hero-still.webp"
+         alt="A KAAL Series 01 watch with a gold dial and a two tone steel bracelet, lit by candlelight on a dark stone plinth.">
 
-  <!-- 3 — COLOURWAY -->
-  <section class="sc has-plate" data-sc="3" style="min-height:190svh">
-    <div class="hold">
-      <div class="shot deep" id="seqshot" data-plate="sequence" aria-hidden="true">
-        <img id="seqfallback" src="assets/img/approach-768.webp" srcset="assets/img/approach-480.webp 480w, assets/img/approach-768.webp 768w, assets/img/approach-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" decoding="async">
-        <canvas id="seq" hidden></canvas>
+    <div class="ring" id="ring" aria-hidden="true">
+      <svg viewBox="0 0 20 20"><circle class="trk" cx="10" cy="10" r="9"/><circle class="bar" id="ringBar" cx="10" cy="10" r="9"/></svg>
+      <span id="ringTxt">0%</span>
+    </div>
+
+    <div class="hero-ui hold">
+      <div class="markwrap">
+        <div class="mark" id="mark">
+          <svg viewBox="0 0 380 120" role="img" aria-label="KAAL">
+            <g fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+              <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100" style="--len:212"/>
+              <path d="M108 100 L140 20 L172 100" style="--len:176;--wait:.5s"/>
+              <path d="M208 100 L240 20 L272 100" style="--len:176;--wait:.7s"/>
+              <path d="M308 20 V100 H356" style="--len:132;--wait:.9s"/>
+            </g>
+          </svg>
+        </div>
+        <p class="mark-sub">Series 01 &nbsp;·&nbsp; Twenty pieces</p>
       </div>
-<div class="in">
-      <h2>One case.<br>Four faces.<br>Twenty pieces.</h2>
-      <div class="ways">
-        <div class="way"><div class="disc d-green"></div><b>Green</b><em>01–06</em></div>
-        <div class="way"><div class="disc d-black"></div><b>Black</b><em>07–10</em></div>
-        <div class="way"><div class="disc d-gold"></div><b>Golden</b><em>11–14</em></div>
-        <div class="way"><div class="disc d-white"></div><b>White</b><em>15–20</em></div>
+
+      <div class="caps" id="caps">
+        <p class="cap" data-at="0.07" data-until="0.27">KAAL means time.</p>
+        <p class="cap" data-at="0.30" data-until="0.52">In the same language, it means <em>the end of it</em>.</p>
+        <p class="cap" data-at="0.55" data-until="0.76">Twenty watches carry this design.</p>
+        <p class="cap" data-at="0.79" data-until="1.01">Then it is retired, and never drawn again.</p>
       </div>
-    </div></div>
-  </section>
 
-  <!-- 4 — EXCLUSIVITY (the refrain, stated alone) -->
-  <section class="sc solo" data-sc="4" style="min-height:105svh">
-    <div class="hold"><div class="in">
-      <h2>Twenty pieces.<br>One design.<br>Never repeated.</h2>
-    </div></div>
-  </section>
+      <div class="cue" id="cue"><i></i><span>Scroll</span></div>
+    </div>
+  </div>
+</section>
 
-  <!-- 5 — PRECISION -->
-  <section class="sc has-plate" data-sc="5" style="min-height:115svh">
-    <div class="hold">
-      <div class="shot" aria-hidden="true" data-plate="precision"><img src="assets/img/whitedial-768.webp" srcset="assets/img/whitedial-480.webp 480w, assets/img/whitedial-768.webp 768w, assets/img/whitedial-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
-<div class="in">
-      <p class="eng dim">Three functions</p>
-      <div class="trio">
-        <div><b>Day</b></div>
-        <div><b>Date</b><span>Pointer</span></div>
-        <div><b>24-hour</b></div>
-      </div>
-      <p class="lede wide">Three functions, one movement, zero compromise.</p>
-    </div></div>
-  </section>
+<!-- ════════ 01 THE RULE ════════ -->
+<section class="act act-tall" data-world="stone" data-tick="1">
+  <div class="hold split">
+    <div class="col-a">
+      <p class="label rise">01 · The rule</p>
+      <h2 class="statement rise">Most brands draw a watch, then make it forever.</h2>
+      <p class="sub rise">We are making twenty. When the twentieth ships, Series 01 closes. There is no second run, no Mark II, no anniversary reissue, and no quiet return in a different strap.</p>
+      <p class="sub rise"><strong>The design retires with the twentieth buyer.</strong> That is the whole promise, and it is the only one that cannot be walked back.</p>
+    </div>
+    <div class="plate rise" data-par="0.06">
+      <img src="assets/img/stone-day.webp" loading="lazy" decoding="async"
+           alt="A KAAL watch with a silver white dial and gold bezel resting on a broken concrete slab in daylight.">
+    </div>
+  </div>
+</section>
 
-  <!-- 6 — 24-MONTH BACKING -->
-  <section class="sc has-plate" data-sc="6" style="min-height:105svh">
-    <div class="hold">
-      <div class="shot deep" aria-hidden="true" data-plate="backing"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
-<div class="in">
-      <h2>Every movement,<br>held to 24 months.</h2>
-      <p class="lede wide">Not by a name you’ve heard of — by the piece itself.</p>
-    </div></div>
-  </section>
+<!-- ════════ 02 FOUR FACES ════════ -->
+<section class="act" data-world="stone" data-tick="2" id="faces">
+  <div class="hold">
+    <p class="label rise">02 · Four faces</p>
+    <h2 class="statement rise">One case. Four faces.<br>Twenty numbers.</h2>
+    <p class="sub rise">You do not choose the face. You choose a number, and the number already has one. Every number was given its dial before this page went live.</p>
+  </div>
+  <div class="plate plate-wide rise" data-par="0.09" style="margin-top:clamp(2.6rem,7vh,5rem)">
+    <img src="assets/img/four.webp" loading="lazy" decoding="async"
+         alt="All four Series 01 dials arranged on wet black slate: green, black, gold and silver white, each with a gold bezel and two tone bracelet.">
+  </div>
+  <div class="hold">
+    <ul class="four" id="fourList">
+      <li class="face" style="--tilt:-1.6deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><h3>Jade</h3><p class="nums" data-nums="jade">04 · 07 · 11 · 15 · 20</p></li>
+      <li class="face" style="--tilt:1.1deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><h3>Onyx</h3><p class="nums" data-nums="onyx">02 · 05 · 09 · 13 · 18</p></li>
+      <li class="face" style="--tilt:-.9deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span><h3>Brass</h3><p class="nums" data-nums="brass">03 · 08 · 12 · 16 · 19</p></li>
+      <li class="face" style="--tilt:1.5deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><h3>Bone</h3><p class="nums" data-nums="bone">01 · 06 · 10 · 14 · 17</p></li>
+    </ul>
+  </div>
+</section>
 
-  <!-- 7 — NUMBERED ENGRAVING -->
-  <section class="sc has-plate" data-sc="7" style="min-height:140svh">
-    <div class="hold">
-      <div class="shot deep" data-plate="engraving" aria-hidden="true"><img src="assets/img/trio-768.webp" srcset="assets/img/trio-480.webp 480w, assets/img/trio-768.webp 768w, assets/img/trio-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
-<div class="in">
-      <div class="back" role="img" aria-label="Caseback engraving reading Series 01, Limited Edition Number 07">
-        <p class="eng">SERIES 01</p>
-        <p class="no">NO. 07</p>
-        <p class="eng dim">LIMITED EDITION</p>
-      </div>
-      <p class="lede wide">Every piece carries its number. No one else will ever hold this one.</p>
-      <!-- state mirrors the SOLD list in the config block below; JS re-renders it from there -->
-      <div class="grid20" id="grid20" role="list" aria-label="The twenty numbers">
-        <span class="n gone" data-way="green" role="listitem">01</span><span class="n gone" data-way="green" role="listitem">02</span>
-        <span class="n" data-way="green" role="listitem">03</span><span class="n" data-way="green" role="listitem">04</span>
-        <span class="n" data-way="green" role="listitem">05</span><span class="n" data-way="green" role="listitem">06</span>
-        <span class="n" data-way="black" role="listitem">07</span><span class="n" data-way="black" role="listitem">08</span>
-        <span class="n" data-way="black" role="listitem">09</span><span class="n" data-way="black" role="listitem">10</span>
-        <span class="n" data-way="gold" role="listitem">11</span><span class="n" data-way="gold" role="listitem">12</span>
-        <span class="n" data-way="gold" role="listitem">13</span><span class="n" data-way="gold" role="listitem">14</span>
-        <span class="n" data-way="white" role="listitem">15</span><span class="n" data-way="white" role="listitem">16</span>
-        <span class="n" data-way="white" role="listitem">17</span><span class="n" data-way="white" role="listitem">18</span>
-        <span class="n" data-way="white" role="listitem">19</span><span class="n" data-way="white" role="listitem">20</span>
-      </div>
-    </div></div>
-  </section>
+<!-- ════════ 03 JADE ════════ -->
+<section class="act act-tall" data-world="jade" data-tick="3">
+  <div class="hold split flip">
+    <div class="col-a">
+      <p class="label rise">03 · Jade</p>
+      <h2 class="statement rise">Green reads black until the light finds it.</h2>
+      <p class="sub rise">Sunray brushed, lacquered, then cut by the same gold bezel every piece carries. In a room it is a dark dial. Under a window it is not.</p>
+    </div>
+    <div class="plate plate-tall rise" data-par="0.08">
+      <img src="assets/img/jade-wide.webp" loading="lazy" decoding="async"
+           alt="A KAAL watch with a deep green dial standing on dark slate, lit through green mist by a shaft of light.">
+    </div>
+  </div>
+</section>
 
-  <!-- 8 — RETIREMENT. the strongest line. the most room. -->
-  <section class="sc vast" data-sc="8" style="min-height:170svh">
-    <div class="hold"><div class="in">
-      <h2>Twenty were made,<br>and we will not<br>make another.</h2>
-    </div></div>
-  </section>
+<!-- ════════ 04 ONYX, and the water ════════ -->
+<section class="act act-tall" data-world="onyx" data-tick="4">
+  <div class="hold">
+    <p class="label rise">04 · Onyx</p>
+    <h2 class="statement rise">Rain is not an event.</h2>
+    <p class="sub rise">Series 01 is water resistant. Caught in weather, washed at a basin, worn through a downpour on the way to somewhere better: none of that is a story, and none of it is your problem.</p>
+  </div>
+  <div class="plate plate-wide rise" data-par="0.1" style="margin-top:clamp(2.6rem,7vh,5rem)">
+    <img src="assets/img/onyx-rain.webp" loading="lazy" decoding="async"
+         alt="Close view of the black dial with gold indices and gold hands, beaded with water on a wet black surface.">
+  </div>
+</section>
 
-  <!-- 9 — IDENTITY -->
-  <section class="sc solo" data-sc="9" style="min-height:110svh">
-    <div class="hold"><div class="in">
-      <h2>The loud ones borrow a name to be believed.</h2>
-      <p class="lede wide">You don’t need one. Neither does this.</p>
-    </div></div>
-  </section>
+<!-- ════════ 05 BRASS ════════ -->
+<section class="act act-tall" data-world="ember" data-tick="5">
+  <div class="hold split">
+    <div class="col-a">
+      <p class="label rise">05 · Brass</p>
+      <h2 class="statement rise">The loudest of the four. Still quiet.</h2>
+      <p class="sub rise">A full brass dial is a decision, not a default. It is the piece in the series that does not wait to be noticed, and the one most likely to go first.</p>
+    </div>
+    <div class="plate plate-tall rise" data-par="0.07">
+      <img src="assets/img/ember-smoke.webp" loading="lazy" decoding="async"
+           alt="A KAAL watch with a brass gold dial in warm smoke and golden bokeh light.">
+    </div>
+  </div>
+</section>
 
-  <!-- 10 — CLOSE -->
-  <section class="sc has-plate" data-sc="10" id="close" style="min-height:135svh">
-    <div class="hold">
-      <div class="shot deep" aria-hidden="true" data-plate="close"><img src="assets/img/lineup-768.webp" srcset="assets/img/lineup-480.webp 480w, assets/img/lineup-768.webp 768w, assets/img/lineup-1200.webp 1200w" sizes="(min-width:1240px) 1180px, 100vw" alt="" loading="lazy" decoding="async"></div>
-<div class="in">
-      <h2>Not built for many.</h2>
-      <p class="lede wide">Built for twenty who weren’t going to wait for a version two — and don’t need one.</p>
-      <hr class="hair">
-      <p class="price">₹<span data-price>5,999</span></p>
-      <p class="eng dim" style="margin-top:1rem"><span data-remaining>Eighteen</span> of twenty remain</p>
-      <a class="cta" id="cta" href="#close" aria-disabled="true">Reserve your number</a>
-      <p class="cta-note" id="ctaNote">Checkout opens when the payment link goes live.</p>
-    </div></div>
-  </section>
+<!-- ════════ 06 BONE ════════ -->
+<section class="act act-tall" data-world="stone" data-tick="6">
+  <div class="hold split flip">
+    <div class="col-a">
+      <p class="label rise">06 · Bone</p>
+      <h2 class="statement rise">Nothing to hide behind.</h2>
+      <p class="sub rise">A pale dial shows every flaw in a finish, which is exactly why it is in the series. Day ring, twenty four hour counter and pointer date, all legible at arm's length in daylight.</p>
+    </div>
+    <div class="plate plate-tall rise" data-par="0.08">
+      <img src="assets/img/stone-studio.webp" loading="lazy" decoding="async"
+           alt="A KAAL watch with a silver white dial photographed three quarters on a pale concrete block against a grey wall.">
+    </div>
+  </div>
+</section>
+
+<!-- ════════ 07 THE HANDS ════════ -->
+<section class="act act-tall" data-world="stone" data-tick="7">
+  <div class="hold">
+    <p class="label rise">07 · The hands</p>
+    <h2 class="statement rise">Every case is finished by hand.</h2>
+    <p class="sub rise">By people who have spent their working lives doing this and nothing else. Not a season of it. A life of it.</p>
+    <p class="sub rise">That is why twenty takes the time twenty takes, and why every piece is opened, checked and closed again before it is boxed. Nothing leaves on a Friday because the week is ending.</p>
+    <dl class="facts rise">
+      <div class="fact"><dt>Case</dt><dd>Finished by hand</dd><p>Each one worked individually, which is why no two are perfectly identical and why that is the point.</p></div>
+      <div class="fact"><dt>Inspection</dt><dd>Every piece, every time</dd><p>Checked and closed again before it is packed. None of the twenty ships unseen.</p></div>
+      <div class="fact"><dt>Dispatch</dt><dd>Five days</dd><p>Order to door, anywhere in India. The inspection is inside those five days, not after them.</p></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ════════ 08 THE HEART. The only glow on the site. ════════ -->
+<section class="act act-tall" data-world="onyx" data-tick="8" id="heart">
+  <div class="hold split">
+    <div class="col-a">
+      <p class="label rise">08 · The heart</p>
+      <h2 class="statement rise">A watch is a case, a dial, a bracelet, and <em>one part that is actually alive</em>.</h2>
+      <p class="sub rise">The movement is the only thing in there keeping time. Everything else is housing. So the movement is the part we put our name behind, and we say so plainly instead of printing a number on a card and hoping nobody reads it.</p>
+      <p class="sub rise"><strong>Two years on the movement.</strong> Not the strap, not the glass, not a scratch you put there. The heart.</p>
+    </div>
+    <div class="plate plate-tall rise" data-par="0.06">
+      <img src="assets/img/jade-close.webp" loading="lazy" decoding="async"
+           alt="Macro view of the green dial showing the day ring, the twenty four hour counter and the pointer date subdial.">
+    </div>
+  </div>
+</section>
+
+<!-- ════════ 09 THE DOOR ════════ -->
+<section class="act act-tall" data-world="void" data-tick="9">
+  <div class="hold door">
+    <p class="label leaf leaf-l" style="justify-content:center">09 · The door</p>
+    <h2 class="statement leaf leaf-r">Seven days.</h2>
+    <div class="door-rule" aria-hidden="true"></div>
+    <p class="sub leaf leaf-l">Wear it. If it is not you, send it back unworn and unmarked inside seven days and we refund it. We will not ask why.</p>
+    <p class="sub leaf leaf-r"><strong>And we will not sell to you again.</strong></p>
+    <p class="sub leaf leaf-l" style="color:var(--mute);font-size:.9375rem">Your number goes back to the twenty, and somebody else gets it. That is not a threat. It is what a closed edition means when it is real.</p>
+  </div>
+</section>
+
+<!-- ════════ STILLNESS. No entrance. That is the entrance. ════════ -->
+<section class="act act-tall still-act" data-world="void">
+  <div class="hold">
+    <h2 class="statement">This is not for someone who needs a watch to speak for them.</h2>
+    <h2 class="statement">It is for someone who has already been heard.</h2>
+  </div>
+</section>
+
+<!-- ════════ 10 THE TWENTY ════════ -->
+<section class="act act-tall" data-world="ember" data-tick="10" id="twenty">
+  <div class="hold">
+    <p class="label rise">10 · The twenty</p>
+    <h2 class="statement rise"><span id="remWord">Eighteen</span> remain.</h2>
+    <p class="sub rise">Pick the number you want. The face it carries is already decided, and it is shown on the number. Struck numbers are gone.</p>
+
+    <ul class="twenty" id="grid" role="group" aria-label="Choose your number">
+      <!-- Printed here so the grid exists without JavaScript. Script
+           overwrites it from the config on load. -->
+    </ul>
+
+    <div class="claim">
+      <p class="claim-state" id="claimState">Nothing chosen yet.</p>
+      <a class="buy inert" id="cta" role="button" aria-disabled="true">Choose your number</a>
+      <p class="buy-note">Five days to your door. Seven days to change your mind.</p>
+    </div>
+  </div>
+</section>
 
 </main>
 
-<a id="always" href="#close">Reserve your number</a>
-
-<footer>
-  <div class="fin">
-    <p class="eng dim">The part the scroll stays quiet about</p>
-    <div class="fgrid">
+<footer class="foot">
+  <div class="hold">
+    <p class="label" style="margin-bottom:2.6rem">The part the scroll stays quiet about</p>
+    <div class="foot-grid">
       <div>
-        <h3>THE PIECE</h3>
-        <ul>
-          <li>Japanese quartz movement, multi-function: day, pointer date, 24-hour.</li>
-          <li>Metal case, two-tone steel and gold bracelet.</li>
-          <li>One case design across four dials. Twenty pieces, numbered 01 to 20, engraved on the caseback.</li>
-          <li>Wooden presentation box, fabric covered, engraved tags.</li>
-        </ul>
+        <h4>The piece</h4>
+        <p>KAAL Series 01. Twenty numbered watches, one case design, four dials.</p>
+        <p>Day ring, twenty four hour counter, pointer date. Water resistant. Two tone stainless steel bracelet, gold tone bezel.</p>
+        <p><span id="priceFoot">&#8377;5,999</span> per piece.
+          <!-- UNCONFIRMED: whether shipping sits inside this price. -->
+          Shipping within India included.</p>
       </div>
       <div>
-        <h3>WARRANTY</h3>
-        <ul>
-          <li>24 months from manufacture, movement only.</li>
-          <li>Manufacture date September 2026, printed on the card.</li>
-          <li>Sold direct. There is no dealer, so there is no dealer signature and no purchase-date field to fill.</li>
-          <li>Warranty claims: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
-        </ul>
+        <h4>Warranty</h4>
+        <p>Twenty four months on the movement, from the date of dispatch.</p>
+        <p>The movement only. Cosmetic damage, water ingress from a case opened by anyone other than us, and normal wear to the bracelet and glass are not covered.</p>
       </div>
-      <!-- UNCONFIRMED: shipping inclusion and country of origin are not sourced
-           to the owner. Both are legally declarable. Confirm before ads run. -->
       <div>
-        <h3>ORDERING</h3>
-        <ul>
-          <li>₹<span data-price>5,999</span> inclusive of all applicable taxes.</li>
-          <li>Shipped across India. Shipping included in the price.</li>
-          <li>Sold only here. Not on any marketplace, and not over WhatsApp or direct message.</li>
-          <li>Questions before you decide: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
-        </ul>
+        <h4>Ordering and delivery</h4>
+        <p>Five working days from order to delivery, anywhere in India. Every piece is inspected before dispatch.</p>
+        <p>One piece per number. A number cannot be reserved, only bought.</p>
       </div>
-      <!-- UNCONFIRMED: this returns window and its conditions were drafted, not
-           supplied. They are a binding commercial term. Owner must confirm. -->
       <div>
-        <h3>RETURNS</h3>
-        <ul>
-          <li>Seven days from delivery, unworn, with box, card and tags intact.</li>
-          <li>Refund to the original payment method once the piece is received and checked.</li>
-          <li>A returned number goes back into the twenty. It is not resold as a new one.</li>
-          <li>Start a return: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></li>
-        </ul>
+        <h4>Returns</h4>
+        <p>Seven days from delivery. The watch must be unworn, unmarked and complete with its box and papers.</p>
+        <p>Refund to the original payment method within seven working days of the piece reaching us. No reason required.</p>
+        <p>A returned piece ends the relationship. We will not accept a future order from the same buyer.</p>
+      </div>
+      <div>
+        <h4>Seller and grievances</h4>
+        <!-- UNCONFIRMED: registered seller name, address, GSTIN, grievance
+             officer name, email and phone. All four are required on display
+             by the Consumer Protection (E-Commerce) Rules 2020. -->
+        <p>Seller details and grievance officer contact to be published before launch.</p>
+        <p>Country of origin to be confirmed before launch.</p>
       </div>
     </div>
-    <div class="legalbar">
-      <span>KAAL</span>
-      <span data-seller>Seller and grievance contact: connect@thekaal.co</span>
-      <span data-origin>Country of origin: to be confirmed</span>
-      <span>&copy; 2026</span>
+    <div class="foot-end">
+      <span>&copy; <span id="yr">2026</span> KAAL</span>
+      <span>thekaal.co</span>
     </div>
   </div>
 </footer>
 
+<div class="dock" id="dock">
+  <span class="dock-txt"><span id="dockRem">Eighteen</span> of twenty remain</span>
+  <a class="buy small inert" id="dockCta" role="button" aria-disabled="true">Choose your number</a>
+</div>
+
 <script>
-/* ===================================================================
-   KAAL — the only things you edit before launch.
-   =================================================================== */
-const KAAL = {
-  checkout: "",            // ← the live Razorpay payment-page URL. Nothing else to change.
-  price:    "5,999",       // every price on the page and in the footer reads from this
+(function(){
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════════
+   THE CONFIG. Five lines govern the commercial behaviour of the page.
+
+   checkout   the live Razorpay Payment Page URL. While it is empty the
+              button is visibly inert and says so. No dead href, no fake
+              funnel. Paste the URL and every button on the page becomes
+              real. Use a Payment Page with a stock limit of 20, not a
+              bare payment link: this is a static site with no backend,
+              so it cannot know a piece has sold, and without Razorpay's
+              own inventory limit two people can buy number 07.
+
+   dials      which face each number carries. This is the inventory
+              lever. Numbers nobody has bought were never promised to
+              anybody, so if one face stalls you re-point the unsold
+              numbers and the mix rebalances silently.
+
+   sold       the numbers already gone. Drives the strike-throughs, the
+              count, the nav, the dock and the title.
+   ══════════════════════════════════════════════════════════════════ */
+var KAAL = {
+  checkout: "",
+  price:    "5,999",
   edition:  20,
-  sold:     [1, 2]         // the numbers already claimed. Add to this as pieces go.
+  sold:     [1, 2],
+  film:     "https://res.cloudinary.com/zuc7oxyj/video/upload/v1788959635/090901_1788957849218.mp4",
+  dials: {
+    1:"bone",  2:"onyx",  3:"brass", 4:"jade",  5:"onyx",
+    6:"bone",  7:"jade",  8:"brass", 9:"onyx", 10:"bone",
+   11:"jade", 12:"brass",13:"onyx", 14:"bone", 15:"jade",
+   16:"brass",17:"bone", 18:"onyx", 19:"brass",20:"jade"
+  }
 };
-/* =================================================================== */
 
-(function () {
-  "use strict";
-  var doc = document, root = doc.documentElement, body = doc.body;
-  body.classList.remove("no-js");
+var FACE = {
+  jade:  { name:"Jade",  css:"radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)", tint:"rgba(93,143,110,.15)" },
+  onyx:  { name:"Onyx",  css:"radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)", tint:"rgba(190,190,188,.085)" },
+  brass: { name:"Brass", css:"radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)", tint:"rgba(198,161,91,.16)" },
+  bone:  { name:"Bone",  css:"radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)", tint:"rgba(237,232,223,.13)" }
+};
+var WORLD = { void:"#080908", stone:"#12100E", jade:"#08120C", onyx:"#050505", ember:"#140C04" };
+var WORDS = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+             "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen",
+             "Eighteen","Nineteen","Twenty"];
 
-  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduced) body.classList.add("reduced");
+var $  = function(s,r){ return (r||document).querySelector(s); };
+var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+var clamp = function(v,a,b){ return v<a?a:v>b?b:v; };
+var pad = function(n){ return n<10 ? "0"+n : ""+n; };
 
-  /* ---------- config flows outward ---------- */
-  var WORDS = ["zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
-               "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen",
-               "Eighteen","Nineteen","Twenty"];
-  var remaining = KAAL.edition - KAAL.sold.length;
+var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var qs = new URLSearchParams(location.search);
 
-  [].forEach.call(doc.querySelectorAll("[data-price]"), function (el) { el.textContent = KAAL.price; });
-  [].forEach.call(doc.querySelectorAll("[data-remaining]"), function (el) {
-    el.textContent = WORDS[remaining] || String(remaining);
-  });
+/* ── One scroll value, eased, and everything on the page derives from
+      it. The page itself never scrolls anything but natively: nothing
+      here calls preventDefault, so there is no wheel to fight, no touch
+      to desync, and no momentum to reinvent. What makes it feel like
+      silk is that every derived value has weight, not that the
+      scrollbar was taken away. ─────────────────────────────────── */
+var S = { raw:0, y:0, v:0, max:1 };
 
-  // the printed grid is the no-JavaScript fallback; config is authoritative here
-  [].forEach.call(doc.querySelectorAll("#grid20 .n"), function (el, i) {
-    el.classList.toggle("gone", KAAL.sold.indexOf(i + 1) !== -1);
-  });
+/* The loop rests. It wakes on input and sleeps when nothing has moved
+   for a beat, so an idle page costs nothing. */
+var awake = 0, running = false;
+function wake(){ awake = 14; if(!running){ running = true; requestAnimationFrame(tick); } }
 
-  var cta = doc.getElementById("cta"), note = doc.getElementById("ctaNote"), always = doc.getElementById("always");
-  var rail = doc.getElementById("rail"), prog = doc.getElementById("prog");
-  var railDraw = rail && rail.querySelector(".r-draw");
-  var progBar = prog && prog.querySelector("i");
-  if (KAAL.checkout) {
-    cta.href = KAAL.checkout; cta.removeAttribute("aria-disabled"); cta.rel = "noopener";
-    always.href = KAAL.checkout; always.rel = "noopener";
-    note.textContent = "₹" + KAAL.price + ", shipped across India.";
-  } else {
-    note.textContent = "Checkout opens when the payment link goes live.";
-  }
+/* ══════════ THE FILM ══════════
+   Five gates decide whether the video is fetched at all. Any one of
+   them and the page serves the designed still instead, which is a
+   complete hero in its own right rather than a hole where a video
+   should be. */
+var film = $("#film"), still = $("#still"), stage = $("#stage");
+var F = { dur:0, shown:0, want:0, req:-99, seeking:false, live:false, step:0.033, seekAt:0 };
 
-  /* ---------- captions reveal on approach ---------- */
-  var scenes = [].slice.call(doc.querySelectorAll(".sc"));
-  // Latched reveal, checked on the animation frame rather than by observer.
-  // A scene that has been reached stays revealed — the sticky hold carries it
-  // away on its own, and the close must not fade when the footer arrives. The
-  // pending list empties as the visitor descends, so this costs nothing by the
-  // end, and unlike an observer a fast flick cannot skip a scene.
-  // Reveal is driven entirely by IntersectionObserver: no getBoundingClientRect
-  // on the scroll path, so scrolling never forces a synchronous layout.
-  // Reaching scene i means every scene before it was passed, so light those too —
-  // that covers a fast flick or a scrollbar jump without any rect reads.
-  if (reduced) {
-    scenes.forEach(function (s) { s.classList.add("lit"); });
-  } else {
-    var revealIO = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        var upto = scenes.indexOf(e.target);
-        for (var k = 0; k <= upto; k++) {
-          if (!scenes[k].classList.contains("lit")) {
-            scenes[k].classList.add("lit"); revealIO.unobserve(scenes[k]);
+function filmAllowed(){
+  if(qs.get("film") === "1") return true;      /* owner override, for reviewing on a phone */
+  if(qs.get("film") === "0") return false;
+  if(reduced) return false;                                   /* 1. asked for less motion */
+  if(!KAAL.film) return false;                                /* 2. nothing to play */
+  if(window.innerWidth < 900) return false;                   /* 3. small screen, real data cost */
+  var c = navigator.connection;
+  if(c && c.saveData) return false;                           /* 4. save data is on */
+  if(c && /(^|\W)(slow-2g|2g|3g)($|\W)/.test(c.effectiveType||"")) return false;  /* 5. thin pipe */
+  return true;
+}
+
+function armFilm(src, revoke){
+  film.src = src;
+  film.addEventListener("loadedmetadata", function(){
+    F.dur = film.duration || 0;
+    if(!F.dur || !isFinite(F.dur)) return;
+    F.live = true;
+    /* A video that has never played does not reliably paint a frame on a
+       bare currentTime write. One muted play, immediately paused, wakes
+       the decoder. It is muted and playsinline, so no autoplay policy is
+       being asked for anything. */
+    var prime = film.play();
+    if(prime && prime.then) prime.then(function(){ film.pause(); }).catch(function(){});
+    else { try { film.pause(); } catch(e){} }
+    film.classList.add("on");
+    /* The still stays underneath and simply stops being on top, so a
+       decode hiccup never shows a black rectangle. */
+    still.classList.remove("on");
+    wake();
+  }, { once:true });
+  film.addEventListener("seeked", function(){ F.seeking = false; });
+  film.addEventListener("error", function(){ F.live = false; still.classList.add("on"); if(revoke) revoke(); });
+  film.load();
+}
+
+function loadFilm(){
+  var ring = $("#ring"), bar = $("#ringBar"), txt = $("#ringTxt");
+  var shown = false, t0 = Date.now();
+
+  /* Fetched as a Blob so that seeking is instant and local. A ranged
+     seek against a CDN is where scroll video usually falls apart. */
+  fetch(KAAL.film, { mode:"cors", credentials:"omit" }).then(function(res){
+    if(!res.ok || !res.body) throw new Error("no body");
+    var total = parseInt(res.headers.get("content-length")||"0", 10);
+    var reader = res.body.getReader(), chunks = [], got = 0;
+    return new Promise(function(resolve, reject){
+      (function pump(){
+        reader.read().then(function(r){
+          if(r.done) return resolve(new Blob(chunks, { type:"video/mp4" }));
+          chunks.push(r.value); got += r.value.length;
+          /* The ring only appears if the file is genuinely worth waiting
+             for, and it reports real bytes rather than a fake spinner. */
+          if(!shown && (Date.now()-t0 > 550) && total > 900000){ shown = true; ring.classList.add("on"); }
+          if(shown && total){
+            var p = clamp(got/total, 0, 1);
+            bar.style.strokeDashoffset = (56.5 * (1-p)).toFixed(1);
+            txt.textContent = Math.round(p*100) + "%";
           }
-          if (k >= 5) startSeq();          // begin fetching frames a scene early
-        }
-      });
-    }, { rootMargin: "-12% 0px -12% 0px", threshold: 0 });
-    scenes.forEach(function (s) { revealIO.observe(s); });
-  }
+          pump();
+        }).catch(reject);
+      })();
+    });
+  }).then(function(blob){
+    ring.classList.remove("on");
+    var url = URL.createObjectURL(blob);
+    armFilm(url, function(){ URL.revokeObjectURL(url); });
+  }).catch(function(){
+    /* CORS refused, offline, or the CDN said no. Try the plain element,
+       which can still stream even where fetch was blocked. */
+    ring.classList.remove("on");
+    film.preload = "auto";
+    film.crossOrigin = null;
+    armFilm(KAAL.film, null);
+  });
 
-  /* ---------- the quiet persistent CTA, from scene 2 onward ---------- */
-  // The persistent CTA is observed, not polled. It appears once the opening
-  // scene is behind you and hides only while the close is genuinely on screen,
-  // so the footer is never a dead end.
-  var closeEl = doc.getElementById("close");
-  var pastFold = false, closeOnScreen = false;
-  function syncChip() {
-    always.classList.toggle("on", pastFold && !closeOnScreen);
-    // the thread appears once the opening scene is behind you, never over it
-    if (rail) rail.classList.toggle("on", pastFold);
-    if (prog) prog.classList.toggle("on", pastFold);
-  }
-  function watchChip() {
-    new IntersectionObserver(function (e) {
-      pastFold = !e[0].isIntersecting; syncChip();
-    }, { threshold: 0 }).observe(scenes[0]);
-    new IntersectionObserver(function (e) {
-      closeOnScreen = e[0].isIntersecting; syncChip();
-    }, { rootMargin: "-25% 0px -25% 0px", threshold: 0 }).observe(closeEl);
-  }
+  /* If nothing is playable within twelve seconds, stop waiting and let
+     the still be the hero. It always was. */
+  setTimeout(function(){ if(!F.live){ ring.classList.remove("on"); still.classList.add("on"); } }, 12000);
+}
 
-  /* ---------- the thread, and the twenty ticks on it ---------- */
-  var ticks = [];
-  (function buildTicks() {
-    var g = rail && rail.querySelector(".r-ticks");
-    if (!g) return;
-    var NS = "http://www.w3.org/2000/svg";
-    for (var i = 0; i < KAAL.edition; i++) {
-      var y = 1000 * (i + 0.5) / KAAL.edition;
-      var ln = doc.createElementNS(NS, "line");
-      ln.setAttribute("x1", 1); ln.setAttribute("x2", 11);
-      ln.setAttribute("y1", y); ln.setAttribute("y2", y);
-      if (KAAL.sold.indexOf(i + 1) !== -1) ln.setAttribute("class", "sold");
-      g.appendChild(ln);
-      ticks.push({ el: ln, at: (i + 0.5) / KAAL.edition, lit: false });
+/* ── Hero transport. Scroll position inside the tall hero maps to time,
+      the time is eased, and a seek is only ever issued when the last
+      one has landed. Overlapping seeks are what makes scroll video
+      stutter, and the flag below is the whole fix. ──────────────── */
+var hero = $("#hero");
+function heroProgress(){
+  var r = hero.getBoundingClientRect();
+  var span = hero.offsetHeight - window.innerHeight;
+  if(span <= 0) return 0;
+  return clamp(-r.top / span, 0, 1);
+}
+function driveFilm(p){
+  if(!F.live || !F.dur) return;
+  F.want = p * F.dur;
+  F.shown += (F.want - F.shown) * 0.14;
+  if(Math.abs(F.want - F.shown) < 0.004) F.shown = F.want;
+
+  /* A seek is measured against what we last ASKED for, never against
+     film.currentTime. The browser snaps a seek to the nearest decodable
+     frame, so a target that lands between two frames reads back as a
+     miss on every single frame, and the page would sit there issuing
+     seeks forever without ever arriving. Comparing to the request makes
+     arriving unambiguous; the threshold then only rate limits how often
+     we ask, at roughly one frame of a thirty frame second. */
+  if(F.seeking && Date.now() - F.seekAt > 500) F.seeking = false;   /* a seek that never landed */
+  if(!F.seeking && Math.abs(F.shown - F.req) > F.step){
+    F.req = F.shown; F.seeking = true; F.seekAt = Date.now();
+    try { film.currentTime = F.shown; } catch(e){ F.seeking = false; }
+  }
+}
+
+/* ── Captions. Each owns a slice of the scrub and is paced so that a
+      reader moving at a normal speed gets the whole line. DOM is
+      touched only when a band actually changes state. ──────────── */
+var caps = $$(".cap").map(function(el){
+  return { el:el, at:parseFloat(el.dataset.at), until:parseFloat(el.dataset.until), on:false };
+});
+function driveCaps(p){
+  for(var i=0;i<caps.length;i++){
+    var c = caps[i], want = p >= c.at && p < c.until;
+    if(want !== c.on){ c.on = want; c.el.classList.toggle("on", want); }
+  }
+}
+
+/* ── The world. One fixed layer whose colour is a function of which act
+      owns the middle of the screen. This is what makes ten sections
+      read as one continuous building. ──────────────────────────── */
+var worldEl = $("#world"), acts = $$(".act[data-world]"), curWorld = "";
+function driveWorld(){
+  var mid = window.innerHeight * 0.5, found = "void";
+  for(var i=0;i<acts.length;i++){
+    var r = acts[i].getBoundingClientRect();
+    if(r.top <= mid && r.bottom >= mid){ found = acts[i].dataset.world; break; }
+  }
+  if(found !== curWorld){ curWorld = found; worldEl.style.backgroundColor = WORLD[found] || WORLD.void; }
+}
+
+/* ── Any photograph that fails to load becomes a designed panel rather
+      than a broken glyph, so the page is whole before the shoot lands
+      and whole again if a file ever goes missing in production. ──── */
+(function missingArt(){
+  function fallback(img){
+    var plate = img.closest(".plate");
+    if(plate){
+      if(plate.classList.contains("void-plate")) return;
+      plate.classList.add("void-plate");
+      var n = document.createElement("p");
+      n.className = "await";
+      n.textContent = "Photograph pending";
+      plate.appendChild(n);
+    } else if(img.id === "still"){
+      img.style.display = "none";
     }
-  })();
-
-  var lastDraw = -1, lastProg = -1;
-  function drawThread(p) {
-    // the animation frame runs sixty times a second; the DOM is written only
-    // on the frames where a value actually moved
-    var d = Math.round((1 - p) * 1000);
-    if (railDraw && d !== lastDraw) { railDraw.style.strokeDashoffset = d; lastDraw = d; }
-    var sx = Math.round(p * 1000) / 1000;
-    if (progBar && sx !== lastProg) { progBar.style.transform = "scaleX(" + sx + ")"; lastProg = sx; }
-    for (var i = 0; i < ticks.length; i++) {
-      var t = ticks[i], on = p >= t.at;
-      if (on !== t.lit) { t.el.classList.toggle("lit", on); t.lit = on; }
-    }
   }
+  $$("img").forEach(function(img){
+    img.addEventListener("error", function(){ fallback(img); });
+    if(img.complete && img.naturalWidth === 0) fallback(img);
+  });
+})();
 
-  /* ---------- one scroll value, 0 to 1 ---------- */
-  var progress = 0, eased = 0, scrollMax = 0;
-  function readScroll() {                       // scrollY only — no layout read
-    progress = scrollMax > 0
-      ? Math.min(1, Math.max(0, (window.scrollY || root.scrollTop) / scrollMax)) : 0;
+/* ── Plates carry a little parallax, and they carry it as a transform
+      so the compositor does all of it. ─────────────────────────── */
+var plates = $$(".plate[data-par]").map(function(el){
+  return { el:el, img:el.querySelector("img"), k:parseFloat(el.dataset.par)||0.06, last:null };
+});
+function drivePlates(){
+  var h = window.innerHeight;
+  for(var i=0;i<plates.length;i++){
+    var p = plates[i], r = p.el.getBoundingClientRect();
+    if(!p.img || p.el.classList.contains("void-plate")) continue;
+    if(r.bottom < -80 || r.top > h + 80) continue;
+    var c = (r.top + r.height/2 - h/2) / h;
+    var y = (-c * p.k * h).toFixed(1);
+    if(y !== p.last){ p.last = y; p.img.style.transform = "scale(1.09) translate3d(0," + y + "px,0)"; }
   }
+}
 
-  /* scene depths derive from where each section actually sits, so the camera
-     arrives at a scene's geometry exactly as its caption centres */
-  var CAM_START = 4, CAM_END = -33;
-  var spans = [], centres = [], holdTop = [], holdEnd = [];
-  function zAt(f) { return CAM_START + (CAM_END - CAM_START) * f; }
-  function measure() {
-    var max = doc.documentElement.scrollHeight - innerHeight;
-    scrollMax = max;
-    var y = window.scrollY || root.scrollTop;
-    centres = []; holdTop = []; holdEnd = [];
-    spans = scenes.map(function (s) {
-      var r = s.getBoundingClientRect(), top = r.top + y;
-      var cl = function (v) { return Math.min(1, Math.max(0, v)); };
-      centres.push(cl(max > 0 ? (top + r.height / 2 - innerHeight * 0.5) / max : 0));
+/* ── The rail. Twenty ticks down the page, two of them struck, drawn as
+      the visitor descends. A numbered rail is a generic device almost
+      everywhere. Here the content genuinely is a sequence of twenty,
+      which is the one context where it is earned. ──────────────── */
+var rail = $("#rail"), railFill = $("#railFill"), tickTop = $("#tickTop"), railLast = -1;
+(function buildRail(){
+  var soldSet = {}; KAAL.sold.forEach(function(n){ soldSet[n] = 1; });
+  var frag = document.createDocumentFragment();
+  for(var i=1;i<=KAAL.edition;i++){
+    var t = document.createElement("i");
+    t.className = "rail-t" + (soldSet[i] ? " gone" : "");
+    t.style.top = "calc(14vh + " + (((i-1)/(KAAL.edition-1))*72) + "vh)";
+    frag.appendChild(t);
+  }
+  rail.appendChild(frag);
+})();
+function driveRail(){
+  var p = clamp(S.y / S.max, 0, 1);
+  var v = Math.round(p * 1000);
+  if(v === railLast) return;
+  railLast = v;
+  railFill.style.height = (p * 72) + "vh";
+  tickTop.style.width = (p * 100) + "%";
+  rail.classList.toggle("show", p > 0.04);
+}
 
-      /* Where this scene's caption is pinned, and where it starts sliding.
-         A sticky hold rides the top of the frame from the moment its section
-         reaches it until the section's bottom catches its own bottom edge —
-         after that it scrolls away like anything else. The WebGL plate has to
-         know both numbers, or the photograph hangs in the air while the words
-         underneath it leave without it. */
-      var hold = s.querySelector(".hold");
-      var hh = hold ? hold.getBoundingClientRect().height : innerHeight;
-      holdTop.push(top);
-      holdEnd.push(top + r.height - hh);
-
-      return { a: cl(max > 0 ? (top - innerHeight * 0.5) / max : 0),
-               b: cl(max > 0 ? (top + r.height - innerHeight * 0.5) / max : 0) };
+/* ── Dust. Whisper level, and it is the only thing on the page allowed
+      to move without being asked. ──────────────────────────────── */
+(function dust(){
+  if(reduced) return;
+  var cv = $("#dust"), ctx = cv.getContext("2d"), dots = [], w = 0, h = 0, dpr = 1, raf = 0;
+  function size(){
+    dpr = Math.min(window.devicePixelRatio||1, 1.6);
+    w = cv.width  = Math.floor(innerWidth  * dpr);
+    h = cv.height = Math.floor(innerHeight * dpr);
+    cv.style.width = innerWidth + "px"; cv.style.height = innerHeight + "px";
+    var n = innerWidth < 820 ? 34 : 78;
+    dots = [];
+    for(var i=0;i<n;i++) dots.push({
+      x:Math.random()*w, y:Math.random()*h,
+      z:0.25 + Math.random()*0.75,
+      r:(0.35 + Math.random()*1.05) * dpr,
+      d:(Math.random()*0.5 - 0.25) * dpr
     });
   }
-  // Ownership is measured from a scene's centre out to its neighbours' centres.
-  // At its own centre a scene's geometry is fully present; at the next scene's
-  // centre it is exactly gone. Two actors can never crowd one frame.
-  function ownership(i, prog) {
-    var c = centres[i]; if (c == null) return 0;
-    var prev = centres[i - 1] != null ? centres[i - 1] : c - 0.1;
-    var next = centres[i + 1] != null ? centres[i + 1] : c + 0.1;
-    var reach = prog < c ? c - prev : next - c;
-    if (reach <= 0) return 0;
-    var t = 1 - Math.abs(prog - c) / reach;
-    if (t <= 0) return 0;
-    t = Math.min(1, t / 0.62);                 // hold full through the middle
-    return t * t * (3 - 2 * t);                // smoothstep the edges
+  function paint(){
+    ctx.clearRect(0,0,w,h);
+    for(var i=0;i<dots.length;i++){
+      var p = dots[i];
+      p.y -= (0.09 + p.z*0.16) * dpr;
+      p.x += p.d * 0.14;
+      if(p.y < -6){ p.y = h + 6; p.x = Math.random()*w; }
+      ctx.globalAlpha = 0.05 + p.z*0.2;
+      ctx.fillStyle = "#EDE8DF";
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+    }
+    raf = requestAnimationFrame(paint);
   }
-
-  if (reduced) { watchChip(); return; }
-
-  measure(); readScroll(); watchChip();
-
-  /* Every depth in the world is derived from where a section actually sits,
-     so a stale measurement is not a rounding error — it points the camera at
-     the wrong scene. The first measurement is taken before the webfonts have
-     swapped in, and Fraunces is a different height from Times, so every
-     section below the first moves the moment it lands. Left unwatched, the
-     photograph for one scene is still filling the frame when the next scene
-     centres, which is exactly the fault this hunted down.
-
-     A ResizeObserver on the scroll body catches all of it — fonts swapping,
-     images landing, a phone's URL bar collapsing — without polling and
-     without reading a rect on the scroll path. */
-  function remeasure() { measure(); readScroll(); if (world) world.layout(); }
-
-  var reTimer;
-  function remeasureSoon() {
-    clearTimeout(reTimer);
-    reTimer = setTimeout(remeasure, 120);       // coalesce bursts into one read
-  }
-  addEventListener("resize", remeasureSoon, { passive: true });
-  addEventListener("scroll", readScroll, { passive: true });
-  addEventListener("load", remeasureSoon, { passive: true });
-  if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(remeasureSoon).catch(function () {});
-  if (window.ResizeObserver) {
-    new ResizeObserver(remeasureSoon).observe(doc.getElementById("scroll"));
-  }
-
-  /* ===================================================================
-     THE WORLD.
-
-     Two tiers, chosen at runtime, both driven by the same single scroll
-     value. Neither is a downgrade of the other; they are two ways of
-     drawing the same corridor.
-
-       Tier A  WebGL. A real PerspectiveCamera dollies from z +4 to z -34.
-               The photographs are textures on planes standing at fixed
-               depths along that corridor, so the parallax between them is
-               computed by a projection matrix rather than faked by a
-               transform. Dust is a point cloud with its own perspective
-               divide. Haze planes pass the lens. Desktop only: it costs
-               600 KB of library and a WebGL context, and neither belongs
-               on a mid-range Android on cellular data.
-
-       Tier B  The same photographs as DOM images, the same scroll value,
-               a 2 KB dust field that does its own perspective divide.
-               This is what phones, reduced-motion and no-WebGL get, and
-               it is the tier the ad budget actually lands on.
-     =================================================================== */
-
-  var world = null;
-  var stage = doc.getElementById("stage");
-  var dustCanvas = doc.getElementById("dust");
-  var glCanvas = doc.getElementById("gl");
-
-  var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-  addEventListener("pointermove", function (e) {
-    mouse.tx = (e.clientX / innerWidth - 0.5) * 2;
-    mouse.ty = (e.clientY / innerHeight - 0.5) * 2;
-  }, { passive: true });
-
-  var running = true;
-  doc.addEventListener("visibilitychange", function () {
-    running = !doc.hidden; if (running) requestAnimationFrame(frame);
+  size(); paint();
+  addEventListener("resize", size, { passive:true });
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden){ cancelAnimationFrame(raf); raf = 0; }
+    else if(!raf){ raf = requestAnimationFrame(paint); }
   });
+})();
 
-  /* ---------- Tier B: the dust field, ~2 KB, running until GL takes over ---- */
-  var ctx = dustCanvas.getContext("2d", { alpha: true });
-  var dpr = Math.min(2, devicePixelRatio || 1), W = 0, H = 0;
-  var motes = [];
-  for (var i = 0; i < 130; i++) {
-    motes.push({ x: (Math.random() - .5) * 26, y: (Math.random() - .5) * 16, z: -Math.random() * 40 + 4,
-                 r: Math.random() * .9 + .25, a: Math.random() * .5 + .12 });
-  }
-  function sizeCanvas() {
-    dpr = Math.min(2, devicePixelRatio || 1);
-    W = dustCanvas.width = Math.floor(innerWidth * dpr);
-    H = dustCanvas.height = Math.floor(innerHeight * dpr);
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  sizeCanvas();
-  addEventListener("resize", sizeCanvas, { passive: true });
+/* ══════════ THE TWENTY ══════════
+   The interactive moment and the conversion mechanic are deliberately
+   the same object. Choosing a number is the first thing the visitor
+   owns, and owning it is what makes losing it matter. */
+var grid = $("#grid"), chosen = 0;
+var soldSet = {}; KAAL.sold.forEach(function(n){ soldSet[n] = 1; });
+var remaining = KAAL.edition - KAAL.sold.length;
 
-  function drawDust(camZ) {
-    var w = innerWidth, h = innerHeight, f = h * 0.9;
-    ctx.clearRect(0, 0, w, h);
-    for (var i = 0; i < motes.length; i++) {
-      var m = motes[i], dz = m.z - camZ;
-      if (dz > -0.4) continue;                       // behind the camera
-      var s = f / -dz;
-      var x = w / 2 + (m.x - mouse.x * 0.5) * s;
-      var y = h / 2 + (m.y - mouse.y * 0.35) * s;
-      if (x < -20 || x > w + 20 || y < -20 || y > h + 20) continue;
-      var fade = Math.max(0, Math.min(1, 1 - (-dz) / 34));
-      ctx.globalAlpha = m.a * fade * 0.6;
-      ctx.fillStyle = "#E8E4DC";
-      ctx.beginPath(); ctx.arc(x, y, Math.max(.3, m.r * s * .02), 0, 6.2832); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  /* ---------- the twenty-seven frame sequence, scrubbed by scroll ----------
-     Shared by both tiers. Tier B paints it into its own canvas; Tier A hands
-     the same canvas to the GPU as a texture, re-uploading only on the frames
-     where the index actually changes — twenty-seven times over the whole
-     scene, not sixty times a second. */
-  var SEQ_N = 27;
-  var SEQ_SCENE = 2;                 // scene 3, zero-indexed — "One case. Four faces."
-  var seqImgs = [], seqDone = 0, seqReady = false, seqStarted = false, seqCtx = null;
-  var seqCanvas = doc.getElementById("seq"), seqFallback = doc.getElementById("seqfallback");
-  var seqIndex = -1, seqDirty = false;
-
-  function startSeq() {
-    if (seqStarted || reduced || !seqCanvas) return;
-    seqStarted = true;
-    // 1.1 MB at 1100 px on a laptop, 744 KB at 720 px on a phone. The move
-    // matters more than the resolution it is carried at.
-    var dir = matchMedia("(min-width: 900px)").matches ? "assets/seq/" : "assets/seq/m/";
-    for (var i = 1; i <= SEQ_N; i++) {
-      (function (n) {
-        var im = new Image();
-        im.decoding = "async";
-        im.onload = im.onerror = function () {
-          seqDone++;
-          /* Start the moment a few frames are here rather than waiting for the
-             set. On cellular that is the difference between a scene that works
-             immediately and sharpens as it fills in, and a still photograph
-             until the last byte of the twenty-seventh frame lands. */
-          if (!seqReady && seqDone >= 3) {
-            seqReady = true;
-            if (!glOn) { seqCanvas.hidden = false; if (seqFallback) seqFallback.hidden = true; }
-          }
-        };
-        im.src = dir + "frame-" + ("00" + n).slice(-3) + ".webp";
-        seqImgs[n - 1] = im;
-      })(i);
-    }
-  }
-
-  function loadedAt(i) {
-    var im = seqImgs[i];
-    return (im && im.complete && im.naturalWidth) ? im : null;
-  }
-  // the frame the scroll asked for, or the closest one that has actually arrived
-  function nearestLoaded(i) {
-    var im = loadedAt(i);
-    if (im) return { im: im, i: i };
-    for (var d = 1; d < SEQ_N; d++) {
-      im = loadedAt(i - d); if (im) return { im: im, i: i - d };
-      im = loadedAt(i + d); if (im) return { im: im, i: i + d };
-    }
-    return null;
-  }
-
-  function drawSeq(prog) {
-    if (!seqReady) return;
-    var sp = spans[SEQ_SCENE];
-    if (!sp || sp.b <= sp.a) return;
-    var t = Math.min(1, Math.max(0, (prog - sp.a) / (sp.b - sp.a)));
-    // The move was recorded pushing in on the row of four. Played backwards it
-    // pulls out from one dial to all four, which is the sentence this scene is
-    // already making — one case, four faces — so the camera says it too.
-    var want = (SEQ_N - 1) - Math.min(SEQ_N - 1, Math.round(t * (SEQ_N - 1)));
-    var got = nearestLoaded(want);
-    if (!got) return;
-    var idx = got.i, im = got.im;
-    if (!seqCtx) seqCtx = seqCanvas.getContext("2d");
-    if (!seqCtx) return;
-
-    // Under GL the canvas is a texture source, so it is sized to the frame
-    // itself: no resample on the way in, no resample the shader has to undo.
-    var w, h;
-    if (glOn) {
-      w = im.naturalWidth; h = im.naturalHeight;
-      if (idx === seqIndex) return;                  // nothing changed, no upload
+(function buildGrid(){
+  var frag = document.createDocumentFragment();
+  for(var i=1;i<=KAAL.edition;i++){
+    var key = KAAL.dials[i] || "bone", f = FACE[key];
+    var li = document.createElement("li");
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "pick"; b.dataset.n = i;
+    b.setAttribute("aria-pressed","false");
+    b.style.setProperty("--tint", f.tint);
+    if(soldSet[i]){
+      b.disabled = true;
+      b.setAttribute("aria-label","Number " + pad(i) + ", " + f.name + " dial, already gone");
     } else {
-      var d = Math.min(2, devicePixelRatio || 1);
-      w = Math.round(seqCanvas.clientWidth * d);
-      h = Math.round(seqCanvas.clientHeight * d);
-      if (!w || !h) return;
+      b.setAttribute("aria-label","Choose number " + pad(i) + ", " + f.name + " dial");
     }
-    if (seqCanvas.width !== w || seqCanvas.height !== h) { seqCanvas.width = w; seqCanvas.height = h; }
-    var s = Math.max(w / im.naturalWidth, h / im.naturalHeight);
-    var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
-    seqCtx.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
-    seqIndex = idx; seqDirty = true;
+    var dot = document.createElement("span");
+    dot.className = "dot"; dot.style.background = f.css;
+    b.appendChild(document.createTextNode(pad(i)));
+    b.appendChild(dot);
+    li.appendChild(b); frag.appendChild(li);
   }
+  grid.innerHTML = ""; grid.appendChild(frag);
+})();
 
-  /* ===================================================================
-     Tier A — the WebGL corridor
-     =================================================================== */
+var cta = $("#cta"), dockCta = $("#dockCta"), claimState = $("#claimState");
 
-  /* declared here so remeasure() above can reach it before liftOff builds it */
-  var glOn = false;
-
-  /* This gate used to read `(min-width: 900px) and (pointer: fine)`, and that
-     was the single worst mistake in the build. `pointer: fine` is false on
-     every phone and every tablet, so the corridor, the camera, the dust and
-     the pull-back were all invisible to anyone reviewing the site on the
-     device the ads actually land on. The brief asks for the whole page to
-     move; it does not ask for it to move only where a mouse is plugged in.
-
-     What is left is a capability test, not a taste test: does this device
-     have a WebGL context, enough screen to compose into, and enough memory
-     to be worth it. Everything that made this desktop-only is now handled by
-     spending less on a phone rather than by spending nothing. */
-  var lite = false;                        // true on phones and small tablets
-
-  function glWanted() {
-    if (reduced) return false;
-    if (innerWidth < 340) return false;               // below this nothing composes
-    if (navigator.deviceMemory && navigator.deviceMemory < 2) return false;
-    try {
-      var c = doc.createElement("canvas");
-      return !!(window.WebGLRenderingContext &&
-                (c.getContext("webgl") || c.getContext("experimental-webgl")));
-    } catch (e) { return false; }
+function paintCta(){
+  var live = !!KAAL.checkout;
+  var label, note;
+  if(!chosen){
+    label = "Choose your number";
+    claimState.textContent = (WORDS[remaining]||remaining) + " of the twenty are still open.";
+  } else {
+    var f = FACE[KAAL.dials[chosen]];
+    label = "Claim No. " + pad(chosen) + "  ·  ₹" + KAAL.price;
+    claimState.textContent = "Number " + pad(chosen) + " carries the " + f.name + " dial.";
   }
-
-  var PLATE_VERT = [
-    "varying vec2 vUv;",
-    "void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }"
-  ].join("\n");
-
-  /* The plate shader is doing three jobs at once, and each one is load bearing.
-
-     sharpen  An unsharp mask. The photographs are 1200 px on the long edge and
-              a plate is wider than that on a retina desktop, so the GPU is
-              magnifying. Re-adding the difference between the texel and its
-              four neighbours restores the acutance that bilinear magnification
-              takes out. It is the difference between "a photo scaled up" and
-              "a photo", and it costs four extra taps.
-     feather  The plate has no edge. A rectangle floating in space reads as a
-              picture pasted onto a page; a plate whose alpha falls to nothing
-              before it ends reads as light in a room. This is what makes the
-              photographs part of the world instead of on top of it.
-     scrim    A radial darkening. It is what keeps bone type legible over a
-              photograph, and it keeps the printing on the dials reading as
-              texture rather than as something a visitor stops to read. */
-  var PLATE_FRAG = [
-    "precision highp float;",
-    "uniform sampler2D map;",
-    "uniform vec2  texel;",
-    "uniform vec2  uvScale;",
-    "uniform float sharpen;",
-    "uniform float opacity;",
-    "uniform vec2  feather;",
-    "uniform float scrim;",
-    "varying vec2 vUv;",
-    "void main(){",
-    "  vec2 uv = (vUv - 0.5) * uvScale + 0.5;",
-    "  vec3 c = texture2D(map, uv).rgb;",
-    "  vec3 b = (texture2D(map, uv + vec2(texel.x, 0.0)).rgb",
-    "         +  texture2D(map, uv - vec2(texel.x, 0.0)).rgb",
-    "         +  texture2D(map, uv + vec2(0.0, texel.y)).rgb",
-    "         +  texture2D(map, uv - vec2(0.0, texel.y)).rgb) * 0.25;",
-    "  c = clamp(c + (c - b) * sharpen, 0.0, 1.0);",
-    "  vec2 d = abs(vUv - 0.5) * 2.0;",
-    "  float e = (1.0 - smoothstep(1.0 - feather.x, 1.0, d.x))",
-    "          * (1.0 - smoothstep(1.0 - feather.y, 1.0, d.y));",
-    "  float r = length((vUv - 0.5) * vec2(1.12, 1.0));",
-    "  float vig = 1.0 - smoothstep(0.24, 0.80, r) * scrim;",
-    "  gl_FragColor = vec4(c * vig, opacity * e);",
-    "}"
-  ].join("\n");
-
-  var DUST_VERT = [
-    "attribute float aSize;",
-    "attribute float aAlpha;",
-    "uniform float uPix;",
-    "varying float vA;",
-    "void main(){",
-    "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
-    "  float dist = -mv.z;",
-    "  vA = aAlpha * smoothstep(44.0, 8.0, dist) * smoothstep(0.4, 3.0, dist);",
-    "  gl_PointSize = clamp(aSize * uPix / max(dist, 0.001), 0.4, 22.0);",
-    "  gl_Position = projectionMatrix * mv;",
-    "}"
-  ].join("\n");
-
-  var DUST_FRAG = [
-    "precision mediump float;",
-    "varying float vA;",
-    "void main(){",
-    "  vec2 p = gl_PointCoord - 0.5;",
-    "  float d = length(p);",
-    "  if (d > 0.5) discard;",
-    "  gl_FragColor = vec4(0.910, 0.894, 0.863, (1.0 - smoothstep(0.0, 0.5, d)) * vA);",
-    "}"
-  ].join("\n");
-
-  /* A plate is 1200 px on the long edge. Past about this width in CSS pixels
-     it is being asked to cover more screen than it has detail for, and the
-     unsharp mask starts sharpening its own interpolation. Capping the plate
-     is what keeps the photograph looking like a photograph.
-     Raise this the day 4K sources land in assets/img — see README. */
-  var PLATE_MAX_CSS_W = 1240;
-
-  /* How far in front of the lens a plate stands when its scene centres.
-
-     This number is the whole argument between "real perspective" and "a
-     layout that holds still". The camera crosses roughly 3.7 world units
-     between one scene centre and the next, so a plate held 6 units away
-     swells about 2.4x as the camera passes it — genuinely three
-     dimensional, and it walks straight through the caption underneath.
-     Held 12 units away the same pass is about 1.12x: still a real
-     projection, still parallax against dust that sits at its own depths,
-     but a swell the frame can absorb. Depth you can feel beats depth that
-     breaks the page. */
-  var FOCUS = 12;
-
-  function smooth(a, b, x) {                     // the GLSL smoothstep, in JS
-    var t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-  }
-
-  function buildWorld(THREE) {
-    var renderer;
-    try {
-      renderer = new THREE.WebGLRenderer({
-        canvas: glCanvas, alpha: true, antialias: !lite,
-        powerPreference: lite ? "default" : "high-performance"
-      });
-    } catch (e) { return null; }
-
-    // A phone's DPR is often 3. Rendering a fragment shader with five texture
-    // taps at 3x on a mobile GPU is where this would fall over, so it is capped
-    // at 1.5 there — which on a 400 CSS px wide screen is still 600 real pixels
-    // of plate, more than the photograph has to give.
-    renderer.setPixelRatio(Math.min(lite ? 1.5 : 2, devicePixelRatio || 1));
-    renderer.setSize(innerWidth, innerHeight, false);
-    renderer.outputEncoding = THREE.sRGBEncoding;
-
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 120);
-    var maxAniso = renderer.capabilities.getMaxAnisotropy();
-    var quad = new THREE.PlaneGeometry(1, 1);
-
-    /* ---- the photographs, standing at their own depths ---- */
-    var plates = [];
-    [].forEach.call(doc.querySelectorAll("[data-plate]"), function (holder) {
-      var sceneEl = holder.closest(".sc");
-      var idx = scenes.indexOf(sceneEl);
-      if (idx < 0) return;
-
-      var isSeq = holder.getAttribute("data-plate") === "sequence";
-      var src = isSeq ? seqCanvas : holder.querySelector("img");
-      if (!src) return;
-
-      var tex = new THREE.Texture(src);
-      tex.encoding = THREE.sRGBEncoding;
-      tex.minFilter = THREE.LinearFilter;         // 1200x675 is not power-of-two:
-      tex.magFilter = THREE.LinearFilter;         // no mipmaps in WebGL1, and we
-      tex.generateMipmaps = false;                // only ever magnify anyway
-      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-      tex.anisotropy = maxAniso;
-
-      var mat = new THREE.ShaderMaterial({
-        uniforms: {
-          map:     { value: tex },
-          texel:   { value: new THREE.Vector2(1 / 1200, 1 / 675) },
-          uvScale: { value: new THREE.Vector2(1, 1) },
-          sharpen: { value: 0.40 },
-          opacity: { value: 0 },
-          feather: { value: new THREE.Vector2(0.20, 0.34) },
-          scrim:   { value: holder.classList.contains("deep") ? 0.34 : 0.24 }
-        },
-        vertexShader: PLATE_VERT,
-        fragmentShader: PLATE_FRAG,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false
-      });
-
-      var mesh = new THREE.Mesh(quad, mat);
-      mesh.renderOrder = 10 - idx;                // far plates draw first
-      mesh.frustumCulled = false;
-      scene.add(mesh);
-
-      var p = { mesh: mesh, mat: mat, tex: tex, idx: idx, isSeq: isSeq,
-                aspect: 16 / 9, holder: holder, ready: false };
-
-      if (isSeq) {
-        p.ready = false;                          // becomes true on the first painted frame
+  [cta, dockCta].forEach(function(el){
+    var small = el === dockCta;
+    el.textContent = small && !chosen ? "Choose your number"
+                   : small && chosen  ? "Claim No. " + pad(chosen)
+                   : label;
+    if(chosen && live){
+      el.className = "buy" + (small ? " small" : "");
+      el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
+      el.removeAttribute("aria-disabled"); el.removeAttribute("role");
+      el.rel = "noopener";
+    } else {
+      el.className = "buy" + (small ? " small" : "") + (chosen ? "" : " inert");
+      el.removeAttribute("href");
+      el.setAttribute("role","button");
+      if(chosen && !live){
+        el.className = "buy" + (small ? " small" : "") + " inert";
+        el.textContent = small ? "Opens at launch" : "Checkout opens when the payment link goes live";
+        el.setAttribute("aria-disabled","true");
       } else {
-        var mark = function () {
-          if (!src.naturalWidth) return;
-          p.aspect = src.naturalWidth / src.naturalHeight;
-          mat.uniforms.texel.value.set(1 / src.naturalWidth, 1 / src.naturalHeight);
-          tex.needsUpdate = true; p.ready = true; layout();
-        };
-        if (src.complete && src.naturalWidth) mark();
-        else src.addEventListener("load", mark, { once: true });
+        el.setAttribute("aria-disabled", chosen ? "false" : "true");
       }
-      plates.push(p);
+    }
+  });
+}
+
+grid.addEventListener("click", function(e){
+  var b = e.target.closest(".pick");
+  if(!b || b.disabled) return;
+  var n = parseInt(b.dataset.n, 10);
+  chosen = (chosen === n) ? 0 : n;
+  $$(".pick", grid).forEach(function(el){
+    el.setAttribute("aria-pressed", parseInt(el.dataset.n,10) === chosen ? "true" : "false");
+  });
+  paintCta();
+});
+
+/* Counts, title and share card all read from one place. */
+(function counts(){
+  var word = WORDS[remaining] || String(remaining);
+  $("#remWord").textContent = word;
+  $("#navRem").textContent  = word;
+  $("#dockRem").textContent = word;
+  $("#yr").textContent = new Date().getFullYear();
+  document.title = "KAAL Series 01 · " + word.toLowerCase() + " of twenty remain";
+})();
+paintCta();
+
+/* ── Reveals. One observer, and an act keeps its lit state once it has
+      been seen, because re-animating on the way back up is a tic. ── */
+(function reveals(){
+  if(!("IntersectionObserver" in window)){
+    $$(".act").forEach(function(a){ a.classList.add("lit"); });
+    return;
+  }
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(e.isIntersecting){ e.target.classList.add("lit"); io.unobserve(e.target); }
     });
+  }, { rootMargin:"0px 0px -14% 0px", threshold:0.12 });
+  $$(".act").forEach(function(a){ io.observe(a); });
+})();
 
-    /* ---- dust: a real point cloud with a real perspective divide ---- */
-    var N = lite ? 320 : 900;
-    var pos = new Float32Array(N * 3), siz = new Float32Array(N), alp = new Float32Array(N);
-    for (var i = 0; i < N; i++) {
-      pos[i * 3]     = (Math.random() - 0.5) * 34;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 22;
-      pos[i * 3 + 2] = 4 - Math.random() * 44;
-      siz[i] = Math.random() * 1.5 + 0.35;
-      alp[i] = Math.random() * 0.20 + 0.03;
-    }
-    var dg = new THREE.BufferGeometry();
-    dg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    dg.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
-    dg.setAttribute("aAlpha", new THREE.BufferAttribute(alp, 1));
-    var dm = new THREE.ShaderMaterial({
-      uniforms: { uPix: { value: innerHeight * 0.030 } },
-      vertexShader: DUST_VERT, fragmentShader: DUST_FRAG,
-      transparent: true, depthTest: false, depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-    var dust = new THREE.Points(dg, dm);
-    dust.frustumCulled = false;
-    dust.renderOrder = 20;
-    scene.add(dust);
+/* ── Nav and dock. Neither exists until the hero has done its job.
+      A buy bar shown before desire is built is the single most common
+      way a page like this loses the sale it was designed to make. ── */
+var nav = $("#nav"), dock = $("#dock"), faces = $("#faces"), cue = $("#cue"), twentyEl = $("#twenty");
+function driveChrome(){
+  var past = S.y > window.innerHeight * 0.8;
+  nav.classList.toggle("show", past);
+  var fr = faces.getBoundingClientRect();
+  var earned = fr.top < window.innerHeight * 0.5;
+  var tw = twentyEl.getBoundingClientRect();
+  var arrived = tw.top < window.innerHeight * 0.72;   /* the real button is here */
+  dock.classList.toggle("show", earned && !arrived);
+  if(cue) cue.style.opacity = S.raw > 60 ? "0" : "1";
+}
 
-    /* ---- haze: a few very faint slabs the lens passes through, so the
-            corridor has air in it and not just objects ---- */
-    var hazes = [];
-    var hazeMat = function (op) {
-      return new THREE.ShaderMaterial({
-        uniforms: { opacity: { value: op } },
-        vertexShader: PLATE_VERT,
-        fragmentShader: [
-          "precision mediump float;",
-          "uniform float opacity;",
-          "varying vec2 vUv;",
-          "void main(){",
-          "  float r = length(vUv - 0.5) * 2.0;",
-          "  gl_FragColor = vec4(0.44, 0.40, 0.34, (1.0 - smoothstep(0.0, 1.0, r)) * opacity);",
-          "}"
-        ].join("\n"),
-        transparent: true, depthTest: false, depthWrite: false,
-        blending: THREE.AdditiveBlending
-      });
-    };
-    for (var hz = 0; hz < (lite ? 3 : 5); hz++) {
-      var hm = new THREE.Mesh(quad, hazeMat(0.030 + Math.random() * 0.022));
-      hm.position.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, 2 - hz * 8.5);
-      hm.scale.set(30, 20, 1);
-      hm.renderOrder = 1;
-      hm.frustumCulled = false;
-      scene.add(hm);
-      hazes.push(hm);
-    }
+/* ══════════ THE LOOP ══════════ */
+var prevY = 0;
+function tick(){
+  S.raw = window.pageYOffset || document.documentElement.scrollTop || 0;
+  S.max = Math.max(1, (document.documentElement.scrollHeight - window.innerHeight));
+  S.y += (S.raw - S.y) * 0.115;
+  if(Math.abs(S.raw - S.y) < 0.35) S.y = S.raw;
+  S.v = S.y - prevY; prevY = S.y;
 
-    /* ---- where each plate stands, and how big it is when the camera meets it ---- */
-    /* The stylesheet already decided where the photograph goes. Rather than
-       keep a second copy of that decision in here and watch the two drift, the
-       band is read back off the DOM plate — one getComputedStyle per plate per
-       resize, never on the scroll path — and projected into world units at the
-       focus distance. The two tiers cannot disagree, because there is only one
-       number. */
-    function layout() {
-      var vFov = camera.fov * Math.PI / 180;
-      var visH = 2 * Math.tan(vFov / 2) * FOCUS;   // world units the lens sees at FOCUS
-      var visW = visH * camera.aspect;
-      var vh = innerHeight, vw = innerWidth;
+  var p = heroProgress();
+  driveFilm(p);
+  driveCaps(p);
+  driveWorld();
+  drivePlates();
+  driveRail();
+  driveChrome();
 
-      for (var i = 0; i < plates.length; i++) {
-        var p = plates[i];
-        var cs = getComputedStyle(p.holder);
-        var bandTop = parseFloat(cs.top) || vh * 0.08;
-        var bandH   = parseFloat(cs.height) || vh * 0.5;
-        var bandW   = parseFloat(cs.width) || Math.min(vw, PLATE_MAX_CSS_W);
-        if (bandH <= 0 || bandW <= 0) continue;
+  var busy = Math.abs(S.raw - S.y) > 0.35 ||
+             (F.live && (Math.abs(F.want - F.shown) > 0.004 || F.seeking));
+  if(busy) awake = 14; else awake--;
+  if(awake > 0){ requestAnimationFrame(tick); } else { running = false; }
+}
 
-        // the band, in world units at the focus distance
-        var wH = visH * (bandH / vh);
-        var wW = visW * (bandW / vw);
-        p.baseW = wW; p.baseH = wH;                 // render() breathes around this
+["scroll","resize","orientationchange","touchstart","touchmove","wheel","keydown"].forEach(function(ev){
+  addEventListener(ev, wake, { passive:true });
+});
+if(window.ResizeObserver) new ResizeObserver(wake).observe(document.body);
 
-        // its centre, measured down from the top of the frame
-        var cFrac = (bandTop + bandH / 2) / vh;
-        p.baseY = (1 - 2 * cFrac) * (visH / 2);
-        p.mesh.position.z = zAt(centres[p.idx] != null ? centres[p.idx] : 0) - FOCUS;
-
-        // cover-fit, the same crop object-fit:cover gives the DOM tier
-        var bandAspect = bandW / bandH;
-        if (p.aspect > bandAspect) p.mat.uniforms.uvScale.value.set(bandAspect / p.aspect, 1);
-        else                       p.mat.uniforms.uvScale.value.set(1, p.aspect / bandAspect);
-      }
-      // an already-cached photograph fires its load handler while this function
-      // is still being defined, so the dust material may not exist yet
-      if (dm) dm.uniforms.uPix.value = innerHeight * 0.030;
-    }
-
-    function resize() {
-      lite = !matchMedia("(min-width: 900px)").matches;   // rotation can change this
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      // must repeat the lite cap: resize() runs right after construction and
-      // would otherwise put a phone straight back onto a 3x buffer
-      renderer.setPixelRatio(Math.min(lite ? 1.5 : 2, devicePixelRatio || 1));
-      renderer.setSize(innerWidth, innerHeight, false);
-      layout();
-    }
-
-    function render(prog) {
-      camera.position.z = CAM_START + (CAM_END - CAM_START) * prog;
-      // pure translation, no rotation: the parallax stays honest
-      camera.position.x = mouse.x * 0.62;
-      camera.position.y = -mouse.y * 0.38;
-
-      /* Ownership alone is not enough to hide a neighbour. A plate the camera
-         has nearly reached fills the entire frame, so even three percent of it
-         is a full-screen wash over the scene you are actually reading — and
-         the eased camera is always a little behind the scroll, so there is
-         always a little of it. The fix is the one a camera would use: a depth
-         of field. A plate exists only inside a narrow window either side of
-         its focus distance, and since the lens travels about 3.7 units
-         between scene centres, a neighbour is always outside that window no
-         matter how far behind the easing has fallen. */
-      var camZ = camera.position.z;
-      for (var i = 0; i < plates.length; i++) {
-        var p = plates[i];
-        var op = 0;
-        if (p.ready) {
-          var d = camZ - p.mesh.position.z;              // distance in front of the lens
-          var env = smooth(FOCUS - 2.7, FOCUS - 1.3, d) * (1 - smooth(FOCUS + 1.3, FOCUS + 2.7, d));
-          op = ownership(p.idx, prog) * env;
-
-          /* Left to pure perspective a plate grows by 1/d, so a tall scene —
-             scene 3 runs 190svh so the lens can carry the pull-back — swells
-             it about 1.3x and its bottom edge walks down into the caption.
-             Scaling the mesh by (d/FOCUS)^0.65 leaves projected size going as
-             d^-0.35 instead of d^-1: about a nine percent breathe rather than
-             a thirty percent lunge. The plate still sits at its true depth, so
-             it still parallaxes against the dust and the haze, which is where
-             the depth is actually read from. What is given up is a swell the
-             page could not contain anyway. */
-          var k = Math.pow(Math.max(d, 0.001) / FOCUS, 0.65);
-          p.mesh.scale.set(p.baseW * k, p.baseH * k, 1);
-
-          /* Follow the caption. Before the scene arrives its hold sits below
-             the top of the frame; after the sticky window closes the hold
-             climbs out of it. Either way the photograph travels with the words
-             it belongs to, which is the difference between a picture behind
-             the page and a picture on the same page. */
-          var sy = prog * scrollMax;
-          var off = Math.max(0, holdTop[p.idx] - sy) - Math.max(0, sy - holdEnd[p.idx]);
-          var worldPerPx = (2 * Math.tan(camera.fov * Math.PI / 360) * d) / innerHeight;
-          p.mesh.position.y = p.baseY - off * worldPerPx;
-        }
-        p.mat.uniforms.opacity.value = op;
-        p.mesh.visible = op > 0.002;
-      }
-      if (seqDirty) { seqTex && (seqTex.needsUpdate = true); seqDirty = false; }
-      renderer.render(scene, camera);
-    }
-
-    var seqTex = null;
-    for (var pi = 0; pi < plates.length; pi++) {
-      if (plates[pi].isSeq) { seqTex = plates[pi].tex; plates[pi].seqRef = true; }
-    }
-    function noteSeqReady() {
-      for (var i = 0; i < plates.length; i++) {
-        if (plates[i].isSeq && !plates[i].ready && seqCanvas.width) {
-          plates[i].aspect = seqCanvas.width / seqCanvas.height;
-          plates[i].mat.uniforms.texel.value.set(1 / seqCanvas.width, 1 / seqCanvas.height);
-          plates[i].ready = true; layout();
-        }
-      }
-    }
-
-    layout(); resize();
-    return { render: render, resize: resize, layout: layout,
-             noteSeqReady: noteSeqReady, renderer: renderer };
-  }
-
-  /* ---------- bring the library in, but never before the page is up ------- */
-  function liftOff() {
-    lite = !matchMedia("(min-width: 900px)").matches;
-    if (!glWanted()) return;
-    var s = doc.createElement("script");
-    s.src = "assets/js/three.min.js";
-    s.async = true;
-    s.onload = function () {
-      if (!window.THREE) return;
-      world = buildWorld(window.THREE);
-      if (!world) return;
-      glOn = true;
-      body.classList.add("gl");
-      // the DOM images stay in the document — they are the texture source —
-      // but the browser must stop painting them over the world
-      if (seqFallback) seqFallback.hidden = true;
-      if (seqCanvas) seqCanvas.hidden = true;
-      startSeq();
-      addEventListener("resize", function () { world.resize(); }, { passive: true });
-    };
-    s.onerror = function () { /* Tier B is already running; nothing to undo */ };
-    doc.head.appendChild(s);
-  }
-  if (doc.readyState === "complete") setTimeout(liftOff, 60);
-  else addEventListener("load", function () { setTimeout(liftOff, 60); }, { once: true });
-
-  /* ---------- one frame, both tiers ---------- */
-  function frame() {
-    if (!running) return;
-    eased += (progress - eased) * 0.085;
-    mouse.x += (mouse.tx - mouse.x) * 0.045;
-    mouse.y += (mouse.ty - mouse.y) * 0.045;
-
-    drawThread(eased);
-    drawSeq(eased);
-    if (glOn && world) {
-      if (seqDirty) world.noteSeqReady();
-      world.render(eased);
-    } else {
-      drawDust(CAM_START + (CAM_END - CAM_START) * eased);
-    }
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-
+/* ── Go. The wordmark draws itself, and the film is only fetched after
+      load so it can never delay the first screen. ─────────────── */
+requestAnimationFrame(function(){ document.body.classList.add("drawn"); });
+wake();
+if(filmAllowed()){
+  if(document.readyState === "complete") loadFilm();
+  else addEventListener("load", loadFilm, { once:true });
+}
 })();
 </script>
 </body>

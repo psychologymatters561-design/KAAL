@@ -1,158 +1,220 @@
 # Why the page is shaped this way
 
-Written against the master brand and build brief. Read that first; this records
-what was built, what was deviated from, and what still needs your signature.
+The engineering is in `README.md`. This is the argument the page is making,
+and the reasoning behind each move, so that whoever edits it next does not
+quietly undo something load-bearing.
 
 ---
 
-## 1. The finding that reshaped the build
+## 1. The name was the largest unused asset in the brand
 
-Every image in the repository was AI generated. Not stylised, not retouched —
-generated, and not depicting the watches you are selling.
+काल. In Hindi and Sanskrit it means **time**. It also means **death**, an
+epoch, the end of a period.
 
-The proof is in the text. Across the hero, the lineup, the share card and all
-27 sequence frames, day rings read `THON TUE TRU SAT`, `THU SAO SRU`, `WIL WED
-WED THE`, `SRJ`. One black dial repeats `SAT` three times at three rotations.
-A day wheel is a stamped mass-produced part; even the cheapest quartz module
-carries MON TUE WED THU FRI SAT SUN, spelled correctly, in order. Alongside
-that: bracelet links that dissolve and re-form mid-run, a gold piece with no
-crown and no subdial hands, subdial counts that change between watches said to
-share one case, and a chapter ring numbered `20 25 70 75 45 88 80 100 110 120
-130 131`, which is not a scale that exists.
+A watch brand called Time-and-also-the-end-of-it, selling a design that is
+deliberately killed after twenty pieces, is not a coincidence you explain in a
+footer. It is the spine. So the film opens on it:
 
-The brief's own rule closed the question:
+> KAAL means time.
+> In the same language, it means *the end of it*.
+> Twenty watches carry this design.
+> Then it is retired, and never drawn again.
 
-> do not invent product photography or fabricate a movement reveal to fill a
-> gap. Placeholder canvas textures are the correct fallback until real assets
-> arrive, not AI-generated stand-ins for the actual product.
+This matters commercially, not just poetically. "Limited edition" is a claim
+every brand makes and no buyer believes, because it is usually reversible and
+usually reversed. Naming the brand after endings makes the retirement read as
+**what this brand is** rather than **what this brand is promising**. A trait
+is believed; a promise is discounted.
 
-So the files are quarantined in `assets/_unverified/`, unreferenced, with the
-evidence written beside them. The site carries no product photograph.
+## 2. Scarcity is shown, never shouted
 
-This is not fastidiousness. The brand's entire argument is that it does not
-borrow legitimacy — that is what Section 3 is protecting when it forbids
-staging a mechanical reveal you cannot back physically. A generated photograph
-is the same sin against a harder object: the buyer receives the watch, holds it
-next to the hero image, and sees a different thing. On a twenty-piece edition
-each buyer is five percent of the customer base. There is also exposure under
-the Consumer Protection Act 2019 for misleading representation of goods, and
-Meta's advertising policies prohibit ads that misrepresent the product — a
-rejected ad account against a budget with no reserve is a total loss.
+There is no countdown timer, no "only 3 left!" badge, no red anything. Those
+devices signal one thing to the buyer this brand is written for: *the seller
+is anxious to sell.* Anxiety is the opposite of exclusivity.
 
-## 2. What the page shows instead
+What the page does instead is let scarcity be **visible and silent**. Twenty
+cells. Two of them struck through. A hairline rail down the side carrying
+twenty ticks, two of them scratched out. Nobody is told to hurry. They can
+count.
 
-Not placeholders labelled "placeholder". Materials and light, honest about
-being renderings, carrying the meaning of each scene.
+The sight of a struck number does the entire job that a countdown timer does,
+without any of the cost to the brand, because it is a fact rather than a
+tactic.
 
-| Scene | What is drawn | Why it is honest |
-|---|---|---|
-| 1 VOID | wordmark, dust, a ring barely sensed | nothing is claimed |
-| 2 REVEAL | a lit torus, real cast shadow | a case silhouette as geometry, not a photograph of one |
-| 3 COLOURWAY | four dials as CSS discs with their number ranges | these *are* the colours; they are labelled and screen-readable |
-| 5 PRECISION | three marks | three functions, three strokes |
-| 7 NUMBERED | a drawn caseback, then twenty numbers in space | the engraving as a diagram; two struck through |
-| 8 RETIREMENT | nothing but dust | silence as the design device |
-| 10 CLOSE | a closed box form | a box, presented as a box |
+## 3. The buyer chooses a number, and the number chooses the face
 
-Scenes 4, 8 and 9 carry no geometry at all. The brief asked for that; the
-strongest line in the whole site earns an empty frame.
+This is the mechanic the whole commercial model hangs on, and it solves two
+problems that normally trade off against each other.
 
-## 3. Deviations from the brief, and why
+**The stated problem:** letting people pick a colour leaves the unpopular
+colour unsold.
 
-**GSAP and ScrollTrigger removed.** The brief specifies them. Section 8 also
-flags that scrubbed ScrollTrigger has known touch-scroll quirks on iOS Safari
-and Android Chrome. Reading `window.scrollY` on the animation frame and easing
-it into `camera.position.z` is 115 KB smaller, frame-synced, and cannot
-desync. The mechanism the brief actually specifies — one scroll value driving
-the camera — is unchanged. Only the dependency is gone.
+**The unstated problem:** removing choice entirely, and revealing the dial
+only when the box opens, is dramatic and would destroy conversion. Cold
+traffic, an unknown brand, roughly six thousand rupees, and an unknown object
+arriving. Uncertainty at the moment of payment is the most reliable way there
+is to lose a sale.
 
-**Three.js is desktop-only.** The brief mandates the Three.js dolly; Section 8
-mandates that the page load fast on a mid-range Android on mobile data. At 146
-KB gzipped these conflict, and the brief resolves it itself: *a cinematic site
-that loads slowly on 4G defeats its own purpose before the first scene
-renders.* Phones never request the file. They get the full typographic site
-and a dust field that does its own perspective divide, at 54 KB total.
+**The resolution:** make the *number* the unit of choice, and bind the dial to
+it in advance. The buyer chooses. The buyer sees exactly what they are getting.
+And the house sets the mix.
 
-**Scene 3 has no WebGL object.** Four dials already exist in the DOM, crisper
-and labelled and readable by a screen reader. A second set in WebGL competed
-with them and won nothing.
+Three things then fall out of it for free:
 
-**The repeated line is deployed, not rewritten.** "Twenty pieces. One design.
-Never repeated." appears at scenes 2 and 4 in the brief's table. Verbatim twice,
-two scenes apart, reads as a copy-paste error. Scene 2 sets it small beneath the
-`01 — 20`; scene 4 gives it the full frame alone. Same words, whispered then
-stated. No copy was changed.
+- **Endowment fires before payment.** The moment someone mentally claims 07,
+  somebody else buying 07 becomes a loss rather than a non-event. This is the
+  strongest force on the page and it costs nothing.
+- **Numbers carry private meaning.** Birthdays, jersey numbers, a lucky
+  number. A buyer who wants 11 will take whatever face 11 carries, which is
+  precisely the pressure that stops colour preference from driving everything.
+- **The mix is a lever you can pull mid-launch.** An unsold number was never
+  promised to anybody. If brass stalls, re-point the remaining numbers. Buyers
+  only ever see the current state, so nothing is misrepresented.
 
-**Scene 5's line is split at its own caesura.** "Day. Date. 24-hour." becomes
-the three marks; "Three functions, one movement, zero compromise." sits beneath.
-Every word present, in order, nothing added.
+The dials are interleaved rather than blocked, so there is no run of
+consecutive numbers in one colour to shop from.
 
-## 4. New copy, unlocked, for your review
+One line does the credibility work: *"Every number was given its dial before
+this page went live."* It makes the mechanic read as a rule of the world
+rather than a sales device.
 
-The brief asked that anything not in its table be flagged. This is all of it.
+## 4. The returns policy is the best asset the brand has
 
-| Where | Words | Note |
-|---|---|---|
-| title, share card, close | "Eighteen of twenty remain" | derives from `sold` |
-| close | "Checkout opens when the payment link goes live." | the pre-launch state |
-| close, once live | "₹5,999, shipped across India." | confirm shipping inclusion |
-| scene 3 | "Green / Black / Golden / White", "01–06" etc. | from the brief's numbering |
-| scene 5 | "Pointer" under Date | the brief says "pointer date" |
-| footer eyebrow | "The part the scroll stays quiet about" | — |
-| footer, four blocks | the piece, warranty, ordering, returns | see below |
+The instruction was: seven days, no questions asked, and we never sell to you
+again. Sharpened, and given a full screen of its own:
 
-The warranty block is sourced: 24 months, movement only, September 2026, no
-dealer field. **The returns block is not.** Seven days, unworn, refund to
-original method — that is a drafted default, and it is a binding commercial
-term. So is whether shipping sits inside ₹5,999. So is country of origin, which
-currently reads "to be confirmed" because guessing a Legal Metrology declarable
-is worse than leaving it visibly open. All three are marked `UNCONFIRMED` in
-the HTML.
+> Seven days. Wear it. If it is not you, send it back unworn and unmarked and
+> we refund it. We will not ask why.
+>
+> **And we will not sell to you again.**
+>
+> Your number goes back to the twenty, and somebody else gets it.
 
-## 5. Why the footer exists at all
+This converts in three directions at once, which almost nothing does.
 
-The scroll is silent by design. Indian law is not optional about the rest: the
-Consumer Protection (E-Commerce) Rules 2020 require seller identity, a
-grievance contact and a returns policy on display, and the Legal Metrology
-(Packaged Commodities) Rules require the declarations that go with a
-pre-packed good, including on the listing.
+1. **It removes purchase risk.** The single largest objection for an unknown
+   brand at this price is "what if it is rubbish". Answered completely.
+2. **It is a costly signal.** Only a seller who is confident offers an
+   unconditional refund with no interrogation. Claims are cheap; a policy that
+   can be used against you is not. Costly signals are believed.
+3. **It makes returning expensive in a currency that is not money.** The cost
+   of returning is exile. For a buyer who bought *because* it was exclusive,
+   being put outside the thing is a real loss. Returns stay low without a
+   single restocking fee.
 
-A page that stays quiet about all of it is not more exclusive, it is
-non-compliant. So the disclosure lives below the scroll, under its own line —
-silence upstairs, the paperwork in the basement. It costs the narrative
-nothing.
+The last line is what keeps it from reading as spite. Reframing exile as *your
+number goes back to the twenty* turns a threat into scarcity, and makes the
+policy feel like a consequence of the edition being real rather than a
+punishment aimed at the customer.
 
-## 6. The number nobody has said out loud
+**One legal note, which must not be lost in an edit.** Under the Consumer
+Protection (E-Commerce) Rules 2020 you cannot refuse a lawful return. You can
+absolutely decline to sell to someone in future; refusing future custom is a
+business decision, not a consumer harm. So the copy is written to make the
+return itself unconditional, and the *future relationship* the thing that
+ends. Keep it that way.
 
-Twenty pieces at ₹5,999 is ₹1,19,980 of revenue at a complete sellout. Against
-₹28,000–40,000 of cost, ₹25,000 of ads, roughly ₹2,800 of payment fees and
-₹4,000–8,000 of shipping twenty boxed units, the ceiling on a perfect outcome
-is somewhere near ₹45,000–60,000.
+## 5. The button, and where it is allowed to appear
 
-That is not a criticism of the plan, it is the plan's actual shape: this is a
-paid brand proof, not a revenue engine. Judge it on whether it produces twenty
-buyers who talk. Which is exactly why shipping a generated photograph would
-have been the expensive mistake, and why an inert honest button is better than
-a live dishonest one.
+Named by state, because specificity converts and generic verbs do not:
 
+| State | Words |
+|---|---|
+| nothing chosen | Choose your number |
+| chosen, checkout live | Claim No. 07 · ₹5,999 |
+| chosen, pre-launch | Checkout opens when the payment link goes live |
 
----
+"Buy now" is a transaction. "Claim No. 07" is a thing that is already partly
+yours, named, with a price attached and no ambiguity about what happens next.
+The number appears in the button because the number is what the buyer has
+formed an attachment to.
 
-## 7. What changed when the photography went in
+Underneath it, at the exact moment of maximum hesitation:
 
-The owner instructed that the generated imagery be used. It is, in eight of the
-ten scenes, and Three.js came out at the same time: it had been standing in for
-photographs that did not exist, and once they did it only competed with them.
+> Five days to your door. Seven days to change your mind.
 
-Two defects were found and fixed during that pass, neither of which any test
-had caught:
+Delivery and risk reversal in nine words, at the only place on the page where
+someone is actually deciding.
 
-- **The rupee sign was never rendering in the brand fonts.** Google's `latin`
-  subset carries no U+20B9, so every `₹5,999` on the page was silently falling
-  back to a system face. It looked correct and was not. Two 700-byte faces
-  scoped with `unicode-range: U+20B9` now carry that one glyph in Fraunces and
-  Inter.
-- **The photographs were clipped to the text column.** `.shot` sat inside
-  `.hold`, which is capped at 64rem, so a full-bleed image rendered with black
-  bars either side of a 1024px band on any wider screen. It now breaks out to
-  the viewport.
+**The sticky bar does not exist until the visitor has seen the four faces**,
+and it disappears again once the real button is on screen. A buy bar shown
+before desire is built is the most common way a page like this loses the sale
+it was designed to make, and two buttons saying the same thing at once reads
+as a checkout, not a house.
+
+## 6. The order of the acts is a funnel, not a slideshow
+
+1. **Arrest.** The film. Production value is read in well under a second, and
+   it is the only evidence of seriousness a first-time visitor has.
+2. **Orient.** The rule. Cold traffic needs to know what this is before it
+   will spend attention.
+3. **Differentiate.** Four faces, and the number mechanic. The thing no other
+   Indian brand is committing to.
+4. **Desire.** Jade, onyx, brass, bone, each in its own world.
+5. **Justify.** The hands. Effort that is visible raises perceived worth;
+   labour nobody sees does not.
+6. **De-risk.** The heart, then the door. Warranty, then returns.
+7. **Qualify.** Who this is not for.
+8. **Act.** The twenty.
+
+Every act earns the next scroll. Nothing is there because a section was
+expected.
+
+## 7. The warranty is framed as an anatomy lesson, not a term
+
+> A watch is a case, a dial, a bracelet, and one part that is actually alive.
+> The movement is the only thing in there keeping time. Everything else is
+> housing.
+>
+> Two years on the movement. Not the strap, not the glass, not a scratch you
+> put there. The heart.
+
+Teaching the buyer something true builds more authority than any adjective,
+and naming what is **not** covered makes what *is* covered believable. A brand
+that tells you the limits of its guarantee is a brand telling the truth about
+the rest.
+
+## 8. The stillness
+
+One section on the page has no entrance animation at all.
+
+> This is not for someone who needs a watch to speak for them.
+> It is for someone who has already been heard.
+
+Everything else rises, draws, deals or opens. This arrives already still.
+Where every element moves, refusing to move is the loudest available entrance,
+and it suits the only two sentences on the site that are about the buyer
+rather than the object.
+
+It is also the page's qualification step. Telling someone a product is not for
+everyone invites them to demonstrate that they are the exception. That only
+works if the brand has already behaved as though it does not need the sale,
+which is what the preceding nine acts are for.
+
+## 9. What the page deliberately does not do
+
+- No testimonials. Twenty pieces have not shipped yet, and invented social
+  proof is the fastest way to lose the audience this is aimed at.
+- No comparison to other brands. Naming a rival borrows their frame.
+- No discount, no urgency banner, no email capture popup.
+- No "handcrafted luxury heritage" adjective stack. The page states facts and
+  lets the buyer draw the conclusion, which they hold more firmly than any
+  conclusion handed to them.
+- No text over a photograph anywhere. Bone on void measures 16.3:1; bone over
+  a lit dial is a coin toss. Keeping words off the pictures is what buys the
+  photographs the right to be bright.
+
+## 10. The number nobody says out loud
+
+Twenty at ₹5,999 is ₹1,19,980 at a complete sellout. Against cost of goods, ad
+spend, payment fees and shipping twenty boxed units, the ceiling on a perfect
+outcome is somewhere near ₹45,000 to ₹60,000.
+
+That is not a criticism of the plan. It is the plan's actual shape: this is a
+paid brand proof, not a revenue engine. It should be judged on whether it
+produces twenty owners who talk, and whether Series 02 opens to an audience
+that already exists.
+
+Which is exactly why the retirement has to be real. The moment Series 01
+returns in a different strap, every future series is worth what this one is
+worth minus its credibility, and there is no way to buy that back.

@@ -201,7 +201,7 @@ a{color:inherit}
   background:
     linear-gradient(to bottom,rgba(8,9,8,.78) 0%,rgba(8,9,8,.18) 26%,rgba(8,9,8,0) 44%),
     linear-gradient(to top,rgba(8,9,8,.9) 0%,rgba(8,9,8,.42) 26%,rgba(8,9,8,0) 56%),
-    radial-gradient(120% 78% at 50% 50%,rgba(8,9,8,0) 42%,rgba(8,9,8,.6) 100%)}
+    radial-gradient(120% 78% at 50% 50%,rgba(8,9,8,.26) 0%,rgba(8,9,8,.13) 32%,rgba(8,9,8,.62) 100%)}
 
 .hero-ui{position:relative;z-index:3;width:var(--hold);height:100%;
   display:grid;grid-template-rows:1fr auto 1fr;align-items:center;
@@ -211,7 +211,8 @@ a{color:inherit}
    page that arrives by being drawn rather than by moving. */
 .markwrap{grid-row:2;justify-self:center;display:grid;justify-items:center;will-change:opacity,transform}
 .mark{width:min(46vw,338px)}
-.mark svg{width:100%;height:auto;overflow:visible}
+.mark svg{width:100%;height:auto;overflow:visible;
+  filter:drop-shadow(0 1px 2px rgba(8,9,8,.95)) drop-shadow(0 0 22px rgba(8,9,8,.65))}
 /* The mark is a stroked letterform. Filling it turns the A's into solid
    triangles and the L into a wedge, so it draws and then it stops. */
 .mark path{
@@ -235,7 +236,7 @@ a{color:inherit}
   line-height:1.08;letter-spacing:-.016em;text-wrap:balance;
   opacity:0;transform:translate3d(0,26px,0);
   transition:opacity .75s var(--ease),transform .95s var(--ease);
-  text-shadow:0 2px 40px rgba(8,9,8,.75)}
+  text-shadow:0 1px 3px rgba(8,9,8,.95),0 4px 30px rgba(8,9,8,.7)}
 .cap.on{opacity:1;transform:none}
 .cap em{font-style:italic;color:var(--gold-lit)}
 
@@ -681,6 +682,8 @@ a{color:inherit}
   <div class="hold">
     <h2 class="statement">This is not for someone who needs a watch to speak for them.</h2>
     <h2 class="statement">It is for someone who has already been heard.</h2>
+    <!-- COPY: drafted line, needs Arjun's sign-off before it's treated as shipped -->
+    <h2 class="statement">Most people are trying to disappear into the crowd. Twenty of you are not.</h2>
   </div>
 </section>
 

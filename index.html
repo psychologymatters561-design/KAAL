@@ -773,11 +773,11 @@ a{color:inherit}
       </div>
       <div>
         <h4>Seller and grievances</h4>
-        <!-- UNCONFIRMED: registered seller name, address, GSTIN, grievance
-             officer name, email and phone. All four are required on display
-             by the Consumer Protection (E-Commerce) Rules 2020. -->
-        <p>Seller details and grievance officer contact to be published before launch.</p>
-        <p>Country of origin to be confirmed before launch.</p>
+        <p>This website is owned and operated by Arjun Dixit, sole proprietor, trading as KAAL ("we", "us", "our").</p>
+        <p>Registered address: [STREET ADDRESS, CITY, STATE, PIN] &mdash; PLACEHOLDER, do not invent, ask the user for the real address before this goes live.</p>
+        <p>GST registration: not applicable. Turnover is below the registration threshold under the CGST Act, 2017.</p>
+        <p>Grievance officer: Arjun Dixit &middot; <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> &middot; [PHONE] &mdash; PLACEHOLDER, do not invent, ask the user for a real phone number before this goes live.</p>
+        <p>Country of origin: [CONFIRM WITH USER &mdash; see note below] &mdash; do not invent this line under any circumstances.</p>
       </div>
     </div>
     <div class="foot-end">
@@ -1302,6 +1302,7 @@ function paintCta(){
     if(chosen && live){
       el.className = "buy" + (small ? " small" : "");
       el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
+      try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
       el.removeAttribute("aria-disabled"); el.removeAttribute("role");
       el.rel = "noopener";
     } else {

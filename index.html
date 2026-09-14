@@ -436,6 +436,11 @@ a{color:inherit}
 .foot a{color:var(--mute);text-decoration:underline;text-underline-offset:3px;
   text-decoration-color:var(--line);transition:color .3s ease,text-decoration-color .3s ease}
 .foot a:hover{color:var(--bone);text-decoration-color:var(--faint)}
+/* Statutory seller disclosure. Present and readable, but deliberately
+   quieter than the rest of the footer. Never hide this block. */
+.foot .legal p{font-size:.6875rem;line-height:1.7;color:var(--faint)}
+.foot .legal a{color:var(--faint)}
+.foot .legal a:hover{color:var(--mute)}
 .foot-end{margin-top:clamp(2.5rem,6vh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
   display:flex;flex-wrap:wrap;gap:1rem;align-items:center;
   font-size:.75rem;color:var(--faint)}
@@ -771,13 +776,12 @@ a{color:inherit}
         <p>Refund to the original payment method within seven working days of the piece reaching us. No reason required.</p>
         <p>A returned piece ends the relationship. We will not accept a future order from the same buyer.</p>
       </div>
-      <div>
+      <div class="legal">
         <h4>Seller and grievances</h4>
-        <!-- UNCONFIRMED: registered seller name, address, GSTIN, grievance
-             officer name, email and phone. All four are required on display
-             by the Consumer Protection (E-Commerce) Rules 2020. -->
-        <p>Seller details and grievance officer contact to be published before launch.</p>
-        <p>Country of origin to be confirmed before launch.</p>
+        <p>This website is owned and operated by Arjun Dixit, sole proprietor, trading as KAAL ("we", "us", "our").</p>
+        <p>Registered address available on request at <a href="mailto:connect@thekaal.co">connect@thekaal.co</a>.</p>
+        <p>GST registration: not applicable. Turnover is below the registration threshold under the CGST Act, 2017.</p>
+        <p>Grievance officer: Arjun Dixit &middot; <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> &middot; <a href="tel:+919311416678">+91 93114 16678</a></p>
       </div>
     </div>
     <div class="foot-end">
@@ -1302,6 +1306,7 @@ function paintCta(){
     if(chosen && live){
       el.className = "buy" + (small ? " small" : "");
       el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
+      try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
       el.removeAttribute("aria-disabled"); el.removeAttribute("role");
       el.rel = "noopener";
     } else {

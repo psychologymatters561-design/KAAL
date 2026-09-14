@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAAL &middot; Confirmed</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080908">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+<link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap}
+
+:root{
+  --void:#080908; --bone:#EDE8DF; --mute:#A39C90; --faint:#868073;
+  --line:#221F1C; --gold:#C6A15B; --gold-lit:#E0BE7C;
+  --display:Instrument,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --gut:clamp(1.25rem,5vw,4.5rem);
+  --hold:min(38rem,100% - var(--gut) * 2);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--void);color:var(--bone);font-family:var(--body);
+  font-weight:300;font-size:clamp(1rem,.96rem + .2vw,1.0625rem);line-height:1.65;
+  min-height:100svh;display:flex;flex-direction:column;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+a{color:inherit}
+::selection{background:var(--gold);color:var(--void)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+.grain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+main{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;padding:clamp(3rem,10vh,6rem) var(--gut)}
+.wrap{width:var(--hold);text-align:center}
+.mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 2.4rem}
+.headline{font-family:var(--display);font-weight:400;font-style:italic;font-size:clamp(2rem,1.3rem + 3.2vw,3.4rem);line-height:1.08;letter-spacing:-.01em;color:var(--gold-lit);margin:0 0 1.4rem;text-wrap:balance}
+.sub{color:var(--mute);font-size:clamp(1rem,.95rem + .25vw,1.15rem);max-width:32ch;margin:0 auto 3rem;line-height:1.6}
+.sub strong{color:var(--bone);font-weight:400}
+.card{text-align:left;border:1px solid var(--line);border-radius:.5rem;padding:clamp(1.6rem,4vw,2.4rem);margin:0 0 2.6rem;display:grid;gap:1.3rem}
+.card .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline}
+.card h4{font-size:.625rem;letter-spacing:.28em;text-transform:uppercase;color:var(--faint);margin:0;font-weight:500}
+.card p{margin:0;font-size:.9rem;color:var(--bone);text-align:right}
+.card .full p{text-align:left;color:var(--mute);line-height:1.6}
+.card .full{display:block}
+.foot-note{font-size:.8125rem;color:var(--faint);line-height:1.7;margin:0 0 .5rem}
+.foot-note a{color:var(--mute);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line);transition:color .3s ease}
+.foot-note a:hover{color:var(--bone)}
+.back{display:inline-block;margin-top:2.4rem;font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:.2rem;transition:color .3s ease,border-color .3s ease}
+.back:hover{color:var(--bone);border-color:var(--faint)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<main>
+  <div class="wrap">
+    <p class="mark">KAAL &middot; Series 01</p>
+    <h1 class="headline" id="headline">It's yours.</h1>
+    <p class="sub" id="subline">You are not one of many. You are the reason it stopped at twenty.</p>
+    <div class="card">
+      <div class="row"><h4>Status</h4><p>Confirmed</p></div>
+      <div class="row" id="numberRow" hidden><h4>Number</h4><p id="numberVal">&mdash;</p></div>
+      <div class="row" id="refRow" hidden><h4>Payment reference</h4><p id="refVal">&mdash;</p></div>
+      <div class="row"><h4>Delivery</h4><p>5 working days</p></div>
+      <div class="row"><h4>Movement warranty</h4><p>24 months</p></div>
+      <div class="full">
+        <h4 style="margin-bottom:.6rem">What happens next</h4>
+        <p>Your piece is inspected, boxed, and dispatched from here &mdash; nothing ships unseen. Dispatch details reach you by email within the day. If a number or an email doesn't match what you expect, write to us before you do anything else.</p>
+      </div>
+    </div>
+    <p class="foot-note">Keep your payment reference. It's the fastest way for us to find your order if you ever need to.</p>
+    <p class="foot-note">Questions before it arrives: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> &mdash; a person replies.</p>
+    <a class="back" href="https://thekaal.co">thekaal.co</a>
+  </div>
+</main>
+<script>
+(function(){
+"use strict";
+try{
+  var n = localStorage.getItem("kaal_claimed_no");
+  if(n){
+    document.getElementById("headline").textContent = "No. " + n + " is yours.";
+    document.getElementById("numberVal").textContent = n;
+    document.getElementById("numberRow").hidden = false;
+    localStorage.removeItem("kaal_claimed_no");
+  }
+}catch(e){}
+try{
+  var qs = new URLSearchParams(location.search);
+  var pid = qs.get("razorpay_payment_id");
+  if(pid){
+    document.getElementById("refVal").textContent = pid;
+    document.getElementById("refRow").hidden = false;
+  }
+}catch(e){}
+})();
+</script>
+</body>
+</html>

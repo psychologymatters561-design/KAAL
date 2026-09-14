@@ -211,7 +211,8 @@ a{color:inherit}
    page that arrives by being drawn rather than by moving. */
 .markwrap{grid-row:2;justify-self:center;display:grid;justify-items:center;will-change:opacity,transform}
 .mark{width:min(46vw,338px)}
-.mark svg{width:100%;height:auto;overflow:visible}
+.mark svg{width:100%;height:auto;overflow:visible;
+  filter:drop-shadow(0 1px 2px rgba(8,9,8,.95)) drop-shadow(0 0 22px rgba(8,9,8,.65))}
 /* The mark is a stroked letterform. Filling it turns the A's into solid
    triangles and the L into a wedge, so it draws and then it stops. */
 .mark path{

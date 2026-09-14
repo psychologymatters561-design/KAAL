@@ -236,11 +236,11 @@ docs/design-package.md   why the page is shaped the way it is
 docs/og-card.html        source for the share card, re-render at 1200x630
 ```
 
-**Dead weight still in the repo, kept rather than deleted without asking:**
-`assets/js/three.min.js`, `assets/seq/`, `assets/seq-src/` and the older
-`assets/img/*.webp` renderings are no longer referenced by anything. They cost
-a visitor nothing, because nothing requests them, but they are about 4 MB of
-history. Say the word and they go in one commit.
+**Dead weight, now removed:** `assets/js/three.min.js`, `assets/seq/`,
+`assets/seq-src/` and the older `assets/img/*.webp` renderings are gone. Every
+filename was grepped against the whole repo first and none of them was
+referenced by anything. They are recoverable from git history if a render in
+there is ever wanted back.
 
 Published by GitHub Pages at the domain in `CNAME`. `.nojekyll` keeps the
 files as they are.

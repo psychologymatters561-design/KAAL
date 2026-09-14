@@ -224,7 +224,13 @@ a{color:inherit}
 .mark-sub{margin:1.55rem 0 0;
   font-size:.6875rem;letter-spacing:.52em;text-transform:uppercase;color:var(--mute);
   opacity:0;transform:translate3d(0,10px,0);
-  transition:opacity 1s var(--ease) 1.5s,transform 1s var(--ease) 1.5s}
+  transition:opacity 1s var(--ease) 1.5s,transform 1s var(--ease) 1.5s;
+  /* Mute is a mid tone, and the scrim floor lifts a bright frame to about
+     the same luminance, so fill against ground is not a contrast that can
+     be won here without touching the palette. The halo is symmetric rather
+     than offset: at 11px with .52em tracking there is no baseline reading
+     to support, and an offset only softens one edge of each stroke. */
+  text-shadow:0 0 2px rgba(8,9,8,1),0 0 8px rgba(8,9,8,.9),0 0 16px rgba(8,9,8,.6)}
 .drawn .mark-sub{opacity:1;transform:none}
 
 /* Caption bands. Each holds its own slice of the scrub and is paced so a

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAAL &middot; Legal</title>
+<meta name="description" content="Seller information, terms of sale, shipping, returns, warranty and privacy for KAAL Series 01.">
+<meta name="theme-color" content="#080908">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+<link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap}
+
+:root{
+  --void:#080908; --bone:#EDE8DF; --mute:#A39C90; --faint:#868073;
+  --line:#221F1C; --gold:#C6A15B; --gold-lit:#E0BE7C;
+  --display:Instrument,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --gut:clamp(1.25rem,5vw,4.5rem);
+  --hold:min(44rem,100% - var(--gut) * 2);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--void);color:var(--bone);font-family:var(--body);
+  font-weight:300;font-size:clamp(1rem,.96rem + .2vw,1.0625rem);line-height:1.65;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+::selection{background:var(--gold);color:var(--void)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+a{color:var(--mute);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line);transition:color .3s ease,text-decoration-color .3s ease}
+a:hover{color:var(--bone);text-decoration-color:var(--faint)}
+
+.hold{width:var(--hold);margin-inline:auto}
+header{padding:clamp(3.5rem,10vh,6rem) 0 0}
+.mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 1.6rem}
+h1{font-family:var(--display);font-weight:400;font-style:italic;font-size:clamp(2rem,1.4rem + 2.6vw,3rem);line-height:1.1;letter-spacing:-.01em;color:var(--gold-lit);margin:0 0 1rem}
+.standfirst{color:var(--mute);margin:0 0 1.4rem;max-width:46ch}
+.updated{font-size:.75rem;color:var(--faint);margin:0 0 3.2rem}
+
+nav.toc{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:1.4rem 0;margin:0 0 3.5rem;
+  display:flex;flex-wrap:wrap;gap:.6rem 1.6rem}
+nav.toc a{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-decoration:none}
+nav.toc a:hover{color:var(--bone)}
+
+section{padding:0 0 3.2rem;scroll-margin-top:2rem}
+h2{font-size:.6875rem;letter-spacing:.3em;text-transform:uppercase;color:var(--faint);font-weight:500;
+  margin:0 0 1.2rem;padding-bottom:.9rem;border-bottom:1px solid var(--line)}
+p{margin:0 0 1rem;color:var(--mute)}
+p.key{color:var(--bone)}
+dl{margin:0 0 1rem;display:grid;grid-template-columns:minmax(8rem,12rem) 1fr;gap:.65rem 1.4rem}
+dt{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+dd{margin:0;color:var(--bone);font-size:.9375rem}
+ul{margin:0 0 1rem;padding-left:1.1rem;color:var(--mute)}
+li{margin:0 0 .5rem}
+
+footer{border-top:1px solid var(--line);margin-top:2rem;padding:2rem 0 3.5rem;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+  font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+footer a{color:var(--faint);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:.15rem}
+footer a:hover{color:var(--bone);border-color:var(--faint)}
+
+@media (max-width:34rem){
+  dl{grid-template-columns:1fr;gap:.2rem}
+  dt{margin-top:.7rem}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hold">
+  <p class="mark">KAAL</p>
+  <h1>Legal</h1>
+  <p class="standfirst">Who you are buying from, what you are owed, and how to reach a person if any of it goes wrong.</p>
+  <p class="updated">Last updated 14 September 2026</p>
+</header>
+
+<div class="hold">
+
+<nav class="toc" aria-label="Sections">
+  <a href="#seller">Seller</a>
+  <a href="#grievance">Grievances</a>
+  <a href="#terms">Terms of sale</a>
+  <a href="#shipping">Shipping</a>
+  <a href="#returns">Returns</a>
+  <a href="#warranty">Warranty</a>
+  <a href="#privacy">Privacy</a>
+</nav>
+
+<section id="seller">
+  <h2>Seller information</h2>
+  <dl>
+    <dt>Brand</dt><dd>KAAL</dd>
+    <dt>Owned and operated by</dt><dd>Arjun Dixit</dd>
+    <dt>Website</dt><dd>thekaal.co</dd>
+    <dt>Email</dt><dd><a href="mailto:connect@thekaal.co">connect@thekaal.co</a></dd>
+    <dt>Telephone</dt><dd><a href="tel:+919311416678">+91 93114 16678</a></dd>
+    <dt>Registered address</dt><dd>Available on request at <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></dd>
+  </dl>
+  <p>All sales are made by KAAL directly. There is no marketplace, reseller or third-party fulfilment in between.</p>
+</section>
+
+<section id="grievance">
+  <h2>Grievance redressal</h2>
+  <dl>
+    <dt>Grievance officer</dt><dd>Arjun Dixit</dd>
+    <dt>Email</dt><dd><a href="mailto:connect@thekaal.co">connect@thekaal.co</a></dd>
+    <dt>Telephone</dt><dd><a href="tel:+919311416678">+91 93114 16678</a></dd>
+  </dl>
+  <p>Write to the address above with your order or payment reference. Every complaint is acknowledged within forty eight hours of receipt and resolved within one month, in line with the Consumer Protection (E-Commerce) Rules, 2020.</p>
+</section>
+
+<section id="terms">
+  <h2>Terms of sale</h2>
+  <p>KAAL Series 01 is an edition of twenty numbered watches. One piece exists per number.</p>
+  <ul>
+    <li>A number cannot be reserved or held. It is yours only once payment is captured.</li>
+    <li>Where two orders reach us for the same number, the earlier captured payment stands and the later one is refunded in full.</li>
+    <li>The price shown at checkout is the price payable. Shipping within India is included.</li>
+    <li>Payment is collected by Razorpay. We do not see or store your card, UPI or banking credentials.</li>
+    <li>We may decline or cancel an order and refund it in full where a number is already sold, where the order appears fraudulent, or where an error in price or listing has occurred.</li>
+  </ul>
+  <p>These terms are governed by the laws of India.</p>
+</section>
+
+<section id="shipping">
+  <h2>Shipping and delivery</h2>
+  <p class="key">Five working days from order to delivery, anywhere in India.</p>
+  <p>Every piece is inspected before dispatch. Dispatch details are sent to the email address given at checkout. Delays caused by the courier, by an incorrect or incomplete address, or by circumstances outside our control are outside this estimate, and we will tell you if one occurs.</p>
+  <p>We currently ship within India only.</p>
+</section>
+
+<section id="returns">
+  <h2>Returns, cancellation and refunds</h2>
+  <p class="key">Seven days from delivery. No reason required.</p>
+  <ul>
+    <li>The watch must be unworn, unmarked, and complete with its box and papers.</li>
+    <li>Write to <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> within seven days of delivery to begin a return.</li>
+    <li>Refunds are made to the original payment method within seven working days of the piece reaching us.</li>
+    <li>An order may be cancelled at no cost any time before dispatch.</li>
+    <li>A returned piece ends the relationship. We will not accept a future order from the same buyer.</li>
+  </ul>
+</section>
+
+<section id="warranty">
+  <h2>Warranty</h2>
+  <p class="key">Twenty four months on the movement, from the date of dispatch.</p>
+  <p>The movement only. Cosmetic damage, water ingress from a case opened by anyone other than us, and normal wear to the bracelet and glass are not covered. Nothing here limits any right you have under the Consumer Protection Act, 2019.</p>
+</section>
+
+<section id="privacy">
+  <h2>Privacy</h2>
+  <p>We collect the name, email address, postal address and telephone number you give at checkout, and the number you choose from the edition. That is all we hold.</p>
+  <p>We use it to take your order, dispatch your watch, and answer you if you write to us. We do not sell it, rent it, or pass it to anyone beyond the courier carrying your parcel and the payment processor taking your money.</p>
+  <ul>
+    <li><strong>Payments.</strong> Card, UPI and banking details go directly to Razorpay and are never seen or stored by us. Razorpay handles them under its own privacy policy.</li>
+    <li><strong>Your browser.</strong> The site stores the number you pick in your own browser so the confirmation page can greet you by it. It never leaves your device and is cleared once shown.</li>
+    <li><strong>Retention.</strong> Order records are kept as long as needed to honour the warranty and meet tax and accounting obligations.</li>
+  </ul>
+  <p>To see, correct or delete what we hold about you, write to <a href="mailto:connect@thekaal.co">connect@thekaal.co</a>.</p>
+</section>
+
+<footer>
+  <span>&copy; <span id="yr">2026</span> KAAL</span>
+  <a href="/">thekaal.co</a>
+</footer>
+
+</div>
+
+<script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>

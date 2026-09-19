@@ -28,7 +28,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # persist-credentials: false stops the job's GITHUB_TOKEN being written
+      # into .git/config, where any later step — or anything one of them
+      # pulls in — can read it. This job only reads files; it never needs to
+      # speak to GitHub again after the checkout.
+      #
+      # NEXT HARDENING STEP: pin both actions to a commit SHA rather than a
+      # tag. A tag is mutable; whoever controls the action's repository can
+      # repoint v4 at new code, and it runs here. Get the SHAs with:
+      #   gh api repos/actions/checkout/git/ref/tags/v4 --jq .object.sha
+      #   gh api repos/actions/setup-node/git/ref/tags/v4 --jq .object.sha
+      # then write `actions/checkout@<sha> # v4`.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Two commits, because the auto-commit guard below diffs HEAD
+          # against its parent. One is not enough to see what changed.
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -37,5 +53,46 @@ jobs:
       - name: Validate the page
         run: node tools/check.mjs
 
-      - name: Validate the worker parses
-        run: node --check worker/kaal-sold-sync.js
+      # The worker is modules now, so every file is checked rather than
+      # the one that used to be all of it. A new file under worker/lib/
+      # cannot opt out of this by existing.
+      - name: Validate every worker module parses
+        run: |
+          find worker -name '*.js' -print0 | xargs -0 -n1 node --check
+          echo "$(find worker -name '*.js' | wc -l) module(s) parse."
+
+      # The suite that made it safe to take the worker apart. These are
+      # characterisation tests before they are anything else: they were
+      # written against the single file and every one of them still
+      # passes against the six that replaced it.
+      - name: The worker behaves the way it is supposed to
+        run: node --test "tools/test/*.test.mjs"
+
+      # The security blocks are copied into four pages because there is
+      # no build step to include them from one. Copies drift; this is
+      # what stops a CSP tightened on index.html and forgotten on
+      # claimed.html.
+      - name: Every page carries the same security blocks
+        run: node tools/sync-shared.mjs --check
+
+      # The worker is the only code here that holds a credential. A secret
+      # pasted into it instead of into `wrangler secret put` is a secret in
+      # the git history forever, and git history is not something you can
+      # edit your way out of once it has been cloned.
+      # The worker's GitHub token can write this repository. Nothing in
+      # GitHub's permission model can narrow that to "one line of one
+      # file" — so this narrows it by watching the shape of the commit
+      # instead. A stolen token can mark a number sold; anything else it
+      # tries is red in the Actions tab within a minute.
+      - name: A worker commit may only ever sell one number
+        if: github.event_name == 'push'
+        run: node tools/check-autocommit.mjs
+
+      - name: No secret ever committed to the worker or its config
+        run: |
+          if grep -rInE '(RAZORPAY_WEBHOOK_SECRET|GITHUB_TOKEN|ALERT_TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']' worker/ wrangler.toml; then
+            echo "A secret appears to be assigned in a committed file."
+            exit 1
+          fi
+          echo "No committed secret assignments."
+

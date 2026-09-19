@@ -1,0 +1,62 @@
+# ══════════════════════════════════════════════════════════════════
+# check.yml reads the repository. This reads the internet.
+#
+# Every control in SECURITY.md part two lives in a dashboard, and a
+# dashboard setting can come untucked without producing a commit, a diff
+# or a failing build. An "Enforce HTTPS" box that unticked itself during
+# a domain change, a Transform Rule somebody deleted while debugging, a
+# workers.dev URL reopened to test something and never closed again: all
+# silent, all indefinitely.
+#
+# So once a day, from outside, something asks the live site and the live
+# worker whether they are still behaving. A failure here arrives as an
+# email from GitHub, which is the only reason any of it gets noticed.
+#
+# SETUP: Settings -> Secrets and variables -> Actions -> Variables
+#   SITE_URL     https://thekaal.co          (optional; this is the default)
+#   WORKER_URL   https://api.thekaal.co      (once the worker is deployed)
+#   WORKERS_DEV  https://kaal-edition.<you>.workers.dev   (to prove it is shut)
+#   STRICT_HEADERS  1                        (set this the day Cloudflare is in front)
+# ══════════════════════════════════════════════════════════════════
+name: watch
+
+on:
+  schedule:
+    - cron: '17 4 * * *'      # 09:47 IST, daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Is the live site still protecting itself
+        env:
+          SITE: ${{ vars.SITE_URL || 'https://thekaal.co' }}
+          WORKER: ${{ vars.WORKER_URL }}
+          WORKERS_DEV: ${{ vars.WORKERS_DEV }}
+          STRICT_HEADERS: ${{ vars.STRICT_HEADERS }}
+        run: |
+          set +e
+          node tools/verify-live.mjs
+          code=$?
+          set -e
+          # 2 means the site could not be read at all — a DNS change, a
+          # deploy in flight, or the domain simply not live yet. That is
+          # not a security regression and must not cry wolf every morning.
+          if [ "$code" = "2" ]; then
+            echo "::notice::Site unreachable; nothing verified this run."
+            exit 0
+          fi
+          exit $code

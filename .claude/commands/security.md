@@ -12,7 +12,7 @@ This is a static site. The attack surface is small, which is exactly why the
 review must be precise instead of generic. Do not produce an OWASP Top 10
 recital. Audit the four things that exist:
 
-## 1. The Cloudflare Worker — `worker/kaal-sold-sync.js`
+## 1. The Cloudflare Worker — `worker/index.js` and `worker/lib/`
 
 It takes a webhook from the internet and **commits to a GitHub repo**. That is
 the highest-privilege thing in this project. Check, line by line:

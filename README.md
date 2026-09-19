@@ -9,6 +9,43 @@ Cloudinary.
 
 ---
 
+## Security
+
+`SECURITY.md` is the full review: what was found, what it would have cost,
+what is now closed in code, and — the half that matters more — the seven
+dashboard settings that no commit can fix. Read it before the first ad runs.
+
+The five that decide whether the money is safe:
+
+1. Razorpay Payment Page: **fixed amount**, stock limit 20, field named
+   `kaal_no`. Send one ₹1 test payment and confirm it is **rejected**.
+2. `GITHUB_TOKEN`: fine-grained, this repo only, Contents read/write,
+   never Workflows, with an expiry.
+3. 2FA on GitHub, Razorpay, Cloudflare and **the domain registrar** — the
+   registrar first, because everything else is downstream of DNS.
+4. Cloudflare in front of `thekaal.co`, with a rate-limiting rule on the
+   worker's route.
+5. Subscribe `refund.processed` and `payment.dispute.created`, set
+   `ALERT_TOKEN`, and read `/alerts` daily while the edition is live.
+
+**`docs/LAUNCH-RUNBOOK.md` is that list as clicks** — every dashboard setting
+in dependency order, with the command that proves each one took, and what to do
+when a token is compromised or two people pay for one watch.
+
+Four things watch, so none of it quietly stops being true:
+
+```
+node tools/check.mjs                  # the repo's own rules           — every push
+node --test "tools/test/*.test.mjs"   # 52 tests over the worker       — every push
+node tools/check-autocommit.mjs       # a stolen token's blast radius  — every push to main
+node tools/verify-live.mjs            # the live site and worker       — every morning
+```
+
+`ARCHITECTURE.md` explains the layout, where the layers are, and — the more
+useful half — what was deliberately not split and why.
+
+---
+
 ## Before the ads run
 
 ### 1. Upload the eight photographs

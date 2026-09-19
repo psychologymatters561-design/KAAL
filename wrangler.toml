@@ -1,7 +1,7 @@
 # The worker deploys as it is: no bundler, no build step, same as the site.
 #   wrangler deploy
 name = "kaal-edition"
-main = "worker/kaal-sold-sync.js"
+main = "worker/index.js"
 compatibility_date = "2026-09-19"
 
 [vars]
@@ -11,18 +11,70 @@ GITHUB_BRANCH = "main"
 EDITION       = "20"
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
+# The money check. A Razorpay webhook fires for EVERY payment on the
+# account, and `kaal_no` is a field the buyer fills in — so without this,
+# one cheap payment on any link on the account marks a watch sold.
+#
+# Leave both of these alone and the worker compares the captured amount
+# against the `price:` line in index.html, in paise. Set MIN_AMOUNT_PAISE
+# to turn that into a floor instead of an exact match, the day a coupon
+# or a part payment is a real thing.
+#
+#   MIN_AMOUNT_PAISE = "599900"
+#
+# AMOUNT_CHECK = "off" disables it entirely. It is named here so that
+# turning it off is a deliberate act; tools/check.mjs fails the build if
+# it is ever committed set to off.
+CURRENCY = "INR"
+
+# Optional. If the webhook secret ever reaches a second Razorpay account,
+# this is what stops that account writing to this shop's inventory.
+# Find it on any webhook payload as `account_id`.
+#   RAZORPAY_ACCOUNT_ID = "acc_XXXXXXXXXXXX"
+
+# ══════════════════════════════════════════════════════════════════
 # Secrets are never written here. Set them once, each on its own:
 #   wrangler secret put RAZORPAY_WEBHOOK_SECRET
 #   wrangler secret put GITHUB_TOKEN
+#   wrangler secret put ALERT_TOKEN
+#
+# GITHUB_TOKEN must be a FINE-GRAINED personal access token, scoped to
+# this repository only, with Contents: Read and write and nothing else.
+# It must never be given Workflows write: that is the difference between
+# "can edit one line of one file" and "can run any code as you". Set an
+# expiry on it and put the renewal in a calendar.
+#
+# ALERT_TOKEN is any long random string. Without it the /alerts route
+# stays closed rather than open:
+#   openssl rand -hex 32
+# ══════════════════════════════════════════════════════════════════
 
-# Holds live in KV. Create the namespace once, paste the id it prints
-# below, and uncomment the block:
+# Holds, replay protection and alerts all live in KV. Create the
+# namespace once, paste the id it prints below, and uncomment the block:
 #   wrangler kv namespace create KAAL_STATE
 #
-# Until then the worker deploys and runs exactly as it did before holds
-# existed: the webhook still records sales, /state answers "no opinion",
-# and the page trusts its own array.
+# Without it the webhook still records sales, but nothing is replay
+# protected and no alert is ever stored. Create it.
 #
 # [[kv_namespaces]]
 # binding = "KAAL_STATE"
 # id      = "paste-the-id-here"
+
+# ══════════════════════════════════════════════════════════════════
+# AFTER THE FIRST DEPLOY, IN THE CLOUDFLARE DASHBOARD:
+#
+#   1. Put the worker on a route you own (api.thekaal.co/*) and then set
+#      workers_dev = false below. A *.workers.dev URL is a second front
+#      door that no WAF rule, no rate limit and no firewall of yours ever
+#      sees. Closing it is one line.
+#
+#   2. Security -> WAF -> Rate limiting rules: cap the worker's route at
+#      roughly 30 requests a minute per IP. /state and /hold are public
+#      and unauthenticated by design; the caps inside the worker bound
+#      the damage, this is what stops it.
+#
+#   3. Turn Bot Fight Mode on for the zone.
+#
+# workers_dev = false
+# routes = [{ pattern = "api.thekaal.co/*", zone_name = "thekaal.co" }]
+# ══════════════════════════════════════════════════════════════════

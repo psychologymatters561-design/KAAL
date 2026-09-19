@@ -6,6 +6,51 @@
 <title>KAAL Series 01 · Twenty watches, then the design retires</title>
 <meta name="description" content="Twenty numbered watches. One case, four faces, finished by hand. When the twentieth ships, Series 01 is retired and never made again.">
 <meta name="theme-color" content="#080908">
+<!-- ══════════════════════════════════════════════════════════════════
+     GitHub Pages serves this file and will not send a header of its own,
+     so every header this site gets, it declares here. A meta CSP is
+     weaker than the real thing in exactly one way — `frame-ancestors` is
+     ignored from a meta tag — which is why there is also a frame guard in
+     script below. Everything else is enforced identically.
+
+     What this actually buys: an injected <script src> from anywhere, an
+     injected <base>, an <object>, a <form> posting a buyer's details to
+     someone else's server, and any fetch to a host not named here are all
+     refused by the browser. On a page whose one job is to send somebody to
+     a payment link, that list is most of the ways it could be turned
+     against them.
+
+     connect-src is 'self' because KAAL.api is empty. THE DAY YOU SET IT,
+     ADD THE WORKER'S ORIGIN HERE. tools/check.mjs fails the build if you
+     forget, so this comment is a courtesy, not the safety net.
+     ══════════════════════════════════════════════════════════════════ -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; font-src 'self'; connect-src 'self'; upgrade-insecure-requests">
+<!-- A full URL in a Referer header tells every host this page touches which
+     page the visitor came from. Origin is all any of them need. -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- Clickjacking. `frame-ancestors` cannot be set from a meta tag and
+     GitHub Pages sends no headers, so the page has to refuse on its own.
+     Framed, this site is a convincing backdrop for somebody else's
+     "Claim" button. Runs in the head, before a pixel is painted. -->
+<script>
+(function(){
+  "use strict";
+  var framed;
+  try{ framed = window.self !== window.top; }catch(e){ framed = true; }
+  if(!framed) return;
+  document.documentElement.style.display = "none";
+  document.addEventListener("DOMContentLoaded", function(){
+    document.body.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+      'padding:2rem;text-align:center;background:#080908;color:#EDE8DF;' +
+      'font:300 1rem/1.7 system-ui,-apple-system,sans-serif">' +
+      '<p style="max-width:26rem">This page is being shown inside another site.<br><br>' +
+      '<a href="https://thekaal.co/" target="_top" rel="noopener noreferrer" ' +
+      'style="color:#C6A15B">Open thekaal.co directly</a></p></div>';
+    document.documentElement.style.display = "";
+  });
+})();
+</script>
 <!-- The defaults cap a text snippet at roughly 160 characters and an image
      preview at a thumbnail. This brand's argument does not survive being cut
      at 160 characters, and the answer engines that quote it are working from
@@ -1052,6 +1097,13 @@ a{color:inherit}
    ══════════════════════════════════════════════════════════════════ */
 var KAAL = {
   checkout: "",
+
+  /* Hosts a checkout link is allowed to point at. Guards the line above:
+     see checkoutOk below for why this exists and what it refuses. Add a
+     host here if the Payment Page ever moves to a custom domain; never
+     open it to "any https URL". */
+  checkoutHosts: ["razorpay.com", "rzp.io"],
+
   price:    "5,999",
   edition:  20,
 
@@ -1137,6 +1189,45 @@ var $  = function(s,r){ return (r||document).querySelector(s); };
 var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
 var clamp = function(v,a,b){ return v<a?a:v>b?b:v; };
 var pad = function(n){ return n<10 ? "0"+n : ""+n; };
+
+/* ══════════════════════════════════════════════════════════════════
+   THE ONE STRING ON THIS PAGE THAT MOVES MONEY.
+
+   Every Claim button is an <a href> built from KAAL.checkout. If that
+   value is ever wrong — a typo, a paste of the wrong link, or a commit
+   nobody meant to make — the page sends a buyer with their card out to
+   a host of somebody else's choosing, wearing this brand's design. The
+   worker holds a GitHub token that can write this very file, so "a
+   commit nobody meant to make" is not a hypothetical category.
+
+   So the page refuses to build a checkout link to anywhere that is not
+   https on a host this config names. Misconfigured, the button falls
+   back to the inert state it already has when there is no link at all:
+   a shop that cannot take money is recoverable in a minute, and a shop
+   that takes money to the wrong place is not.
+
+   checkoutHosts is config rather than a constant because a Razorpay
+   Payment Page on a custom domain is a real thing. Widen it there, in
+   one obvious place, never by deleting the check. tools/check.mjs
+   refuses to let a mismatch reach a deploy at all. */
+var checkoutOk = (function(){
+  if(!KAAL.checkout) return false;
+  var hosts = KAAL.checkoutHosts || ["razorpay.com", "rzp.io"];
+  try{
+    var u = new URL(KAAL.checkout, location.href);
+    if(u.protocol !== "https:") throw new Error("not https");
+    for(var i = 0; i < hosts.length; i++){
+      var host = String(hosts[i]).toLowerCase();
+      if(u.hostname === host || u.hostname.slice(-(host.length + 1)) === "." + host) return true;
+    }
+    throw new Error("host not in checkoutHosts");
+  }catch(e){
+    /* Loud, because the page's own copy will say "opens at launch" and
+       that is not what happened. */
+    if(window.console && console.error) console.error("KAAL: refusing to link to this checkout URL —", e.message);
+    return false;
+  }
+})();
 
 var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var qs = new URLSearchParams(location.search);
@@ -1843,7 +1934,7 @@ function say(msg, faceKey){
 }
 
 function paintCta(){
-  var live = !!KAAL.checkout;
+  var live = checkoutOk;
   var label, note;
   if(!chosen){
     label = "Choose your number";
@@ -1881,7 +1972,7 @@ function paintCta(){
 
 [cta, dockCta].forEach(function(el){
   el.addEventListener("click", function(){
-    if(chosen && KAAL.checkout) holdNumber(chosen);
+    if(chosen && checkoutOk) holdNumber(chosen);
   });
 });
 

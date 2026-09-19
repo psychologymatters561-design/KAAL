@@ -1,0 +1,41 @@
+# ══════════════════════════════════════════════════════════════════
+# The push is the deploy. GitHub Pages rebuilds from main within about
+# a minute, so anything wrong in a commit is in front of paid traffic
+# before anyone has finished reading the commit message.
+#
+# This is the gate. It installs nothing — the repository has no npm and
+# no build step, and a CI job that needs a lockfile to check a static
+# page would be a worse version of the problem it claims to solve. It
+# runs one script with Node's own standard library, in about a second.
+# ══════════════════════════════════════════════════════════════════
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate the page
+        run: node tools/check.mjs
+
+      - name: Validate the worker parses
+        run: node --check worker/kaal-sold-sync.js

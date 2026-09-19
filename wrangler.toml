@@ -1,0 +1,28 @@
+# The worker deploys as it is: no bundler, no build step, same as the site.
+#   wrangler deploy
+name = "kaal-edition"
+main = "worker/kaal-sold-sync.js"
+compatibility_date = "2026-09-19"
+
+[vars]
+GITHUB_OWNER  = "psychologymatters561-design"
+GITHUB_REPO   = "KAAL"
+GITHUB_BRANCH = "main"
+EDITION       = "20"
+ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
+
+# Secrets are never written here. Set them once, each on its own:
+#   wrangler secret put RAZORPAY_WEBHOOK_SECRET
+#   wrangler secret put GITHUB_TOKEN
+
+# Holds live in KV. Create the namespace once, paste the id it prints
+# below, and uncomment the block:
+#   wrangler kv namespace create KAAL_STATE
+#
+# Until then the worker deploys and runs exactly as it did before holds
+# existed: the webhook still records sales, /state answers "no opinion",
+# and the page trusts its own array.
+#
+# [[kv_namespaces]]
+# binding = "KAAL_STATE"
+# id      = "paste-the-id-here"

@@ -28,16 +28,19 @@ filename wins outright and switches its frame off for good.
 
 ### 2. The payment link
 
-Find `var KAAL = {` near the bottom of `index.html`. Five lines govern the
-commercial behaviour of the entire page.
+Find `var KAAL = {` near the bottom of `index.html`. A handful of lines govern
+the commercial behaviour of the entire page.
 
 ```js
 var KAAL = {
   checkout: "",            // the live Razorpay payment-page URL
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
+  api:      "",            // the deployed edition worker, or "" for none
   sold:     [1, 2],        // the numbers already claimed
   film:     "https://res.cloudinary.com/...",
+  frames:   ".../so_{T},w_{W},c_limit/...",             // photograph fallbacks
+  filmFrames: ".../so_{T},w_{W},h_{H},c_fill,g_center/...",  // the hero scrub
   dials:    { 1:"bone", 2:"onyx", 3:"brass", ... }
 };
 ```
@@ -48,9 +51,21 @@ Paste the URL and every button on the page becomes real, and carries the
 chosen number through as `?kaal_no=07`.
 
 **Use a Razorpay Payment Page with a stock limit of 20, not a bare payment
-link.** This is a static site on GitHub Pages with no backend, so it cannot
-know a piece has sold. Razorpay's own inventory limit can, and closes the page
-when the count runs out. Without it, two people can buy number 07.
+link.** This is a static site on GitHub Pages, so the file itself cannot know a
+piece has sold between two pushes. Razorpay's own inventory limit can, and
+closes the page when the count runs out. Without it, two people can buy number
+07.
+
+**And deploy the edition worker if you want that collision caught before the
+money moves.** Razorpay's limit stops the twenty-first sale; it does nothing
+about two people both sitting on number 07 at the same moment. `worker/` closes
+that: `GET /state` tells a live page what is actually gone, the page asks once
+on load and once a minute while it is the visible tab, and a number sold under
+a visitor's hands is struck through with *"Number 07 went while you were
+looking. Choose another."* rather than becoming a refund and an apology.
+Setting `api` to the deployed URL turns it on. Leaving it empty is not a
+degraded mode — it is exactly how this site has always run, and every fallback
+is tested that way.
 
 `sold` drives the strike-throughs on the twenty, the remaining count, the rail
 ticks, the nav, the sticky bar and the `<title>`.
@@ -75,6 +90,22 @@ There is no pixel in the page yet. Twenty pieces is far below Meta's
 learning-phase threshold of roughly fifty conversions per week, so you will
 never optimise for Purchase. Optimise on an upper-funnel event that has volume,
 or buy manually.
+
+### 5. Before you push
+
+```
+node tools/check.mjs
+```
+
+No install, about a second. The push **is** the deploy here — Pages rebuilds
+from `main` within a minute, in front of whatever traffic is running — so this
+is the only gate between a mistake and a buyer. It checks that every local
+asset the page names actually exists (Pages is case-sensitive, your laptop is
+not), that `CNAME` and `.nojekyll` survived, that the script parses, that no
+id is duplicated, that `dials` covers every number in the edition, that nothing
+in the diff looks like a credential, and that `sold:` appears exactly once —
+which is the contract the sold-sync worker's regex depends on. The same script
+runs in CI on every pull request.
 
 ---
 

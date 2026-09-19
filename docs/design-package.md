@@ -71,8 +71,18 @@ Three things then fall out of it for free:
   promised to anybody. If brass stalls, re-point the remaining numbers. Buyers
   only ever see the current state, so nothing is misrepresented.
 
-The dials are interleaved rather than blocked, so there is no run of
-consecutive numbers in one colour to shop from.
+The dials sit in blocks: 01–06 Emerald, 07–10 Midnight, 11–14 Champagne,
+15–20 Ivory. An earlier draft interleaved them so that no run of consecutive
+numbers carried one colour and nobody could shop the grid by colour. The
+edition was made in blocks, so the page states blocks — a design principle
+does not get to outrank what is in the boxes.
+
+It costs something and buys something. A buyer who wants green now knows to
+look at 01–06 rather than reading twenty cells, which is a real reduction in
+effort at the exact moment effort loses sales. What it gives up is the mild
+friction that kept colour preference from driving the choice. With six, four,
+four and six the mix is no longer even either, so the numbers most likely to
+strand are in the two blocks of four.
 
 One line does the credibility work: *"Every number was given its dial before
 this page went live."* It makes the mechanic read as a rule of the world

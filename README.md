@@ -37,6 +37,7 @@ var KAAL = {
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
+  heroDrift: 0.045,        // hero parallax, as a fraction of viewport height
   sold:     [1, 2],        // the numbers already claimed
   film:     "https://res.cloudinary.com/...",
   frames:   ".../so_{T},w_{W},c_limit/...",             // photograph fallbacks

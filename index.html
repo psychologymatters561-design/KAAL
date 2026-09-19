@@ -192,9 +192,14 @@ a{color:inherit}
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center;
   opacity:0;transition:opacity 1.2s var(--ease-soft);
-  transform:scale(1.045);will-change:transform}
+  /* The 7% is the margin the drift moves inside. At the widest drift this
+     page allows, roughly 19px on a phone, the picture never runs out of
+     itself and no edge is ever exposed. Both layers carry the same base
+     transform so the handover from the still to the film cannot jump; the
+     drift is written straight onto whichever one is showing. */
+  transform:scale(1.07);will-change:transform}
 .stage canvas.on,.stage .still.on{opacity:1}
-.stage canvas{transform:none;image-rendering:auto}
+.stage canvas{image-rendering:auto}
 /* Scrims. Cinema practice: the picture keeps its middle, the words get
    their own ground at top and bottom. */
 .stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
@@ -357,9 +362,10 @@ a{color:inherit}
 .door .leaf-r{transform:translate3d(13vw,0,0)}
 .lit .door .leaf{opacity:1;transform:none}
 .door .sub{text-align:center;max-width:40ch;margin-inline:auto}
-.door-rule{width:0;height:1px;background:var(--gold);opacity:.5;
-  transition:width 1.5s var(--ease) .5s}
-.lit .door-rule{width:min(24rem,70%)}
+.door-rule{width:min(24rem,70%);height:1px;background:var(--gold);opacity:.5;
+  transform:scaleX(0);transform-origin:center;
+  transition:transform 1.5s var(--ease) .5s}
+.lit .door-rule{transform:none}
 
 /* ── STILLNESS. The one moment on the site with no entrance at all.
       In a page where everything moves, arriving already still is the
@@ -473,7 +479,7 @@ a{color:inherit}
   .door .leaf{opacity:1!important;transform:none!important}
   .mark path{stroke-dashoffset:0!important}
   .label::after{transform:scaleX(1)!important}
-  .door-rule{width:min(24rem,70%)!important}
+  .door-rule{transform:none!important}
   .stage canvas{display:none}
   .markwrap{opacity:1!important;transform:none!important}
   .stage .still{opacity:1!important;transform:none!important}
@@ -486,7 +492,7 @@ a{color:inherit}
 .nojs .rise,.nojs .face,.nojs .pick,.nojs .cap,.nojs .mark-sub{opacity:1;transform:none}
 .nojs .door .leaf{opacity:1;transform:none}
 .nojs .label::after{transform:scaleX(1)}
-.nojs .door-rule{width:min(24rem,70%)}
+.nojs .door-rule{transform:none}
 .nojs .mark path{stroke-dashoffset:0}
 .nojs .stage .still{opacity:1}
 .nojs .markwrap{opacity:1!important;transform:none!important}
@@ -852,6 +858,14 @@ var KAAL = {
      lets anyone choose — which is the difference between two buyers
      colliding on 07 and one of them being told, before they pay. */
   api:      "",
+
+  /* Hero parallax, as a fraction of the viewport height. The stage is
+     pinned while the film scrubs inside it, so without this the hero is a
+     window with a flat picture in it — and parallax is nothing more than
+     two planes moving at different rates. 0.045 is about nineteen pixels
+     of travel on a phone: enough to read as depth, not enough to read as
+     a moving background. 0 switches it off. */
+  heroDrift: 0.045,
   sold:     [1, 2],
   film:     "https://res.cloudinary.com/zuc7oxyj/video/upload/v1788959635/090901_1788957849218.mp4",
 
@@ -969,7 +983,7 @@ function wake(){ awake = 14; if(!running){ running = true; requestAnimationFrame
 var still = $("#still"), stage = $("#stage");
 var SEQ = {
   n:0, w:0, h:0, imgs:[], ok:[], got:0, live:false,
-  cv:null, ctx:null, painted:-1, want:0, pos:0
+  cv:null, ctx:null, painted:-1, want:0, pos:0, show:0, fast:false
 };
 
 function filmAllowed(){
@@ -1056,17 +1070,54 @@ function sizeCanvas(){
 /* Cover draw, centred, exactly what object-fit: cover would do — with a
    straight blit when the frame already is the canvas, which is the case
    every time until the viewport changes shape under a loaded sequence. */
-function paintFrame(i){
-  if(i === SEQ.painted) return;
-  var img = SEQ.imgs[i];
-  if(!SEQ.ok[i] || !img) return;
-  SEQ.painted = i;
+function drawFrame(img, alpha){
   var cw = SEQ.cv.width, ch = SEQ.cv.height;
   var iw = img.naturalWidth, ih = img.naturalHeight;
-  if(iw === cw && ih === ch){ SEQ.ctx.drawImage(img, 0, 0); return; }
-  var k = Math.max(cw / iw, ch / ih);
-  var dw = iw * k, dh = ih * k;
-  SEQ.ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+  SEQ.ctx.globalAlpha = alpha;
+  if(iw === cw && ih === ch){ SEQ.ctx.drawImage(img, 0, 0); }
+  else {
+    var k = Math.max(cw / iw, ch / ih);
+    var dw = iw * k, dh = ih * k;
+    SEQ.ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+  }
+}
+
+/* ── SUB-FRAME BLENDING.
+
+   Twenty-four stills across a screen and a bit of scroll is a new frame
+   every forty pixels of finger travel. The motion that produces is
+   correct and it is also, plainly, stepped — you can count the frames.
+
+   The fix costs nothing. Paint the two frames the scrub is BETWEEN, the
+   second at the fraction, and twenty-four discrete positions become a
+   continuum. No extra request, no extra memory, one more drawImage on a
+   400x880 canvas. Spending bytes on more frames to solve this would be
+   paying for something interpolation gives away.
+
+   A dissolve held still is a double image, though. So it only holds
+   while the film is moving: when the scrub settles, the position walks
+   onto the nearest whole frame and the picture goes crisp. A real film
+   transport does the same thing — it drifts onto a frame rather than
+   stopping between two. ─────────────────────────────────────────────── */
+function paintPos(pos){
+  var a = Math.floor(pos), f = pos - a;
+  if(!(a >= 0 && a < SEQ.n && SEQ.ok[a])){
+    a = nearestReady(clamp(Math.round(pos), 0, SEQ.n - 1));
+    f = 0;
+  }
+  if(a < 0) return;
+  var b = a + 1;
+  var blend = (f > 0.015 && !SEQ.fast && b < SEQ.n && SEQ.ok[b]) ? f : 0;
+
+  /* One integer stands for "which pair, at what mix", so a scrub that
+     has not moved enough to change the picture does not repaint it. */
+  var key = a * 128 + Math.round(blend * 127);
+  if(key === SEQ.painted) return;
+  SEQ.painted = key;
+
+  drawFrame(SEQ.imgs[a], 1);
+  if(blend) drawFrame(SEQ.imgs[b], blend);
+  SEQ.ctx.globalAlpha = 1;
 }
 
 /* Until every frame is in, the nearest one that IS in gets painted, so
@@ -1175,10 +1226,10 @@ function loadFilm(){
     var r = nearestReady(i);
     if(r < 0) return;                       /* nothing paintable: stay on the still */
     SEQ.live = true;
-    SEQ.pos = SEQ.want = i;                 /* the true target, so it cannot rewind */
+    SEQ.pos = SEQ.want = SEQ.show = i;      /* the true target, so it cannot rewind */
     SEQ.cv.classList.add("on");
     still.classList.remove("on");
-    paintFrame(r);
+    paintPos(r);
     wake();
   }
 
@@ -1222,9 +1273,56 @@ function driveFilm(p){
      mass. 0.22 lands inside three frames of the target. */
   SEQ.pos += (SEQ.want - SEQ.pos) * 0.22;
   if(Math.abs(SEQ.want - SEQ.pos) < 0.01) SEQ.pos = SEQ.want;
-  var i = clamp(Math.round(SEQ.pos), 0, SEQ.n - 1) + 0;
-  var ready = SEQ.ok[i] ? i : nearestReady(i);
-  if(ready >= 0) paintFrame(ready);
+
+  /* While the scrub is running, what is shown is where it is. When it
+     stops, what is shown eases onto the nearest whole frame over about a
+     quarter of a second, and the dissolve resolves into a photograph. */
+  var moving = Math.abs(S.raw - S.y) > 0.35 || Math.abs(SEQ.want - SEQ.pos) > 0.01;
+  /* Past about a frame and a bit of advance per tick, the two frames
+     either side of the position are no longer neighbours in any useful
+     sense, and dissolving them is a double exposure rather than motion.
+     A hard flick therefore snaps, which is both the honest picture and
+     the cheaper one — and it is the moment the frame budget is tightest. */
+  SEQ.fast = Math.abs(SEQ.pos - SEQ.show) > 1.2;
+  if(moving){ SEQ.show = SEQ.pos; }
+  else {
+    var rest = Math.round(SEQ.pos);
+    SEQ.show += (rest - SEQ.show) * 0.16;
+    if(Math.abs(rest - SEQ.show) < 0.004) SEQ.show = rest;
+  }
+  paintPos(clamp(SEQ.show, 0, SEQ.n - 1));
+}
+
+/* ── HERO DEPTH. One custom property on one element, written only when
+      the value actually moves, and composited — the browser never lays
+      anything out for it. It runs off the same hero progress the film
+      does, so the picture and the transport can never disagree. ────── */
+var depthLast = null, depthEl = null;
+function driveDepth(p){
+  if(reduced) return;
+  /* The 7% scale leaves 3.5% of the viewport as margin on each edge, and
+     the drift uses half its span in each direction — so 0.06 is the last
+     value that still cannot show an edge, whatever the viewport. Clamped
+     here rather than trusted to the config, because the failure mode is a
+     black band across the hero on somebody's phone and nobody would think
+     to look at a number in a comment for it. */
+  var span = M.vh * Math.min(Math.max(KAAL.heroDrift || 0, 0), 0.06);
+  if(!span) return;
+
+  /* Written straight onto the one layer that is showing, and never as a
+     custom property on the stage. A custom property INHERITS, so setting
+     it on .stage invalidates style for every descendant that might read
+     it — the canvas, the still, the wordmark, the captions, the cue and
+     the ring — sixty times a second, to move one picture. Measured, that
+     alone was about three milliseconds on the 95th percentile frame.
+     A transform on a single element is composited and invalidates
+     nothing else. */
+  var el = (SEQ.live && SEQ.cv) ? SEQ.cv : still;
+  var y = ((p - 0.5) * span).toFixed(1);
+  if(y === depthLast && el === depthEl) return;
+  if(el !== depthEl && depthEl) depthEl.style.transform = "";
+  depthLast = y; depthEl = el;
+  el.style.transform = "scale(1.07) translate3d(0," + y + "px,0)";
 }
 
 /* ── The wordmark opens the film and then gets out of its way.
@@ -1684,6 +1782,7 @@ function tick(){
 
   var p = heroProgress();
   driveFilm(p);
+  driveDepth(p);
   driveMark(p);
   driveCaps(p);
   driveWorld();
@@ -1692,7 +1791,8 @@ function tick(){
   driveChrome();
 
   var busy = Math.abs(S.raw - S.y) > 0.35 ||
-             (SEQ.live && Math.abs(SEQ.want - SEQ.pos) > 0.01);
+             (SEQ.live && Math.abs(SEQ.want - SEQ.pos) > 0.01) ||
+             (SEQ.live && Math.abs(SEQ.show - Math.round(SEQ.show)) > 0.004);
   if(busy) awake = 14; else awake--;
   if(awake > 0){ requestAnimationFrame(tick); } else { running = false; }
 }

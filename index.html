@@ -21,6 +21,92 @@
 <meta name="twitter:description" content="One case, four faces, twenty numbers. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Brand",
+      "@id": "https://thekaal.co/#brand",
+      "name": "KAAL",
+      "alternateName": "\u0915\u093e\u0932",
+      "url": "https://thekaal.co/",
+      "logo": "https://thekaal.co/assets/brand/wordmark.svg",
+      "slogan": "Twenty watches carry this design. Then it is retired, and never drawn again.",
+      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships."
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://thekaal.co/#org",
+      "name": "KAAL",
+      "url": "https://thekaal.co/",
+      "brand": { "@id": "https://thekaal.co/#brand" },
+      "email": "connect@thekaal.co",
+      "telephone": "+91-93114-16678",
+      "areaServed": "IN",
+      "founder": { "@type": "Person", "name": "Arjun Dixit" }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://thekaal.co/#website",
+      "url": "https://thekaal.co/",
+      "name": "KAAL",
+      "publisher": { "@id": "https://thekaal.co/#org" },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "Product",
+      "@id": "https://thekaal.co/#series01",
+      "name": "KAAL Series 01",
+      "brand": { "@id": "https://thekaal.co/#brand" },
+      "category": "Wristwatch",
+      "image": "https://thekaal.co/assets/img/og.jpg",
+      "url": "https://thekaal.co/",
+      "description": "Twenty numbered watches. One case design, four dials \u2014 Emerald, Midnight, Champagne and Ivory. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. Every case finished by hand and every piece inspected before dispatch. When the twentieth ships, the design is retired and never produced again.",
+      "countryOfOrigin": "IN",
+      "isRelatedTo": { "@id": "https://thekaal.co/manifesto.html#page" },
+      "offers": {
+        "@type": "Offer",
+        "price": "5999",
+        "priceCurrency": "INR",
+        "availability": "https://schema.org/LimitedAvailability",
+        "seller": { "@id": "https://thekaal.co/#org" },
+        "areaServed": "IN",
+        "shippingDetails": {
+          "@type": "OfferShippingDetails",
+          "shippingRate": { "@type": "MonetaryAmount", "value": "0", "currency": "INR" },
+          "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "IN" },
+          "deliveryTime": {
+            "@type": "ShippingDeliveryTime",
+            "businessDays": { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"] },
+            "transitTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 5, "unitCode": "DAY" }
+          }
+        },
+        "hasMerchantReturnPolicy": {
+          "@type": "MerchantReturnPolicy",
+          "applicableCountry": "IN",
+          "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+          "merchantReturnDays": 7,
+          "returnMethod": "https://schema.org/ReturnByMail",
+          "returnFees": "https://schema.org/FreeReturn"
+        }
+      },
+      "hasVariant": [
+        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Emerald", "color": "Emerald" },
+        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Midnight", "color": "Midnight" },
+        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Champagne", "color": "Champagne" },
+        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Ivory", "color": "Ivory" }
+      ],
+      "warranty": {
+        "@type": "WarrantyPromise",
+        "durationOfWarranty": { "@type": "QuantitativeValue", "value": 24, "unitCode": "MON" },
+        "warrantyScope": "https://schema.org/PartsAndLabor"
+      }
+    }
+  ]
+}
+</script>
+
 <link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
 
@@ -810,6 +896,7 @@ a{color:inherit}
         <p>A person answers, and it is the same person who packs the box.</p>
         <p><a href="mailto:connect@thekaal.co">connect@thekaal.co</a><br><a href="tel:+919311416678">+91 93114 16678</a></p>
         <p class="legal"><a href="legal.html">Seller information, terms, shipping, returns, warranty and privacy</a></p>
+        <p class="legal"><a href="manifesto.html">Why twenty, written out in full</a></p>
       </div>
     </div>
     <div class="foot-end">

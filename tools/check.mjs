@@ -77,13 +77,17 @@ const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
 const dupe = ids.filter((v, i) => ids.indexOf(v) !== i);
 if (dupe.length) bad(`duplicate id(s): ${[...new Set(dupe)].join(", ")}`);
 
-/* ── 5. Every local file the page asks for must exist, case exactly.
+/* ── 5. Every local file ANY page asks for must exist, case exactly.
       Pages is case sensitive; a Mac is not. ─────────────────────── */
+const pages = ["index.html", "manifesto.html", "legal.html", "claimed.html"].filter(f => existsSync(join(root, f)));
 const refs = new Set();
-for (const m of html.matchAll(/(?:src|href)="([^"#?:]+)"/g)) {
-  const u = m[1];
-  if (u.startsWith("http") || u.startsWith("//") || u.startsWith("mailto") || u.startsWith("data:")) continue;
-  refs.add(u.replace(/^\.\//, ""));
+for (const f of pages) {
+  for (const m of readFileSync(join(root, f), "utf8").matchAll(/(?:src|href)="([^"#?:]+)"/g)) {
+    const u = m[1];
+    if (u.startsWith("http") || u.startsWith("//") || u.startsWith("mailto") || u.startsWith("data:")) continue;
+    if (u === "/") continue;
+    refs.add(u.replace(/^\.\//, ""));
+  }
 }
 for (const r of refs) {
   const p = join(root, r);
@@ -106,8 +110,43 @@ blocks.forEach((b, i) => {
   catch (e) { bad(`inline script block ${i + 1} does not parse: ${String(e.stderr || e).split("\n").slice(0, 3).join(" ")}`); }
 });
 
+/* ── 6b. Structured data. It is the one part of the page no reader will
+      ever notice is broken, and the part an answer engine reads first.
+      A JSON-LD block that does not parse is simply discarded in silence. */
+for (const f of pages) {
+  const t = readFileSync(join(root, f), "utf8");
+  const blocks = [...t.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  for (const [i, blk] of blocks.entries()) {
+    try { JSON.parse(blk); }
+    catch (e) { bad(`${f}: JSON-LD block ${i + 1} does not parse — ${String(e.message).slice(0, 80)}`); }
+  }
+  if (f === "index.html" && !blocks.length) soft("index.html carries no structured data");
+  const robotsMetas = (t.match(/<meta\s+name="robots"/gi) || []).length;
+  if (robotsMetas > 1) bad(`${f} has ${robotsMetas} robots meta tags — a crawler reads the most restrictive and the intent becomes a guess`);
+  if (!/<link rel="canonical"/.test(t) && f !== "claimed.html") soft(`${f} has no canonical link`);
+}
+
+/* ── 6c. Crawl surface. A sitemap naming a page that does not exist is
+      worse than no sitemap, and robots.txt is the file that decides
+      whether any of this is read at all. ───────────────────────────── */
+if (!existsSync(join(root, "robots.txt"))) soft("no robots.txt");
+if (!existsSync(join(root, "sitemap.xml"))) soft("no sitemap.xml");
+else {
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const locs = [...sm.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(m => m[1]);
+  if (!locs.length) bad("sitemap.xml lists no URLs");
+  for (const loc of locs) {
+    const path = loc.replace(/^https?:\/\/[^/]+\//, "");
+    const target = path === "" ? "index.html" : path;
+    if (!existsSync(join(root, target))) bad(`sitemap.xml lists ${loc}, which does not exist in the repo`);
+  }
+  const robots = existsSync(join(root, "robots.txt")) ? readFileSync(join(root, "robots.txt"), "utf8") : "";
+  if (robots && !/^\s*Sitemap:/mi.test(robots)) soft("robots.txt does not point at the sitemap");
+  if (/^\s*Disallow:\s*\/\s*$/mi.test(robots)) bad("robots.txt disallows the whole site");
+}
+
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
-for (const f of ["index.html", "claimed.html", "legal.html", "worker/kaal-sold-sync.js"]) {
+for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
   if (!existsSync(join(root, f))) continue;
   const t = readFileSync(join(root, f), "utf8");
   for (const [name, re] of [

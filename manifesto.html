@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAAL · Why twenty watches, and why the price will not stay here</title>
+<meta name="description" content="KAAL is an Indian watch brand. Series 01 is twenty numbered watches at ₹5,999, one case design, four dials, retired when the twentieth ships. The complete reasoning: why only twenty, who it is for, and why the first series is the lowest price the brand will ask.">
+<meta name="theme-color" content="#080908">
+<link rel="canonical" href="https://thekaal.co/manifesto.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="KAAL">
+<meta property="og:url" content="https://thekaal.co/manifesto.html">
+<meta property="og:title" content="KAAL · Why twenty watches, and why the price will not stay here">
+<meta property="og:description" content="Twenty numbered watches at ₹5,999, then the design retires. The whole argument, for anyone who wants it before they decide.">
+<meta property="og:image" content="https://thekaal.co/assets/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KAAL · Why twenty watches, and why the price will not stay here">
+<meta name="twitter:description" content="Twenty numbered watches at ₹5,999, then the design retires. The whole argument.">
+<meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
+
+<link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Instrument;src:url(assets/fonts/InstrumentSerif-italic-latin.woff2) format('woff2');font-weight:400;font-style:italic;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-wght.woff2) format('woff2-variations'),url(assets/fonts/Inter-wght.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap}
+@font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap;unicode-range:U+20B9}
+
+:root{
+  --void:#080908; --bone:#EDE8DF; --mute:#A39C90; --faint:#868073;
+  --line:#221F1C; --gold:#C6A15B; --gold-lit:#E0BE7C;
+  --display:Instrument,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --gut:clamp(1.25rem,5vw,4.5rem);
+  --hold:min(46rem,100% - var(--gut) * 2);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--void);color:var(--bone);font-family:var(--body);
+  font-weight:300;font-size:clamp(1rem,.96rem + .25vw,1.09rem);line-height:1.7;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+::selection{background:var(--gold);color:var(--void)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+a{color:var(--mute);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line);transition:color .3s ease,text-decoration-color .3s ease}
+a:hover{color:var(--bone);text-decoration-color:var(--faint)}
+
+.hold{width:var(--hold);margin-inline:auto}
+header{padding:clamp(3.5rem,10vh,6rem) 0 0}
+.mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 1.6rem}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(2.1rem,1.4rem + 3vw,3.4rem);line-height:1.08;
+  letter-spacing:-.018em;color:var(--bone);margin:0 0 1.3rem;text-wrap:balance}
+h1 em{font-style:italic;color:var(--gold-lit)}
+.standfirst{color:var(--mute);margin:0 0 1.2rem;max-width:52ch;font-size:1.06em}
+.updated{font-size:.75rem;color:var(--faint);margin:0 0 3rem}
+
+nav.toc{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:1.4rem 0;margin:0 0 3.5rem;
+  display:flex;flex-wrap:wrap;gap:.6rem 1.6rem}
+nav.toc a{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-decoration:none}
+nav.toc a:hover{color:var(--bone)}
+
+section{padding:0 0 3.4rem;scroll-margin-top:2rem}
+h2{font-family:var(--display);font-weight:400;font-size:clamp(1.5rem,1.1rem + 1.5vw,2.05rem);line-height:1.15;
+  letter-spacing:-.012em;color:var(--bone);margin:0 0 1.2rem;text-wrap:balance}
+h2 em{font-style:italic;color:var(--gold-lit)}
+.eyebrow{font-size:.625rem;letter-spacing:.32em;text-transform:uppercase;color:var(--faint);
+  margin:0 0 .8rem;padding-bottom:.85rem;border-bottom:1px solid var(--line)}
+h3{font-size:.8125rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:500;margin:2rem 0 .7rem}
+p{margin:0 0 1.15rem;color:var(--mute)}
+p.key{color:var(--bone);font-size:1.08em}
+strong{color:var(--bone);font-weight:500}
+
+blockquote{margin:2rem 0;padding:0 0 0 1.4rem;border-left:1px solid var(--gold);}
+blockquote p{font-family:var(--display);font-size:clamp(1.3rem,1rem + 1.2vw,1.72rem);line-height:1.22;
+  color:var(--bone);letter-spacing:-.012em;margin:0}
+blockquote em{font-style:italic;color:var(--gold-lit)}
+
+dl.spec{margin:1.4rem 0;display:grid;grid-template-columns:minmax(8rem,13rem) 1fr;gap:.7rem 1.5rem;
+  border-top:1px solid var(--line);padding-top:1.3rem}
+dl.spec dt{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+dl.spec dd{margin:0;color:var(--bone);font-size:.9375rem;line-height:1.55}
+
+ul{margin:0 0 1.15rem;padding-left:1.1rem;color:var(--mute)}
+li{margin:0 0 .6rem}
+
+.qa{border-top:1px solid var(--line);padding:1.4rem 0 .2rem}
+.qa h3{font-family:var(--body);font-size:.9375rem;letter-spacing:0;text-transform:none;
+  color:var(--bone);font-weight:500;margin:0 0 .6rem;line-height:1.45}
+
+.close{border-top:1px solid var(--line);margin-top:1rem;padding:3rem 0 0;text-align:center}
+.close p{color:var(--bone);font-family:var(--display);font-size:clamp(1.4rem,1.1rem + 1.3vw,1.9rem);
+  line-height:1.2;letter-spacing:-.012em;margin:0 0 2rem;text-wrap:balance}
+.go{display:inline-block;background:var(--bone);color:var(--void);text-decoration:none;
+  padding:1rem 2rem;border-radius:2px;font-size:.8125rem;letter-spacing:.15em;text-transform:uppercase;
+  transition:background-color .4s ease,color .4s ease}
+.go:hover{background:var(--gold);color:var(--void)}
+
+footer{border-top:1px solid var(--line);margin-top:3.5rem;padding:2rem 0 3.5rem;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+  font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+footer a{color:var(--faint);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:.15rem}
+footer a:hover{color:var(--bone);border-color:var(--faint)}
+
+@media (max-width:34rem){
+  dl.spec{grid-template-columns:1fr;gap:.2rem}
+  dl.spec dt{margin-top:.8rem}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Brand",
+      "@id": "https://thekaal.co/#brand",
+      "name": "KAAL",
+      "alternateName": "काल",
+      "url": "https://thekaal.co/",
+      "logo": "https://thekaal.co/assets/brand/wordmark.svg",
+      "slogan": "Twenty watches carry this design. Then it is retired, and never drawn again.",
+      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships. Series 01 is twenty numbered watches, one case design and four dials, made in India."
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://thekaal.co/#org",
+      "name": "KAAL",
+      "url": "https://thekaal.co/",
+      "brand": { "@id": "https://thekaal.co/#brand" },
+      "email": "connect@thekaal.co",
+      "telephone": "+91-93114-16678",
+      "areaServed": "IN",
+      "founder": { "@type": "Person", "name": "Arjun Dixit" },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "email": "connect@thekaal.co",
+        "telephone": "+91-93114-16678",
+        "areaServed": "IN",
+        "availableLanguage": ["en", "hi"]
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://thekaal.co/manifesto.html#page",
+      "url": "https://thekaal.co/manifesto.html",
+      "name": "Why twenty watches, and why the price will not stay here",
+      "isPartOf": { "@type": "WebSite", "@id": "https://thekaal.co/#website", "name": "KAAL", "url": "https://thekaal.co/" },
+      "about": { "@id": "https://thekaal.co/#brand" },
+      "inLanguage": "en",
+      "datePublished": "2026-09-19",
+      "dateModified": "2026-09-19",
+      "publisher": { "@id": "https://thekaal.co/#org" },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "KAAL", "item": "https://thekaal.co/" },
+          { "@type": "ListItem", "position": 2, "name": "Why twenty", "item": "https://thekaal.co/manifesto.html" }
+        ]
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://thekaal.co/manifesto.html#faq",
+      "isPartOf": { "@id": "https://thekaal.co/manifesto.html#page" },
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is KAAL?",
+          "acceptedAnswer": { "@type": "Answer", "text": "KAAL is an Indian watch brand that sells watches in closed, numbered series. Series 01 is twenty numbered pieces at ₹5,999 each, sharing one case design across four dials: Emerald, Midnight, Champagne and Ivory. When the twentieth piece ships, the design is retired and never produced again." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does KAAL only make twenty watches?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The name KAAL means time in Hindi and Sanskrit, and it also means the end of a period. A closed edition of twenty is the brand's founding trait rather than a marketing promise: the design retires with the twentieth buyer, with no second run, no Mark II, no anniversary reissue and no return in a different strap." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I choose the dial colour?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. You choose a number from one to twenty, and each number was assigned its dial before the site went live. The dial each number carries is shown on the number before you buy, so nothing is hidden at the moment of payment. This keeps the colour mix balanced and makes the number, not the colour, the unit of choice." }
+        },
+        {
+          "@type": "Question",
+          "name": "Will the price of a KAAL watch go up after Series 01?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Series 01 is priced at ₹5,999 to bring the first twenty owners in rather than to make a margin, and at that price the series does not profit after cases, finishing, packaging, shipping, payment fees and advertising. Later series are designed to be more ambitious in materials and hand-finishing and are intended to be priced accordingly. Series 01 is the lowest price KAAL intends to ask." }
+        },
+        {
+          "@type": "Question",
+          "name": "Who is a KAAL watch for?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Series 01 is made for people who want an object almost nobody else owns and do not need it explained. It is deliberately not built to suit everyone: twenty pieces cannot be, and a watch that would suit everybody says nothing about the person wearing it." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the KAAL return policy?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Seven days from delivery, unworn, unmarked and complete with box and papers, refunded to the original payment method within seven working days of the piece reaching KAAL. No reason is required and none is asked. KAAL will not accept a future order from a buyer who returns a piece, and the returned number goes back into the edition for somebody else." }
+        },
+        {
+          "@type": "Question",
+          "name": "What warranty does KAAL offer?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Twenty four months on the movement from the date of dispatch. The movement only: cosmetic damage, water ingress from a case opened by anyone other than KAAL, and normal wear to the bracelet and glass are not covered." }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does KAAL take to deliver in India?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Five working days from order to door, anywhere in India, with shipping included in the ₹5,999 price. Every piece is inspected and closed again before dispatch, and that inspection happens inside the five days rather than after them." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="hold">
+  <p class="mark">KAAL</p>
+  <h1>Twenty watches, and then <em>the end of it</em></h1>
+  <p class="standfirst">KAAL is an Indian watch brand. Series 01 is twenty numbered watches at ₹5,999, one case design, four dials. When the twentieth ships, the design is retired and never drawn again.</p>
+  <p class="standfirst">This page is the whole argument, written out, for anyone who wants it before they decide. It is not on the menu. If you are reading it, you went looking.</p>
+  <p class="updated">Written 19 September 2026 · Series 01, open</p>
+</header>
+
+<div class="hold">
+
+<nav class="toc" aria-label="Sections">
+  <a href="#what">What this is</a>
+  <a href="#name">The name</a>
+  <a href="#twenty">Why twenty</a>
+  <a href="#who">Who it is for</a>
+  <a href="#price">The price</a>
+  <a href="#number">The number</a>
+  <a href="#made">How it is made</a>
+  <a href="#rules">The rules</a>
+  <a href="#not">What it is not</a>
+  <a href="#after">What comes after</a>
+  <a href="#questions">Questions</a>
+</nav>
+
+<section id="what">
+  <p class="eyebrow">01 · What this is</p>
+  <h2>A brand that finishes things</h2>
+  <p class="key">KAAL makes watches in closed, numbered series and retires each design permanently when the last piece ships.</p>
+  <p>Series 01 is twenty watches. One case design, four dials — Emerald, Midnight, Champagne, Ivory — five numbers to each. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. ₹5,999 a piece, shipping within India included, five working days to the door.</p>
+  <p>Every case is finished by hand, by people who have spent their working lives doing this and nothing else. Every piece is opened, checked and closed again before it is boxed. Twenty four months on the movement.</p>
+  <p>When number twenty ships, Series 01 closes. There is no second run, no Mark II, no anniversary reissue, and no quiet return in a different strap.</p>
+</section>
+
+<section id="name">
+  <p class="eyebrow">02 · The name</p>
+  <h2>काल means time. It also means <em>the end of it</em></h2>
+  <p>In Hindi and Sanskrit, <strong>काल</strong> — kaal — means time. The same word means death, an epoch, the end of a period. One word holds the duration and the ending both.</p>
+  <p>A watch brand named after time and its ending, selling a design it kills after twenty pieces, is not a coincidence to be explained away in a footer. It is the spine of the thing.</p>
+  <blockquote><p>KAAL means time.<br>In the same language, it means <em>the end of it</em>.</p></blockquote>
+  <p>This matters commercially and not only poetically. <strong>Limited edition</strong> is a claim every brand makes and no buyer believes, because it is usually reversible and usually reversed. Naming a brand after endings makes the retirement read as what this brand <em>is</em> rather than what it is <em>promising</em>. A trait is believed. A promise is discounted.</p>
+</section>
+
+<section id="twenty">
+  <p class="eyebrow">03 · Why twenty</p>
+  <h2>Scarcity you can count, not scarcity you are shouted at</h2>
+  <p>There is no countdown timer on this site. No red badge, no <strong>only 3 left</strong>, no popup. Those devices all signal the same thing to the person this brand is written for: the seller is anxious to sell. Anxiety is the opposite of exclusivity.</p>
+  <p>What the site does instead is let the scarcity be visible and silent. Twenty cells. The ones that are gone are struck through. A hairline down the side of the page carries twenty ticks and scratches out the ones that have been taken. Nobody is told to hurry. You can count.</p>
+  <p>The sight of a struck number does the entire job a countdown timer does, without any of the cost to the brand, because it is a fact rather than a tactic.</p>
+  <p>Twenty is also a real constraint, not a chosen number. Cases finished individually by hand, each one opened and inspected before it is packed, is a process that does not scale by wanting it to. Twenty is what this design gets.</p>
+</section>
+
+<section id="who">
+  <p class="eyebrow">04 · Who it is for</p>
+  <h2>Most people are trying to disappear into the crowd</h2>
+  <p class="key">Twenty of you are not.</p>
+  <p>Most products are built to be agreeable to as many people as possible. That is a sound way to sell a great deal of something. It is a very poor way to mean anything.</p>
+  <p>A watch that would suit everybody is a watch that says nothing about the person wearing it, and saying something is most of what a watch is still for. Nobody needs one to know the time. What is left, once the phone in your pocket has taken that job, is what it says about the wrist it is on.</p>
+  <blockquote><p>This is not for someone who needs a watch to speak for them. It is for someone who has <em>already been heard</em>.</p></blockquote>
+  <p>What Series 01 asks of an owner is not money. Six thousand rupees is not a filter and was never meant to be one. What it asks is a willingness to wear something almost nobody else has and not explain it — to be comfortable that the person across the table will not recognise the brand, and to not need them to.</p>
+  <p>That is a smaller group than the market for watches. It is supposed to be. Twenty pieces cannot be for everyone, and a brand that tried to make them for everyone would have to stop being worth owning first.</p>
+  <h3>The twenty are not a customer list</h3>
+  <p>They are the first twenty people who decided this was worth being early to. They own numbered pieces of a design that will never be made again, bought at the lowest price this brand intends to ask. Everything that comes after has to be worth showing to them first, which is a harder standard than a launch to strangers and the reason it is the one being used.</p>
+</section>
+
+<section id="price">
+  <p class="eyebrow">05 · The price</p>
+  <h2>₹5,999, and why it will not stay here</h2>
+  <p>Twenty pieces at ₹5,999 is ₹1,19,980 if every single one sells. Against the cases, the hand finishing, the boxes, the courier, the payment fees and the advertising it takes to reach twenty strangers who have never heard the name, Series 01 does not make money. It was never built to.</p>
+  <p class="key">The first series is priced to be entered, not to be profitable.</p>
+  <p>A brand with no owners has nothing to say and no reason to be believed. A brand with twenty owners who each chose their own number, wore the thing, and can be asked what it is actually like, has a beginning. That is what Series 01 is buying, and the price is what it costs to buy it.</p>
+  <p>It is a decision that only makes sense once. The designs already in work are more ambitious than this one — more of the cost sitting in the part of a watch you cannot see, harder dials, more hours of hand finishing per piece. They will be priced for what they are, because by then the brand will not be paying to introduce itself.</p>
+  <p>So this is not a sale and there is no timer on it. It is simply the lowest price KAAL intends to ask, on the only series whose price was set by what the brand needed rather than by what the watch is worth.</p>
+  <p>Anyone buying into Series 01 is buying early rather than buying cheap. Those are different things, and only one of them is still available later.</p>
+</section>
+
+<section id="number">
+  <p class="eyebrow">06 · The number</p>
+  <h2>You do not choose the face. You choose a number</h2>
+  <p>Every number from 01 to 20 was given its dial before this site went live. You pick the number. The dial it carries is shown on the number, so you can see exactly what is coming before you pay.</p>
+  <dl class="spec">
+    <dt>Emerald</dt><dd>04 · 07 · 11 · 15 · 20 — green that reads black until the light finds it. Sunray brushed, lacquered, cut by the same gold bezel every piece carries.</dd>
+    <dt>Midnight</dt><dd>02 · 05 · 09 · 13 · 18 — the one that disappears at a dinner table and does not at a window.</dd>
+    <dt>Champagne</dt><dd>03 · 08 · 12 · 16 · 19 — the loudest of the four, and still quiet. A full champagne dial is a decision, not a default.</dd>
+    <dt>Ivory</dt><dd>01 · 06 · 10 · 14 · 17 — a pale dial shows every flaw in a finish, which is exactly why it is in the series.</dd>
+  </dl>
+  <p>The mechanic solves something that usually cannot be solved. Let people pick a colour and the unpopular colour sits unsold. Remove choice entirely and reveal the dial when the box opens, and you have asked a stranger to spend six thousand rupees on an unknown object from an unknown brand — uncertainty at the moment of payment is the most reliable way there is to lose a sale.</p>
+  <p>Making the <em>number</em> the unit of choice resolves it. The buyer chooses. The buyer sees exactly what they are getting. And numbers already carry private meaning that colour does not: a birthday, a jersey, a date that matters to one person and nobody else.</p>
+  <p>One piece per number. A number cannot be reserved, only bought.</p>
+</section>
+
+<section id="made">
+  <p class="eyebrow">07 · How it is made</p>
+  <h2>The part that is actually alive</h2>
+  <p>A watch is a case, a dial, a bracelet, and one part that is actually alive. The movement is the only thing in there keeping time. Everything else is housing.</p>
+  <p>So the movement is the part the brand puts its name behind, plainly, instead of printing a number on a card and hoping nobody reads it. Twenty four months on the movement from dispatch. Not the strap, not the glass, not a scratch you put there. The heart.</p>
+  <dl class="spec">
+    <dt>Case</dt><dd>Finished by hand, each one worked individually — which is why no two are perfectly identical, and why that is the point.</dd>
+    <dt>Dial</dt><dd>Four across the series. Day ring, twenty four hour counter, pointer date, legible at arm's length in daylight.</dd>
+    <dt>Bracelet</dt><dd>Two tone stainless steel, gold tone bezel on every piece in the series.</dd>
+    <dt>Water resistance</dt><dd>Rain is not an event. Caught in weather, washed at a basin, worn through a downpour — none of that is a story.</dd>
+    <dt>Inspection</dt><dd>Every piece opened, checked and closed again before it is packed. None of the twenty ships unseen.</dd>
+    <dt>Dispatch</dt><dd>Five working days, order to door, anywhere in India. The inspection is inside those five days, not after them.</dd>
+  </dl>
+  <p>Nothing leaves on a Friday because the week is ending.</p>
+</section>
+
+<section id="rules">
+  <p class="eyebrow">08 · The rules of the house</p>
+  <h2>Seven days. And we will not sell to you again</h2>
+  <p>Wear it. If it is not you, send it back unworn and unmarked inside seven days and it is refunded to the original payment method. No reason is required and none will be asked.</p>
+  <p class="key">And KAAL will not sell to you again.</p>
+  <p>Your number goes back into the twenty, and somebody else gets it. That is not a threat, and it is not aimed at the customer. It is what a closed edition means when the closure is real — the piece has to go back to being available to somebody, and the edition cannot have twenty one owners.</p>
+  <p>It also says something the brand cannot say any other way. An unconditional refund with no interrogation is expensive to offer and easy to abuse, which is exactly why only a seller who is confident offers one. Claims are cheap. A policy that can be used against you is not.</p>
+  <p>Your statutory rights are untouched by any of this, and the full terms live in the <a href="legal.html">legal pages</a>.</p>
+</section>
+
+<section id="not">
+  <p class="eyebrow">09 · What it is not</p>
+  <h2>The things this brand has decided against</h2>
+  <ul>
+    <li><strong>No testimonials.</strong> Twenty pieces have not shipped yet. Invented social proof is the fastest available way to lose exactly the person this is written for.</li>
+    <li><strong>No comparison to other brands.</strong> Naming a rival borrows their frame and argues on their ground.</li>
+    <li><strong>No discount, no urgency banner, no email capture popup.</strong> Every one of them tells the reader the seller needs the sale more than they need the watch.</li>
+    <li><strong>No handcrafted-luxury-heritage adjective stack.</strong> The site states facts and lets the reader draw the conclusion, because a conclusion someone reaches themselves is held far more firmly than one handed to them.</li>
+    <li><strong>No restock.</strong> The moment Series 01 comes back in a different strap, every future series is worth what this one is worth minus its credibility — and there is no way to buy that back.</li>
+  </ul>
+</section>
+
+<section id="after">
+  <p class="eyebrow">10 · What comes after</p>
+  <h2>Series 02, and the shape of the next few years</h2>
+  <p>Series 01 closes when the twentieth piece ships. What follows is a different design, a different edition, and a different price — not a continuation of this one.</p>
+  <p>The intent is a brand built out of finished things rather than a catalogue that only grows. Each series closed, numbered, retired, and better than the one before it, because each one starts with owners the last one earned rather than with strangers who have to be bought.</p>
+  <p>That is also why the prices move in one direction. Every series after this one begins with something Series 01 did not have — people who already own a KAAL and can say what it is like — so none of them will have to be priced to buy an introduction.</p>
+  <p>Anyone who wants to be in the earliest part of that is, by definition, on a clock that has twenty positions on it.</p>
+</section>
+
+<section id="questions">
+  <p class="eyebrow">11 · Questions</p>
+  <h2>The things people actually ask</h2>
+
+  <div class="qa">
+    <h3>What is KAAL?</h3>
+    <p>An Indian watch brand that sells in closed, numbered series and retires each design permanently once the last piece ships. Series 01 is twenty numbered watches at ₹5,999, one case design and four dials.</p>
+  </div>
+  <div class="qa">
+    <h3>Why does KAAL only make twenty watches?</h3>
+    <p>Because the retirement is the brand rather than a promotion for it. The name means time and also the end of a period; a design that is genuinely finished after twenty pieces is that idea carried out rather than described.</p>
+  </div>
+  <div class="qa">
+    <h3>Can I choose the dial colour?</h3>
+    <p>No. You choose a number, and each number was assigned its dial before the site went live. The dial is shown on the number before you buy, so nothing is concealed at the moment of payment.</p>
+  </div>
+  <div class="qa">
+    <h3>Will the price go up after Series 01?</h3>
+    <p>That is the intention. Series 01 is priced to bring the first twenty owners in, and does not profit at ₹5,999 once cases, finishing, packaging, shipping, payment fees and advertising are counted. Later series are designed to be more ambitious and are intended to be priced for what they are.</p>
+  </div>
+  <div class="qa">
+    <h3>Who is it for?</h3>
+    <p>People who want an object almost nobody else owns and do not need it explained. It is not built to suit everyone, and twenty pieces could not be.</p>
+  </div>
+  <div class="qa">
+    <h3>What if I do not like it?</h3>
+    <p>Seven days, unworn and unmarked, refunded in full with no reason asked. Your number returns to the edition, and KAAL will not accept a future order from you.</p>
+  </div>
+  <div class="qa">
+    <h3>What is the warranty?</h3>
+    <p>Twenty four months on the movement from dispatch. The movement only — not cosmetic damage, not water ingress from a case opened by anyone else, not normal wear to the bracelet and glass.</p>
+  </div>
+  <div class="qa">
+    <h3>How long does delivery take?</h3>
+    <p>Five working days, order to door, anywhere in India, shipping included in the price. Inspection happens inside those five days.</p>
+  </div>
+  <div class="qa">
+    <h3>Where is KAAL made and sold from?</h3>
+    <p>India. Sold direct by KAAL with no marketplace, reseller or third party fulfilment in between. Seller details are in the <a href="legal.html">legal pages</a>.</p>
+  </div>
+</section>
+
+<div class="close">
+  <p>Twenty numbers. The one you want is either still there or it is not.</p>
+  <a class="go" href="/">See the twenty</a>
+</div>
+
+<footer>
+  <span>&copy; <span id="yr">2026</span> KAAL</span>
+  <a href="/">thekaal.co</a>
+</footer>
+
+</div>
+
+<script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>

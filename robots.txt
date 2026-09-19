@@ -1,0 +1,53 @@
+# thekaal.co
+#
+# Everything here is open to everything. There is no hidden directory, no
+# page written for a crawler that a reader does not get, and nothing served
+# differently depending on who is asking.
+#
+# The AI crawlers are named individually rather than left to the wildcard
+# on purpose. Several of them are opt-in in practice, plenty of sites block
+# them by accident, and a brand whose whole argument has to be read before
+# it lands would rather be quoted accurately than not quoted at all.
+
+User-agent: *
+Allow: /
+
+# Search
+User-agent: Googlebot
+Allow: /
+User-agent: Bingbot
+Allow: /
+
+# Answer and assistant engines
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-User
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Perplexity-User
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Applebot
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+User-agent: Amazonbot
+Allow: /
+User-agent: meta-externalagent
+Allow: /
+User-agent: cohere-ai
+Allow: /
+User-agent: DuckAssistBot
+Allow: /
+
+Sitemap: https://thekaal.co/sitemap.xml

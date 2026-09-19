@@ -264,6 +264,42 @@ a{color:inherit}
   cursor:default;letter-spacing:.09em;text-transform:none;font-size:.8125rem;
   padding:.95rem 1.7rem;box-shadow:none}
 .buy.inert::before{display:none}
+/* ── THE PIECE.
+
+      Everything somebody needs in order to decide, in one place, at the
+      place they decide. All of it was on the page already — spread over
+      six acts and a footer — and nobody scrolls back up through a film to
+      reassemble a specification.
+
+      The disc is the two things that actually differ between one number
+      and the next: the dial colour, and the gold bezel every piece
+      carries. It is a drawing, and the caption under it says so. When the
+      photographs land they go here, and this stops being the best
+      available answer to "what am I buying". */
+.piece{margin:clamp(2.2rem,6vh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
+  background:var(--void-2);padding:clamp(1.35rem,4vw,1.9rem);
+  display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:start}
+@media (max-width:32rem){.piece{grid-template-columns:1fr}}
+
+.piece-face{position:relative;width:clamp(5.2rem,21vw,7rem);aspect-ratio:1}
+.piece-bezel{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 212deg,#7E6330,#E0BE7C 14%,#C6A15B 30%,#8A6C33 48%,#EBCD92 66%,#A4823F 84%,#7E6330);
+  box-shadow:0 16px 40px -16px rgba(0,0,0,.9)}
+.piece-dial{position:absolute;inset:12%;border-radius:50%;background:#16140F;
+  box-shadow:inset 0 -9px 20px rgba(0,0,0,.55),inset 0 5px 12px rgba(255,255,255,.07);
+  transition:background .55s var(--ease-soft)}
+.piece-cap{margin:.75rem 0 0;font-size:.6875rem;color:var(--faint);
+  line-height:1.5;max-width:15ch;letter-spacing:.01em}
+
+.piece dl{margin:0;display:grid;grid-template-columns:minmax(5rem,auto) minmax(0,1fr);gap:.55rem 1.3rem}
+.piece dt{font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);padding-top:.12em}
+.piece dd{margin:0;font-size:.875rem;color:var(--bone);line-height:1.5}
+.piece-note{grid-column:1/-1;margin:.4rem 0 0;padding-top:1.1rem;border-top:1px solid var(--line);
+  font-size:.8125rem;color:var(--mute)}
+@media (max-width:32rem){.piece dl{grid-template-columns:1fr;gap:.15rem}
+  .piece dt{margin-top:.75rem}
+  .piece-cap{max-width:none}}
+
 .claim-dot{width:.82rem;height:.82rem;border-radius:50%;flex:0 0 auto;
   border:1px solid rgba(8,9,8,.5);
   box-shadow:inset 0 -1px 2px rgba(0,0,0,.5),inset 0 1px 1px rgba(255,255,255,.22);
@@ -702,10 +738,10 @@ a{color:inherit}
   </div>
   <div class="hold">
     <ul class="four" id="fourList">
-      <li class="face" style="--tilt:-1.6deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><h3>Emerald</h3><p class="nums" data-nums="emerald">04 · 07 · 11 · 15 · 20</p></li>
-      <li class="face" style="--tilt:1.1deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><h3>Midnight</h3><p class="nums" data-nums="midnight">02 · 05 · 09 · 13 · 18</p></li>
-      <li class="face" style="--tilt:-.9deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span><h3>Champagne</h3><p class="nums" data-nums="champagne">03 · 08 · 12 · 16 · 19</p></li>
-      <li class="face" style="--tilt:1.5deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><h3>Ivory</h3><p class="nums" data-nums="ivory">01 · 06 · 10 · 14 · 17</p></li>
+      <li class="face" style="--tilt:-1.6deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><h3>Emerald</h3><p class="nums" data-nums="emerald">01–06</p></li>
+      <li class="face" style="--tilt:1.1deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><h3>Midnight</h3><p class="nums" data-nums="midnight">07–10</p></li>
+      <li class="face" style="--tilt:-.9deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span><h3>Champagne</h3><p class="nums" data-nums="champagne">11–14</p></li>
+      <li class="face" style="--tilt:1.5deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><h3>Ivory</h3><p class="nums" data-nums="ivory">15–20</p></li>
     </ul>
   </div>
 </section>
@@ -834,48 +870,66 @@ a{color:inherit}
            is the source of truth and this is only the fallback. Edit both if
            you change the config and care about the no-JavaScript view. -->
       <li><button type="button" class="pick" data-n="1" aria-pressed="false" disabled
-        style="--tint:rgba(237,232,223,.13)" aria-label="Number 01, Ivory dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 01, Emerald dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="2" aria-pressed="false" disabled
-        style="--tint:rgba(190,190,188,.085)" aria-label="Number 02, Midnight dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 02, Emerald dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="3" aria-pressed="false"
-        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 03, Champagne dial">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 03, Emerald dial">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="4" aria-pressed="false"
         style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 04, Emerald dial">04<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="5" aria-pressed="false"
-        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 05, Midnight dial">05<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 05, Emerald dial">05<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="6" aria-pressed="false"
-        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 06, Ivory dial">06<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 06, Emerald dial">06<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="7" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 07, Emerald dial">07<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 07, Midnight dial">07<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
       <li><button type="button" class="pick" data-n="8" aria-pressed="false"
-        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 08, Champagne dial">08<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 08, Midnight dial">08<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
       <li><button type="button" class="pick" data-n="9" aria-pressed="false"
         style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 09, Midnight dial">09<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
       <li><button type="button" class="pick" data-n="10" aria-pressed="false"
-        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 10, Ivory dial">10<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 10, Midnight dial">10<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
       <li><button type="button" class="pick" data-n="11" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 11, Emerald dial">11<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 11, Champagne dial">11<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="12" aria-pressed="false"
         style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 12, Champagne dial">12<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="13" aria-pressed="false"
-        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 13, Midnight dial">13<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 13, Champagne dial">13<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="14" aria-pressed="false"
-        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 14, Ivory dial">14<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 14, Champagne dial">14<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="15" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 15, Emerald dial">15<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 15, Ivory dial">15<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="16" aria-pressed="false"
-        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 16, Champagne dial">16<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 16, Ivory dial">16<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="17" aria-pressed="false"
         style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 17, Ivory dial">17<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="18" aria-pressed="false"
-        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 18, Midnight dial">18<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 18, Ivory dial">18<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="19" aria-pressed="false"
-        style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 19, Champagne dial">19<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 19, Ivory dial">19<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="20" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 20, Emerald dial">20<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 20, Ivory dial">20<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
     </ul>
 
     <div class="claim">
+      <div class="piece">
+        <div>
+          <div class="piece-face" aria-hidden="true">
+            <span class="piece-bezel"></span>
+            <span class="piece-dial" id="pieceDial"></span>
+          </div>
+          <p class="piece-cap">Dial colour and bezel. Every piece shares the same case.</p>
+        </div>
+        <dl>
+          <dt>Dial</dt><dd id="pieceName">One of four. Choose a number to see which.</dd>
+          <dt>Face</dt><dd>Day ring, twenty four hour counter, pointer date</dd>
+          <dt>Case</dt><dd>Finished by hand, gold tone bezel, water resistant</dd>
+          <dt>Bracelet</dt><dd>Two tone stainless steel</dd>
+          <dt>Warranty</dt><dd>Twenty four months on the movement, from dispatch</dd>
+          <dt>Price</dt><dd>&#8377;5,999, shipping within India included</dd>
+        </dl>
+        <p class="piece-note">&#8377;5,999 is the lowest price KAAL intends to ask. <a href="manifesto.html">The reasoning is written out here</a>.</p>
+      </div>
       <p class="claim-state" id="claimState" role="status" aria-live="polite"><span class="claim-dot" id="claimDot" aria-hidden="true"></span><span id="claimText">Nothing chosen yet.</span></p>
       <a class="buy inert" id="cta" role="button" aria-disabled="true">Choose your number</a>
       <ul class="assure">
@@ -1010,11 +1064,17 @@ var KAAL = {
      short or the bytes matter more than the last of the smoothness. */
   frameCount:      48,
   frameCountSmall: 24,
+  /* The edition as it was actually made: six green, four black, four gold,
+     six white, in blocks rather than interleaved. Everything else that
+     states this mapping — the twenty in the grid, the number runs under the
+     four faces, the labels a screen reader announces — is derived from here
+     at load. It used to be written out by hand in four places, which is
+     exactly how four places come to disagree. */
   dials: {
-    1:"ivory",     2:"midnight",  3:"champagne", 4:"emerald",   5:"midnight",
-    6:"ivory",     7:"emerald",   8:"champagne", 9:"midnight", 10:"ivory",
-   11:"emerald",  12:"champagne",13:"midnight", 14:"ivory",    15:"emerald",
-   16:"champagne",17:"ivory",    18:"midnight", 19:"champagne",20:"emerald"
+    1:"emerald",   2:"emerald",   3:"emerald",   4:"emerald",   5:"emerald",
+    6:"emerald",   7:"midnight",  8:"midnight",  9:"midnight", 10:"midnight",
+   11:"champagne",12:"champagne",13:"champagne",14:"champagne",15:"ivory",
+   16:"ivory",    17:"ivory",    18:"ivory",    19:"ivory",    20:"ivory"
   }
 };
 
@@ -1655,18 +1715,50 @@ var remaining = KAAL.edition - KAAL.sold.length;
   grid.innerHTML = ""; grid.appendChild(frag);
 })();
 
+/* The number runs under the four faces, read out of the config instead of
+   typed underneath it. In blocks they collapse to a range, which is also the
+   easiest thing a buyer is ever asked to hold: green is one to six. If a
+   future mix is re-pointed and stops being contiguous, this falls back to
+   listing the numbers and nothing has to be edited by hand. */
+(function fourRuns(){
+  var by = {};
+  for(var i = 1; i <= KAAL.edition; i++){
+    var k = KAAL.dials[i] || "ivory";
+    (by[k] || (by[k] = [])).push(i);
+  }
+  $$("[data-nums]").forEach(function(el){
+    var list = by[el.dataset.nums] || [], out = [], i = 0;
+    while(i < list.length){
+      var j = i;
+      while(j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+      out.push(j > i + 1 ? pad(list[i]) + "\u2013" + pad(list[j])
+                         : list.slice(i, j + 1).map(pad).join(" \u00b7 "));
+      i = j + 1;
+    }
+    el.textContent = out.join(" \u00b7 ");
+  });
+})();
+
 var cta = $("#cta"), dockCta = $("#dockCta"), claimState = $("#claimState");
 var claimDot = $("#claimDot"), claimText = $("#claimText");
+var pieceDial = $("#pieceDial"), pieceName = $("#pieceName");
+var PIECE_IDLE = "One of four. Choose a number to see which.";
 
 /* One place writes the claim line, so the dial swatch beside it can never
    disagree with the sentence. Writing to the inner span rather than to the
    live region itself keeps the swatch from being wiped by its own update. */
 function say(msg, faceKey){
   claimText.textContent = msg;
-  if(!claimDot) return;
   var f = faceKey && FACE[faceKey];
-  claimDot.style.background = f ? f.css : "transparent";
-  claimDot.classList.toggle("on", !!f);
+  if(claimDot){
+    claimDot.style.background = f ? f.css : "transparent";
+    claimDot.classList.toggle("on", !!f);
+  }
+  /* The swatch beside the sentence and the dial on the piece are the same
+     fact shown twice, so they are written in the same breath and cannot
+     end up disagreeing with each other or with the sentence. */
+  if(pieceDial) pieceDial.style.background = f ? f.css : "";
+  if(pieceName) pieceName.textContent = f ? f.name : PIECE_IDLE;
 }
 
 function paintCta(){

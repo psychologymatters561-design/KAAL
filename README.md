@@ -126,8 +126,12 @@ promised to anyone.** If brass stalls, re-point the unsold numbers in
 state. Nothing was misrepresented, because nothing about an unsold number was
 ever stated as permanent.
 
-The current mix is five of each, interleaved on purpose so there is no block
-of consecutive numbers carrying one colour to shop from.
+The current mix is six Emerald (01–06), four Midnight (07–10), four
+Champagne (11–14) and six Ivory (15–20) — the edition as it was actually
+made, in blocks rather than interleaved. Only `KAAL.dials` states this. The
+grid, the number runs under the four faces and the labels a screen reader
+announces are all derived from it at load, so there is one place to edit and
+no second place to forget.
 
 ---
 

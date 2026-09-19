@@ -6,11 +6,15 @@ reference, not a command.
 
 ## What this codebase is
 
-`index.html` — 1,400-odd lines, the entire storefront. Inline CSS, inline
-vanilla JS in one IIFE. `claimed.html` and `legal.html` are satellites.
-`worker/kaal-sold-sync.js` is a Cloudflare Worker that rewrites the `sold`
-array in `index.html` on a Razorpay webhook. Static hosting: GitHub Pages,
-custom domain `thekaal.co` (`CNAME` + `.nojekyll`).
+`index.html` — 2,200-odd lines, the entire storefront. Inline CSS, inline
+vanilla JS in one IIFE. `claimed.html`, `legal.html` and `manifesto.html` are
+satellites. `worker/` is a Cloudflare Worker that rewrites the `sold` array in
+`index.html` on a Razorpay webhook: `index.js` routes, `lib/edition.js` holds
+the pure rules, `lib/{store,github,http,crypto}.js` are adapters. Static
+hosting: GitHub Pages, custom domain `thekaal.co` (`CNAME` + `.nojekyll`).
+
+`ARCHITECTURE.md` is the long answer, including what was deliberately not
+split. Read it before proposing a split.
 
 No build step. No npm. No framework. No bundler. Nothing loaded cross-origin
 except Cloudinary frames while the film still lives there.
@@ -38,3 +42,12 @@ except Cloudinary frames while the film still lives there.
    out loud instead of dressing a guess as a result.
 7. **Preserve behaviour.** Unless the command explicitly says otherwise, the
    rendered page must look and behave identically when you are done.
+8. **The worker has layers; respect the direction.** `worker/lib/edition.js`
+   imports nothing and must stay that way — no fetch, no env, no clock. A
+   handler in `worker/index.js` may decide and may call; the moment it builds
+   a header, decodes base64, or writes a KV key with a prefix in it, the fix
+   belongs in the adapter below it.
+9. **Money changes start with a failing test.** `tools/test/` runs with no
+   npm, no network and no mocking library. Every test in there exists because
+   the behaviour it describes is something you only get to be wrong about
+   once.

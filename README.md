@@ -32,13 +32,17 @@ The five that decide whether the money is safe:
 in dependency order, with the command that proves each one took, and what to do
 when a token is compromised or two people pay for one watch.
 
-Three things watch, so none of it quietly stops being true:
+Four things watch, so none of it quietly stops being true:
 
 ```
-node tools/check.mjs           # the repo's own rules          — every push
-node tools/check-autocommit.mjs  # a stolen token's blast radius — every push to main
-node tools/verify-live.mjs     # the live site and worker      — every morning, by watch.yml
+node tools/check.mjs                  # the repo's own rules           — every push
+node --test "tools/test/*.test.mjs"   # 52 tests over the worker       — every push
+node tools/check-autocommit.mjs       # a stolen token's blast radius  — every push to main
+node tools/verify-live.mjs            # the live site and worker       — every morning
 ```
+
+`ARCHITECTURE.md` explains the layout, where the layers are, and — the more
+useful half — what was deliberately not split and why.
 
 ---
 

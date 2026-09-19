@@ -1,7 +1,7 @@
 # The worker deploys as it is: no bundler, no build step, same as the site.
 #   wrangler deploy
 name = "kaal-edition"
-main = "worker/kaal-sold-sync.js"
+main = "worker/index.js"
 compatibility_date = "2026-09-19"
 
 [vars]

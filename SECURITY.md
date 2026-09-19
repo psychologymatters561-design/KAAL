@@ -2,7 +2,9 @@
 
 A senior-engineer audit of everything between a stranger on the internet and
 ₹5,999 of somebody's money. Reviewed: `index.html`, `claimed.html`,
-`legal.html`, `manifesto.html`, `worker/kaal-sold-sync.js`, `wrangler.toml`,
+`legal.html`, `manifesto.html`, the worker (a single file at review time,
+since split into `worker/index.js` + `worker/lib/` — see `ARCHITECTURE.md`),
+`wrangler.toml`,
 `tools/check.mjs`, `.github/workflows/check.yml`, and the full git history.
 
 **The one-line finding.** No credential was ever leaked and the webhook's
@@ -35,7 +37,8 @@ finding was: **what does it cost, who can do it, and what do they need?**
 
 ### K-01 · Critical · The entire edition, for twenty rupees
 
-**Where** `worker/kaal-sold-sync.js`, the `payment.captured` handler.
+**Where** the worker's `payment.captured` handler — now `worker/index.js`,
+with the rule itself in `worker/lib/edition.js` (`verifyAmount`).
 
 **What was true.** The worker read `notes.kaal_no` out of the webhook and
 marked that number sold. It never looked at what was paid.
@@ -74,7 +77,8 @@ refused.
 
 ### K-02 · High · Two people paid for one watch, and it was a silent 200
 
-**Where** `worker/kaal-sold-sync.js`, `commitSold()` returning `"already"`.
+**Where** the commit path — now `recordSale()` in `worker/index.js`, over
+`withNumberSold()` in `worker/lib/edition.js`.
 
 **What was true.** A captured payment naming a number that was already sold
 returned `Number 7 already recorded as sold.` and stopped. That is exactly the

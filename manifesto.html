@@ -32,7 +32,7 @@
 @font-face{font-family:InterV;src:url(assets/fonts/Inter-rupee.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap;unicode-range:U+20B9}
 
 :root{
-  --void:#080908; --bone:#EDE8DF; --mute:#A39C90; --faint:#868073;
+  --void:#080908; --bone:#EDE8DF; --mute:#B3AC9F; --faint:#9D968A;
   --line:#221F1C; --gold:#C6A15B; --gold-lit:#E0BE7C;
   --display:Instrument,'Times New Roman',serif;
   --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -54,10 +54,10 @@ a:hover{color:var(--bone);text-decoration-color:var(--faint)}
 
 .hold{width:var(--hold);margin-inline:auto}
 header{padding:clamp(3.5rem,10vh,6rem) 0 0}
-.mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 1.6rem}
+.mark{font-size:.75rem;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);margin:0 0 1.6rem}
 h1{font-family:var(--display);font-weight:400;font-size:clamp(2.1rem,1.4rem + 3vw,3.4rem);line-height:1.08;
   letter-spacing:-.018em;color:var(--bone);margin:0 0 1.3rem;text-wrap:balance}
-h1 em{font-style:italic;color:var(--gold-lit)}
+h1 em,em.accent{font-style:italic;color:var(--gold-lit)}
 .standfirst{color:var(--mute);margin:0 0 1.2rem;max-width:52ch;font-size:1.06em}
 .updated{font-size:.75rem;color:var(--faint);margin:0 0 3rem}
 
@@ -69,8 +69,8 @@ nav.toc a:hover{color:var(--bone)}
 section{padding:0 0 3.4rem;scroll-margin-top:2rem}
 h2{font-family:var(--display);font-weight:400;font-size:clamp(1.5rem,1.1rem + 1.5vw,2.05rem);line-height:1.15;
   letter-spacing:-.012em;color:var(--bone);margin:0 0 1.2rem;text-wrap:balance}
-h2 em{font-style:italic;color:var(--gold-lit)}
-.eyebrow{font-size:.625rem;letter-spacing:.32em;text-transform:uppercase;color:var(--faint);
+h2 em{font-style:italic;color:inherit}
+.eyebrow{font-size:.6875rem;letter-spacing:.22em;text-transform:uppercase;color:var(--faint);
   margin:0 0 .8rem;padding-bottom:.85rem;border-bottom:1px solid var(--line)}
 h3{font-size:.8125rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:500;margin:2rem 0 .7rem}
 p{margin:0 0 1.15rem;color:var(--mute)}
@@ -80,7 +80,7 @@ strong{color:var(--bone);font-weight:500}
 blockquote{margin:2rem 0;padding:0 0 0 1.4rem;border-left:1px solid var(--gold);}
 blockquote p{font-family:var(--display);font-size:clamp(1.3rem,1rem + 1.2vw,1.72rem);line-height:1.22;
   color:var(--bone);letter-spacing:-.012em;margin:0}
-blockquote em{font-style:italic;color:var(--gold-lit)}
+blockquote em{font-style:italic;color:inherit}
 
 dl.spec{margin:1.4rem 0;display:grid;grid-template-columns:minmax(8rem,13rem) 1fr;gap:.7rem 1.5rem;
   border-top:1px solid var(--line);padding-top:1.3rem}
@@ -277,7 +277,7 @@ footer a:hover{color:var(--bone);border-color:var(--faint)}
   <p class="key">Twenty of you are not.</p>
   <p>Most products are built to be agreeable to as many people as possible. That is a sound way to sell a great deal of something. It is a very poor way to mean anything.</p>
   <p>A watch that would suit everybody is a watch that says nothing about the person wearing it, and saying something is most of what a watch is still for. Nobody needs one to know the time. What is left, once the phone in your pocket has taken that job, is what it says about the wrist it is on.</p>
-  <blockquote><p>This is not for someone who needs a watch to speak for them. It is for someone who has <em>already been heard</em>.</p></blockquote>
+  <blockquote><p>This is not for someone who needs a watch to speak for them. It is for someone who has <em class="accent">already been heard</em>.</p></blockquote>
   <p>What Series 01 asks of an owner is not money. Six thousand rupees is not a filter and was never meant to be one. What it asks is a willingness to wear something almost nobody else has and not explain it — to be comfortable that the person across the table will not recognise the brand, and to not need them to.</p>
   <p>That is a smaller group than the market for watches. It is supposed to be. Twenty pieces cannot be for everyone, and a brand that tried to make them for everyone would have to stop being worth owning first.</p>
   <h3>The twenty are not a customer list</h3>

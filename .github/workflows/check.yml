@@ -28,7 +28,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # persist-credentials: false stops the job's GITHUB_TOKEN being written
+      # into .git/config, where any later step — or anything one of them
+      # pulls in — can read it. This job only reads files; it never needs to
+      # speak to GitHub again after the checkout.
+      #
+      # NEXT HARDENING STEP: pin both actions to a commit SHA rather than a
+      # tag. A tag is mutable; whoever controls the action's repository can
+      # repoint v4 at new code, and it runs here. Get the SHAs with:
+      #   gh api repos/actions/checkout/git/ref/tags/v4 --jq .object.sha
+      #   gh api repos/actions/setup-node/git/ref/tags/v4 --jq .object.sha
+      # then write `actions/checkout@<sha> # v4`.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -39,3 +52,16 @@ jobs:
 
       - name: Validate the worker parses
         run: node --check worker/kaal-sold-sync.js
+
+      # The worker is the only code here that holds a credential. A secret
+      # pasted into it instead of into `wrangler secret put` is a secret in
+      # the git history forever, and git history is not something you can
+      # edit your way out of once it has been cloned.
+      - name: No secret ever committed to the worker or its config
+        run: |
+          if grep -rInE '(RAZORPAY_WEBHOOK_SECRET|GITHUB_TOKEN|ALERT_TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']' worker/ wrangler.toml; then
+            echo "A secret appears to be assigned in a committed file."
+            exit 1
+          fi
+          echo "No committed secret assignments."
+

@@ -25,6 +25,7 @@ const bad  = (m) => fail.push(m);
 const soft = (m) => warn.push(m);
 
 const html = readFileSync(join(root, "index.html"), "utf8");
+const pagesAll = () => ["index.html", "manifesto.html", "legal.html", "claimed.html"].filter(f => existsSync(join(root, f)));
 
 /* ── 1. The deploy's own furniture. Losing either of these takes the
       custom domain or the whole assets directory off the internet, and
@@ -71,6 +72,86 @@ if (cfg.frames && !(cfg.frames.includes("{T}") && cfg.frames.includes("{W}")))
   bad("frames must carry {T} and {W}");
 if (cfg.frames && cfg.frames.includes("{H}"))
   bad("frames is the photograph fallback and is used without {H} — an {H} here ships a literal '{H}' in the URL");
+
+/* ── 3b. THE SECURITY GATES.
+
+      Everything here is a control that is worthless the moment somebody
+      edits it out by accident, so each one is asserted rather than
+      trusted. These are the checks that stand between a mistake and a
+      buyer's money, which is a different category from a broken layout.
+      ──────────────────────────────────────────────────────────────── */
+
+/* The checkout URL. A buyer clicking Claim leaves this site with their
+   card; where they land is decided by this one string. The page refuses
+   at runtime to link anywhere outside checkoutHosts — this refuses to
+   deploy it at all, which is the half that happens before the traffic. */
+const hostsRaw = html.match(/checkoutHosts:\s*\[([^\]]*)\]/)?.[1] ?? "";
+const checkoutHosts = [...hostsRaw.matchAll(/"([^"]+)"/g)].map(m => m[1].toLowerCase());
+if (!checkoutHosts.length) bad("checkoutHosts is missing or empty — the page would refuse every checkout link");
+for (const h of checkoutHosts) {
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)) bad(`checkoutHosts contains "${h}", which is not a bare hostname`);
+  if (h === "com" || h === "io" || h.split(".").length < 2) bad(`checkoutHosts entry "${h}" is too broad`);
+}
+if (cfg.checkout) {
+  let u = null;
+  try { u = new URL(cfg.checkout); } catch (e) { bad("checkout is not a valid URL"); }
+  if (u) {
+    if (u.protocol !== "https:") bad("checkout is not https — a payment link must never be plain http");
+    const ok = checkoutHosts.some(h => u.hostname === h || u.hostname.endsWith("." + h));
+    if (!ok) bad(`checkout points at ${u.hostname}, which is not in checkoutHosts — the live page will refuse to link to it`);
+  }
+}
+
+/* The Content-Security-Policy. GitHub Pages sends no headers, so the
+   meta tag is the entire policy; a page that loses it loses every
+   restriction at once and nothing about the page looks different. */
+const MUST_HAVE = ["default-src 'none'", "base-uri 'none'", "object-src 'none'", "frame-src 'none'", "form-action 'none'"];
+for (const f of ["index.html", "manifesto.html", "legal.html", "claimed.html"]) {
+  if (!existsSync(join(root, f))) continue;
+  const t = readFileSync(join(root, f), "utf8");
+  const csp = t.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1];
+  if (!csp) { bad(`${f} has no Content-Security-Policy meta tag`); continue; }
+  for (const d of MUST_HAVE) if (!csp.includes(d)) bad(`${f} CSP is missing ${d}`);
+  if (/script-src[^;]*\bhttps?:(?!\/)/.test(csp) || /script-src[^;]*\*/.test(csp))
+    bad(`${f} CSP allows scripts from a wildcard or a bare scheme`);
+  if (!/window\.self !== window\.top/.test(t))
+    bad(`${f} has no frame guard — frame-ancestors cannot be set from a meta tag, so the script is the only clickjacking defence`);
+}
+
+/* connect-src and the worker. The page's one cross-origin call is
+   KAAL.api. Set it without naming its origin in the CSP and the browser
+   blocks /state silently: the page keeps working on a stale sold array
+   and nothing anywhere says why. */
+const apiUrl = html.match(/api:\s*"([^"]*)"/)?.[1] ?? "";
+if (apiUrl) {
+  let a = null;
+  try { a = new URL(apiUrl); } catch (e) { bad("api is set but is not a valid URL"); }
+  if (a) {
+    if (a.protocol !== "https:") bad("api is not https");
+    const csp = html.match(/content="([^"]*connect-src[^"]*)"/)?.[1] ?? "";
+    const connect = csp.match(/connect-src([^;]*)/)?.[1] ?? "";
+    if (!connect.includes(a.origin)) bad(`api is ${a.origin} but the CSP connect-src does not allow it — the live page would fail to read the edition state`);
+  }
+}
+
+/* Outbound links and plain http. A target="_blank" without rel="noopener"
+   hands the opened page a handle on this one. */
+for (const f of pagesAll()) {
+  const t = readFileSync(join(root, f), "utf8");
+  for (const m of t.matchAll(/<a\b[^>]*target="_blank"[^>]*>/g))
+    if (!/rel="[^"]*noopener/.test(m[0])) bad(`${f} has a target="_blank" link without rel="noopener": ${m[0].slice(0, 80)}`);
+  for (const m of t.matchAll(/(?:src|href)="(http:\/\/[^"]+)"/g))
+    if (!m[1].startsWith("http://www.w3.org/")) bad(`${f} loads ${m[1]} over plain http`);
+}
+
+/* The worker's own money check. AMOUNT_CHECK=off is a documented escape
+   hatch; it is not something that should ever be committed. */
+if (existsSync(join(root, "wrangler.toml"))) {
+  const w = readFileSync(join(root, "wrangler.toml"), "utf8");
+  if (/^\s*AMOUNT_CHECK\s*=\s*["']off/mi.test(w)) bad("wrangler.toml turns AMOUNT_CHECK off — any cheap payment on the Razorpay account could then mark a number sold");
+  if (/RAZORPAY_WEBHOOK_SECRET\s*=/.test(w) || /GITHUB_TOKEN\s*=/.test(w) || /ALERT_TOKEN\s*=/.test(w))
+    bad("wrangler.toml assigns a secret — secrets belong in `wrangler secret put`, never in a file that is committed");
+}
 
 /* ── 4. Markup that a browser will silently forgive and a reader will
       not: a duplicated id breaks every $() lookup after it. ─────── */
@@ -171,14 +252,22 @@ else {
 }
 
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
-for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
+for (const f of [...pages, "worker/kaal-sold-sync.js", "wrangler.toml", "README.md", ".github/workflows/check.yml"]) {
   if (!existsSync(join(root, f))) continue;
   const t = readFileSync(join(root, f), "utf8");
   for (const [name, re] of [
     ["GitHub token", /\bgh[pousr]_[A-Za-z0-9]{20,}/],
     ["Razorpay key", /\brzp_(live|test)_[A-Za-z0-9]{10,}/],
     ["AWS key", /\bAKIA[0-9A-Z]{16}\b/],
-    ["private key block", /-----BEGIN [A-Z ]*PRIVATE KEY-----/]
+    ["private key block", /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+    /* Razorpay's key secret and webhook secret have no fixed prefix, so
+       the only honest check is "a secret-shaped value assigned to a name
+       that says secret". It will nag about a placeholder one day; that is
+       a far better failure than the other one. */
+    ["hardcoded secret", /\b(secret|token|password|passwd|api[_-]?key)\s*[:=]\s*["'][A-Za-z0-9_\-\/+=]{16,}["']/i],
+    ["Stripe key", /\bsk_(live|test)_[A-Za-z0-9]{16,}/],
+    ["Slack token", /\bxox[abposr]-[A-Za-z0-9-]{10,}/],
+    ["Google API key", /\bAIza[0-9A-Za-z_\-]{35}\b/]
   ]) if (re.test(t)) bad(`${f} looks like it contains a ${name}`);
 }
 

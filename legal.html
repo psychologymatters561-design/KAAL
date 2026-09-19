@@ -6,6 +6,51 @@
 <title>KAAL &middot; Legal</title>
 <meta name="description" content="Seller information, terms of sale, shipping, returns, warranty and privacy for KAAL Series 01.">
 <meta name="theme-color" content="#080908">
+<!-- ══════════════════════════════════════════════════════════════════
+     GitHub Pages serves this file and will not send a header of its own,
+     so every header this site gets, it declares here. A meta CSP is
+     weaker than the real thing in exactly one way — `frame-ancestors` is
+     ignored from a meta tag — which is why there is also a frame guard in
+     script below. Everything else is enforced identically.
+
+     What this actually buys: an injected <script src> from anywhere, an
+     injected <base>, an <object>, a <form> posting a buyer's details to
+     someone else's server, and any fetch to a host not named here are all
+     refused by the browser. On a page whose one job is to send somebody to
+     a payment link, that list is most of the ways it could be turned
+     against them.
+
+     connect-src is 'self' because KAAL.api is empty. THE DAY YOU SET IT,
+     ADD THE WORKER'S ORIGIN HERE. tools/check.mjs fails the build if you
+     forget, so this comment is a courtesy, not the safety net.
+     ══════════════════════════════════════════════════════════════════ -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; font-src 'self'; connect-src 'self'; upgrade-insecure-requests">
+<!-- A full URL in a Referer header tells every host this page touches which
+     page the visitor came from. Origin is all any of them need. -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- Clickjacking. `frame-ancestors` cannot be set from a meta tag and
+     GitHub Pages sends no headers, so the page has to refuse on its own.
+     Framed, this site is a convincing backdrop for somebody else's
+     "Claim" button. Runs in the head, before a pixel is painted. -->
+<script>
+(function(){
+  "use strict";
+  var framed;
+  try{ framed = window.self !== window.top; }catch(e){ framed = true; }
+  if(!framed) return;
+  document.documentElement.style.display = "none";
+  document.addEventListener("DOMContentLoaded", function(){
+    document.body.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+      'padding:2rem;text-align:center;background:#080908;color:#EDE8DF;' +
+      'font:300 1rem/1.7 system-ui,-apple-system,sans-serif">' +
+      '<p style="max-width:26rem">This page is being shown inside another site.<br><br>' +
+      '<a href="https://thekaal.co/" target="_top" rel="noopener noreferrer" ' +
+      'style="color:#C6A15B">Open thekaal.co directly</a></p></div>';
+    document.documentElement.style.display = "";
+  });
+})();
+</script>
 <link rel="canonical" href="https://thekaal.co/legal.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 
@@ -162,7 +207,8 @@ footer a:hover{color:var(--bone);border-color:var(--faint)}
   <p>We use it to take your order, dispatch your watch, and answer you if you write to us. We do not sell it, rent it, or pass it to anyone beyond the courier carrying your parcel and the payment processor taking your money.</p>
   <ul>
     <li><strong>Payments.</strong> Card, UPI and banking details go directly to Razorpay and are never seen or stored by us. Razorpay handles them under its own privacy policy.</li>
-    <li><strong>Your browser.</strong> The site stores the number you pick in your own browser so the confirmation page can greet you by it. It never leaves your device and is cleared once shown.</li>
+    <li><strong>Your browser.</strong> The site stores the number you pick in your own browser so the confirmation page can greet you by it, and it is cleared once shown. It also stores one random identifier, tied to nothing about you, so that if you step away mid-purchase the number you were choosing is still recognised as yours when you come back. That identifier is sent to our own edition server with the number you are holding, and to nobody else. No cookies are set, and there is no analytics, advertising or tracking script anywhere on this site.</li>
+    <li><strong>Server logs.</strong> Our edition server and our host keep short-lived technical logs — IP address, time, and the page or request — to keep the site up and to spot abuse. They are not used to build a profile of you and are not combined with your order.</li>
     <li><strong>Retention.</strong> Order records are kept as long as needed to honour the warranty and meet tax and accounting obligations.</li>
   </ul>
   <p>To see, correct or delete what we hold about you, write to <a href="mailto:connect@thekaal.co">connect@thekaal.co</a>.</p>

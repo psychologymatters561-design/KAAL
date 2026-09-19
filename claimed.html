@@ -6,6 +6,51 @@
 <title>KAAL &middot; Confirmed</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#080908">
+<!-- ══════════════════════════════════════════════════════════════════
+     GitHub Pages serves this file and will not send a header of its own,
+     so every header this site gets, it declares here. A meta CSP is
+     weaker than the real thing in exactly one way — `frame-ancestors` is
+     ignored from a meta tag — which is why there is also a frame guard in
+     script below. Everything else is enforced identically.
+
+     What this actually buys: an injected <script src> from anywhere, an
+     injected <base>, an <object>, a <form> posting a buyer's details to
+     someone else's server, and any fetch to a host not named here are all
+     refused by the browser. On a page whose one job is to send somebody to
+     a payment link, that list is most of the ways it could be turned
+     against them.
+
+     connect-src is 'self' because KAAL.api is empty. THE DAY YOU SET IT,
+     ADD THE WORKER'S ORIGIN HERE. tools/check.mjs fails the build if you
+     forget, so this comment is a courtesy, not the safety net.
+     ══════════════════════════════════════════════════════════════════ -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; font-src 'self'; connect-src 'self'; upgrade-insecure-requests">
+<!-- A full URL in a Referer header tells every host this page touches which
+     page the visitor came from. Origin is all any of them need. -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- Clickjacking. `frame-ancestors` cannot be set from a meta tag and
+     GitHub Pages sends no headers, so the page has to refuse on its own.
+     Framed, this site is a convincing backdrop for somebody else's
+     "Claim" button. Runs in the head, before a pixel is painted. -->
+<script>
+(function(){
+  "use strict";
+  var framed;
+  try{ framed = window.self !== window.top; }catch(e){ framed = true; }
+  if(!framed) return;
+  document.documentElement.style.display = "none";
+  document.addEventListener("DOMContentLoaded", function(){
+    document.body.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+      'padding:2rem;text-align:center;background:#080908;color:#EDE8DF;' +
+      'font:300 1rem/1.7 system-ui,-apple-system,sans-serif">' +
+      '<p style="max-width:26rem">This page is being shown inside another site.<br><br>' +
+      '<a href="https://thekaal.co/" target="_top" rel="noopener noreferrer" ' +
+      'style="color:#C6A15B">Open thekaal.co directly</a></p></div>';
+    document.documentElement.style.display = "";
+  });
+})();
+</script>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 
 <link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -84,22 +129,41 @@ main{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-
 <script>
 (function(){
 "use strict";
+
+/* ══════════════════════════════════════════════════════════════════
+   Both values on this card come from somewhere the visitor controls —
+   one from their own localStorage, one from the query string — so both
+   are checked against the only shape they can legitimately have.
+
+   textContent already made this XSS-proof; that was never the risk.
+   The risk is a real page on the real domain, reached by a link
+   somebody else wrote, showing a payment reference somebody else chose.
+   "KAAL says your payment REF-PAY-YOU-OWE-US went through" is a
+   phishing page with our own certificate on it. A reference that is not
+   shaped like a Razorpay payment id is simply not shown, and the row
+   stays hidden exactly as it does for a visitor who arrives directly.
+   ══════════════════════════════════════════════════════════════════ */
+
+function show(rowId, valId, value){
+  document.getElementById(valId).textContent = value;
+  document.getElementById(rowId).hidden = false;
+}
+
 try{
   var n = localStorage.getItem("kaal_claimed_no");
-  if(n){
+  /* Two digits, inside the edition. Anything else is not something this
+     site ever wrote. */
+  if(n && /^\d{2}$/.test(n) && +n >= 1 && +n <= 20){
     document.getElementById("headline").textContent = "No. " + n + " is yours.";
-    document.getElementById("numberVal").textContent = n;
-    document.getElementById("numberRow").hidden = false;
-    localStorage.removeItem("kaal_claimed_no");
+    show("numberRow", "numberVal", n);
   }
+  if(n) localStorage.removeItem("kaal_claimed_no");
 }catch(e){}
+
 try{
-  var qs = new URLSearchParams(location.search);
-  var pid = qs.get("razorpay_payment_id");
-  if(pid){
-    document.getElementById("refVal").textContent = pid;
-    document.getElementById("refRow").hidden = false;
-  }
+  var pid = new URLSearchParams(location.search).get("razorpay_payment_id");
+  /* Razorpay's own format: pay_ and then an alphanumeric id. */
+  if(pid && /^pay_[A-Za-z0-9]{8,32}$/.test(pid)) show("refRow", "refVal", pid);
 }catch(e){}
 })();
 </script>

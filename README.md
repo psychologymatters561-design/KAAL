@@ -9,6 +9,31 @@ Cloudinary.
 
 ---
 
+## Security
+
+`SECURITY.md` is the full review: what was found, what it would have cost,
+what is now closed in code, and — the half that matters more — the seven
+dashboard settings that no commit can fix. Read it before the first ad runs.
+
+The five that decide whether the money is safe:
+
+1. Razorpay Payment Page: **fixed amount**, stock limit 20, field named
+   `kaal_no`. Send one ₹1 test payment and confirm it is **rejected**.
+2. `GITHUB_TOKEN`: fine-grained, this repo only, Contents read/write,
+   never Workflows, with an expiry.
+3. 2FA on GitHub, Razorpay, Cloudflare and **the domain registrar** — the
+   registrar first, because everything else is downstream of DNS.
+4. Cloudflare in front of `thekaal.co`, with a rate-limiting rule on the
+   worker's route.
+5. Subscribe `refund.processed` and `payment.dispute.created`, set
+   `ALERT_TOKEN`, and read `/alerts` daily while the edition is live.
+
+`tools/check.mjs` now fails the build if the Content-Security-Policy, the
+frame guard, or the checkout-host allowlist is removed, or if the checkout
+URL points anywhere outside `KAAL.checkoutHosts`.
+
+---
+
 ## Before the ads run
 
 ### 1. Upload the eight photographs

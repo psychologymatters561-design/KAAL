@@ -291,8 +291,7 @@ a{color:inherit}
 .plate{position:relative;margin:clamp(2.6rem,7vh,5.5rem) 0 0;
   border-radius:2px;overflow:hidden;background:var(--void-2);
   clip-path:inset(0 round 2px)}
-.plate img{width:100%;height:auto;transform:scale(1.09) translate3d(0,var(--par,0),0);
-  will-change:transform;transition:transform .1s linear}
+.plate img{width:100%;height:auto;transform:scale(1.09) translate3d(0,var(--par,0),0)}
 .plate::after{content:"";position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 0 0 130px 20px rgba(8,9,8,.5)}
 .plate-tall{max-width:min(46rem,100%);margin-inline:auto}
@@ -421,14 +420,16 @@ a{color:inherit}
   pointer-events:none;opacity:0;transition:opacity .8s var(--ease)}
 .rail.show{opacity:1}
 .rail-line{position:absolute;left:0;top:14vh;bottom:14vh;width:1px;background:var(--line)}
-.rail-fill{position:absolute;left:0;top:14vh;width:1px;background:var(--gold);height:0;opacity:.55}
+.rail-fill{position:absolute;left:0;top:14vh;width:1px;background:var(--gold);height:72vh;opacity:.55;
+  transform:scaleY(0);transform-origin:top}
 .rail-t{position:absolute;left:-3px;width:7px;height:1px;background:var(--ghost)}
 .rail-t.gone{background:var(--ghost);opacity:.45}
 .rail-t.gone::after{content:"";position:absolute;left:-2px;top:-2px;width:11px;height:5px;
   border-top:1px solid var(--faint);transform:rotate(-38deg);opacity:.7}
 @media (max-width:1180px){.rail{display:none}}
 /* Below that width the same value draws a hairline across the top instead. */
-.tick-top{position:fixed;top:0;left:0;height:1px;background:var(--gold);z-index:8;width:0;opacity:.6}
+.tick-top{position:fixed;top:0;left:0;height:1px;background:var(--gold);z-index:8;width:100%;opacity:.6;
+  transform:scaleX(0);transform-origin:left}
 @media (min-width:1181px){.tick-top{display:none}}
 
 /* ── Footer. The scroll stays silent; Indian e-commerce law is not
@@ -451,6 +452,19 @@ a{color:inherit}
 .foot-end{margin-top:clamp(2.5rem,6vh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
   display:flex;flex-wrap:wrap;gap:1rem;align-items:center;
   font-size:.75rem;color:var(--faint)}
+
+/* ── THE PHONE BUDGET. Two full-screen compositor effects cost more on a
+      phone GPU than they return at these sizes. The grain is a blend layer
+      over the whole viewport at 3.5% opacity — on a five inch screen it is
+      below the threshold of sight, and the compositor still blends it on
+      every scrolled frame. The chrome's backdrop blur is a readback of
+      whatever is behind a bar that is already 97% opaque. Both are paid
+      out of exactly the budget the hero scrub needs. Desktop keeps them. ── */
+@media (max-width:820px){
+  .grain{display:none}
+  .nav.show{backdrop-filter:none;-webkit-backdrop-filter:none}
+  .dock{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(8,9,8,.97)}
+}
 
 /* ── Anyone who asked for less motion gets a complete, still site. ── */
 @media (prefers-reduced-motion:reduce){
@@ -748,7 +762,7 @@ a{color:inherit}
     </ul>
 
     <div class="claim">
-      <p class="claim-state" id="claimState">Nothing chosen yet.</p>
+      <p class="claim-state" id="claimState" role="status" aria-live="polite">Nothing chosen yet.</p>
       <a class="buy inert" id="cta" role="button" aria-disabled="true">Choose your number</a>
       <p class="buy-note">Five days to your door. Seven days to change your mind.</p>
     </div>
@@ -831,6 +845,13 @@ var KAAL = {
   checkout: "",
   price:    "5,999",
   edition:  20,
+
+  /* The deployed edition worker, or "". Empty is not a degraded mode: it
+     is how this site has always run, and everything below still works.
+     Set it and the page asks the server what is actually sold before it
+     lets anyone choose — which is the difference between two buyers
+     colliding on 07 and one of them being told, before they pay. */
+  api:      "",
   sold:     [1, 2],
   film:     "https://res.cloudinary.com/zuc7oxyj/video/upload/v1788959635/090901_1788957849218.mp4",
 
@@ -841,6 +862,20 @@ var KAAL = {
      here is ever requested again. Set to "" to switch the net off. */
   frames:   "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_{W},c_limit,q_auto,f_auto/v1788959635/090901_1788957849218.jpg",
 
+  /* The hero asks the same film for a different crop, and that is worth a
+     second line. The template above fills a photograph's slot, so it has to
+     keep the whole frame: c_limit. The hero canvas covers the viewport, and
+     a phone's viewport is taller than the film is. With c_limit the browser
+     was handed a 720x405 still and asked to cover a 585x1266 canvas with it
+     — a 3.1x upscale on every painted frame, paid twice, once in GPU time
+     and once in sharpness. c_fill with g_center asks Cloudinary for exactly
+     the crop the canvas was going to take anyway, at exactly the size it
+     needs. Same picture, a third of the pixels, no upscale.
+
+     {H} is the only difference in shape. Delete this line and the hero
+     silently falls back to the template above, exactly as it behaved
+     before. */
+  filmFrames: "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_{W},h_{H},c_fill,g_center,q_auto,f_auto/v1788959635/090901_1788957849218.jpg",
   /* How many stills the film is cut into, and how wide. More frames is a
      smoother scrub and more bytes; this is the one dial that trades the
      two against each other. 48 is smooth enough that the largest gap
@@ -883,6 +918,27 @@ var qs = new URLSearchParams(location.search);
       scrollbar was taken away. ─────────────────────────────────── */
 var S = { raw:0, y:0, v:0, max:1 };
 
+/* ── M is the page, measured.
+
+   Everything the loop needs to know about where things ARE is taken once,
+   here, and never again while scrolling. That is the whole trick. A
+   getBoundingClientRect() is not expensive in itself; it is expensive
+   because it is a question the browser can only answer by finishing any
+   layout it was putting off, and the old loop asked it about twenty times
+   a frame with style writes in between. Read, write, read, write: each
+   read paid for the write before it.
+
+   Scroll does not move anything in the document. It moves the window over
+   a document whose geometry is unchanged, so every position the loop wants
+   is a subtraction from a number taken before the scroll began. The loop
+   below therefore performs no layout reads at all. It does arithmetic.
+
+   The numbers go stale only when the document itself changes shape: a
+   resize, a rotation, a lazy photograph arriving, a plate falling back to
+   its panel. Each of those calls remeasure(), debounced. ────────────── */
+var M = { vw:0, vh:0, stageH:0, heroTop:0, heroSpan:1,
+          acts:[], plates:[], facesTop:0, twentyTop:0 };
+
 /* The loop rests. It wakes on input and sleeps when nothing has moved
    for a beat, so an idle page costs nothing. */
 var awake = 0, running = false;
@@ -912,15 +968,15 @@ function wake(){ awake = 14; if(!running){ running = true; requestAnimationFrame
    its own right rather than a hole where a film should be. ─────────── */
 var still = $("#still"), stage = $("#stage");
 var SEQ = {
-  n:0, w:0, imgs:[], got:0, live:false,
-  cv:null, ctx:null, painted:-1, want:0, pos:0, dpr:1
+  n:0, w:0, h:0, imgs:[], ok:[], got:0, live:false,
+  cv:null, ctx:null, painted:-1, want:0, pos:0
 };
 
 function filmAllowed(){
   if(qs.get("film") === "1") return true;      /* owner override, for reviewing on a phone */
   if(qs.get("film") === "0") return false;
   if(reduced) return false;                                   /* 1. asked for less motion */
-  if(!KAAL.frames) return false;                              /* 2. nothing to cut frames from */
+  if(!KAAL.frames && !KAAL.filmFrames) return false;          /* 2. nothing to cut frames from */
   if(window.innerWidth < 340) return false;                   /* 3. no room for it */
   var c = navigator.connection;
   if(c && c.saveData) return false;                           /* 4. save data is on */
@@ -928,9 +984,44 @@ function filmAllowed(){
   return true;
 }
 
-function frameUrl(i, n, w){
-  var pct = (i / (n - 1)) * 100;
-  return KAAL.frames.replace("{T}", pct.toFixed(2) + "p").replace("{W}", w);
+/* ── THE GEOMETRY.
+
+   The canvas and the frames painted into it are deliberately the same
+   size, which makes drawImage a one to one blit: the cheapest path the
+   2D context has. Everything below exists to pick that one size well.
+
+   A phone gets device pixel ratio 1 on purpose. That reads like a
+   downgrade and is the opposite of one. The old build asked for a
+   720x405 still and stretched it across a 585x1266 canvas, so the
+   picture a phone actually saw carried about a third of a device pixel
+   per screen pixel. Asking for the viewport at ratio 1 triples that,
+   for the same bytes and the same memory, because the pixels are now
+   the ones the screen is going to show instead of pixels invented by a
+   3.1x upscale.
+
+   Requests are bucketed to eighty pixels for two reasons. A CDN caches
+   per URL, so two phones a few pixels apart should share an entry
+   rather than each paying for a cold transform. And the URL bar on iOS
+   changes the viewport height by sixty to ninety pixels as you scroll:
+   inside a bucket, that motion cannot change the canvas size, so it
+   cannot trigger a reallocation in the middle of a scrub. ─────────── */
+var FILM_CAP_SMALL = 0.45e6, FILM_CAP_LARGE = 1.0e6, FILM_EDGE = 1440;
+function filmBox(){
+  var vw = Math.max(320, M.vw || window.innerWidth);
+  var vh = Math.max(320, M.vh || window.innerHeight);
+  var small = vw < 900;
+  var cap = small ? FILM_CAP_SMALL : FILM_CAP_LARGE;
+  var d = Math.min(window.devicePixelRatio || 1, small ? 1 : 1.5);
+  if(vw * vh * d * d > cap) d = Math.sqrt(cap / (vw * vh));
+  return { w: bucket(vw * d), h: bucket(vh * d) };
+}
+function bucket(v){ return Math.max(320, Math.min(FILM_EDGE, Math.ceil(v / 80) * 80)); }
+
+/* The hero template if there is one, the photograph template if not. */
+function frameUrl(i, n){
+  var t = KAAL.filmFrames || KAAL.frames;
+  var pct = ((i / (n - 1)) * 100).toFixed(2) + "p";
+  return t.replace("{T}", pct).replace("{W}", SEQ.w).replace("{H}", SEQ.h);
 }
 
 /* Frames arrive in bisection order rather than left to right, so that a
@@ -949,23 +1040,32 @@ function bisect(n){
   return out;
 }
 
+/* Sizing the canvas allocates a new backing store, clears it and forces a
+   full repaint, so it must happen when the viewport really changed and at
+   no other time. The old build called this from a bare resize listener;
+   on iOS, hiding the URL bar mid scroll fires resize, which reallocated
+   the canvas and blanked the frame in the middle of the scrub. */
 function sizeCanvas(){
   if(!SEQ.cv) return;
-  SEQ.dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < 900 ? 1.5 : 2);
-  SEQ.cv.width  = Math.round(window.innerWidth  * SEQ.dpr);
-  SEQ.cv.height = Math.round(window.innerHeight * SEQ.dpr);
+  var box = filmBox();
+  if(SEQ.cv.width === box.w && SEQ.cv.height === box.h) return;
+  SEQ.cv.width = box.w; SEQ.cv.height = box.h;
   SEQ.painted = -1;                      /* force a repaint at the new size */
 }
 
-/* Cover draw, centred, exactly what object-fit: cover would do. */
+/* Cover draw, centred, exactly what object-fit: cover would do — with a
+   straight blit when the frame already is the canvas, which is the case
+   every time until the viewport changes shape under a loaded sequence. */
 function paintFrame(i){
   if(i === SEQ.painted) return;
   var img = SEQ.imgs[i];
-  if(!img || !img.complete || !img.naturalWidth) return;
+  if(!SEQ.ok[i] || !img) return;
   SEQ.painted = i;
   var cw = SEQ.cv.width, ch = SEQ.cv.height;
-  var k = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-  var dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+  var iw = img.naturalWidth, ih = img.naturalHeight;
+  if(iw === cw && ih === ch){ SEQ.ctx.drawImage(img, 0, 0); return; }
+  var k = Math.max(cw / iw, ch / ih);
+  var dw = iw * k, dh = ih * k;
   SEQ.ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
 }
 
@@ -973,21 +1073,22 @@ function paintFrame(i){
    the hero never blanks mid scroll while the rest are still arriving. */
 function nearestReady(i){
   for(var d = 0; d < SEQ.n; d++){
-    var a = i - d, b = i + d, im;
-    im = SEQ.imgs[a]; if(a >= 0 && im && im.complete && im.naturalWidth) return a;
-    im = SEQ.imgs[b]; if(b < SEQ.n && im && im.complete && im.naturalWidth) return b;
+    var a = i - d, b = i + d;
+    if(a >= 0 && SEQ.ok[a]) return a;
+    if(b < SEQ.n && SEQ.ok[b]) return b;
   }
   return -1;
 }
 
 function loadFilm(){
   var ring = $("#ring"), bar = $("#ringBar"), txt = $("#ringTxt");
-  var small = window.innerWidth < 900;
+  var small = (M.vw || window.innerWidth) < 900;
 
   /* A phone is paid for by spending less, not by spending nothing. It
-     gets the film, at half the frames and a smaller plate. */
+     gets the film, at half the frames and a plate cut to its own screen. */
   SEQ.n = small ? (KAAL.frameCountSmall || 24) : (KAAL.frameCount || 48);
-  SEQ.w = small ? 720 : 1280;
+  var box = filmBox();
+  SEQ.w = box.w; SEQ.h = box.h;
 
   SEQ.cv  = $("#seq");
   SEQ.ctx = SEQ.cv.getContext("2d", { alpha:false });
@@ -995,8 +1096,15 @@ function loadFilm(){
 
   var t0 = Date.now(), shown = false, failed = 0;
 
-  function done(){
-    SEQ.got++;
+  /* Twenty four requests fired at once do not arrive sooner than twenty
+     four requests fired six at a time — the connection is the same width
+     either way. What changes is the order they finish in. Held to six,
+     the bisection order survives contact with the network, so the early
+     frames that make the hero watchable land early instead of finishing
+     somewhere in the middle of a crowd. */
+  var MAXCONN = 6, inflight = 0, queue = [];
+
+  function progress(){
     if(!shown && Date.now() - t0 > 400){ shown = true; ring.classList.add("on"); }
     if(shown){
       var pr = SEQ.got / SEQ.n;
@@ -1004,29 +1112,49 @@ function loadFilm(){
       txt.textContent = Math.round(pr * 100) + "%";
     }
     if(SEQ.got >= SEQ.n - failed){ ring.classList.remove("on"); }
-    goLive();
-    wake();
   }
 
-  function add(idx){
+  /* A frame counts as ready only once it is DECODED, not once it has
+     arrived. drawImage on an undecoded image decodes it inline, on the
+     main thread, in the middle of a scrub — which is precisely the frame
+     you cannot afford to spend five to twenty milliseconds on. decode()
+     moves that work off the critical path and into the loading phase,
+     where nobody is watching. */
+  function settle(idx, ok){
+    SEQ.ok[idx] = !!ok;
+    SEQ.got++; inflight--;
+    if(!ok) failed++;
+    progress(); goLive(); pump(); wake();
+  }
+
+  function start(idx){
     if(SEQ.imgs[idx]) return SEQ.imgs[idx];
     var im = new Image();
     im.decoding = "async";
-    im.onload  = done;
-    im.onerror = function(){
-      failed++;
-      if(failed >= SEQ.n){ ring.classList.remove("on"); still.classList.add("on"); }
-      done();
-    };
     SEQ.imgs[idx] = im;
-    im.src = frameUrl(idx, SEQ.n, SEQ.w);
+    inflight++;
+    im.onload = function(){
+      if(im.decode){
+        im.decode().then(function(){ settle(idx, true); },
+                         function(){ settle(idx, !!im.naturalWidth); });
+      } else settle(idx, !!im.naturalWidth);
+    };
+    im.onerror = function(){
+      if(failed + 1 >= SEQ.n){ ring.classList.remove("on"); still.classList.add("on"); }
+      settle(idx, false);
+    };
+    im.src = frameUrl(idx, SEQ.n);
     return im;
+  }
+
+  function pump(){
+    while(inflight < MAXCONN && queue.length) start(queue.shift());
   }
 
   /* The opening frame is loaded ALONE and first.
 
-     Requesting them in a clever order is not enough: forty eight requests
-     go out together, the connection multiplexes them, and they finish in
+     Requesting them in a clever order is not enough: the requests go out
+     together, the connection multiplexes them, and they finish in
      whatever order they finish. Going live on "any three have landed"
      therefore opens the hero on whichever frame happened to win the race
      and then eases backwards to the one the scrollbar is actually on,
@@ -1054,25 +1182,22 @@ function loadFilm(){
     wake();
   }
 
-  /* The rest, spread by bisection so a handful already covers the whole
-     film and it sharpens as they arrive rather than sitting on a still
-     until the final byte. */
   function rest(){
     var order = bisect(SEQ.n);
-    for(var k = 0; k < order.length; k++) add(order[k]);
+    for(var k = 0; k < order.length; k++) if(order[k] !== opening) queue.push(order[k]);
+    pump();
   }
 
-  var first = add(opening);
-  if(first.complete && first.naturalWidth){ goLive(); rest(); }
+  var first = start(opening);
+  if(first.complete && first.naturalWidth){ SEQ.ok[opening] = true; goLive(); rest(); }
   else {
-    first.addEventListener("load",  function(){ goLive(); rest(); }, { once:true });
+    first.addEventListener("load",  rest, { once:true });
     first.addEventListener("error", rest, { once:true });
   }
 
   /* If nothing at all is paintable within twelve seconds, stop waiting
      and let the still be the hero. It always was. */
   setTimeout(function(){ if(!SEQ.live){ ring.classList.remove("on"); still.classList.add("on"); } }, 12000);
-  addEventListener("resize", function(){ sizeCanvas(); wake(); }, { passive:true });
 }
 
 /* ── Hero transport. Scroll position inside the hero maps to a frame
@@ -1080,11 +1205,14 @@ function loadFilm(){
       painted only when the index actually changes. No decoder, no seek,
       nothing to gate. ──────────────────────────────────────────────── */
 var hero = $("#hero");
+/* Measured against the sticky stage's own height rather than
+   window.innerHeight. On a phone those are different numbers: the stage is
+   100svh and stays put, while innerHeight grows and shrinks by sixty to
+   ninety pixels as the URL bar hides and returns. Dividing by a number
+   that moves made the film jump mid scroll, every time the bar did. */
 function heroProgress(){
-  var r = hero.getBoundingClientRect();
-  var span = hero.offsetHeight - window.innerHeight;
-  if(span <= 0) return 0;
-  return clamp(-r.top / span, 0, 1);
+  if(M.heroSpan <= 0) return 0;
+  return clamp((S.raw - M.heroTop) / M.heroSpan, 0, 1);
 }
 function driveFilm(p){
   if(!SEQ.live || !SEQ.n) return;
@@ -1095,7 +1223,7 @@ function driveFilm(p){
   SEQ.pos += (SEQ.want - SEQ.pos) * 0.22;
   if(Math.abs(SEQ.want - SEQ.pos) < 0.01) SEQ.pos = SEQ.want;
   var i = clamp(Math.round(SEQ.pos), 0, SEQ.n - 1) + 0;
-  var ready = (SEQ.imgs[i] && SEQ.imgs[i].complete && SEQ.imgs[i].naturalWidth) ? i : nearestReady(i);
+  var ready = SEQ.ok[i] ? i : nearestReady(i);
   if(ready >= 0) paintFrame(ready);
 }
 
@@ -1137,10 +1265,9 @@ function driveCaps(p){
       read as one continuous building. ──────────────────────────── */
 var worldEl = $("#world"), acts = $$(".act[data-world]"), curWorld = "";
 function driveWorld(){
-  var mid = window.innerHeight * 0.5, found = "void";
-  for(var i=0;i<acts.length;i++){
-    var r = acts[i].getBoundingClientRect();
-    if(r.top <= mid && r.bottom >= mid){ found = acts[i].dataset.world; break; }
+  var mid = S.raw + M.vh * 0.5, found = "void", a = M.acts;
+  for(var i=0;i<a.length;i++){
+    if(a[i].top <= mid && a[i].bottom >= mid){ found = a[i].world; break; }
   }
   if(found !== curWorld){ curWorld = found; worldEl.style.backgroundColor = WORLD[found] || WORLD.void; }
 }
@@ -1168,6 +1295,7 @@ function driveWorld(){
       n.className = "await";
       n.textContent = "Photograph pending";
       plate.appendChild(n);
+      remeasure();                 /* the panel is a different height */
     } else if(img.id === "still"){
       img.style.display = "none";
     }
@@ -1184,12 +1312,13 @@ var plates = $$(".plate[data-par]").map(function(el){
   return { el:el, img:el.querySelector("img"), k:parseFloat(el.dataset.par)||0.06, last:null };
 });
 function drivePlates(){
-  var h = window.innerHeight;
-  for(var i=0;i<plates.length;i++){
-    var p = plates[i], r = p.el.getBoundingClientRect();
-    if(!p.img || p.el.classList.contains("void-plate")) continue;
-    if(r.bottom < -80 || r.top > h + 80) continue;
-    var c = (r.top + r.height/2 - h/2) / h;
+  var h = M.vh, m = M.plates;
+  for(var i=0;i<m.length;i++){
+    var p = m[i];
+    if(!p.img || p.dead) continue;
+    var top = p.top - S.raw;                    /* document space to viewport space */
+    if(top + p.h < -80 || top > h + 80) continue;
+    var c = (top + p.h/2 - h/2) / h;
     var y = (-c * p.k * h).toFixed(1);
     if(y !== p.last){ p.last = y; p.img.style.transform = "scale(1.09) translate3d(0," + y + "px,0)"; }
   }
@@ -1211,14 +1340,19 @@ var rail = $("#rail"), railFill = $("#railFill"), tickTop = $("#tickTop"), railL
   }
   rail.appendChild(frag);
 })();
+var railShown = false;
 function driveRail(){
   var p = clamp(S.y / S.max, 0, 1);
   var v = Math.round(p * 1000);
   if(v === railLast) return;
   railLast = v;
-  railFill.style.height = (p * 72) + "vh";
-  tickTop.style.width = (p * 100) + "%";
-  rail.classList.toggle("show", p > 0.04);
+  /* Height and width are layout properties: writing them every frame asked
+     the browser to lay the page out again every frame, for a hairline. The
+     same two pictures drawn as scale transforms never leave the compositor. */
+  railFill.style.transform = "scaleY(" + p.toFixed(4) + ")";
+  tickTop.style.transform  = "scaleX(" + p.toFixed(4) + ")";
+  var want = p > 0.04;
+  if(want !== railShown){ railShown = want; rail.classList.toggle("show", want); }
 }
 
 /* ── Dust. Whisper level, and it is the only thing on the page allowed
@@ -1240,7 +1374,21 @@ function driveRail(){
       d:(Math.random()*0.5 - 0.25) * dpr
     });
   }
-  function paint(){
+  /* This was the only loop on the page that never rested: a full viewport
+     clear and up to seventy eight arcs, sixty times a second, for as long
+     as the tab was open. On a phone it is worth keeping and not worth
+     paying full price for — half the frame rate, and none at all while the
+     hero is being scrubbed, which is the one moment the budget is spoken
+     for. At five percent alpha behind a film, nobody has ever seen the
+     difference; the battery has. */
+  var thin = innerWidth < 820, gap = thin ? 33 : 0, lastT = -1e9;
+  function paint(ts){
+    raf = requestAnimationFrame(paint);
+    if(gap){
+      if((ts || 0) - lastT < gap) return;
+      lastT = ts || 0;
+      if(awake > 0) return;            /* the scrub owns this frame */
+    }
     ctx.clearRect(0,0,w,h);
     for(var i=0;i<dots.length;i++){
       var p = dots[i];
@@ -1251,10 +1399,12 @@ function driveRail(){
       ctx.fillStyle = "#EDE8DF";
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
     }
-    raf = requestAnimationFrame(paint);
   }
+  var dustTimer = 0;
   size(); paint();
-  addEventListener("resize", size, { passive:true });
+  addEventListener("resize", function(){
+    clearTimeout(dustTimer); dustTimer = setTimeout(size, 200);
+  }, { passive:true });
   document.addEventListener("visibilitychange", function(){
     if(document.hidden){ cancelAnimationFrame(raf); raf = 0; }
     else if(!raf){ raf = requestAnimationFrame(paint); }
@@ -1332,6 +1482,12 @@ function paintCta(){
   });
 }
 
+[cta, dockCta].forEach(function(el){
+  el.addEventListener("click", function(){
+    if(chosen && KAAL.checkout) holdNumber(chosen);
+  });
+});
+
 grid.addEventListener("click", function(e){
   var b = e.target.closest(".pick");
   if(!b || b.disabled) return;
@@ -1343,16 +1499,130 @@ grid.addEventListener("click", function(e){
   paintCta();
 });
 
-/* Counts, title and share card all read from one place. */
-(function counts(){
+/* Counts, title and share card all read from one place — and read it
+   again if the server tells us the edition moved under our feet. */
+function countsFromRemaining(){
   var word = WORDS[remaining] || String(remaining);
   $("#remWord").textContent = word;
   $("#navRem").textContent  = word;
   $("#dockRem").textContent = word;
-  $("#yr").textContent = new Date().getFullYear();
   document.title = "KAAL Series 01 · " + word.toLowerCase() + " of twenty remain";
+}
+(function counts(){
+  countsFromRemaining();
+  $("#yr").textContent = new Date().getFullYear();
 })();
 paintCta();
+
+/* ── THE EDITION, AS THE SERVER KNOWS IT.
+
+      The array in the config is a photograph of the edition taken when
+      the file was last pushed. It is right almost all of the time, and
+      the minutes when it is wrong are the expensive ones: two people
+      choosing 07, both reaching Razorpay, one of them getting a refund
+      and an apology instead of a watch.
+
+      So the page asks. Once, after everything is already on screen, with
+      a four second patience and no spinner — nothing here is allowed to
+      delay a single pixel. And it merges in ONE direction: a number the
+      server calls sold gets struck, a number it does not is left exactly
+      as the file said. A server that can only ever be more cautious than
+      the static page is a server that cannot take the shop down when it
+      is having a bad day. ──────────────────────────────────────────── */
+var clientToken = (function(){
+  try{
+    var t = localStorage.getItem("kaal_client");
+    if(!t){ t = Date.now().toString(36) + Math.random().toString(36).slice(2,10);
+            localStorage.setItem("kaal_client", t); }
+    return t;
+  }catch(e){ return ""; }
+})();
+
+function markSold(n){
+  n = parseInt(n, 10);
+  if(!n || n < 1 || n > KAAL.edition || soldSet[n]) return;
+  soldSet[n] = 1;
+  remaining = Math.max(0, remaining - 1);
+
+  var b = $('.pick[data-n="' + n + '"]', grid);
+  if(b){
+    var f = FACE[KAAL.dials[n]] || FACE.ivory;
+    b.disabled = true;
+    b.setAttribute("aria-pressed", "false");
+    b.setAttribute("aria-label", "Number " + pad(n) + ", " + f.name + " dial, already gone");
+  }
+  var ticks = $$(".rail-t", rail);
+  if(ticks[n-1]) ticks[n-1].classList.add("gone");
+
+  countsFromRemaining();
+
+  if(chosen === n){
+    chosen = 0;
+    $$(".pick", grid).forEach(function(el){ el.setAttribute("aria-pressed", "false"); });
+    paintCta();
+    /* Said plainly, once, in the line that already exists for it. The
+       live region carries it to a screen reader without stealing focus.
+       paintCta writes the neutral count into this line first, so this
+       has to be the last word, not the first. */
+    claimState.textContent = "Number " + pad(n) + " went while you were looking. Choose another.";
+    return;
+  }
+  if(!chosen) paintCta();
+}
+
+(function liveState(){
+  if(!KAAL.api || !window.fetch) return;
+  var base = KAAL.api.replace(/\/+$/, ""), busy = false, timer = 0;
+
+  function ask(){
+    if(busy || remaining <= 0) return;
+    busy = true;
+    var ctrl = ("AbortController" in window) ? new AbortController() : null;
+    var give = setTimeout(function(){ if(ctrl) ctrl.abort(); }, 4000);
+    fetch(base + "/state", { mode:"cors", credentials:"omit", signal: ctrl && ctrl.signal })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.sold || !d.sold.length) return;
+        for(var i=0;i<d.sold.length;i++) markSold(d.sold[i]);
+      })
+      .catch(function(){ /* the file's own array stands */ })
+      .then(function(){ clearTimeout(give); busy = false; });
+  }
+
+  /* Asking once, at load, only closes the case where the sale happened
+     before the visitor arrived — which the next push would have fixed
+     anyway. The case worth money is the one where it happens WHILE they
+     are deciding, and people decide on a ₹5,999 watch for longer than a
+     page load. So it asks again every minute, and immediately when the
+     tab comes back to the front, and never while nobody is looking at
+     it. One small JSON, cached ten seconds at the edge. */
+  function schedule(){
+    clearInterval(timer);
+    timer = setInterval(function(){
+      if(document.visibilityState === "visible") ask();
+    }, 60000);
+  }
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible") ask();
+  });
+  ask(); schedule();
+})();
+
+/* A hold is placed at the moment of intent to pay, not at the moment of
+   interest — holding on a mere tap would burn numbers on people who were
+   only looking. keepalive lets the request outlive the navigation to
+   Razorpay, so it costs the buyer nothing: the page leaves immediately
+   whether or not this ever lands. Nothing here can block a checkout. */
+function holdNumber(n){
+  if(!KAAL.api || !window.fetch || !n) return;
+  try{
+    fetch(KAAL.api.replace(/\/+$/, "") + "/hold", {
+      method:"POST", mode:"cors", credentials:"omit", keepalive:true,
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ n:n, by:clientToken })
+    }).catch(function(){});
+  }catch(e){}
+}
 
 /* ── Reveals. One observer, and an act keeps its lit state once it has
       been seen, because re-animating on the way back up is a tic. ── */
@@ -1373,22 +1643,41 @@ paintCta();
       A buy bar shown before desire is built is the single most common
       way a page like this loses the sale it was designed to make. ── */
 var nav = $("#nav"), dock = $("#dock"), faces = $("#faces"), cue = $("#cue"), twentyEl = $("#twenty");
+var navShown = false, dockShown = false, cueHidden = null;
 function driveChrome(){
-  var past = S.y > window.innerHeight * 0.8;
-  nav.classList.toggle("show", past);
-  var fr = faces.getBoundingClientRect();
-  var earned = fr.top < window.innerHeight * 0.5;
-  var tw = twentyEl.getBoundingClientRect();
-  var arrived = tw.top < window.innerHeight * 0.72;   /* the real button is here */
-  dock.classList.toggle("show", earned && !arrived);
-  if(cue) cue.style.opacity = S.raw > 60 ? "0" : "1";
+  /* Each of these was a classList.toggle written on every frame whether or
+     not the answer had changed, and two of them sat between a pair of
+     getBoundingClientRect calls. A toggle that writes the same value still
+     invalidates style; two per frame is most of a recalculation budget
+     spent restating something the browser already knew. */
+  var past = S.y > M.vh * 0.8;
+  if(past !== navShown){ navShown = past; nav.classList.toggle("show", past); }
+
+  var earned  = (M.facesTop  - S.raw) < M.vh * 0.5;
+  var arrived = (M.twentyTop - S.raw) < M.vh * 0.72;   /* the real button is here */
+  var want = earned && !arrived;
+  if(want !== dockShown){ dockShown = want; dock.classList.toggle("show", want); }
+
+  if(cue){
+    var hide = S.raw > 60;
+    if(hide !== cueHidden){ cueHidden = hide; cue.style.opacity = hide ? "0" : "1"; }
+  }
 }
 
-/* ══════════ THE LOOP ══════════ */
+/* ══════════ THE LOOP ══════════
+
+   One read, at the top, of the only thing that actually changed: the
+   scroll offset. Everything after it is arithmetic against M and writes
+   to the page. No layout is read inside this function, and nothing below
+   can force one, which is what makes the cost of a frame flat instead of
+   proportional to how much of the page has been invalidated.
+
+   S.max used to be recomputed here from scrollHeight — a document-wide
+   layout question, asked sixty times a second, whose answer changes only
+   when the document changes shape. It lives in measure() now. ─────── */
 var prevY = 0;
 function tick(){
   S.raw = window.pageYOffset || document.documentElement.scrollTop || 0;
-  S.max = Math.max(1, (document.documentElement.scrollHeight - window.innerHeight));
   S.y += (S.raw - S.y) * 0.115;
   if(Math.abs(S.raw - S.y) < 0.35) S.y = S.raw;
   S.v = S.y - prevY; prevY = S.y;
@@ -1408,14 +1697,70 @@ function tick(){
   if(awake > 0){ requestAnimationFrame(tick); } else { running = false; }
 }
 
-["scroll","resize","orientationchange","touchstart","touchmove","wheel","keydown"].forEach(function(ev){
+/* ══════════ MEASURING ══════════
+
+   Taken once at rest, and again only when the document can have changed
+   shape. Every read the loop is no longer allowed to make is made here,
+   in one pass, with nothing writing in between. ──────────────────────── */
+function docTop(el){ return el.getBoundingClientRect().top + (window.pageYOffset || 0); }
+function measure(){
+  M.vw = window.innerWidth;
+  M.vh = window.innerHeight;
+  M.stageH  = stage ? stage.offsetHeight : M.vh;
+  M.heroTop = docTop(hero);
+  M.heroSpan = Math.max(1, hero.offsetHeight - M.stageH);
+  S.max = Math.max(1, document.documentElement.scrollHeight - M.vh);
+
+  M.acts = acts.map(function(el){
+    var t = docTop(el);
+    return { top:t, bottom:t + el.offsetHeight, world:el.dataset.world };
+  });
+  if(M.plates.length !== plates.length){
+    M.plates = plates.map(function(p){ return { img:p.img, k:p.k, last:null }; });
+  }
+  for(var pi=0; pi<plates.length; pi++){
+    var src = plates[pi], dst = M.plates[pi];
+    dst.top  = docTop(src.el);
+    dst.h    = src.el.offsetHeight;
+    dst.dead = src.el.classList.contains("void-plate");
+  }
+  M.facesTop  = docTop(faces);
+  M.twentyTop = docTop(twentyEl);
+}
+
+/* A photograph arriving, a plate falling back to its panel, a rotation:
+   each changes where things are, none of them is worth measuring twice.
+   Height-only changes under 120px are the URL bar on a phone, which moves
+   the window and not the document — measuring for that is how a scrub
+   ends up competing with a full layout pass. */
+var reTimer = 0, lastVW = 0, lastVH = 0;
+function remeasure(){
+  clearTimeout(reTimer);
+  reTimer = setTimeout(function(){
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var real = vw !== lastVW || Math.abs(vh - lastVH) > 120 || !lastVW;
+    lastVW = vw; lastVH = vh;
+    measure();
+    if(real) sizeCanvas();
+    wake();
+  }, 150);
+}
+
+["scroll","touchstart","touchmove","wheel","keydown"].forEach(function(ev){
   addEventListener(ev, wake, { passive:true });
 });
-if(window.ResizeObserver) new ResizeObserver(wake).observe(document.body);
+["resize","orientationchange"].forEach(function(ev){
+  addEventListener(ev, function(){ remeasure(); wake(); }, { passive:true });
+});
+if(window.ResizeObserver) new ResizeObserver(function(){ remeasure(); wake(); }).observe(document.body);
+addEventListener("load", remeasure);
+$$("img").forEach(function(im){ im.addEventListener("load", remeasure, { once:true }); });
 
 /* ── Go. The wordmark draws itself, and the film is only fetched after
       load so it can never delay the first screen. ─────────────── */
 requestAnimationFrame(function(){ document.body.classList.add("drawn"); });
+measure();
+lastVW = window.innerWidth; lastVH = window.innerHeight;
 wake();
 if(filmAllowed()){
   if(document.readyState === "complete") loadFilm();

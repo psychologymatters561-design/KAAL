@@ -6,6 +6,11 @@
 <title>KAAL Series 01 · Twenty watches, then the design retires</title>
 <meta name="description" content="Twenty numbered watches. One case, four faces, finished by hand. When the twentieth ships, Series 01 is retired and never made again.">
 <meta name="theme-color" content="#080908">
+<!-- The defaults cap a text snippet at roughly 160 characters and an image
+     preview at a thumbnail. This brand's argument does not survive being cut
+     at 160 characters, and the answer engines that quote it are working from
+     the same snippet budget a search result is. -->
+<meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
 <link rel="canonical" href="https://thekaal.co/">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -44,7 +49,8 @@
       "email": "connect@thekaal.co",
       "telephone": "+91-93114-16678",
       "areaServed": "IN",
-      "founder": { "@type": "Person", "name": "Arjun Dixit" }
+      "founder": { "@type": "Person", "name": "Arjun Dixit" },
+      "sameAs": []
     },
     {
       "@type": "WebSite",
@@ -53,6 +59,36 @@
       "name": "KAAL",
       "publisher": { "@id": "https://thekaal.co/#org" },
       "inLanguage": "en"
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://thekaal.co/#twenty",
+      "name": "KAAL Series 01: the twenty numbers, and the dial each one carries",
+      "description": "Every number in Series 01 was assigned its dial before the site went live. The dial a number carries never changes; only whether the number is still available does.",
+      "numberOfItems": 20,
+      "itemListOrder": "https://schema.org/ItemListOrderAscending",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "KAAL Series 01, No. 01 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 2, "name": "KAAL Series 01, No. 02 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 3, "name": "KAAL Series 01, No. 03 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 4, "name": "KAAL Series 01, No. 04 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 5, "name": "KAAL Series 01, No. 05 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 6, "name": "KAAL Series 01, No. 06 \u2014 Emerald dial" },
+        { "@type": "ListItem", "position": 7, "name": "KAAL Series 01, No. 07 \u2014 Midnight dial" },
+        { "@type": "ListItem", "position": 8, "name": "KAAL Series 01, No. 08 \u2014 Midnight dial" },
+        { "@type": "ListItem", "position": 9, "name": "KAAL Series 01, No. 09 \u2014 Midnight dial" },
+        { "@type": "ListItem", "position": 10, "name": "KAAL Series 01, No. 10 \u2014 Midnight dial" },
+        { "@type": "ListItem", "position": 11, "name": "KAAL Series 01, No. 11 \u2014 Champagne dial" },
+        { "@type": "ListItem", "position": 12, "name": "KAAL Series 01, No. 12 \u2014 Champagne dial" },
+        { "@type": "ListItem", "position": 13, "name": "KAAL Series 01, No. 13 \u2014 Champagne dial" },
+        { "@type": "ListItem", "position": 14, "name": "KAAL Series 01, No. 14 \u2014 Champagne dial" },
+        { "@type": "ListItem", "position": 15, "name": "KAAL Series 01, No. 15 \u2014 Ivory dial" },
+        { "@type": "ListItem", "position": 16, "name": "KAAL Series 01, No. 16 \u2014 Ivory dial" },
+        { "@type": "ListItem", "position": 17, "name": "KAAL Series 01, No. 17 \u2014 Ivory dial" },
+        { "@type": "ListItem", "position": 18, "name": "KAAL Series 01, No. 18 \u2014 Ivory dial" },
+        { "@type": "ListItem", "position": 19, "name": "KAAL Series 01, No. 19 \u2014 Ivory dial" },
+        { "@type": "ListItem", "position": 20, "name": "KAAL Series 01, No. 20 \u2014 Ivory dial" }
+      ]
     },
     {
       "@type": "Product",
@@ -1057,13 +1093,21 @@ var KAAL = {
      silently falls back to the template above, exactly as it behaved
      before. */
   filmFrames: "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_{W},h_{H},c_fill,g_center,q_auto,f_auto/v1788959635/090901_1788957849218.jpg",
-  /* How many stills the film is cut into, and how wide. More frames is a
-     smoother scrub and more bytes; this is the one dial that trades the
-     two against each other. 48 is smooth enough that the largest gap
-     between painted frames is one, measured. Drop to 36 if the film is
-     short or the bytes matter more than the last of the smoothness. */
-  frameCount:      48,
-  frameCountSmall: 24,
+  /* How many stills the film is cut into. These are TARGETS, not orders: a
+     device that cannot hold this many frames is given fewer, and no device
+     is ever given more. See frameCount() below for how much a phone is
+     actually asked to carry.
+
+     Frames are the one thing the scrub cannot fake. Blending paints between
+     two neighbours, which turns a stepped sequence into a continuous one —
+     but a dissolve between two frames that are far apart is a double
+     exposure, not motion. More frames put the neighbours closer together,
+     and that is the only thing that removes the ghost rather than smoothing
+     it. Sixty and forty-four are where that stops being visible on this
+     film. Raise them and the bytes go up in a straight line; lower them and
+     fast movement starts to smear. */
+  frameCount:      60,
+  frameCountSmall: 44,
   /* The edition as it was actually made: six green, four black, four gold,
      six white, in blocks rather than interleaved. Everything else that
      states this mapping — the twenty in the grid, the number runs under the
@@ -1204,6 +1248,43 @@ function filmBox(){
 }
 function bucket(v){ return Math.max(320, Math.min(FILM_EDGE, Math.ceil(v / 80) * 80)); }
 
+/* ── HOW MANY FRAMES THIS DEVICE GETS.
+
+   A decoded frame is not its file size. A 55KB JPEG at 400x880 occupies
+   1.34MB of bitmap the moment it is painted, and every frame stays decoded
+   for as long as the page is open, because a scrub that had to re-decode on
+   the way back up would be worse than no scrub. Forty-four of them is about
+   59MB on a phone and sixty is about 246MB on a desktop — which is ordinary
+   for an image-heavy page on a laptop and is not ordinary on a two-gigabyte
+   Android.
+
+   So the config states a target and the device is only ever allowed to
+   reduce it. deviceMemory is coarse and Chromium-only; where it is missing,
+   core count stands in badly but stands in. A phone on 3G gets fewer
+   because the bytes matter more there than the last of the smoothness, and
+   the gates in filmAllowed() have already turned the film off entirely for
+   anything slower. */
+function frameCount(box){
+  var small = (M.vw || window.innerWidth) < 900;
+  var want = small ? (KAAL.frameCountSmall || 44) : (KAAL.frameCount || 60);
+  var mem = navigator.deviceMemory;
+
+  if(mem){
+    if(mem <= 2)      want = Math.round(want * 0.50);
+    else if(mem <= 4) want = Math.round(want * 0.72);
+  } else if((navigator.hardwareConcurrency || 8) <= 4){
+    want = Math.round(want * 0.72);
+  }
+
+  var c = navigator.connection;
+  if(c && c.effectiveType === "3g") want = Math.round(want * 0.70);
+
+  /* Never below the number that made the scrub watchable in the first
+     place, and never so many that a bisection pass cannot cover the film
+     before a reader has finished the opening caption. */
+  return clamp(want, 16, small ? 72 : 120);
+}
+
 /* The hero template if there is one, the photograph template if not. */
 function frameUrl(i, n){
   var t = KAAL.filmFrames || KAAL.frames;
@@ -1310,9 +1391,9 @@ function loadFilm(){
 
   /* A phone is paid for by spending less, not by spending nothing. It
      gets the film, at half the frames and a plate cut to its own screen. */
-  SEQ.n = small ? (KAAL.frameCountSmall || 24) : (KAAL.frameCount || 48);
   var box = filmBox();
   SEQ.w = box.w; SEQ.h = box.h;
+  SEQ.n = frameCount(box);
 
   SEQ.cv  = $("#seq");
   SEQ.ctx = SEQ.cv.getContext("2d", { alpha:false });
@@ -1822,7 +1903,7 @@ function countsFromRemaining(){
   $("#remWord").textContent = word;
   $("#navRem").textContent  = word;
   $("#dockRem").textContent = word;
-  document.title = "KAAL Series 01 · " + word.toLowerCase() + " of twenty remain";
+  document.title = "KAAL Series 01 · " + word.toLowerCase() + " of twenty watches remain";
 }
 (function counts(){
   countsFromRemaining();

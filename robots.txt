@@ -51,3 +51,7 @@ User-agent: DuckAssistBot
 Allow: /
 
 Sitemap: https://thekaal.co/sitemap.xml
+
+# A plain-text summary of the brand and the edition, for anything that would
+# rather read one file than render three pages. Same facts, same words.
+# https://thekaal.co/llms.txt

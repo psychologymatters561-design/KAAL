@@ -92,7 +92,44 @@ learning-phase threshold of roughly fifty conversions per week, so you will
 never optimise for Purchase. Optimise on an upper-funnel event that has volume,
 or buy manually.
 
-### 5. Before you push
+### 5. Getting found
+
+The page is built for it. What is on the site already: schema.org for the
+brand, the organisation, the product with its offer and return policy, and an
+ItemList naming the dial every one of the twenty carries; a `sitemap.xml`; a
+`robots.txt` that names the assistant crawlers individually rather than
+leaving them to the wildcard; an `llms.txt` stating the whole edition in plain
+text; snippet directives that let a search result or an AI answer quote more
+than 160 characters; and a manifesto page written so that its sentences
+survive being lifted out of context, which is how an answer engine quotes.
+
+**None of that gets you indexed on its own.** Four things only you can do, in
+the order they pay:
+
+1. **Google Search Console and Bing Webmaster Tools.** Verify `thekaal.co`,
+   submit `sitemap.xml`, and use "Request indexing" on the home page and the
+   manifesto. Bing matters more than its market share suggests: several AI
+   assistants read from its index rather than Google's.
+2. **Put the real social URLs into the structured data.** There is a `sameAs`
+   array waiting in the `Organization` block in `index.html` and it is empty,
+   because inventing profile URLs would be worse than having none. Instagram
+   especially — for an Indian watch brand it is the profile a search engine
+   uses to confirm the two mentions are the same company.
+3. **A Google Business Profile**, even without a shopfront. It is the fastest
+   route to a brand panel on a name search.
+4. **Be mentioned somewhere that is not your own site.** This is the one that
+   actually decides brand-name ranking, and the only one no amount of markup
+   substitutes for.
+
+**On ranking for the bare word "kaal":** be realistic. It is a common Hindi
+and Sanskrit word and a 2005 Bollywood film with two decades of accumulated
+authority. Nothing on a twenty-piece site outranks that quickly, and chasing
+it wastes the effort. What is winnable, and what buyers actually type:
+*kaal watches*, *kaal watch india*, *kaal series 01*, *thekaal*, and the brand
+plus a dial name. Those are the queries the markup, the manifesto and the
+llms.txt are aimed at, and they are the ones that convert.
+
+### 6. Before you push
 
 ```
 node tools/check.mjs

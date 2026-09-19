@@ -55,6 +55,7 @@ const sold = (html.match(/sold:\s*\[([^\]]*)\]/)?.[1] ?? "")
   .split(",").map(s => parseInt(s, 10)).filter(n => !isNaN(n));
 const dialsBlock = html.match(/dials:\s*\{([\s\S]*?)\}/)?.[1] ?? "";
 const dials = new Set([...dialsBlock.matchAll(/(\d+)\s*:/g)].map(m => +m[1]));
+const dialOf = Object.fromEntries([...dialsBlock.matchAll(/(\d+)\s*:\s*"(\w+)"/g)].map(m => [+m[1], m[2]]));
 
 if (!Number.isFinite(edition) || edition < 1) bad("edition is missing or not a number");
 else {
@@ -126,10 +127,34 @@ for (const f of pages) {
   if (!/<link rel="canonical"/.test(t) && f !== "claimed.html") soft(`${f} has no canonical link`);
 }
 
+/* ── 6b-ii. The ItemList in the structured data names a dial for each of the
+      twenty. That is a second copy of KAAL.dials, and a second copy is only
+      safe while something compares them. */
+{
+  const ld = html.match(/"@type":\s*"ItemList"[\s\S]*?"itemListElement":\s*\[([\s\S]*?)\]/);
+  if (!ld) soft("index.html has no ItemList in its structured data");
+  else {
+    const NAMES = { emerald: "Emerald", midnight: "Midnight", champagne: "Champagne", ivory: "Ivory" };
+    const listed = [...ld[1].matchAll(/"position":\s*(\d+),\s*"name":\s*"[^"]*No\.\s*(\d+)[^"]*?(Emerald|Midnight|Champagne|Ivory) dial"/g)];
+    if (listed.length !== edition) bad(`ItemList names ${listed.length} pieces but the edition is ${edition}`);
+    for (const [, pos, no, dial] of listed) {
+      if (+pos !== +no) bad(`ItemList position ${pos} is labelled No. ${no}`);
+      const want = NAMES[dialOf[+no]];
+      if (want && want !== dial) bad(`ItemList says No. ${no} carries ${dial}; KAAL.dials says ${want}`);
+    }
+  }
+}
+
 /* ── 6c. Crawl surface. A sitemap naming a page that does not exist is
       worse than no sitemap, and robots.txt is the file that decides
       whether any of this is read at all. ───────────────────────────── */
 if (!existsSync(join(root, "robots.txt"))) soft("no robots.txt");
+if (!existsSync(join(root, "llms.txt"))) soft("no llms.txt");
+else {
+  const llms = readFileSync(join(root, "llms.txt"), "utf8");
+  if (!/thekaal\.co/.test(llms)) bad("llms.txt does not name the site");
+  if (cfg.price && !llms.includes(cfg.price)) bad(`llms.txt does not carry the current price (${cfg.price})`);
+}
 if (!existsSync(join(root, "sitemap.xml"))) soft("no sitemap.xml");
 else {
   const sm = readFileSync(join(root, "sitemap.xml"), "utf8");

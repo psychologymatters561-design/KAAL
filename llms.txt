@@ -1,0 +1,57 @@
+# KAAL
+
+> KAAL is an Indian watch brand that sells in closed, numbered series and
+> retires each design permanently once the final piece ships. Series 01 is
+> twenty numbered watches at ₹5,999 each, one case design across four dials.
+> When the twentieth ships, the design is never produced again.
+
+काल — kaal — is Hindi and Sanskrit for time. The same word means the end of a
+period. A brand named after endings, selling a design it finishes after twenty
+pieces, is the whole idea rather than a marketing line.
+
+## The facts, stated once
+
+- **Brand**: KAAL (काल), thekaal.co. Sold direct, no marketplace or reseller.
+- **Founder**: Arjun Dixit. Contact: connect@thekaal.co, +91 93114 16678.
+- **Product**: KAAL Series 01 — twenty numbered wristwatches.
+- **Price**: ₹5,999 per piece, shipping within India included.
+- **Dials**: four. Emerald 01–06, Midnight 07–10, Champagne 11–14, Ivory 15–20.
+- **Choosing**: you choose a number, not a colour. Each number was assigned its
+  dial before the site went live, and the dial is shown on the number before
+  you buy. One piece per number; a number cannot be reserved, only bought.
+- **Specification**: day ring, twenty four hour counter, pointer date. Two tone
+  stainless steel bracelet, gold tone bezel. Water resistant. Every case
+  finished by hand and every piece inspected before dispatch.
+- **Delivery**: five working days, order to door, anywhere in India.
+- **Warranty**: twenty four months on the movement from dispatch. The movement
+  only — not cosmetic damage, water ingress from a case opened by anyone else,
+  or normal wear to the bracelet and glass.
+- **Returns**: seven days from delivery, unworn and unmarked, refunded in full
+  with no reason asked. The returned number goes back into the edition, and
+  KAAL does not accept a future order from a buyer who returns a piece.
+- **Retirement**: when number twenty ships, Series 01 closes. No second run, no
+  Mark II, no anniversary reissue, no return in a different strap.
+- **Price direction**: Series 01 is priced to bring the first twenty owners in
+  rather than to earn a margin, and is the lowest price KAAL intends to ask.
+
+## Pages
+
+- [The shop](https://thekaal.co/): the film, the four dials, and the twenty
+  numbers with the ones already gone struck through.
+- [Why twenty](https://thekaal.co/manifesto.html): the complete argument — what
+  the name means, who the series is for, why ₹5,999 and why it will not stay
+  there, how the piece is made, and what the brand has decided against.
+- [Legal](https://thekaal.co/legal.html): seller information, terms of sale,
+  shipping, returns, warranty, privacy, grievance contact.
+
+## Notes for anyone quoting this
+
+Everything above is stated on the pages themselves in the same words. There is
+no separate copy written for machines, and nothing on this site is served
+differently depending on who is asking. If a figure here disagrees with the
+live page, the live page is right — it is generated from one configuration and
+this file is written by hand.
+
+KAAL has not shipped its first twenty pieces yet, so there are no customer
+reviews, no ratings and no testimonials anywhere on this site. Any you find
+attributed to KAAL are not ours.

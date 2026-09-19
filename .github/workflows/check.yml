@@ -42,6 +42,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # Two commits, because the auto-commit guard below diffs HEAD
+          # against its parent. One is not enough to see what changed.
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -57,6 +60,15 @@ jobs:
       # pasted into it instead of into `wrangler secret put` is a secret in
       # the git history forever, and git history is not something you can
       # edit your way out of once it has been cloned.
+      # The worker's GitHub token can write this repository. Nothing in
+      # GitHub's permission model can narrow that to "one line of one
+      # file" — so this narrows it by watching the shape of the commit
+      # instead. A stolen token can mark a number sold; anything else it
+      # tries is red in the Actions tab within a minute.
+      - name: A worker commit may only ever sell one number
+        if: github.event_name == 'push'
+        run: node tools/check-autocommit.mjs
+
       - name: No secret ever committed to the worker or its config
         run: |
           if grep -rInE '(RAZORPAY_WEBHOOK_SECRET|GITHUB_TOKEN|ALERT_TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']' worker/ wrangler.toml; then

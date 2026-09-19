@@ -437,6 +437,55 @@ it is the control that catches the mistake nobody plans to make.
 
 ---
 
+---
+
+## Part three — what now watches these, so none of it quietly stops being true
+
+Every control above can be undone, and most of them can be undone without
+producing a commit, a diff, or anything anyone would notice. So four things
+now watch, on different clocks:
+
+| What | Watched by | When |
+|---|---|---|
+| The repository's own rules — CSP, frame guard, checkout allowlist, secrets, `security.txt` | `tools/check.mjs` | every push and PR |
+| **The blast radius of a stolen worker token** | `tools/check-autocommit.mjs` | every push to `main` |
+| The live site and the deployed worker, from outside | `tools/verify-live.mjs`, run by `.github/workflows/watch.yml` | every morning |
+| Money moving in ways it should not | the worker's `/alerts` | every day, by a person |
+
+**The second row is the one worth understanding.** The worker holds a GitHub
+token that can write this repository, and GitHub's permission model has no way
+to narrow that to "one line of one file". So it is narrowed by watching the
+*shape* of the commit instead: any commit whose message says the worker made
+it must touch exactly `index.html`, exactly one line, that line must be the
+`sold:` array, and exactly one number must have appeared in it.
+
+A stolen token therefore buys a choice of two moves: mark a number sold —
+annoying, reversible — or anything else, which is red in the Actions tab
+within a minute. It cannot repoint `checkout:`, inject a script, or change the
+price without saying so out loud. Tested against six attacks, including a
+second file smuggled into the same commit, a `checkout:` repointed alongside a
+real sale, a `<script src>` injected on another line, and a commit that
+*un-sells* a number — which the worker is not capable of, so it is not
+something that should ever arrive wearing its name.
+
+`tools/verify-live.mjs` checks, from outside, the things a dashboard can
+silently undo: HTTPS enforcement, HSTS, the header CSP and whether it still
+agrees with the meta one, `frame-ancestors`, the live page's checkout host,
+CAA, SPF, DMARC, and nine properties of the worker — `/alerts` closed,
+unknown routes refused, foreign origins rejected, forged signatures rejected,
+oversized bodies refused, and the `workers.dev` back door shut. Run it
+yourself any time:
+
+```
+node tools/verify-live.mjs --worker https://api.thekaal.co
+```
+
+**`docs/LAUNCH-RUNBOOK.md` turns all of part two into clicks** — every setting,
+in dependency order, with the command that proves each one took, plus what to
+do at 2am when a token is compromised or `/alerts` shows a double sale.
+
+---
+
 ## If you do five things
 
 1. **A1** — fix the amount and the stock limit on the Payment Page, and run
@@ -447,7 +496,9 @@ it is the control that catches the mistake nobody plans to make.
 5. **A7** — subscribe the refund events and set `ALERT_TOKEN`.
 
 Part one is already done and CI now refuses to let any of it be quietly
-undone. Part two is the half that decides whether the money is safe.
+undone. Part two is the half that decides whether the money is safe, and
+`docs/LAUNCH-RUNBOOK.md` is that half as a checklist with verification
+commands. Part three is what notices when any of it stops being true.
 
 ---
 

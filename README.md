@@ -28,9 +28,17 @@ The five that decide whether the money is safe:
 5. Subscribe `refund.processed` and `payment.dispute.created`, set
    `ALERT_TOKEN`, and read `/alerts` daily while the edition is live.
 
-`tools/check.mjs` now fails the build if the Content-Security-Policy, the
-frame guard, or the checkout-host allowlist is removed, or if the checkout
-URL points anywhere outside `KAAL.checkoutHosts`.
+**`docs/LAUNCH-RUNBOOK.md` is that list as clicks** — every dashboard setting
+in dependency order, with the command that proves each one took, and what to do
+when a token is compromised or two people pay for one watch.
+
+Three things watch, so none of it quietly stops being true:
+
+```
+node tools/check.mjs           # the repo's own rules          — every push
+node tools/check-autocommit.mjs  # a stolen token's blast radius — every push to main
+node tools/verify-live.mjs     # the live site and worker      — every morning, by watch.yml
+```
 
 ---
 

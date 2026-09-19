@@ -153,6 +153,18 @@ if (existsSync(join(root, "wrangler.toml"))) {
     bad("wrangler.toml assigns a secret — secrets belong in `wrangler secret put`, never in a file that is committed");
 }
 
+/* security.txt. A researcher who finds something and cannot find you
+   posts it instead. */
+if (!existsSync(join(root, ".well-known/security.txt"))) soft("no .well-known/security.txt");
+else {
+  const st = readFileSync(join(root, ".well-known/security.txt"), "utf8");
+  if (!/^Contact:/mi.test(st)) bad(".well-known/security.txt has no Contact: line");
+  const exp = st.match(/^Expires:\s*(\S+)/mi)?.[1];
+  if (!exp) bad(".well-known/security.txt has no Expires: line — RFC 9116 requires one");
+  else if (new Date(exp) < new Date()) bad(`.well-known/security.txt expired on ${exp} — renew it`);
+  else if (new Date(exp) - Date.now() < 30 * 864e5) soft(`.well-known/security.txt expires on ${exp}`);
+}
+
 /* ── 4. Markup that a browser will silently forgive and a reader will
       not: a duplicated id breaks every $() lookup after it. ─────── */
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);

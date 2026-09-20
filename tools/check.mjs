@@ -111,7 +111,7 @@ if (dupe.length) bad(`duplicate id(s): ${[...new Set(dupe)].join(", ")}`);
 
 /* ── 5. Every local file ANY page asks for must exist, case exactly.
       Pages is case sensitive; a Mac is not. ─────────────────────── */
-const pages = ["index.html", "manifesto.html", "legal.html", "claimed.html"].filter(f => existsSync(join(root, f)));
+const pages = ["index.html", "manifesto.html", "about.html", "legal.html", "claimed.html"].filter(f => existsSync(join(root, f)));
 const refs = new Set();
 for (const f of pages) {
   for (const m of readFileSync(join(root, f), "utf8").matchAll(/(?:src|href)="([^"#?:]+)"/g)) {

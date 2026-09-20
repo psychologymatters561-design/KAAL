@@ -1042,6 +1042,18 @@ a{color:inherit}
               so it cannot know a piece has sold, and without Razorpay's
               own inventory limit two people can buy number 07.
 
+   pay        which of the two payment routes is live. "" is the Payment
+              Page above, and is exactly how this page has always
+              behaved. "standard" instead opens Razorpay's own checkout
+              over this page and never sends the buyer away — which
+              needs `api` pointing at the deployed worker, because the
+              worker is then the one that prices the order and refuses a
+              number that has already gone. That last part is the job
+              the Payment Page's stock limit used to do, so the two
+              settings are not interchangeable: leave this empty until
+              the worker has its keys and one real ₹1 payment has been
+              through it.
+
    dials      which face each number carries. This is the inventory
               lever. Numbers nobody has bought were never promised to
               anybody, so if one face stalls you re-point the unsold
@@ -1052,6 +1064,7 @@ a{color:inherit}
    ══════════════════════════════════════════════════════════════════ */
 var KAAL = {
   checkout: "",
+  pay:      "",
   price:    "5,999",
   edition:  20,
 
@@ -1843,7 +1856,8 @@ function say(msg, faceKey){
 }
 
 function paintCta(){
-  var live = !!KAAL.checkout;
+  var mode = payMode();
+  var live = !!mode;
   var label, note;
   if(!chosen){
     label = "Choose your number";
@@ -1860,13 +1874,25 @@ function paintCta(){
                    : label;
     if(chosen && live){
       el.className = "buy" + (small ? " small" : "");
-      el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
       try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
-      el.removeAttribute("aria-disabled"); el.removeAttribute("role");
-      el.rel = "noopener";
+      el.removeAttribute("aria-disabled");
+      if(mode === "page"){
+        el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
+        el.removeAttribute("role"); el.removeAttribute("tabindex");
+        el.rel = "noopener";
+      } else {
+        /* Standard checkout opens over this page, so there is nowhere to
+           navigate to. An anchor without an href is not in the tab order
+           and does not fire on Enter, so it has to be told it is a
+           button in both — the keydown handler below is the other half. */
+        el.removeAttribute("href");
+        el.setAttribute("role","button");
+        el.setAttribute("tabindex","0");
+      }
     } else {
       el.className = "buy" + (small ? " small" : "") + (chosen ? "" : " inert");
       el.removeAttribute("href");
+      el.removeAttribute("tabindex");
       el.setAttribute("role","button");
       if(chosen && !live){
         el.className = "buy" + (small ? " small" : "") + " inert";
@@ -1880,8 +1906,17 @@ function paintCta(){
 }
 
 [cta, dockCta].forEach(function(el){
-  el.addEventListener("click", function(){
-    if(chosen && KAAL.checkout) holdNumber(chosen);
+  el.addEventListener("click", function(e){
+    if(!chosen) return;
+    var mode = payMode();
+    if(mode === "page"){ holdNumber(chosen); return; }   /* the href does the rest */
+    if(mode === "standard"){ e.preventDefault(); startCheckout(chosen, el); }
+  });
+  el.addEventListener("keydown", function(e){
+    if(!chosen || payMode() !== "standard") return;
+    if(e.key === "Enter" || e.key === " " || e.key === "Spacebar"){
+      e.preventDefault(); startCheckout(chosen, el);
+    }
   });
 });
 
@@ -2019,6 +2054,171 @@ function holdNumber(n){
       body: JSON.stringify({ n:n, by:clientToken })
     }).catch(function(){});
   }catch(e){}
+}
+
+/* ── STANDARD CHECKOUT.
+
+      The buyer never leaves thekaal.co. The worker prices the order and
+      refuses a number that has already gone; Razorpay takes the money
+      over this page; the worker checks the signature before anything
+      here believes a word of it.
+
+      What makes that safe on a site with no backend of its own is what
+      this page is NOT trusted with. It does not name the price — it is
+      told one. It does not say which number sold — the worker reads
+      that back off the order it wrote itself. It does not decide that a
+      payment happened — a signature only Razorpay and the worker can
+      produce decides that. Everything below is the polite half of the
+      conversation; none of it is the authority on anything.
+
+      `pay` picks the route and the config comment explains the choice.
+      With it empty this entire section is unreachable and the page
+      behaves exactly as it did before any of it existed. ─────────── */
+function payMode(){
+  if(KAAL.pay === "standard" && KAAL.api) return "standard";
+  if(KAAL.checkout) return "page";
+  return "";
+}
+
+/* checkout.js is a third-party script that weighs more than this page
+   does. Loading it in the markup would put it in front of every visitor
+   including the many who only ever came to look. It is fetched on the
+   first real intent to pay and never before, which also keeps the
+   promise the rest of this file keeps: nothing cross-origin loads until
+   there is a reason. */
+var rzpSdk = null;
+function loadRzp(){
+  if(window.Razorpay) return Promise.resolve();
+  if(rzpSdk) return rzpSdk;
+  rzpSdk = new Promise(function(resolve, reject){
+    var s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    s.onload  = function(){ resolve(); };
+    s.onerror = function(){ rzpSdk = null; reject(new Error("sdk")); };
+    document.head.appendChild(s);
+  });
+  return rzpSdk;
+}
+
+var paying = false;
+
+function startCheckout(n, el){
+  if(paying) return;
+  paying = true;
+  el.setAttribute("aria-busy", "true");
+  el.textContent = "Opening…";
+
+  /* Every branch below leaves through here, so the button can never be
+     left saying "Opening…" over a modal that never arrived. The dial
+     swatch is passed back deliberately: say() clears it when it is not,
+     and a chosen number with a blank face reads as a bug. */
+  function done(msg){
+    paying = false;
+    el.removeAttribute("aria-busy");
+    paintCta();
+    if(msg) say(msg, chosen ? KAAL.dials[chosen] : null);
+  }
+
+  var base = KAAL.api.replace(/\/+$/, "");
+
+  loadRzp().then(function(){
+    return fetch(base + "/order", {
+      method:"POST", mode:"cors", credentials:"omit",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ n:n, by:clientToken })
+    });
+  }).then(function(r){
+    return r.json().catch(function(){ return null; });
+  }).then(function(d){
+    if(d && d.ok && d.order_id && d.key_id){ openRzp(d, n, el, done); return; }
+
+    /* The two answers worth their own sentence. Being told the number
+       went while you were reaching for your card is a bad moment, but it
+       is a far better one than a refund three days later. */
+    var why = d && d.reason;
+    if(why === "sold"){
+      markSold(n);
+      done("Number " + pad(n) + " went while you were deciding. Nothing has been charged — choose another.");
+      return;
+    }
+    if(why === "held"){
+      done("Number " + pad(n) + " is with another buyer for the next few minutes. Nothing has been charged — choose another, or try this one again shortly.");
+      return;
+    }
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  }).catch(function(){
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  });
+}
+
+function openRzp(order, n, el, done){
+  try{
+    var rzp = new window.Razorpay({
+      key:         order.key_id,
+      order_id:    order.order_id,
+      amount:      order.amount,
+      currency:    order.currency,
+      name:        "KAAL",
+      description: "Series 01 · No. " + pad(n),
+      /* Load-bearing, not decoration: this is what lands on the
+         payment, and the webhook reads the payment's notes. It is also
+         the one number a browser could lie about, which is why the
+         worker reads the order's own notes behind it regardless. */
+      notes:       { kaal_no: pad(n) },
+      theme:       { color: "#C6A15B" },
+      handler:     function(res){ confirmPayment(res, n, done); },
+      modal:       { ondismiss: function(){
+        done("Checkout closed. Nothing has been charged, and number " + pad(n) + " is held for you for a few minutes.");
+      } }
+    });
+
+    /* A card can be declined for a dozen reasons that are none of this
+       page's business. Say the one thing that is: no money moved. */
+    rzp.on("payment.failed", function(e){
+      var err = (e && e.error) || {};
+      done("That payment did not go through" + (err.description ? " — " + err.description : "") + ". Nothing has been charged, and you can try again.");
+    });
+
+    rzp.open();
+
+    /* The modal owns the screen now. The button behind it should not
+       still read "Opening…" when the buyer dismisses it. `paying` stays
+       true, so a stray click behind the modal cannot start a second
+       order on top of this one. */
+    el.removeAttribute("aria-busy");
+    paintCta();
+  }catch(e){
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  }
+}
+
+function confirmPayment(res, n, done){
+  var ref = (res && res.razorpay_payment_id) || "";
+  function unconfirmed(){
+    done("Your payment went through, but this page could not confirm it. Nothing is lost — write to connect@thekaal.co quoting " + (ref || "your payment reference") + " and a person will answer.");
+  }
+
+  fetch(KAAL.api.replace(/\/+$/, "") + "/verify", {
+    method:"POST", mode:"cors", credentials:"omit",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      razorpay_order_id:   res && res.razorpay_order_id,
+      razorpay_payment_id: res && res.razorpay_payment_id,
+      razorpay_signature:  res && res.razorpay_signature
+    })
+  }).then(function(r){
+    return r.json().catch(function(){ return null; });
+  }).then(function(d){
+    if(!(d && d.ok)){ unconfirmed(); return; }
+    /* claimed.html reads the number out of localStorage and the
+       reference off the query string. That contract predates this
+       route and is kept exactly, so both ways of paying land on the
+       same page saying the same thing. */
+    try{ localStorage.setItem("kaal_claimed_no", pad(n)); }catch(e){}
+    markSold(n);
+    location.href = "claimed.html?razorpay_payment_id=" + encodeURIComponent(ref);
+  }).catch(unconfirmed);
 }
 
 /* ── Reveals. One observer, and an act keeps its lit state once it has

@@ -1,0 +1,25 @@
+# Committed template. Copy to `.dev.vars` and fill in. No real values here.
+#
+#   cp .dev.vars.example .dev.vars
+#
+# Production does not use this file. Each secret goes in on its own:
+#   wrangler secret put RAZORPAY_KEY_ID
+#   wrangler secret put RAZORPAY_KEY_SECRET
+#   wrangler secret put RAZORPAY_WEBHOOK_SECRET
+#   wrangler secret put GITHUB_TOKEN
+#
+# Non-secret values (EDITION, PRICE_PAISE, ALLOW_ORIGIN, GITHUB_OWNER,
+# GITHUB_REPO, GITHUB_BRANCH) live in wrangler.toml [vars], in the open,
+# because every one of them is already visible on the page.
+
+# Publishable. The worker hands this to the browser at order time.
+RAZORPAY_KEY_ID=
+
+# Secret. Signs orders and verifies payments. Never reaches a browser.
+RAZORPAY_KEY_SECRET=
+
+# Secret. Shown once by Razorpay when you create the webhook.
+RAZORPAY_WEBHOOK_SECRET=
+
+# Fine-grained PAT, this repo only, Contents: Read and write.
+GITHUB_TOKEN=

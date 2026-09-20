@@ -65,6 +65,37 @@ else {
 }
 if (!cfg.price) bad("price is empty — every price on the page reads from it");
 if (!cfg.checkout) soft("checkout is empty: the page will render, and it cannot take money");
+
+/* ── 3b. The price, written down twice.
+
+      Standard checkout is priced by the worker, never by the browser:
+      the page is told what a watch costs and is not asked. That makes
+      PRICE_PAISE in wrangler.toml a second copy of `price` up there, and
+      a second copy of a number money depends on is only safe for as
+      long as something compares them. A page reading ₹5,999 beside a
+      worker charging ₹4,999 is a bug that nobody sees until it is in a
+      bank statement. ───────────────────────────────────────────────── */
+const payMode = html.match(/pay:\s*"([^"]*)"/)?.[1] ?? "";
+const apiUrl  = html.match(/api:\s*"([^"]*)"/)?.[1] ?? "";
+if (payMode && payMode !== "standard")
+  bad(`pay is "${payMode}" — the only values are "" (hosted payment page) and "standard"`);
+if (payMode === "standard" && !apiUrl)
+  bad("pay is \"standard\" but api is empty — the page has no worker to create an order with, so every button fails");
+
+if (existsSync(join(root, "wrangler.toml"))) {
+  const toml = readFileSync(join(root, "wrangler.toml"), "utf8");
+  const paise = toml.match(/^\s*PRICE_PAISE\s*=\s*"(\d+)"/m)?.[1];
+  const rupees = cfg.price ? +cfg.price.replace(/[^\d]/g, "") : NaN;
+  if (!paise) {
+    (payMode === "standard" ? bad : soft)("wrangler.toml sets no PRICE_PAISE — /order cannot price a watch without it");
+  } else if (+paise < 100) {
+    bad(`PRICE_PAISE is ${paise}; Razorpay rejects anything under 100 paise`);
+  } else if (Number.isFinite(rupees) && rupees > 0 && +paise !== rupees * 100) {
+    bad(`price is ₹${cfg.price} but wrangler.toml charges ${paise} paise (₹${+paise / 100}) — they must agree`);
+  }
+} else if (payMode === "standard") {
+  bad("pay is \"standard\" but there is no wrangler.toml — nothing defines the price the buyer is charged");
+}
 if (cfg.filmFrames && !(cfg.filmFrames.includes("{W}") && cfg.filmFrames.includes("{H}") && cfg.filmFrames.includes("{T}")))
   bad("filmFrames must carry {T}, {W} and {H} — the hero sizes its own request");
 if (cfg.frames && !(cfg.frames.includes("{T}") && cfg.frames.includes("{W}")))

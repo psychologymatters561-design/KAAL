@@ -309,13 +309,13 @@ a{color:inherit}
 
       The disc is the two things that actually differ between one number
       and the next: the dial colour, and the gold bezel every piece
-      carries. It is a drawing, and the caption under it says so. When the
-      photographs land they go here, and this stops being the best
+      carries. It was a drawing until the photographs landed. They have,
+      so the drawing is now the layer underneath them and this stops being the best
       available answer to "what am I buying". */
 .piece{margin:clamp(2.2rem,6vh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
   background:var(--void-2);padding:clamp(1.35rem,4vw,1.9rem);
-  display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:start}
-@media (max-width:32rem){.piece{grid-template-columns:1fr}}
+  display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:center}
+@media (max-width:32rem){.piece{grid-template-columns:1fr;align-items:start}}
 
 .piece-face{position:relative;width:clamp(5.2rem,21vw,7rem);aspect-ratio:1}
 .piece-bezel{position:absolute;inset:0;border-radius:50%;
@@ -324,8 +324,51 @@ a{color:inherit}
 .piece-dial{position:absolute;inset:12%;border-radius:50%;background:#16140F;
   box-shadow:inset 0 -9px 20px rgba(0,0,0,.55),inset 0 5px 12px rgba(255,255,255,.07);
   transition:background .55s var(--ease-soft)}
-.piece-cap{margin:.75rem 0 0;font-size:.6875rem;color:var(--faint);
-  line-height:1.5;max-width:15ch;letter-spacing:.01em}
+
+/* ── THE DIAL, PHOTOGRAPHED.
+
+      The drawn disc above did not get deleted. It sits underneath, and it
+      still does its job on the two occasions a photograph cannot: before a
+      number is chosen, and if an image never arrives. Removing a fallback
+      to simplify the thing in front of it is a regression, not a cleanup.
+
+      Two details are what make a cut-out sit IN the page instead of on top
+      of it. The halo is a soft wash tinted to the dial currently showing,
+      so the watch throws its own colour into the room rather than floating
+      on a flat black rectangle. And the swap travels: the outgoing dial
+      leaves blurred and a little small, the incoming one settles into
+      focus.
+
+      The reason that swap reads as one watch turning rather than four
+      photographs taking turns is upstream of this file. Every shot was
+      normalised to a single case diameter and aligned on its case centre
+      before it was ever saved, so the head does not move during the
+      crossfade. Only the dial changes, which is what a person turning the
+      piece over in their hands would actually see. ───────────────── */
+.piece-stage{position:relative;width:clamp(10.5rem,31vw,15.5rem);aspect-ratio:760/1197;
+  margin-inline:auto}
+.piece-stage .piece-face{position:absolute;left:50%;top:46.2%;
+  width:clamp(4.4rem,15vw,5.9rem);transform:translate(-50%,-50%);
+  transition:opacity .5s var(--ease-soft)}
+.piece-stage.shot-on .piece-face{opacity:0}
+
+.piece-halo{position:absolute;left:50%;top:46.2%;width:200%;aspect-ratio:1;pointer-events:none;
+  transform:translate(-50%,-50%) scale(.72);border-radius:50%;
+  background:radial-gradient(circle closest-side,var(--halo,transparent),transparent 72%);
+  opacity:0;transition:opacity 1.1s var(--ease-soft),transform 1.1s var(--ease-soft)}
+.piece-stage.shot-on .piece-halo{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.piece-stage[data-dial="emerald"]{--halo:rgba(93,143,110,.30)}
+.piece-stage[data-dial="midnight"]{--halo:rgba(184,186,190,.15)}
+.piece-stage[data-dial="champagne"]{--halo:rgba(198,161,91,.30)}
+.piece-stage[data-dial="ivory"]{--halo:rgba(237,232,223,.20)}
+
+.piece-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  opacity:0;transform:translate3d(0,14px,0) scale(.955);filter:blur(9px);pointer-events:none;
+  transition:opacity .78s var(--ease-soft),transform .82s var(--ease),filter .7s var(--ease-soft)}
+.piece-shot.on{opacity:1;transform:none;filter:none}
+
+.piece-cap{margin:.75rem auto 0;font-size:.6875rem;color:var(--faint);
+  line-height:1.5;max-width:24ch;letter-spacing:.01em;text-align:center}
 
 .piece dl{margin:0;display:grid;grid-template-columns:minmax(5rem,auto) minmax(0,1fr);gap:.55rem 1.3rem}
 .piece dt{font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);padding-top:.12em}
@@ -580,6 +623,17 @@ a{color:inherit}
 .pick[disabled]::after{content:"";position:absolute;left:14%;right:14%;top:50%;height:1px;
   background:var(--faint);transform:rotate(-32deg)}
 .pick[disabled] .dot{opacity:.25}
+/* Dealt rather than pasted. A 24ms step across twenty cells is under half a
+   second end to end, which reads as a hand laying them out and never as a
+   queue the visitor has to wait through. The delay rides the reveal that
+   already exists, so it costs nothing and fires only when the act arrives. */
+.twenty .pick{transition-delay:calc(var(--i,0) * 24ms)}
+.lit .pick{transition-delay:calc(var(--i,0) * 24ms)}
+/* One ring, outward, on the cell that was just taken. The confirmation a
+   physical button gives for free and a div has to be told to give. */
+@keyframes pickTaken{from{box-shadow:0 0 0 0 rgba(198,161,91,.5)}
+                     to{box-shadow:0 0 0 .75rem rgba(198,161,91,0)}}
+.pick[aria-pressed="true"]{animation:pickTaken .6s var(--ease) 1}
 
 .claim{margin:clamp(2.2rem,6vh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
 .claim-state{font-size:.8125rem;color:var(--mute);min-height:1.4em;margin:0 0 1.1rem;letter-spacing:.01em;
@@ -950,11 +1004,30 @@ a{color:inherit}
     <div class="claim">
       <div class="piece">
         <div>
-          <div class="piece-face" aria-hidden="true">
-            <span class="piece-bezel"></span>
-            <span class="piece-dial" id="pieceDial"></span>
+          <!-- aria-hidden because the dial is already named in the list
+               beside this and read out in the live region below it; a screen
+               reader does not need it a third and fourth time. The alt text
+               stays real so image search still has something true to read. -->
+          <div class="piece-stage" id="pieceStage" aria-hidden="true">
+            <span class="piece-halo" id="pieceHalo"></span>
+            <div class="piece-face">
+              <span class="piece-bezel"></span>
+              <span class="piece-dial" id="pieceDial"></span>
+            </div>
+            <img class="piece-shot" data-dial="emerald" src="assets/img/watch-emerald.webp"
+              alt="KAAL Series 01 wristwatch, Emerald dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="midnight" src="assets/img/watch-midnight.webp"
+              alt="KAAL Series 01 wristwatch, Midnight dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="champagne" src="assets/img/watch-champagne.webp"
+              alt="KAAL Series 01 wristwatch, Champagne dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="ivory" src="assets/img/watch-ivory.webp"
+              alt="KAAL Series 01 wristwatch, Ivory dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
           </div>
-          <p class="piece-cap">Dial colour and bezel. Every piece shares the same case.</p>
+          <p class="piece-cap">The dial this number carries. Every piece shares the same case.</p>
         </div>
         <dl>
           <dt>Dial</dt><dd id="pieceName">One of four. Choose a number to see which.</dd>
@@ -1795,6 +1868,7 @@ var remaining = KAAL.edition - KAAL.sold.length;
     b.type = "button"; b.className = "pick"; b.dataset.n = i;
     b.setAttribute("aria-pressed","false");
     b.style.setProperty("--tint", f.tint);
+    b.style.setProperty("--i", i);
     if(soldSet[i]){
       b.disabled = true;
       b.setAttribute("aria-label","Number " + pad(i) + ", " + f.name + " dial, already gone");
@@ -1854,7 +1928,62 @@ function say(msg, faceKey){
      end up disagreeing with each other or with the sentence. */
   if(pieceDial) pieceDial.style.background = f ? f.css : "";
   if(pieceName) pieceName.textContent = f ? f.name : PIECE_IDLE;
+  showShot(f ? faceKey : "");
 }
+
+/* The photograph of the dial the sentence above is describing.
+
+   This hangs off say() rather than off the click handler because say() is
+   already the one place that knows which face is being talked about. Every
+   route into it — choosing a number, a number going while you looked at it,
+   clearing back to nothing — therefore moves the photograph too, and none of
+   them had to be taught how.
+
+   Nothing is fetched here. All four images are in the DOM, lazy, decoded by
+   the time anybody reaches the twenty, so the swap is two layers changing
+   opacity and never a load. */
+var pieceStage = $("#pieceStage");
+var shots = pieceStage ? $$(".piece-shot", pieceStage) : [];
+function showShot(key){
+  if(!pieceStage) return;
+  var shown = false;
+  for(var i=0;i<shots.length;i++){
+    var on = !!key && shots[i].getAttribute("data-dial") === key;
+    shots[i].classList.toggle("on", on);
+    if(on) shown = true;
+  }
+  if(shown) pieceStage.setAttribute("data-dial", key);
+  else pieceStage.removeAttribute("data-dial");
+
+  /* The drawn disc is only retired once there is actually a photograph to
+     put in its place. These images are lazy, and on a phone the first
+     choice can land before one has decoded — hiding the disc for that gap
+     would leave an empty frame at the exact moment somebody is deciding to
+     spend ₹5,999. So the disc holds the position until the photograph is
+     genuinely there, and then steps aside. */
+  var img = key ? pieceStage.querySelector('.piece-shot[data-dial="' + key + '"]') : null;
+  var ready = !!img && img.complete && img.naturalWidth > 0;
+  pieceStage.classList.toggle("shot-on", shown && ready);
+  if(img && !ready) img.addEventListener("load", function(){
+    if(img.classList.contains("on")) pieceStage.classList.add("shot-on");
+  }, { once:true });
+}
+
+/* Lazy, so a visitor who never reaches the twenty never pays for four
+   photographs. But the moment they matter is the moment somebody chooses,
+   and a phone that only starts fetching then has already lost. They are
+   warmed a screen and a half early instead, which on any real connection
+   is seconds of head start for no cost to anyone who leaves before it. */
+(function warmShots(){
+  if(!shots.length) return;
+  function warm(){ for(var i=0;i<shots.length;i++) shots[i].loading = "eager"; }
+  var twenty = document.getElementById("twenty");
+  if(!twenty || !("IntersectionObserver" in window)){ warm(); return; }
+  var io = new IntersectionObserver(function(es){
+    for(var i=0;i<es.length;i++) if(es[i].isIntersecting){ warm(); io.disconnect(); return; }
+  }, { rootMargin:"900px 0px" });
+  io.observe(twenty);
+})();
 
 function paintCta(){
   var mode = payMode();

@@ -41,6 +41,9 @@ pieces, is the whole idea rather than a marketing line.
 - [Why twenty](https://thekaal.co/manifesto.html): the complete argument — what
   the name means, who the series is for, why ₹5,999 and why it will not stay
   there, how the piece is made, and what the brand has decided against.
+- [About](https://thekaal.co/about.html): what the brand is, what the name
+  means, who makes it, the Series 01 specification, and how buying works —
+  the same facts as above, stated on a page.
 - [Legal](https://thekaal.co/legal.html): seller information, terms of sale,
   shipping, returns, warranty, privacy, grievance contact.
 

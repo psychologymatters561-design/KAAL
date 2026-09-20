@@ -34,6 +34,7 @@ the commercial behaviour of the entire page.
 ```js
 var KAAL = {
   checkout: "",            // the live Razorpay payment-page URL
+  pay:      "",            // "" = payment page above, "standard" = checkout modal
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
@@ -67,6 +68,46 @@ looking. Choose another."* rather than becoming a refund and an apology.
 Setting `api` to the deployed URL turns it on. Leaving it empty is not a
 degraded mode — it is exactly how this site has always run, and every fallback
 is tested that way.
+
+### 2b. The other way to take money: Standard Checkout
+
+`pay: "standard"` takes the buyer's card **on this page** instead of sending
+them to a hosted Payment Page. It needs `api` set, because the worker does the
+work: `POST /order` prices the watch and refuses a number that has gone, and
+`POST /verify` checks Razorpay's signature before the page believes a payment
+happened.
+
+The trade is worth understanding before you flip it. The Payment Page brings
+its own stock limit; Standard Checkout does not, so **the worker becomes the
+only thing standing between two buyers and the same number**. That is why
+`/order` refuses a sold or held number rather than just pricing whatever it is
+asked for, and why it reads the price from `PRICE_PAISE` in `wrangler.toml`
+instead of from the browser. A page that can name its own price is a page that
+sells a ₹5,999 watch for ₹1.
+
+Three things make it safe to run on a static site:
+
+- **The key secret never leaves the worker.** The publishable `key_id` is sent
+  to the browser in the `/order` response, which is also why no Razorpay key
+  is written into `index.html`. `tools/check.mjs` fails the build if one ever
+  is.
+- **The price is the worker's.** `PRICE_PAISE` is a second copy of `price`, so
+  `tools/check.mjs` fails the build if the two ever disagree.
+- **The number is Razorpay's.** `/verify` reads which number sold from the
+  order's own notes, never from the browser — otherwise one real payment could
+  be used to mark all twenty sold.
+
+To turn it on:
+
+1. `wrangler secret put RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
+2. Check `PRICE_PAISE` in `wrangler.toml` matches `price` (₹5,999 → `599900`).
+3. `wrangler deploy`, then set `api` to the worker URL and `pay` to
+   `"standard"`.
+4. Send one real ₹1 test payment through it before trusting it with a real
+   ₹5,999 one. Watch `wrangler tail` while you do.
+
+Leave `pay` empty and none of this code is reachable — the page behaves exactly
+as it did before any of it existed.
 
 `sold` drives the strike-throughs on the twenty, the remaining count, the rail
 ticks, the nav, the sticky bar and the `<title>`.

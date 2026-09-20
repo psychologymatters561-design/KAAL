@@ -27,12 +27,27 @@
      GET  /state        what is actually sold, and what is briefly held
      POST /hold {n}     claim a number for twelve minutes while paying
 
+   AND THE MONEY ITSELF. The page used to hand the buyer to a hosted
+   Razorpay Payment Page and rely on its stock-limit-20 to stop the
+   twenty-first sale. Standard Checkout keeps the buyer on thekaal.co
+   and moves that responsibility here, so two more routes carry it:
+
+     POST /order {n}    the order for that number, priced by this file
+     POST /verify {..}  the signature, checked before anything is believed
+
+   Two things about /order are the whole point of it existing. It reads
+   the price from PRICE_PAISE and ignores whatever the browser said the
+   watch costs — a page that can name its own price is a page that sells
+   a ₹5,999 watch for ₹1. And it refuses a number that is already sold
+   or held by somebody else, which is the job the Payment Page's stock
+   limit used to do and nothing else was doing.
+
    A hold is advisory on purpose. It is not a lock, it is not payment,
    and it NEVER stands between a buyer and the checkout page — if the
    hold call is slow or fails, the page proceeds to Razorpay regardless.
    It exists to stop the honest collision, not a determined attacker;
-   the authority on a sale is still Razorpay's stock limit and the
-   webhook below.
+   the authority on a sale is /order refusing to price a number that is
+   gone, and the webhook below recording the one that sold.
 
    WHAT THIS STILL DOES NOT DO: it is not a database, a cart, or an
    inventory system. It holds two small keys and edits one line of one
@@ -52,6 +67,8 @@
 const HOLD_SECONDS = 12 * 60;
 const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
+const RZP_API = "https://api.razorpay.com/v1";
+const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
 
 export default {
   async fetch(request, env) {
@@ -62,6 +79,8 @@ export default {
 
     if (request.method === "GET" && path === "/state") return getState(request, env);
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
+    if (request.method === "POST" && path === "/order") return postOrder(request, env);
+    if (request.method === "POST" && path === "/verify") return postVerify(request, env);
     if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
@@ -116,7 +135,163 @@ async function postHold(request, env) {
   return json(request, env, { ok: true, n, until });
 }
 
-/* ══════════ 2. WHAT RAZORPAY SAYS ══════════ */
+/* ══════════ 2. WHAT THE BUYER PAYS ══════════ */
+
+/* An order is the only thing that makes a checkout modal real, and it is
+   made here rather than in the browser for two reasons that are the same
+   reason twice: the browser is not trusted to say what a watch costs, and
+   it is not trusted to say which numbers are still for sale. Both answers
+   are read from this worker's own configuration and from the edition's
+   own state, and the request body contributes exactly one thing — which
+   number the buyer is asking for. */
+async function postOrder(request, env) {
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
+    console.log("/order called before the Razorpay key pair was set.");
+    return json(request, env, { ok: false, reason: "not-configured" }, {}, 503);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
+
+  const edition = parseInt(env.EDITION || "20", 10);
+  const n  = parseInt(body && body.n, 10);
+  const by = typeof (body && body.by) === "string" ? body.by.slice(0, 64) : "";
+  if (isNaN(n) || n < 1 || n > edition) {
+    return json(request, env, { ok: false, reason: "out-of-range" }, {}, 400);
+  }
+
+  /* The price is read here and nowhere else. Nothing in the request body
+     can reach it, so a hand-rolled POST asking to pay one rupee gets an
+     order for ₹5,999 the same as everybody else. */
+  const amount = parseInt(env.PRICE_PAISE || "0", 10);
+  if (isNaN(amount) || amount < MIN_PAISE) {
+    console.log("PRICE_PAISE is missing or below the floor:", String(env.PRICE_PAISE).slice(0, 20));
+    return json(request, env, { ok: false, reason: "not-configured" }, {}, 503);
+  }
+
+  const sold = await knownSold(env);
+  if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" }, {}, 409);
+
+  /* Somebody else's hold stops an order exactly as it stops a hold. Your
+     own does not, so reloading the page and trying again still works. */
+  if (env.KAAL_STATE) {
+    const existing = await env.KAAL_STATE.get(HOLD_PREFIX + n, "json").catch(() => null);
+    if (existing && existing.by && existing.by !== by) {
+      return json(request, env, { ok: false, reason: "held" }, {}, 409);
+    }
+  }
+
+  let res, order;
+  try {
+    res = await fetch(`${RZP_API}/orders`, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, razorpayAuth(env)),
+      body: JSON.stringify({
+        amount,
+        currency: env.CURRENCY || "INR",
+        receipt: `kaal-${pad2(n)}-${Date.now().toString(36)}`.slice(0, 40),
+        /* THE ONE LINE THE WHOLE CHAIN HANGS FROM. The webhook below
+           reads notes.kaal_no to know which number just sold. Rename it
+           here and a real sale goes unrecorded in total silence. */
+        notes: { kaal_no: pad2(n) }
+      })
+    });
+    order = await res.json();
+  } catch (e) {
+    console.log("Razorpay order call never completed:", String(e).slice(0, 160));
+    return json(request, env, { ok: false, reason: "upstream" }, {}, 500);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    console.log("Razorpay rejected the key pair on /order:", res.status);
+    return json(request, env, { ok: false, reason: "auth" }, {}, 401);
+  }
+  if (!res.ok || !order || !order.id) {
+    console.log("Razorpay refused the order:", res.status, JSON.stringify(order || {}).slice(0, 300));
+    return json(request, env, { ok: false, reason: "upstream" }, {}, 500);
+  }
+
+  /* Placing the hold here rather than trusting the page's keepalive call
+     means the number is held by the act of being priced, which is the
+     closest thing to intent this worker can observe. A failure to hold
+     is not a failure to sell: the order is already good. */
+  if (env.KAAL_STATE) {
+    try {
+      await env.KAAL_STATE.put(
+        HOLD_PREFIX + n,
+        JSON.stringify({ by, until: Date.now() + HOLD_SECONDS * 1000 }),
+        { expirationTtl: HOLD_SECONDS }
+      );
+    } catch (e) { console.log("Hold failed after a good order:", String(e).slice(0, 120)); }
+  }
+
+  /* key_id travels to the browser on purpose — it is the publishable
+     half of the pair and checkout.js cannot open without it. Sending it
+     from here instead of writing it into index.html is what keeps any
+     Razorpay key out of this repository, which tools/check.mjs enforces
+     as a build failure. Swapping test for live is one secret, one place,
+     no commit. */
+  return json(request, env, {
+    ok: true,
+    order_id: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    key_id: env.RAZORPAY_KEY_ID,
+    n
+  });
+}
+
+/* A signature is the only thing here that proves a payment happened.
+   Razorpay signs order_id|payment_id with the key secret, which only
+   this worker and Razorpay hold, so a browser cannot manufacture one.
+   Everything this route does afterwards is gated on that check. */
+async function postVerify(request, env) {
+  if (!env.RAZORPAY_KEY_SECRET) {
+    return json(request, env, { ok: false, reason: "not-configured" }, {}, 503);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
+
+  const orderId   = body && body.razorpay_order_id;
+  const paymentId = body && body.razorpay_payment_id;
+  const signature = body && body.razorpay_signature;
+  if (!isText(orderId) || !isText(paymentId) || !isText(signature)) {
+    return json(request, env, { ok: false, reason: "missing-fields" }, {}, 400);
+  }
+
+  const expected = await hmacHex(`${orderId}|${paymentId}`, env.RAZORPAY_KEY_SECRET);
+  if (!timingSafeEqual(expected, signature)) {
+    console.log("Signature mismatch on /verify for order", String(orderId).slice(0, 40));
+    return json(request, env, { ok: false, reason: "signature-mismatch" }, {}, 400);
+  }
+
+  /* Verified. Which number was it? The browser is not asked. It would be
+     free to name any of the twenty, and a script that named all twenty
+     would close the shop with one real ₹5,999 payment. Razorpay is asked
+     instead, and it answers with the note this worker wrote itself. */
+  const n = (await numberFromOrder(env, orderId)) || 0;
+
+  /* KV only. The webhook still owns the commit that makes index.html
+     true on its own, and two writers on one file would be a race for no
+     gain. This is the fast half of the same split the webhook describes:
+     every other browser stops offering this number within seconds,
+     without waiting for GitHub Pages to rebuild. */
+  if (n && env.KAAL_STATE) {
+    try {
+      const sold = (await readSold(env)) || [];
+      if (sold.indexOf(n) < 0) sold.push(n);
+      await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(sold.sort((a, b) => a - b)));
+      await env.KAAL_STATE.delete(HOLD_PREFIX + n);
+    } catch (e) { console.log("KV update after verify failed:", String(e).slice(0, 120)); }
+  }
+
+  return json(request, env, { ok: true, n: n || null });
+}
+
+/* ══════════ 3. WHAT RAZORPAY SAYS ══════════ */
 
 async function webhook(request, env) {
   const rawBody   = await request.text();
@@ -133,10 +308,22 @@ async function webhook(request, env) {
     return new Response("Ignored: " + String(event.event).slice(0, 60), { status: 200 });
   }
 
-  const notes   = (event.payload && event.payload.payment && event.payload.payment.entity && event.payload.payment.entity.notes) || {};
-  const paymentId = (event.payload && event.payload.payment && event.payload.payment.entity && event.payload.payment.entity.id) || "unknown";
-  const raw     = notes.kaal_no;
-  const chosen  = parseInt(raw, 10);
+  const entity    = (event.payload && event.payload.payment && event.payload.payment.entity) || {};
+  const notes     = entity.notes || {};
+  const paymentId = entity.id || "unknown";
+  const raw       = notes.kaal_no;
+  let   chosen    = parseInt(raw, 10);
+
+  /* These notes are on the PAYMENT, and nothing here wrote them. The
+     Payment Page route put the number there as a custom field; Standard
+     Checkout puts it there from the browser's checkout options. Both
+     arrive the same way and neither is this worker's own handwriting,
+     so when it is missing or nonsense the order is asked instead —
+     /order wrote kaal_no onto the order itself, somewhere no browser
+     can reach. A captured payment that goes unrecorded is the one
+     failure on this path that costs an actual watch, and it is worth
+     one extra call to avoid it. */
+  if (isNaN(chosen) && entity.order_id) chosen = await numberFromOrder(env, entity.order_id);
 
   /* The upper bound is read from the file itself rather than written
      here. The old `chosen > 20` was a second copy of `edition`, and the
@@ -226,7 +413,33 @@ async function commitSold(env, chosen, paymentId) {
   return { status: "error" };
 }
 
-/* ══════════ 3. PLUMBING ══════════ */
+/* ══════════ 4. PLUMBING ══════════ */
+
+const pad2 = (n) => (n < 10 ? "0" + n : String(n));
+const isText = (v) => typeof v === "string" && v.length > 0 && v.length < 256;
+
+/* The number, from the one copy of it a browser never touched. /order
+   wrote it onto the order; this reads it back. Both the webhook and
+   /verify need exactly this, which is why it is not written twice. */
+async function numberFromOrder(env, orderId) {
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !orderId) return NaN;
+  try {
+    const res = await fetch(`${RZP_API}/orders/${encodeURIComponent(orderId)}`, { headers: razorpayAuth(env) });
+    if (!res.ok) { console.log("Order read-back failed:", res.status); return NaN; }
+    const order = await res.json();
+    return parseInt(order && order.notes && order.notes.kaal_no, 10);
+  } catch (e) {
+    console.log("Order read-back threw:", String(e).slice(0, 120));
+    return NaN;
+  }
+}
+
+function razorpayAuth(env) {
+  return {
+    "Authorization": "Basic " + btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`),
+    "User-Agent": "kaal-edition-worker"
+  };
+}
 
 async function readSold(env) {
   if (!env.KAAL_STATE) return null;
@@ -236,17 +449,60 @@ async function readSold(env) {
   } catch (e) { return null; }
 }
 
-async function verifySignature(body, signatureHeader, secret) {
-  if (!secret || !signatureHeader) return false;
+/* KV is the fast answer and index.html is the true one. Before the KV
+   namespace exists KV has no answer at all, and /order without an answer
+   would happily price a watch that is already on somebody's wrist. So
+   the file itself is the fallback: the worker already holds a token that
+   reads it, and at twenty units one extra GitHub call per order is
+   nothing. This is what lets Standard Checkout enforce the edition on
+   day one, before any KV namespace has been created. */
+async function knownSold(env) {
+  const kv = await readSold(env);
+  if (kv) return kv;
+  return readSoldFromGitHub(env);
+}
+
+async function readSoldFromGitHub(env) {
+  if (!env.GITHUB_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO) return null;
+  const branch = env.GITHUB_BRANCH || "main";
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/index.html?ref=${branch}`,
+      { headers: {
+          "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+          "Accept": "application/vnd.github+json",
+          "User-Agent": "kaal-edition-worker"
+        } }
+    );
+    if (!res.ok) { console.log("Edition read from GitHub failed:", res.status); return null; }
+    const file = await res.json();
+    const match = atob(file.content.replace(/\n/g, "")).match(/sold:\s*\[([^\]]*)\]/);
+    if (!match) return null;
+    return match[1].split(",").map(x => parseInt(x.trim(), 10)).filter(x => !isNaN(x));
+  } catch (e) {
+    console.log("Edition read from GitHub threw:", String(e).slice(0, 120));
+    return null;
+  }
+}
+
+/* One HMAC for both things that need one: the webhook's body signature
+   and the checkout's order|payment signature. They are the same
+   primitive with the same secret shape, and two copies of a crypto
+   routine is one copy too many to keep correct. */
+async function hmacHex(message, secret) {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw", enc.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false, ["sign"]
   );
-  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(body));
-  const hex = [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, "0")).join("");
-  return timingSafeEqual(hex, signatureHeader);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifySignature(body, signatureHeader, secret) {
+  if (!secret || !signatureHeader) return false;
+  return timingSafeEqual(await hmacHex(body, secret), signatureHeader);
 }
 
 /* `a === b` on a string returns as soon as two characters differ, so the

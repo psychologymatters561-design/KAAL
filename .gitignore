@@ -1,0 +1,22 @@
+# Secrets. The worker's real credentials live in `wrangler secret put`,
+# never in the repo. These two files are the local-only mirror of that:
+# `.dev.vars` is what `wrangler dev` reads, `.env` is the conventional
+# name. Both carry a live key secret. Neither is ever committed.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Wrangler's local state and anything npm leaves behind. There is no
+# build step here and no package.json by design (see .claude/house-rules
+# rule 2) — this is here so an incidental `npm i` cannot become a commit.
+.wrangler/
+node_modules/
+npm-debug.log*
+
+# Editor and OS litter.
+.DS_Store
+Thumbs.db
+*.swp

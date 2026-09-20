@@ -309,13 +309,13 @@ a{color:inherit}
 
       The disc is the two things that actually differ between one number
       and the next: the dial colour, and the gold bezel every piece
-      carries. It is a drawing, and the caption under it says so. When the
-      photographs land they go here, and this stops being the best
+      carries. It was a drawing until the photographs landed. They have,
+      so the drawing is now the layer underneath them and this stops being the best
       available answer to "what am I buying". */
 .piece{margin:clamp(2.2rem,6vh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
   background:var(--void-2);padding:clamp(1.35rem,4vw,1.9rem);
-  display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:start}
-@media (max-width:32rem){.piece{grid-template-columns:1fr}}
+  display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:center}
+@media (max-width:32rem){.piece{grid-template-columns:1fr;align-items:start}}
 
 .piece-face{position:relative;width:clamp(5.2rem,21vw,7rem);aspect-ratio:1}
 .piece-bezel{position:absolute;inset:0;border-radius:50%;
@@ -324,8 +324,51 @@ a{color:inherit}
 .piece-dial{position:absolute;inset:12%;border-radius:50%;background:#16140F;
   box-shadow:inset 0 -9px 20px rgba(0,0,0,.55),inset 0 5px 12px rgba(255,255,255,.07);
   transition:background .55s var(--ease-soft)}
-.piece-cap{margin:.75rem 0 0;font-size:.6875rem;color:var(--faint);
-  line-height:1.5;max-width:15ch;letter-spacing:.01em}
+
+/* ── THE DIAL, PHOTOGRAPHED.
+
+      The drawn disc above did not get deleted. It sits underneath, and it
+      still does its job on the two occasions a photograph cannot: before a
+      number is chosen, and if an image never arrives. Removing a fallback
+      to simplify the thing in front of it is a regression, not a cleanup.
+
+      Two details are what make a cut-out sit IN the page instead of on top
+      of it. The halo is a soft wash tinted to the dial currently showing,
+      so the watch throws its own colour into the room rather than floating
+      on a flat black rectangle. And the swap travels: the outgoing dial
+      leaves blurred and a little small, the incoming one settles into
+      focus.
+
+      The reason that swap reads as one watch turning rather than four
+      photographs taking turns is upstream of this file. Every shot was
+      normalised to a single case diameter and aligned on its case centre
+      before it was ever saved, so the head does not move during the
+      crossfade. Only the dial changes, which is what a person turning the
+      piece over in their hands would actually see. ───────────────── */
+.piece-stage{position:relative;width:clamp(10.5rem,31vw,15.5rem);aspect-ratio:760/1197;
+  margin-inline:auto}
+.piece-stage .piece-face{position:absolute;left:50%;top:46.2%;
+  width:clamp(4.4rem,15vw,5.9rem);transform:translate(-50%,-50%);
+  transition:opacity .5s var(--ease-soft)}
+.piece-stage.shot-on .piece-face{opacity:0}
+
+.piece-halo{position:absolute;left:50%;top:46.2%;width:200%;aspect-ratio:1;pointer-events:none;
+  transform:translate(-50%,-50%) scale(.72);border-radius:50%;
+  background:radial-gradient(circle closest-side,var(--halo,transparent),transparent 72%);
+  opacity:0;transition:opacity 1.1s var(--ease-soft),transform 1.1s var(--ease-soft)}
+.piece-stage.shot-on .piece-halo{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.piece-stage[data-dial="emerald"]{--halo:rgba(93,143,110,.30)}
+.piece-stage[data-dial="midnight"]{--halo:rgba(184,186,190,.15)}
+.piece-stage[data-dial="champagne"]{--halo:rgba(198,161,91,.30)}
+.piece-stage[data-dial="ivory"]{--halo:rgba(237,232,223,.20)}
+
+.piece-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  opacity:0;transform:translate3d(0,14px,0) scale(.955);filter:blur(9px);pointer-events:none;
+  transition:opacity .78s var(--ease-soft),transform .82s var(--ease),filter .7s var(--ease-soft)}
+.piece-shot.on{opacity:1;transform:none;filter:none}
+
+.piece-cap{margin:.75rem auto 0;font-size:.6875rem;color:var(--faint);
+  line-height:1.5;max-width:24ch;letter-spacing:.01em;text-align:center}
 
 .piece dl{margin:0;display:grid;grid-template-columns:minmax(5rem,auto) minmax(0,1fr);gap:.55rem 1.3rem}
 .piece dt{font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);padding-top:.12em}
@@ -580,6 +623,17 @@ a{color:inherit}
 .pick[disabled]::after{content:"";position:absolute;left:14%;right:14%;top:50%;height:1px;
   background:var(--faint);transform:rotate(-32deg)}
 .pick[disabled] .dot{opacity:.25}
+/* Dealt rather than pasted. A 24ms step across twenty cells is under half a
+   second end to end, which reads as a hand laying them out and never as a
+   queue the visitor has to wait through. The delay rides the reveal that
+   already exists, so it costs nothing and fires only when the act arrives. */
+.twenty .pick{transition-delay:calc(var(--i,0) * 24ms)}
+.lit .pick{transition-delay:calc(var(--i,0) * 24ms)}
+/* One ring, outward, on the cell that was just taken. The confirmation a
+   physical button gives for free and a div has to be told to give. */
+@keyframes pickTaken{from{box-shadow:0 0 0 0 rgba(198,161,91,.5)}
+                     to{box-shadow:0 0 0 .75rem rgba(198,161,91,0)}}
+.pick[aria-pressed="true"]{animation:pickTaken .6s var(--ease) 1}
 
 .claim{margin:clamp(2.2rem,6vh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
 .claim-state{font-size:.8125rem;color:var(--mute);min-height:1.4em;margin:0 0 1.1rem;letter-spacing:.01em;
@@ -950,11 +1004,30 @@ a{color:inherit}
     <div class="claim">
       <div class="piece">
         <div>
-          <div class="piece-face" aria-hidden="true">
-            <span class="piece-bezel"></span>
-            <span class="piece-dial" id="pieceDial"></span>
+          <!-- aria-hidden because the dial is already named in the list
+               beside this and read out in the live region below it; a screen
+               reader does not need it a third and fourth time. The alt text
+               stays real so image search still has something true to read. -->
+          <div class="piece-stage" id="pieceStage" aria-hidden="true">
+            <span class="piece-halo" id="pieceHalo"></span>
+            <div class="piece-face">
+              <span class="piece-bezel"></span>
+              <span class="piece-dial" id="pieceDial"></span>
+            </div>
+            <img class="piece-shot" data-dial="emerald" src="assets/img/watch-emerald.webp"
+              alt="KAAL Series 01 wristwatch, Emerald dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="midnight" src="assets/img/watch-midnight.webp"
+              alt="KAAL Series 01 wristwatch, Midnight dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="champagne" src="assets/img/watch-champagne.webp"
+              alt="KAAL Series 01 wristwatch, Champagne dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
+            <img class="piece-shot" data-dial="ivory" src="assets/img/watch-ivory.webp"
+              alt="KAAL Series 01 wristwatch, Ivory dial, gold tone bezel and two tone steel bracelet"
+              width="760" height="1197" loading="lazy" decoding="async">
           </div>
-          <p class="piece-cap">Dial colour and bezel. Every piece shares the same case.</p>
+          <p class="piece-cap">The dial this number carries. Every piece shares the same case.</p>
         </div>
         <dl>
           <dt>Dial</dt><dd id="pieceName">One of four. Choose a number to see which.</dd>
@@ -1013,6 +1086,7 @@ a{color:inherit}
         <p><a href="mailto:connect@thekaal.co">connect@thekaal.co</a><br><a href="tel:+919311416678">+91 93114 16678</a></p>
         <p class="legal"><a href="legal.html">Seller information, terms, shipping, returns, warranty and privacy</a></p>
         <p class="legal"><a href="manifesto.html">Why twenty, written out in full</a></p>
+        <p class="legal"><a href="about.html">About KAAL — the brand, the maker, and the rules</a></p>
       </div>
     </div>
     <div class="foot-end">
@@ -1042,6 +1116,18 @@ a{color:inherit}
               so it cannot know a piece has sold, and without Razorpay's
               own inventory limit two people can buy number 07.
 
+   pay        which of the two payment routes is live. "" is the Payment
+              Page above, and is exactly how this page has always
+              behaved. "standard" instead opens Razorpay's own checkout
+              over this page and never sends the buyer away — which
+              needs `api` pointing at the deployed worker, because the
+              worker is then the one that prices the order and refuses a
+              number that has already gone. That last part is the job
+              the Payment Page's stock limit used to do, so the two
+              settings are not interchangeable: leave this empty until
+              the worker has its keys and one real ₹1 payment has been
+              through it.
+
    dials      which face each number carries. This is the inventory
               lever. Numbers nobody has bought were never promised to
               anybody, so if one face stalls you re-point the unsold
@@ -1052,6 +1138,7 @@ a{color:inherit}
    ══════════════════════════════════════════════════════════════════ */
 var KAAL = {
   checkout: "",
+  pay:      "",
   price:    "5,999",
   edition:  20,
 
@@ -1781,6 +1868,7 @@ var remaining = KAAL.edition - KAAL.sold.length;
     b.type = "button"; b.className = "pick"; b.dataset.n = i;
     b.setAttribute("aria-pressed","false");
     b.style.setProperty("--tint", f.tint);
+    b.style.setProperty("--i", i);
     if(soldSet[i]){
       b.disabled = true;
       b.setAttribute("aria-label","Number " + pad(i) + ", " + f.name + " dial, already gone");
@@ -1840,10 +1928,66 @@ function say(msg, faceKey){
      end up disagreeing with each other or with the sentence. */
   if(pieceDial) pieceDial.style.background = f ? f.css : "";
   if(pieceName) pieceName.textContent = f ? f.name : PIECE_IDLE;
+  showShot(f ? faceKey : "");
 }
 
+/* The photograph of the dial the sentence above is describing.
+
+   This hangs off say() rather than off the click handler because say() is
+   already the one place that knows which face is being talked about. Every
+   route into it — choosing a number, a number going while you looked at it,
+   clearing back to nothing — therefore moves the photograph too, and none of
+   them had to be taught how.
+
+   Nothing is fetched here. All four images are in the DOM, lazy, decoded by
+   the time anybody reaches the twenty, so the swap is two layers changing
+   opacity and never a load. */
+var pieceStage = $("#pieceStage");
+var shots = pieceStage ? $$(".piece-shot", pieceStage) : [];
+function showShot(key){
+  if(!pieceStage) return;
+  var shown = false;
+  for(var i=0;i<shots.length;i++){
+    var on = !!key && shots[i].getAttribute("data-dial") === key;
+    shots[i].classList.toggle("on", on);
+    if(on) shown = true;
+  }
+  if(shown) pieceStage.setAttribute("data-dial", key);
+  else pieceStage.removeAttribute("data-dial");
+
+  /* The drawn disc is only retired once there is actually a photograph to
+     put in its place. These images are lazy, and on a phone the first
+     choice can land before one has decoded — hiding the disc for that gap
+     would leave an empty frame at the exact moment somebody is deciding to
+     spend ₹5,999. So the disc holds the position until the photograph is
+     genuinely there, and then steps aside. */
+  var img = key ? pieceStage.querySelector('.piece-shot[data-dial="' + key + '"]') : null;
+  var ready = !!img && img.complete && img.naturalWidth > 0;
+  pieceStage.classList.toggle("shot-on", shown && ready);
+  if(img && !ready) img.addEventListener("load", function(){
+    if(img.classList.contains("on")) pieceStage.classList.add("shot-on");
+  }, { once:true });
+}
+
+/* Lazy, so a visitor who never reaches the twenty never pays for four
+   photographs. But the moment they matter is the moment somebody chooses,
+   and a phone that only starts fetching then has already lost. They are
+   warmed a screen and a half early instead, which on any real connection
+   is seconds of head start for no cost to anyone who leaves before it. */
+(function warmShots(){
+  if(!shots.length) return;
+  function warm(){ for(var i=0;i<shots.length;i++) shots[i].loading = "eager"; }
+  var twenty = document.getElementById("twenty");
+  if(!twenty || !("IntersectionObserver" in window)){ warm(); return; }
+  var io = new IntersectionObserver(function(es){
+    for(var i=0;i<es.length;i++) if(es[i].isIntersecting){ warm(); io.disconnect(); return; }
+  }, { rootMargin:"900px 0px" });
+  io.observe(twenty);
+})();
+
 function paintCta(){
-  var live = !!KAAL.checkout;
+  var mode = payMode();
+  var live = !!mode;
   var label, note;
   if(!chosen){
     label = "Choose your number";
@@ -1860,13 +2004,25 @@ function paintCta(){
                    : label;
     if(chosen && live){
       el.className = "buy" + (small ? " small" : "");
-      el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
       try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
-      el.removeAttribute("aria-disabled"); el.removeAttribute("role");
-      el.rel = "noopener";
+      el.removeAttribute("aria-disabled");
+      if(mode === "page"){
+        el.setAttribute("href", KAAL.checkout + (KAAL.checkout.indexOf("?")>-1?"&":"?") + "kaal_no=" + pad(chosen));
+        el.removeAttribute("role"); el.removeAttribute("tabindex");
+        el.rel = "noopener";
+      } else {
+        /* Standard checkout opens over this page, so there is nowhere to
+           navigate to. An anchor without an href is not in the tab order
+           and does not fire on Enter, so it has to be told it is a
+           button in both — the keydown handler below is the other half. */
+        el.removeAttribute("href");
+        el.setAttribute("role","button");
+        el.setAttribute("tabindex","0");
+      }
     } else {
       el.className = "buy" + (small ? " small" : "") + (chosen ? "" : " inert");
       el.removeAttribute("href");
+      el.removeAttribute("tabindex");
       el.setAttribute("role","button");
       if(chosen && !live){
         el.className = "buy" + (small ? " small" : "") + " inert";
@@ -1880,8 +2036,17 @@ function paintCta(){
 }
 
 [cta, dockCta].forEach(function(el){
-  el.addEventListener("click", function(){
-    if(chosen && KAAL.checkout) holdNumber(chosen);
+  el.addEventListener("click", function(e){
+    if(!chosen) return;
+    var mode = payMode();
+    if(mode === "page"){ holdNumber(chosen); return; }   /* the href does the rest */
+    if(mode === "standard"){ e.preventDefault(); startCheckout(chosen, el); }
+  });
+  el.addEventListener("keydown", function(e){
+    if(!chosen || payMode() !== "standard") return;
+    if(e.key === "Enter" || e.key === " " || e.key === "Spacebar"){
+      e.preventDefault(); startCheckout(chosen, el);
+    }
   });
 });
 
@@ -2019,6 +2184,171 @@ function holdNumber(n){
       body: JSON.stringify({ n:n, by:clientToken })
     }).catch(function(){});
   }catch(e){}
+}
+
+/* ── STANDARD CHECKOUT.
+
+      The buyer never leaves thekaal.co. The worker prices the order and
+      refuses a number that has already gone; Razorpay takes the money
+      over this page; the worker checks the signature before anything
+      here believes a word of it.
+
+      What makes that safe on a site with no backend of its own is what
+      this page is NOT trusted with. It does not name the price — it is
+      told one. It does not say which number sold — the worker reads
+      that back off the order it wrote itself. It does not decide that a
+      payment happened — a signature only Razorpay and the worker can
+      produce decides that. Everything below is the polite half of the
+      conversation; none of it is the authority on anything.
+
+      `pay` picks the route and the config comment explains the choice.
+      With it empty this entire section is unreachable and the page
+      behaves exactly as it did before any of it existed. ─────────── */
+function payMode(){
+  if(KAAL.pay === "standard" && KAAL.api) return "standard";
+  if(KAAL.checkout) return "page";
+  return "";
+}
+
+/* checkout.js is a third-party script that weighs more than this page
+   does. Loading it in the markup would put it in front of every visitor
+   including the many who only ever came to look. It is fetched on the
+   first real intent to pay and never before, which also keeps the
+   promise the rest of this file keeps: nothing cross-origin loads until
+   there is a reason. */
+var rzpSdk = null;
+function loadRzp(){
+  if(window.Razorpay) return Promise.resolve();
+  if(rzpSdk) return rzpSdk;
+  rzpSdk = new Promise(function(resolve, reject){
+    var s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    s.onload  = function(){ resolve(); };
+    s.onerror = function(){ rzpSdk = null; reject(new Error("sdk")); };
+    document.head.appendChild(s);
+  });
+  return rzpSdk;
+}
+
+var paying = false;
+
+function startCheckout(n, el){
+  if(paying) return;
+  paying = true;
+  el.setAttribute("aria-busy", "true");
+  el.textContent = "Opening…";
+
+  /* Every branch below leaves through here, so the button can never be
+     left saying "Opening…" over a modal that never arrived. The dial
+     swatch is passed back deliberately: say() clears it when it is not,
+     and a chosen number with a blank face reads as a bug. */
+  function done(msg){
+    paying = false;
+    el.removeAttribute("aria-busy");
+    paintCta();
+    if(msg) say(msg, chosen ? KAAL.dials[chosen] : null);
+  }
+
+  var base = KAAL.api.replace(/\/+$/, "");
+
+  loadRzp().then(function(){
+    return fetch(base + "/order", {
+      method:"POST", mode:"cors", credentials:"omit",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ n:n, by:clientToken })
+    });
+  }).then(function(r){
+    return r.json().catch(function(){ return null; });
+  }).then(function(d){
+    if(d && d.ok && d.order_id && d.key_id){ openRzp(d, n, el, done); return; }
+
+    /* The two answers worth their own sentence. Being told the number
+       went while you were reaching for your card is a bad moment, but it
+       is a far better one than a refund three days later. */
+    var why = d && d.reason;
+    if(why === "sold"){
+      markSold(n);
+      done("Number " + pad(n) + " went while you were deciding. Nothing has been charged — choose another.");
+      return;
+    }
+    if(why === "held"){
+      done("Number " + pad(n) + " is with another buyer for the next few minutes. Nothing has been charged — choose another, or try this one again shortly.");
+      return;
+    }
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  }).catch(function(){
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  });
+}
+
+function openRzp(order, n, el, done){
+  try{
+    var rzp = new window.Razorpay({
+      key:         order.key_id,
+      order_id:    order.order_id,
+      amount:      order.amount,
+      currency:    order.currency,
+      name:        "KAAL",
+      description: "Series 01 · No. " + pad(n),
+      /* Load-bearing, not decoration: this is what lands on the
+         payment, and the webhook reads the payment's notes. It is also
+         the one number a browser could lie about, which is why the
+         worker reads the order's own notes behind it regardless. */
+      notes:       { kaal_no: pad(n) },
+      theme:       { color: "#C6A15B" },
+      handler:     function(res){ confirmPayment(res, n, done); },
+      modal:       { ondismiss: function(){
+        done("Checkout closed. Nothing has been charged, and number " + pad(n) + " is held for you for a few minutes.");
+      } }
+    });
+
+    /* A card can be declined for a dozen reasons that are none of this
+       page's business. Say the one thing that is: no money moved. */
+    rzp.on("payment.failed", function(e){
+      var err = (e && e.error) || {};
+      done("That payment did not go through" + (err.description ? " — " + err.description : "") + ". Nothing has been charged, and you can try again.");
+    });
+
+    rzp.open();
+
+    /* The modal owns the screen now. The button behind it should not
+       still read "Opening…" when the buyer dismisses it. `paying` stays
+       true, so a stray click behind the modal cannot start a second
+       order on top of this one. */
+    el.removeAttribute("aria-busy");
+    paintCta();
+  }catch(e){
+    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+  }
+}
+
+function confirmPayment(res, n, done){
+  var ref = (res && res.razorpay_payment_id) || "";
+  function unconfirmed(){
+    done("Your payment went through, but this page could not confirm it. Nothing is lost — write to connect@thekaal.co quoting " + (ref || "your payment reference") + " and a person will answer.");
+  }
+
+  fetch(KAAL.api.replace(/\/+$/, "") + "/verify", {
+    method:"POST", mode:"cors", credentials:"omit",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      razorpay_order_id:   res && res.razorpay_order_id,
+      razorpay_payment_id: res && res.razorpay_payment_id,
+      razorpay_signature:  res && res.razorpay_signature
+    })
+  }).then(function(r){
+    return r.json().catch(function(){ return null; });
+  }).then(function(d){
+    if(!(d && d.ok)){ unconfirmed(); return; }
+    /* claimed.html reads the number out of localStorage and the
+       reference off the query string. That contract predates this
+       route and is kept exactly, so both ways of paying land on the
+       same page saying the same thing. */
+    try{ localStorage.setItem("kaal_claimed_no", pad(n)); }catch(e){}
+    markSold(n);
+    location.href = "claimed.html?razorpay_payment_id=" + encodeURIComponent(ref);
+  }).catch(unconfirmed);
 }
 
 /* ── Reveals. One observer, and an act keeps its lit state once it has

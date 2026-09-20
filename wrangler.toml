@@ -9,11 +9,34 @@ GITHUB_OWNER  = "psychologymatters561-design"
 GITHUB_REPO   = "KAAL"
 GITHUB_BRANCH = "main"
 EDITION       = "20"
+CURRENCY      = "INR"
+
+# What a watch costs, in paise, and the only place /order will read it
+# from. A browser can ask for a number; it cannot ask for a price.
+#
+# This is a second copy of `price` in index.html and it is kept honest
+# the same way the ItemList is: tools/check.mjs fails the build if the
+# two ever disagree. Change the price on the page and this line and the
+# deployed secret have to move with it — in that order, and before the
+# next sale.
+PRICE_PAISE   = "599900"          # ₹5,999
+
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
 # Secrets are never written here. Set them once, each on its own:
+#   wrangler secret put RAZORPAY_KEY_ID        publishable; the worker
+#                                              hands it to the browser
+#                                              at order time so that no
+#                                              Razorpay key ever lands
+#                                              in the repo (check.mjs
+#                                              fails the build if one does)
+#   wrangler secret put RAZORPAY_KEY_SECRET    signs orders, verifies
+#                                              payments, never leaves here
 #   wrangler secret put RAZORPAY_WEBHOOK_SECRET
 #   wrangler secret put GITHUB_TOKEN
+#
+# Locally, `wrangler dev` reads the same names out of .dev.vars, which is
+# gitignored. Copy .dev.vars.example to start.
 
 # Holds live in KV. Create the namespace once, paste the id it prints
 # below, and uncomment the block:

@@ -765,7 +765,7 @@ a{color:inherit}
   <div class="stage" id="stage">
     <canvas id="seq" aria-hidden="true"></canvas>
     <img class="still on" id="still" src="assets/img/hero-still.webp" data-frame="auto"
-         alt="A KAAL Series 01 watch with a gold dial and a two tone steel bracelet, lit by candlelight on a dark stone plinth.">
+         alt="A KAAL Series 01 watch with an emerald dial and a two tone steel bracelet, standing on a dark wooden desk beside a leather notebook, lit by a single warm lamp.">
 
     <div class="ring" id="ring" aria-hidden="true">
       <svg viewBox="0 0 20 20"><circle class="trk" cx="10" cy="10" r="9"/><circle class="bar" id="ringBar" cx="10" cy="10" r="9"/></svg>
@@ -1163,27 +1163,39 @@ var KAAL = {
      its duration so this works whatever length it is. These are a safety
      net, never the plan: any real photograph at the matching filename in
      assets/img/ is loaded first and wins. When all eight land, nothing
-     here is ever requested again. Set to "" to switch the net off. */
+     here is ever requested again. Set to "" to switch the net off.
+
+     This is now the only line on the page that names another origin, and
+     it is a net under eight photographs that have not been shot. The hero
+     no longer touches it — see filmSeq. */
   frames:   "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_{W},c_limit,q_auto,f_auto/v1788959635/090901_1788957849218.jpg",
 
-  /* The hero asks the same film for a different crop, and that is worth a
-     second line. The template above fills a photograph's slot, so it has to
-     keep the whole frame: c_limit. The hero canvas covers the viewport, and
-     a phone's viewport is taller than the film is. With c_limit the browser
-     was handed a 720x405 still and asked to cover a 585x1266 canvas with it
-     — a 3.1x upscale on every painted frame, paid twice, once in GPU time
-     and once in sharpness. c_fill with g_center asks Cloudinary for exactly
-     the crop the canvas was going to take anyway, at exactly the size it
-     needs. Same picture, a third of the pixels, no upscale.
+  /* ── THE HERO SEQUENCE, BAKED AND SERVED FROM THIS REPO.
 
-     {H} is the only difference in shape. Delete this line and the hero
-     silently falls back to the template above, exactly as it behaved
-     before. */
-  filmFrames: "https://res.cloudinary.com/zuc7oxyj/video/upload/so_{T},w_{W},h_{H},c_fill,g_center,q_auto,f_auto/v1788959635/090901_1788957849218.jpg",
-  /* How many stills the film is cut into. These are TARGETS, not orders: a
-     device that cannot hold this many frames is given fewer, and no device
-     is ever given more. See frameCount() below for how much a phone is
-     actually asked to carry.
+     The hero used to build a Cloudinary URL per frame, encoding the
+     timestamp AND the viewport's own width and height:
+     so_{T},w_{W},h_{H},c_fill,g_center. Each distinct triple of those is
+     a video seek plus a transcode on someone else's machine before the
+     first byte comes back, and widths were rounded to eighty pixels, so
+     very nearly every device width was its own cold start. A phone that
+     is the first of its width to arrive paid for that, in the one place
+     on the page that cannot afford to wait for anything.
+
+     The machinery below this config — preload, decode-before-paint,
+     bisection order, sub-frame blend — was never the lag. Waiting on a
+     transcode was. So the frames are cut once, by tools/bake-hero-seq.sh,
+     and committed: same origin as the page, on the CDN already serving
+     it, under a name that never changes. Nothing is transcoded at scroll
+     time because nothing is transcoded at all.
+
+     Two directories live under here, tall and wide, and the page picks by
+     orientation. Set to "" and the film never loads and the still is the
+     hero — which it was designed to be. */
+  filmSeq:  "assets/img/hero-seq/",
+  /* How many stills the film was CUT INTO — one per file on disk, per
+     tier. These are ceilings, not orders: a device that cannot hold this
+     many is given an evenly spaced subset, and no device is ever given
+     more, because there is no more. See frameWant() and frameStep().
 
      Frames are the one thing the scrub cannot fake. Blending paints between
      two neighbours, which turns a stepped sequence into a continuous one —
@@ -1192,9 +1204,19 @@ var KAAL = {
      and that is the only thing that removes the ghost rather than smoothing
      it. Sixty and forty-four are where that stops being visible on this
      film. Raise them and the bytes go up in a straight line; lower them and
-     fast movement starts to smear. */
-  frameCount:      60,
-  frameCountSmall: 44,
+     fast movement starts to smear.
+
+     Sixty-one and forty-three, not sixty and forty-four, and the extra
+     frame is not a rounding error. A fixed set of files can only be
+     sampled EVENLY at a whole-number stride, and a stride has to divide
+     n-1 to land on the last frame as well as the first. 60 and 42 divide
+     by 2 and by 3; 59 and 43 divide by nothing. An unevenly sampled film
+     is not a smaller film — it is a film whose motion speeds up and slows
+     down twice a second, which is the exact defect the frames were
+     bought to remove. Change these and re-run tools/bake-hero-seq.sh; the
+     two must agree or the page requests a file that is not there. */
+  frameCount:      61,
+  frameCountSmall: 43,
   /* The edition as it was actually made: six green, four black, four gold,
      six white, in blocks rather than interleaved. Everything else that
      states this mapping — the twenty in the grid, the number runs under the
@@ -1274,19 +1296,27 @@ function wake(){ awake = 14; if(!running){ running = true; requestAnimationFrame
    between keyframes. That is not an easing problem and no amount of
    lerping hides it: it is the codec.
 
-   So the film is delivered as frames instead. Cloudinary cuts stills out
-   of the same video on demand, they are preloaded, and scroll paints
-   them to a canvas. There is no decoder in the loop, no keyframes and no
-   seeks. Painting an already decoded image is effectively free, so the
-   result is frame exact and cannot stutter. This is how the scroll films
-   on the product pages you have seen are actually built.
+   So the film is delivered as frames instead. The stills are cut out of
+   the same video ahead of time, preloaded, and scroll paints them to a
+   canvas. There is no decoder in the loop, no keyframes and no seeks.
+   Painting an already decoded image is effectively free, so the result
+   is frame exact and cannot stutter. This is how the scroll films on the
+   product pages you have seen are actually built.
 
-   Five gates still decide whether any of it is fetched. Any one of them
+   Cut AHEAD OF TIME is the part that changed. They used to be cut on
+   demand, by Cloudinary, at a size derived from the live viewport — so
+   the first visitor at any given width waited on a transcode before the
+   hero could begin. Now they are files in this repo, baked once by
+   tools/bake-hero-seq.sh and served from the same origin as the page.
+   Nothing about the loop below changed, because the loop was never the
+   problem; what it was waiting for was.
+
+   Six gates still decide whether any of it is fetched. Any one of them
    and the page serves the designed still, which is a complete hero in
    its own right rather than a hole where a film should be. ─────────── */
 var still = $("#still"), stage = $("#stage");
 var SEQ = {
-  n:0, w:0, h:0, imgs:[], ok:[], got:0, live:false,
+  n:0, tier:null, step:1, imgs:[], ok:[], got:0, live:false,
   cv:null, ctx:null, painted:-1, want:0, pos:0, show:0, fast:false
 };
 
@@ -1294,46 +1324,79 @@ function filmAllowed(){
   if(qs.get("film") === "1") return true;      /* owner override, for reviewing on a phone */
   if(qs.get("film") === "0") return false;
   if(reduced) return false;                                   /* 1. asked for less motion */
-  if(!KAAL.frames && !KAAL.filmFrames) return false;          /* 2. nothing to cut frames from */
+  if(!KAAL.filmSeq) return false;                             /* 2. no sequence configured */
   if(window.innerWidth < 340) return false;                   /* 3. no room for it */
+
+  /* 4 and 5 are real signals where they exist and they do not exist on
+     WebKit — navigator.connection has never shipped in Safari, desktop or
+     iOS. They are kept because Save-Data and 2g are genuine answers from
+     the Android half of this page's traffic, and a megabyte of frames on
+     a 2g connection is still a megabyte. They are simply not a throttle
+     on an iPhone, and pretending they were is how every Apple device
+     ended up taking the full sequence no matter what it could carry. */
   var c = navigator.connection;
   if(c && c.saveData) return false;                           /* 4. save data is on */
   if(c && /(^|\W)(slow-2g|2g)($|\W)/.test(c.effectiveType||"")) return false;  /* 5. thin pipe */
+
+  /* 6. The gate that works everywhere, which is the point of it.
+     deviceMemory is Chromium-only; hardwareConcurrency is not, and Safari
+     has reported it since 10.1. A device with one gigabyte, or two cores
+     and no memory figure to argue otherwise, is not going to hold a
+     decoded sequence and scroll at the same time. It gets the still,
+     which is a finished hero. Everything between that floor and a healthy
+     device is handled by giving out fewer frames, not none — frameWant()
+     below. */
+  var cores = navigator.hardwareConcurrency || 0;
+  if(navigator.deviceMemory ? navigator.deviceMemory <= 1 : (cores > 0 && cores <= 2)) return false;
   return true;
 }
 
-/* ── THE GEOMETRY.
+/* ── THE GEOMETRY. TWO SIZES, NOT A CONTINUUM.
 
    The canvas and the frames painted into it are deliberately the same
    size, which makes drawImage a one to one blit: the cheapest path the
-   2D context has. Everything below exists to pick that one size well.
+   2D context has. What changed is which way round that is arranged.
 
-   A phone gets device pixel ratio 1 on purpose. That reads like a
-   downgrade and is the opposite of one. The old build asked for a
-   720x405 still and stretched it across a 585x1266 canvas, so the
-   picture a phone actually saw carried about a third of a device pixel
-   per screen pixel. Asking for the viewport at ratio 1 triples that,
-   for the same bytes and the same memory, because the pixels are now
-   the ones the screen is going to show instead of pixels invented by a
-   3.1x upscale.
+   The old build rounded the viewport to the nearest eighty pixels, asked
+   the transcoder for exactly that, and sized the canvas to match. The
+   bucketing was there to make a CDN cache hit likely — but the thing
+   being cached was a transform that had to be COMPUTED before it could
+   be cached, so every width that had not been asked for before was a
+   cold start, and eighty-pixel steps across the real spread of phone
+   widths is a lot of widths. It was buying a cache hit with a cache
+   miss.
 
-   Requests are bucketed to eighty pixels for two reasons. A CDN caches
-   per URL, so two phones a few pixels apart should share an entry
-   rather than each paying for a cold transform. And the URL bar on iOS
-   changes the viewport height by sixty to ninety pixels as you scroll:
-   inside a bucket, that motion cannot change the canvas size, so it
-   cannot trigger a reallocation in the middle of a scrub. ─────────── */
-var FILM_CAP_SMALL = 0.45e6, FILM_CAP_LARGE = 1.0e6, FILM_EDGE = 1440;
-function filmBox(){
-  var vw = Math.max(320, M.vw || window.innerWidth);
-  var vh = Math.max(320, M.vh || window.innerHeight);
-  var small = vw < 900;
-  var cap = small ? FILM_CAP_SMALL : FILM_CAP_LARGE;
-  var d = Math.min(window.devicePixelRatio || 1, small ? 1 : 1.5);
-  if(vw * vh * d * d > cap) d = Math.sqrt(cap / (vw * vh));
-  return { w: bucket(vw * d), h: bucket(vh * d) };
+   Against files that already exist the trade inverts. Two sizes that
+   every device shares are two files that are always already at the edge,
+   so the canvas is set to the FRAME's size and the browser covers the
+   stage with it — which is what `object-fit:cover` on the canvas element
+   has always done for the still beside it, on the compositor, for free.
+
+   The blit survives: frame and canvas are the same size by construction
+   now rather than by calculation, so drawImage takes its fast path on
+   every paint at every viewport. And the canvas has a constant size for
+   the life of the page, which settles the other half of the old comment
+   for good: the iOS URL bar can change the viewport height by ninety
+   pixels mid scroll and there is no longer any size for it to change.
+   No reallocation, no cleared backing store, no blank frame.
+
+   The two tiers are picked by orientation, because that is the axis that
+   actually decides what a cover-crop throws away. `tall` is 400x880, the
+   phone canvas this page has always drawn, at a ratio between a 360x740
+   Android and a 430x932 iPhone. `wide` is 1080x675: 1080 because the
+   film is 1080 wide and asking for 1240 only ever bought an upscale, and
+   675 to sit between a 16:10 laptop and a 16:9 monitor.
+
+   `n` is how many files are in that directory. Nothing may ask for more
+   than exist. ──────────────────────────────────────────────────────── */
+var FILM_TIERS = {
+  tall: { dir:"tall", w:400,  h:880, n:(KAAL.frameCountSmall || 43) },
+  wide: { dir:"wide", w:1080, h:675, n:(KAAL.frameCount      || 61) }
+};
+function filmTier(){
+  var vw = M.vw || window.innerWidth, vh = M.vh || window.innerHeight;
+  return vh >= vw ? FILM_TIERS.tall : FILM_TIERS.wide;
 }
-function bucket(v){ return Math.max(320, Math.min(FILM_EDGE, Math.ceil(v / 80) * 80)); }
 
 /* ── HOW MANY FRAMES THIS DEVICE GETS.
 
@@ -1345,38 +1408,76 @@ function bucket(v){ return Math.max(320, Math.min(FILM_EDGE, Math.ceil(v / 80) *
    for an image-heavy page on a laptop and is not ordinary on a two-gigabyte
    Android.
 
-   So the config states a target and the device is only ever allowed to
+   So the directory states a ceiling and the device is only ever allowed to
    reduce it. deviceMemory is coarse and Chromium-only; where it is missing,
-   core count stands in badly but stands in. A phone on 3G gets fewer
-   because the bytes matter more there than the last of the smoothness, and
-   the gates in filmAllowed() have already turned the film off entirely for
-   anything slower. */
-function frameCount(box){
+   core count stands in badly but stands in — and "badly but at all" is the
+   whole improvement here, because the reduction this page USED to lean on
+   read navigator.connection, which does not exist in any WebKit. Every
+   iPhone that ever loaded this page walked straight past that branch and
+   took the full sequence, whatever it could actually hold. Memory and
+   cores are answered everywhere, so they are what this asks now.
+
+   The last clamp is the one that is no longer a guess. A decoded frame is
+   the tier's own width times its height times four bytes, which is a number
+   this file knows exactly, so the budget is stated in megabytes of bitmap
+   rather than in a frame count that only meant megabytes on the device it
+   was tuned on. It is also what keeps a phone held sideways honest: it
+   lands on the wide tier, whose frames are eight times the area of the
+   tall one's, and without this it would cheerfully try to hold 178MB. */
+function frameWant(tier){
   var small = (M.vw || window.innerWidth) < 900;
-  var want = small ? (KAAL.frameCountSmall || 44) : (KAAL.frameCount || 60);
-  var mem = navigator.deviceMemory;
+  var want  = tier.n;
+  var mem   = navigator.deviceMemory;
+  var cores = navigator.hardwareConcurrency || 0;
 
   if(mem){
     if(mem <= 2)      want = Math.round(want * 0.50);
     else if(mem <= 4) want = Math.round(want * 0.72);
-  } else if((navigator.hardwareConcurrency || 8) <= 4){
+  } else if(cores && cores <= 4){
     want = Math.round(want * 0.72);
   }
 
   var c = navigator.connection;
   if(c && c.effectiveType === "3g") want = Math.round(want * 0.70);
 
-  /* Never below the number that made the scrub watchable in the first
-     place, and never so many that a bisection pass cannot cover the film
-     before a reader has finished the opening caption. */
-  return clamp(want, 16, small ? 72 : 120);
+  var perFrame = tier.w * tier.h * 4;
+  want = Math.min(want, Math.floor((small ? 90e6 : 260e6) / perFrame));
+
+  return want;
 }
 
-/* The hero template if there is one, the photograph template if not. */
-function frameUrl(i, n){
-  var t = KAAL.filmFrames || KAAL.frames;
-  var pct = ((i / (n - 1)) * 100).toFixed(2) + "p";
-  return t.replace("{T}", pct).replace("{W}", SEQ.w).replace("{H}", SEQ.h);
+/* ── Which of the baked frames this device actually takes.
+
+   A subset of a fixed set is only evenly spaced if the stride is a whole
+   number, and it only ends on the last frame if that stride divides n-1.
+   So the reduction above names a number it would like and this finds the
+   largest EVENLY SPACED set no bigger than it. 43 gives 43 or 22; 61
+   gives 61, 31 or 21. The rungs are coarser than the old percentages
+   because the old percentages were free — the server was cutting the film
+   to order, so any count was as easy as any other. These frames exist.
+
+   The floor wins over the ceiling: a set thinner than sixteen frames is
+   not a cheaper film, it is a slideshow, and the still is a better
+   answer than that. */
+var FILM_MIN_FRAMES = 16;
+function frameStep(tier, want){
+  var span = tier.n - 1, best = 1, k, n;
+  for(k = 1; k <= span; k++){
+    if(span % k) continue;                 /* only a divisor lands on the last frame */
+    n = span / k + 1;
+    if(n < FILM_MIN_FRAMES) break;         /* divisors grow, counts shrink */
+    best = k;
+    if(n <= want) break;                   /* the first that fits is the largest that fits */
+  }
+  return best;
+}
+
+/* A file in this repo, not a transform on a server. i counts the frames
+   this device took; step turns that back into the frame as baked. */
+function frameUrl(i){
+  var m = i * SEQ.step;
+  if(m > SEQ.tier.n - 1) m = SEQ.tier.n - 1;
+  return KAAL.filmSeq + SEQ.tier.dir + "/" + ("00" + m).slice(-3) + ".webp";
 }
 
 /* Frames arrive in bisection order rather than left to right, so that a
@@ -1396,15 +1497,19 @@ function bisect(n){
 }
 
 /* Sizing the canvas allocates a new backing store, clears it and forces a
-   full repaint, so it must happen when the viewport really changed and at
-   no other time. The old build called this from a bare resize listener;
-   on iOS, hiding the URL bar mid scroll fires resize, which reallocated
-   the canvas and blanked the frame in the middle of the scrub. */
+   full repaint. The old build sized it to the viewport, which meant iOS
+   hiding its URL bar mid scroll could reallocate the canvas and blank the
+   frame in the middle of the scrub; a debounce and a 120px deadband kept
+   that rare rather than impossible.
+
+   The canvas is now the size of the frames going into it, and the frames
+   are a fixed tier, so this runs once and every later call returns on the
+   first line. The stage is covered by CSS instead. A resize cannot blank
+   the hero any more because a resize no longer touches it. */
 function sizeCanvas(){
-  if(!SEQ.cv) return;
-  var box = filmBox();
-  if(SEQ.cv.width === box.w && SEQ.cv.height === box.h) return;
-  SEQ.cv.width = box.w; SEQ.cv.height = box.h;
+  if(!SEQ.cv || !SEQ.tier) return;
+  if(SEQ.cv.width === SEQ.tier.w && SEQ.cv.height === SEQ.tier.h) return;
+  SEQ.cv.width = SEQ.tier.w; SEQ.cv.height = SEQ.tier.h;
   SEQ.painted = -1;                      /* force a repaint at the new size */
 }
 
@@ -1474,13 +1579,14 @@ function nearestReady(i){
 
 function loadFilm(){
   var ring = $("#ring"), bar = $("#ringBar"), txt = $("#ringTxt");
-  var small = (M.vw || window.innerWidth) < 900;
 
   /* A phone is paid for by spending less, not by spending nothing. It
-     gets the film, at half the frames and a plate cut to its own screen. */
-  var box = filmBox();
-  SEQ.w = box.w; SEQ.h = box.h;
-  SEQ.n = frameCount(box);
+     gets the film, from the tier cut for its own shape, at whatever
+     evenly spaced fraction of that tier it can actually hold. */
+  var tier = filmTier();
+  SEQ.tier = tier;
+  SEQ.step = frameStep(tier, frameWant(tier));
+  SEQ.n    = (tier.n - 1) / SEQ.step + 1;
 
   SEQ.cv  = $("#seq");
   SEQ.ctx = SEQ.cv.getContext("2d", { alpha:false });
@@ -1535,7 +1641,7 @@ function loadFilm(){
       if(failed + 1 >= SEQ.n){ ring.classList.remove("on"); still.classList.add("on"); }
       settle(idx, false);
     };
-    im.src = frameUrl(idx, SEQ.n);
+    im.src = frameUrl(idx);
     return im;
   }
 

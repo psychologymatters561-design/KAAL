@@ -4,8 +4,10 @@ Series 01. Twenty numbered watches, one case design, four dials. A scroll
 driven landing page built to sell to cold traffic.
 
 One `index.html`, plain CSS, vanilla JavaScript, no build step, no npm, and
-nothing loaded from another domain except the film while it still lives on
-Cloudinary.
+nothing loaded from another domain. The hero film is a sequence of stills in
+this repo. The only line left that names another origin is the fallback under
+the eight photographs that have not been shot yet, and a real photograph at
+the matching filename switches it off for good.
 
 ---
 
@@ -25,6 +27,9 @@ The frames are a safety net, not the plan, and nobody has inspected them:
 this build environment cannot reach Cloudinary, so they were wired but never
 seen. Look at the live site and judge them. A real photograph at the matching
 filename wins outright and switches its frame off for good.
+
+This is the LAST thing on the page that reaches for Cloudinary. The hero used
+to as well, on every load, and no longer does — see below.
 
 ### 2. The payment link
 
@@ -229,22 +234,37 @@ No amount of easing hides it, because it is the codec, not the
 animation. That is exactly what the first version of this page did and
 exactly why it looked glitchy.
 
-So the film is delivered as frames. Cloudinary cuts stills out of the
-same video on demand, they are preloaded, and scroll paints them to a
-canvas. No decoder in the loop, no keyframes, no seeks. Painting an
-already decoded image is effectively free, so it is frame exact and
-cannot stutter. This is how the scroll films on the product pages you
-have seen are actually built.
+So the film is delivered as frames: stills cut out of the same video,
+preloaded, and painted to a canvas by scroll. No decoder in the loop, no
+keyframes, no seeks. Painting an already decoded image is effectively
+free, so it is frame exact and cannot stutter. This is how the scroll
+films on the product pages you have seen are actually built.
 
-Measured against a 48 frame test sequence, not reasoned about:
+**The stills are cut ahead of time and live in this repo.** They used to
+be cut on demand by Cloudinary, at a size built out of the live viewport
+— `so_{T},w_{W},h_{H},c_fill,g_center` — so every distinct combination of
+timestamp, width and height was a video seek plus a transcode on someone
+else's server before the first byte came back, and widths were rounded to
+eighty pixels, which made very nearly every phone width its own cold
+start. The preloading, the decode-before-paint and the blending were
+never the lag. What they were waiting for was.
 
-| | |
-|---|---|
-| scroll position to painted frame | exact at all nine sample points |
-| distinct frames over a slow drag | 47 of 48 |
-| largest gap between painted frames | **1**, meaning no stepping at all |
-| backwards jumps during a forward drag | **0** |
-| a flick from top to bottom | decelerates over 14 paints, lands exactly on target |
+`tools/bake-hero-seq.sh` cuts them once, by hand, and the result is
+committed under `assets/img/hero-seq/`. Same origin as the page, on the
+CDN already serving it. Nothing is transcoded at scroll time because
+nothing is transcoded at all.
+
+Measured by wrapping `drawImage` and recording every painted frame, on
+the real page in Chromium:
+
+| | phone, 43 frames | laptop, 61 frames |
+|---|---|---|
+| distinct frames over a slow drag | **43 of 43** | **61 of 61** |
+| largest gap between painted frames | **1**, no stepping at all | **1** |
+| backwards jumps during a forward drag | **0** | **0** |
+| forward jumps while dragging back | **0** | **0** |
+| a hard flick | 33 paints, lands exactly on the last frame | 34 paints, same |
+| Cloudinary requests, whole session | **0** | **0** |
 
 Three details earned their place, each one a defect found by running it:
 
@@ -264,19 +284,42 @@ Three details earned their place, each one a defect found by running it:
 The hero is 230vh, not 340. At 340 it took two and a half screens of
 scrolling to play the film through, which is what read as slow.
 
-`KAAL.frameCount` is the one dial that trades smoothness against bytes.
-48 on a laptop at 1280px wide, 24 on a phone at 720px.
+`KAAL.frameCount` and `KAAL.frameCountSmall` are how many stills were
+CUT — 61 at 1080x675 for landscape viewports, 43 at 400x880 for portrait
+ones — and they have to match the files on disk, which `tools/check.mjs`
+enforces. They are 61 and 43 rather than 60 and 44 because a fixed set of
+files can only be sampled evenly at a whole-number stride, and a stride
+has to divide n-1 to land on the last frame as well as the first. 60 and
+42 divide by 2 and by 3. 59 and 43 divide by nothing, and an unevenly
+sampled film is one whose motion speeds up and slows down twice a second.
+
+Two sizes, not a continuum. The canvas is set to the frame's size and CSS
+covers the stage with it, so `drawImage` is a one-to-one blit at every
+viewport — and the canvas now has a constant size for the life of the
+page, which means the iOS URL bar appearing mid scroll can no longer
+reallocate it and blank a frame.
 
 ### Five gates serve the still instead
 
 The frames are never fetched when any one of these is true: reduced
 motion is requested, the viewport is under 340px, Save-Data is on, the
-connection reports 2g, or there is no film configured. **Phones are no
-longer locked out**: a phone is paid for by spending less rather than
-nothing, so it gets the film at 24 frames and 720px instead of 48 and
-1280. Those visitors get shot 7 as
-a full hero, which was composed to be a complete first screen on its own.
-`?film=1` forces the film on for reviewing the real thing on your own phone.
+connection reports 2g, there is no sequence configured, or the device
+reports a gigabyte of memory or two cores. **Phones are no longer locked
+out**: a phone is paid for by spending less rather than nothing, so it
+gets the film from the portrait tier at whatever evenly spaced fraction of
+43 frames it can hold. Those visitors get the still as a full hero, which
+was composed to be a complete first screen on its own. `?film=1` forces
+the film on for reviewing the real thing on your own phone.
+
+Gates three and four — Save-Data and 2g — read `navigator.connection`,
+**which has never shipped in any WebKit**. They are real answers on the
+Android half of this page's traffic and they are silence on every iPhone,
+so they were the only throttle a phone had and they were not running. The
+sixth gate and the frame budget read `deviceMemory` and
+`hardwareConcurrency` instead, and `hardwareConcurrency` is answered
+everywhere. A four-core device with no memory figure — which is what an
+older iPhone looks like — now takes 22 frames where it used to take the
+lot.
 
 The page is also complete with **no images and no film at all**, which is the
 state it is in right now.
@@ -319,6 +362,17 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - Scroll to frame mapping exact at nine sample points and correct in
   reverse; largest gap between painted frames measured at 1, with zero
   backwards jumps during a forward drag
+- **Hero frames served from this origin.** Chromium at 320, 390 and 1512px,
+  plus a 390 viewport with `deviceMemory` deleted and `hardwareConcurrency`
+  forced to 4 and to 6, and a phone held sideways at 844x390. Requests to
+  `res.cloudinary.com` for the hero: **0 in every case**, against 22 to 60
+  per session on the build before this one. Frames requested per session:
+  43 portrait, 61 landscape, 22 on a low-memory or four-core device, 21 on
+  a phone held sideways — every one of them an evenly spaced subset
+- **The frame budget throttles WebKit, which it did not before.** A 390
+  viewport with no `deviceMemory` and four cores took 32 frames on the old
+  build and takes 22 on this one; the same viewport with six cores takes 43.
+  The old reduction read `navigator.connection`, which no Safari implements
 - All four loader branches exercised: frames available on desktop and on
   a phone, every frame blocked, and the opening frame alone failing. The
   still keeps the screen whenever nothing is paintable; there is no
@@ -335,8 +389,15 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   the config rebuilds them on load.
 - The main animation loop measured **asleep** when idle rather than assumed to be
 
+**Known, and older than this change:** at a 320px viewport the document is
+11px wider than the viewport. Measured identically on `main` and on this
+branch, in `ul.four` inside `div.hold`, which is nothing to do with the film.
+It is not fixed here.
+
 Still needs a person, and no headless browser substitutes for it: **a real
-mid-range Android on real mobile data**, and a Lighthouse run.
+mid-range Android on real mobile data**, **a real iPhone** — the device the
+frame budget was rewritten for is the one no headless Chromium can stand in
+for — and a Lighthouse run.
 
 ## What is in here
 
@@ -344,6 +405,10 @@ mid-range Android on real mobile data**, and a Lighthouse run.
 index.html               the whole site
 assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
+assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/
+assets/img/hero-still.webp  the hero when the film does not run
+tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never
+                         at deploy: its output is committed, not built.
 assets/brand/            the KΛΛL wordmark, both A's bare, matching the dial
 incoming/DROP.md         the eight filenames and the film encode
 docs/design-package.md   why the page is shaped the way it is

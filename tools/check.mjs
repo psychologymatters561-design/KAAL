@@ -13,7 +13,7 @@
 
    Run it yourself before you push:  node tools/check.mjs
    ══════════════════════════════════════════════════════════════════ */
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -46,7 +46,7 @@ if (soldHits !== 1) bad(`index.html contains ${soldHits} occurrences of "sold:" 
 
 /* ── 3. The config, read the way the page reads it. ─────────────── */
 const cfg = {};
-for (const k of ["checkout", "price", "film", "frames", "filmFrames"]) {
+for (const k of ["checkout", "price", "film", "frames", "filmFrames", "filmSeq"]) {
   const m = html.match(new RegExp(`${k}:\\s*"([^"]*)"`));
   if (m) cfg[k] = m[1];
 }
@@ -96,8 +96,59 @@ if (existsSync(join(root, "wrangler.toml"))) {
 } else if (payMode === "standard") {
   bad("pay is \"standard\" but there is no wrangler.toml — nothing defines the price the buyer is charged");
 }
-if (cfg.filmFrames && !(cfg.filmFrames.includes("{W}") && cfg.filmFrames.includes("{H}") && cfg.filmFrames.includes("{T}")))
-  bad("filmFrames must carry {T}, {W} and {H} — the hero sizes its own request");
+/* ── 3c. The hero sequence.
+
+      The frames are files now, not a transform someone else computes on
+      request, and a file is the one kind of dependency that can go
+      missing in a rename without anything complaining until a buyer sees
+      a black hero. The page asks for `${filmSeq}${tier}/${000..n-1}.webp`
+      and nothing else, so that is exactly what is checked: the count in
+      the config IS the count on disk, and every index between is there.
+
+      Run tools/bake-hero-seq.sh to regenerate them. ───────────────── */
+if (cfg.filmSeq) {
+  if (/^https?:|^\/\//.test(cfg.filmSeq))
+    bad("filmSeq points at another origin — the hero sequence is meant to be served from this repo");
+  else if (!cfg.filmSeq.endsWith("/"))
+    bad("filmSeq must end in a slash — the page appends the tier directory to it");
+  else {
+    const counts = { tall: +(html.match(/frameCountSmall:\s*(\d+)/)?.[1] ?? NaN),
+                     wide: +(html.match(/frameCount:\s*(\d+)/)?.[1] ?? NaN) };
+    for (const [tier, n] of Object.entries(counts)) {
+      const dir = join(root, cfg.filmSeq, tier);
+      if (!Number.isFinite(n) || n < 2) { bad(`no frame count configured for the ${tier} tier`); continue; }
+      if (!existsSync(dir)) { bad(`hero sequence missing: ${cfg.filmSeq}${tier}/ — run tools/bake-hero-seq.sh`); continue; }
+      const missing = [];
+      let bytes = 0;
+      for (let i = 0; i < n; i++) {
+        const f = join(dir, `${String(i).padStart(3, "0")}.webp`);
+        if (existsSync(f)) bytes += statSync(f).size; else missing.push(i);
+      }
+      if (missing.length)
+        bad(`${cfg.filmSeq}${tier}/ is missing ${missing.length} frame(s): ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? "…" : ""}`);
+      const extra = readdirSync(dir).filter(f => f.endsWith(".webp")).length - n;
+      if (extra > 0) bad(`${cfg.filmSeq}${tier}/ holds ${extra} more .webp than frameCount says — the page will never request them`);
+
+      /* A phone pays for these on cellular before it sees anything move.
+         Not a failure — it is a judgement call, and it should be a loud
+         one the moment somebody re-bakes at a higher quality. */
+      const budget = tier === "tall" ? 1.4e6 : 4.0e6;
+      if (bytes > budget)
+        soft(`${tier} sequence is ${(bytes / 1e6).toFixed(2)}MB over ${n} frames — above the ${(budget / 1e6).toFixed(1)}MB this hero budgets`);
+
+      /* n-1 is the stride's denominator: an evenly spaced subset can only
+         exist if it has whole divisors, and without one a weak device
+         gets a film whose motion speeds up and slows down. */
+      const span = n - 1;
+      if (span % 2 && span % 3)
+        bad(`${tier} has ${n} frames, so n-1 = ${span} divides by neither 2 nor 3 — a reduced device cannot take an evenly spaced subset`);
+    }
+  }
+} else {
+  soft("filmSeq is empty: the hero never loads the film and the still is the hero");
+}
+if (cfg.filmFrames)
+  bad("filmFrames is back in the config — the hero is served from filmSeq now and must not reach for another origin");
 if (cfg.frames && !(cfg.frames.includes("{T}") && cfg.frames.includes("{W}")))
   bad("frames must carry {T} and {W}");
 if (cfg.frames && cfg.frames.includes("{H}"))

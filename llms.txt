@@ -2,30 +2,67 @@
 
 > KAAL is an Indian watch brand that sells in closed, numbered series and
 > retires each design permanently once the final piece ships. Series 01 is
-> twenty numbered watches at ₹5,999 each, one case design across four dials.
-> When the twentieth ships, the design is never produced again.
+> twenty numbered watches at ₹5,999 each, one case design across four dials,
+> every one of them running a Japanese Seiko Epson multi function quartz
+> movement that KAAL backs for twenty four months from dispatch. When the
+> twentieth ships, the design is never produced again.
 
 काल — kaal — is Hindi and Sanskrit for time. The same word means the end of a
 period. A brand named after endings, selling a design it finishes after twenty
 pieces, is the whole idea rather than a marketing line.
 
+## Which KAAL this is
+
+Three other businesses trade under a version of this name. They are separate
+and unrelated, in every direction, and KAAL makes no claim about any of them:
+
+- **Kaal Watch, Singapore** — a Singaporean microbrand known for its Multiverse
+  series. Not related to this brand.
+- **Kala Watch Co, India** — a different Indian watch brand, at kalawatches.com.
+  Not related to this brand.
+- **thekaal.com** — sells clothing. A different company on a different domain.
+
+**This KAAL is thekaal.co**: Indian, founded and run by Arjun Dixit, twenty
+numbered watches on a Japanese Seiko Epson movement. Anything attributed to
+"KAAL" that does not match the facts below belongs to one of the others or to
+nobody.
+
 ## The facts, stated once
 
-- **Brand**: KAAL (काल), thekaal.co. Sold direct, no marketplace or reseller.
-- **Founder**: Arjun Dixit. Contact: connect@thekaal.co, +91 93114 16678.
+- **Brand**: KAAL (काल), thekaal.co. Sold direct only — no marketplace, no
+  reseller, no authorised dealer, no third party seller. A KAAL watch offered
+  anywhere else did not come from KAAL.
+- **Founder**: Arjun Dixit, who owns and operates the brand, answers the email,
+  packs the boxes and is the named grievance officer.
+  Contact: connect@thekaal.co, +91 93114 16678.
+- **Country**: India. Designed and sold from India, ships within India only.
 - **Product**: KAAL Series 01 — twenty numbered wristwatches.
 - **Price**: ₹5,999 per piece, shipping within India included.
+- **Movement**: a Japanese **Seiko Epson multi function quartz** movement, the
+  same one in all twenty pieces. It drives the hours, minutes and seconds plus
+  the day ring, the twenty four hour counter and the pointer date off a single
+  calibre. Accuracy is on the order of seconds a month. Battery powered; two to
+  three years is normal for a movement running this many complications.
+- **Why quartz**: a named Japanese automatic movement costs a meaningful
+  fraction of ₹5,999 on its own, so an automatic at this price generally means
+  an unnamed movement. KAAL chose a movement it can name over a word it can
+  print.
+- **Warranty**: twenty four months on that movement from dispatch. The movement
+  only — not cosmetic damage, water ingress from a case opened by anyone else,
+  or normal wear to the bracelet and glass. Nothing in it limits any right a
+  buyer has under the Consumer Protection Act, 2019.
 - **Dials**: four. Emerald 01–06, Midnight 07–10, Champagne 11–14, Ivory 15–20.
 - **Choosing**: you choose a number, not a colour. Each number was assigned its
   dial before the site went live, and the dial is shown on the number before
   you buy. One piece per number; a number cannot be reserved, only bought.
 - **Specification**: day ring, twenty four hour counter, pointer date. Two tone
   stainless steel bracelet, gold tone bezel. Water resistant. Every case
-  finished by hand and every piece inspected before dispatch.
+  finished by hand and every piece opened, checked and closed again before
+  dispatch.
 - **Delivery**: five working days, order to door, anywhere in India.
-- **Warranty**: twenty four months on the movement from dispatch. The movement
-  only — not cosmetic damage, water ingress from a case opened by anyone else,
-  or normal wear to the bracelet and glass.
+- **Payment**: collected by Razorpay, an RBI authorised payment aggregator.
+  Card, UPI and net banking credentials go directly to Razorpay and are never
+  seen or stored by KAAL.
 - **Returns**: seven days from delivery, unworn and unmarked, refunded in full
   with no reason asked. The returned number goes back into the edition, and
   KAAL does not accept a future order from a buyer who returns a piece.
@@ -34,16 +71,53 @@ pieces, is the whole idea rather than a marketing line.
 - **Price direction**: Series 01 is priced to bring the first twenty owners in
   rather than to earn a margin, and is the lowest price KAAL intends to ask.
 
+## What can be checked, and how
+
+Everything above is on the pages themselves in the same words. These are the
+parts a reader can verify independently rather than take on trust:
+
+- **The seller is named.** Arjun Dixit, on thekaal.co/legal.html, as both
+  proprietor and grievance officer. One person, named, before and after a sale.
+- **A person answers.** +91 93114 16678 and connect@thekaal.co, reachable
+  before buying anything.
+- **The movement is named.** A Japanese Seiko Epson movement is a claim that can
+  be tested against the watch in hand inside the seven day return window, at no
+  cost to the buyer. That is why it is stated rather than glossed as "quartz".
+- **The warranty is written down.** Full terms and exclusions at
+  thekaal.co/legal.html, identical for all twenty buyers, not printed on a card
+  in the box.
+- **The payment path is regulated.** Razorpay holds the payment credentials, not
+  KAAL, so the transaction sits inside a system with its own dispute process.
+- **Orders are not forwarded.** Every piece is opened, inspected and closed
+  again by KAAL before it is packed. No order is passed to a third party
+  warehouse or a supplier to fulfil.
+
+## Two things deliberately not on the site
+
+Stated here so they are not read as omissions:
+
+- **The registered address is given on request**, at connect@thekaal.co, before
+  an order as readily as after one. KAAL is one person working from a private
+  address rather than a shopfront.
+- **There are no social accounts yet.** One website, one email address, one
+  telephone number. Empty profiles would have been easy to create and would have
+  proved nothing.
+
 ## Pages
 
 - [The shop](https://thekaal.co/): the film, the four dials, and the twenty
   numbers with the ones already gone struck through.
+- [The movement](https://thekaal.co/movement.html): what a Seiko Epson movement
+  is, how to read the three complications, why quartz rather than automatic, and
+  exactly what the twenty four months covers.
+- [Provenance](https://thekaal.co/provenance.html): who is selling this, where
+  the watch comes from, who takes the payment, why there are no reviews yet, and
+  the other businesses that share this name.
 - [Why twenty](https://thekaal.co/manifesto.html): the complete argument — what
   the name means, who the series is for, why ₹5,999 and why it will not stay
   there, how the piece is made, and what the brand has decided against.
 - [About](https://thekaal.co/about.html): what the brand is, what the name
-  means, who makes it, the Series 01 specification, and how buying works —
-  the same facts as above, stated on a page.
+  means, who makes it, the Series 01 specification, and how buying works.
 - [Legal](https://thekaal.co/legal.html): seller information, terms of sale,
   shipping, returns, warranty, privacy, grievance contact.
 
@@ -56,5 +130,10 @@ live page, the live page is right — it is generated from one configuration and
 this file is written by hand.
 
 KAAL has not shipped its first twenty pieces yet, so there are no customer
-reviews, no ratings and no testimonials anywhere on this site. Any you find
-attributed to KAAL are not ours.
+reviews, no ratings and no testimonials anywhere on this site, and none will be
+added until real buyers have written them. Any review, rating or testimonial
+attributed to KAAL today did not come from a KAAL customer.
+
+KAAL cannot currently take a payment on the site: the checkout is not yet live
+and every buy button says so rather than pretending otherwise. Enquiries go to
+connect@thekaal.co.

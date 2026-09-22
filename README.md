@@ -43,11 +43,15 @@ var KAAL = {
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
-  heroDrift: 0.045,        // hero parallax, as a fraction of viewport height
+  heroDrift: 0.09,         // how far the hero film travels, as a fraction
+                           // of the stage's height
+  heroPush:  0.035,        // how much it grows across the whole scrub
   sold:     [1, 2],        // the numbers already claimed
-  film:     "https://res.cloudinary.com/...",
-  frames:   ".../so_{T},w_{W},c_limit/...",             // photograph fallbacks
-  filmFrames: ".../so_{T},w_{W},h_{H},c_fill,g_center/...",  // the hero scrub
+  film:     "https://res.cloudinary.com/...",   // where the master lives.
+                           // No code reads it; the bake script is pointed at it
+  frames:   ".../so_{T},w_{W},c_limit/...",     // photograph fallbacks
+  filmSeq:  "assets/img/hero-seq/",             // the hero scrub, in this repo
+  frameCount: 61, frameCountSmall: 43,          // files in wide/ and tall/
   dials:    { 1:"bone", 2:"onyx", 3:"brass", ... }
 };
 ```
@@ -340,6 +344,60 @@ viewport — and the canvas now has a constant size for the life of the
 page, which means the iOS URL bar appearing mid scroll can no longer
 reallocate it and blank a frame.
 
+### Three planes, or it is a picture sliding
+
+Depth on a screen is not a property of any one layer. It is the
+**difference** between layers, and relative motion is the first thing the
+brain reads in a frame. The hero used to move one plane, nineteen pixels,
+which is why it read as a film in a box rather than a room with a film in
+it. Three move now, in opposing directions, because two planes going the
+same way at different speeds is a smear and two going apart is a distance:
+
+| | | |
+|---|---|---|
+| the film | drifts **down** and grows | ±43px, 1.12 → 1.16 |
+| the captions | lift **up** against it | 0 → −26px |
+| the wordmark | recedes **away** | 1.0 → 0.90, −72px |
+
+Everything is a transform, every write is gated on the value having moved,
+and none of it is a custom property on `.stage` — a custom property
+inherits, so setting one there invalidates style for every descendant that
+might read it, sixty times a second, to move one picture. Measured, that
+alone was about three milliseconds on the 95th-percentile frame.
+
+**There was a fourth and it was cut, which is the part worth reading.** A
+vignette plane — its own element, a radial gradient over the film, closing
+in as the film played. Best cue on the list, because it is the one a real
+lens produces. It cost too much. On a 1512×982 laptop, frames over 33ms
+during a slow drag: **64% with three planes, 90%** once the vignette faded
+in by opacity alone, **98%** once it also scaled. Four variants were tried
+(relocating the gradient so the layer count stayed flat, dropping
+`will-change`, opacity without scale) and none of them got back under
+three planes. So the vignette this hero has is the static one in
+`.stage::after`, which costs nothing because it never changes. If you want
+the fourth back, the bar is a measurement, not a preference.
+
+The lift the picture carries is **derived** from `heroDrift`, not written
+beside it, and that arithmetic has two traps in it that cost real pixels:
+
+- A CSS transform list applies **right to left**, so
+  `scale(S) translate3d(0,Y)` translates and *then* scales — what the eye
+  sees is `Y*S`, not `Y`. Solve it properly and the invariant is
+  `LIFT >= 1/(1-DRIFT)`, which is 1.0989 at a drift of 0.09, not the 1.09
+  that looks right.
+- The travel has to be measured against the **stage**, not the window.
+  `100svh` and `window.innerHeight` are not the same number — on iOS the
+  second one counts the URL bar in, and it read 929 against an 844 stage
+  in the harness that caught this. Size the margin off one and the travel
+  off the other and the margin quietly vanishes.
+
+Both were found by measuring the actual gap between the film's edge and
+the stage's edge at the ends of the scrub. It was **0.4px** before the fix
+and is **8.1px** after, against a predicted 8.1. `tools/check.mjs` fails
+the build if the stylesheet's scale and the script's derivation disagree,
+which is how the float bug got caught: `(1 + 0.09 + 0.02) * 100` is
+`111.00000000000001`, so a bare `Math.ceil` returns 112.
+
 ### Five gates serve the still instead
 
 The frames are never fetched when any one of these is true: reduced
@@ -428,6 +486,16 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   struck**, the footer and the button all render, and nothing is left invisible
   behind a reveal that will never fire. The twenty are printed into the HTML;
   the config rebuilds them on load.
+- **The three depth planes cost nothing and gave back.** Paired against
+  `main` on the same runs, 1512×982, slow drag through the hero: median
+  frame **33.2ms → 16.7ms**, frames over 33ms **52% → 46%**. On a 390px
+  phone, 0 frames over 33ms out of 377. Frame mapping is untouched by the
+  planes: still 43 of 43 and 61 of 61 distinct frames, largest gap 1, zero
+  backwards jumps. Absolute figures move with sandbox load; the direction
+  was the same in every run
+- **No exposed edge at either end of the scrub**, phone and laptop, measured
+  as the real gap between the film's edge and the stage's: worst case
+  **8.1px**, against 0.4px before the transform-order fix
 - The main animation loop measured **asleep** when idle rather than assumed to be
 
 **Known, and older than this change:** at a 320px viewport the document is

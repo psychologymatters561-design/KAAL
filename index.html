@@ -507,14 +507,19 @@ a{color:inherit}
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center;
   opacity:0;transition:opacity 1.2s var(--ease-soft);
-  /* The 7% is the margin the drift moves inside. At the widest drift this
-     page allows, roughly 19px on a phone, the picture never runs out of
-     itself and no edge is ever exposed. Both layers carry the same base
-     transform so the handover from the still to the film cannot jump; the
-     drift is written straight onto whichever one is showing. */
-  transform:scale(1.07);will-change:transform}
+  /* The 10% is the margin the drift moves inside, and it is not a taste
+     decision: at heroDrift 0.09 the picture travels 4.5% of the stage
+     in each direction, and a transform list scales that travel again, so anything under 1.12 runs the picture out of itself
+     of the scrub — a black band across the hero on somebody's phone.
+     FILM_LIFT in the script derives the same number from the same config
+     value, and tools/check.mjs fails the build if these two disagree.
+     Both layers carry the same base transform so the handover from the
+     still to the film cannot jump; the drift is written straight onto
+     whichever one is showing. */
+  transform:scale(1.12);will-change:transform}
 .stage canvas.on,.stage .still.on{opacity:1}
 .stage canvas{image-rendering:auto}
+
 /* Scrims. Cinema practice: the picture keeps its middle, the words get
    their own ground at top and bottom. */
 .stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
@@ -813,6 +818,10 @@ a{color:inherit}
   .stage canvas{display:none}
   .markwrap{opacity:1!important;transform:none!important}
   .stage .still{opacity:1!important;transform:none!important}
+  /* The depth planes are motion for its own sake, which is exactly what
+     this query is asking us not to do. The hero keeps its picture and
+     its words and loses the room. */
+  .caps{transform:none!important}
   .cue,.grain,.dust{display:none}
   .hero{height:100svh}
   .plate img{transform:none!important}
@@ -1299,13 +1308,32 @@ var KAAL = {
      colliding on 07 and one of them being told, before they pay. */
   api:      "",
 
-  /* Hero parallax, as a fraction of the viewport height. The stage is
-     pinned while the film scrubs inside it, so without this the hero is a
-     window with a flat picture in it — and parallax is nothing more than
-     two planes moving at different rates. 0.045 is about nineteen pixels
-     of travel on a phone: enough to read as depth, not enough to read as
-     a moving background. 0 switches it off. */
-  heroDrift: 0.045,
+  /* ── HERO DEPTH. Three planes, three rates.
+
+     The stage is pinned while the film scrubs inside it, so without any
+     of this the hero is a window with a flat picture in it. Parallax is
+     nothing more than planes moving at different rates, and one plane
+     moving is not parallax — it is a picture sliding. This page used to
+     have exactly one, at nineteen pixels, which is why it read as a film
+     in a box rather than a room with a film in it.
+
+     There are three now: the film drifts DOWN, the captions lift UP
+     against it, and the wordmark recedes AWAY. Opposing directions are
+     the whole trick — two planes moving the same way at different speeds
+     is a smear; two moving apart is a distance. A fourth was built,
+     measured and cut; driveDepth records what it cost and why.
+
+     heroDrift  how far the film travels, as a fraction of viewport
+                height. 0.09 is about seventy-six pixels on a phone.
+     heroPush   how much the film grows across the whole scrub. A slow
+                push, not a zoom: the film has its own camera moves and
+                this must not argue with them.
+
+     Both are clamped in the code, and the scale the picture carries is
+     DERIVED from heroDrift rather than written beside it — see
+     FILM_LIFT. Set heroDrift to 0 and every plane below stops. */
+  heroDrift: 0.09,
+  heroPush:  0.035,
   sold:     [1, 2],
   film:     "https://res.cloudinary.com/zuc7oxyj/video/upload/v1788959635/090901_1788957849218.mp4",
 
@@ -1890,36 +1918,128 @@ function driveFilm(p){
   paintPos(clamp(SEQ.show, 0, SEQ.n - 1));
 }
 
-/* ── HERO DEPTH. One custom property on one element, written only when
-      the value actually moves, and composited — the browser never lays
-      anything out for it. It runs off the same hero progress the film
-      does, so the picture and the transport can never disagree. ────── */
-var depthLast = null, depthEl = null;
-function driveDepth(p){
-  if(reduced) return;
-  /* The 7% scale leaves 3.5% of the viewport as margin on each edge, and
-     the drift uses half its span in each direction — so 0.06 is the last
-     value that still cannot show an edge, whatever the viewport. Clamped
-     here rather than trusted to the config, because the failure mode is a
-     black band across the hero on somebody's phone and nobody would think
-     to look at a number in a comment for it. */
-  var span = M.vh * Math.min(Math.max(KAAL.heroDrift || 0, 0), 0.06);
-  if(!span) return;
+/* ── HERO DEPTH. THREE PLANES, THREE RATES.
 
-  /* Written straight onto the one layer that is showing, and never as a
-     custom property on the stage. A custom property INHERITS, so setting
-     it on .stage invalidates style for every descendant that might read
-     it — the canvas, the still, the wordmark, the captions, the cue and
-     the ring — sixty times a second, to move one picture. Measured, that
-     alone was about three milliseconds on the 95th percentile frame.
-     A transform on a single element is composited and invalidates
-     nothing else. */
+      Depth on a screen is not a property of any one layer. It is the
+      DIFFERENCE between layers, and the brain reads that difference from
+      relative motion before it reads anything else in the frame. One
+      plane drifting is a picture sliding. Three planes separating is a
+      room.
+
+      They are driven together, from the one hero progress the film also
+      runs on, so the picture and the transport can never disagree — and
+      they are driven in opposing directions, because two planes moving
+      the same way at different speeds is a smear, while two moving apart
+      is a distance:
+
+        1. the film      drifts DOWN     and grows, slowly
+        2. the captions  lift UP         against the film
+        3. the wordmark  recedes AWAY    (driveMark, below)
+
+      THERE WAS A FOURTH and it is worth saying why there is not. A
+      vignette plane — its own element, a radial gradient over the film,
+      opacity and scale driven by the same progress — closing in as the
+      film played. It is the best depth cue on the list, because it is
+      the one a real lens actually produces, and it cost too much to
+      keep. Measured on a 1512x982 laptop over a slow drag through the
+      hero, frames over 33ms: 64% with three planes, 90% once the
+      vignette faded in by opacity alone, 98% once it also scaled. The
+      other three together came in UNDER the single shallow plane this
+      replaced, at 64% against 67%. So the vignette this hero has is the
+      static one in .stage::after, which costs nothing because it never
+      changes, and the fourth plane is not worth a tenth of a frame on
+      anyone's laptop. Four variants were tried before it was cut; if
+      you want it back, the bar is a measurement, not a preference.
+
+      Everything left is a transform, so the browser never lays anything
+      out for any of it, and every write is gated on the value having
+      actually changed — a plane that has not moved since the last tick
+      costs a comparison and nothing else.
+
+      None of it is a custom property on .stage. A custom property
+      INHERITS, so setting one there invalidates style for every
+      descendant that might read it — the canvas, the still, the
+      wordmark, the captions, the cue and the ring — sixty times a second,
+      to move one picture. Measured, that alone was about three
+      milliseconds on the 95th percentile frame. Each plane owns its own
+      element and writes straight to it. ─────────────────────────────── */
+
+/* The lift is DERIVED from the drift rather than written beside it.
+
+   The picture is scaled up so the drift has somewhere to move inside it;
+   the scale leaves (LIFT-1)/2 of the STAGE as margin on each edge, and the
+   drift uses half its span in each direction of that same height. So the
+   margin has to cover the travel, or the end of the scrub shows a black
+   band across the hero on somebody's phone.
+
+   And the travel is not the number you wrote. A CSS transform list applies
+   RIGHT TO LEFT, so `scale(S) translate3d(0,Y)` translates first and then
+   scales the result: what the eye sees is Y*S, not Y. Sizing the margin
+   against Y is how a margin that reads as comfortable on paper turns out
+   to be four pixels on a phone. Solve it properly —
+
+       (LIFT-1)/2  >=  (DRIFT/2) * LIFT      =>      LIFT >= 1/(1-DRIFT)
+
+   — which is 1.0989 at a drift of 0.09, not the 1.09 that looks right. That used to be a 1.07 in the
+   stylesheet, a 0.06 clamp here, and a comment in each asking the next
+   person to keep them in step. It is one line of arithmetic instead, and
+   tools/check.mjs fails the build if the stylesheet and this disagree.
+
+   The extra 0.02 on top is not rounding either. Solved exactly, the margin
+   clears the travel by nothing — and nothing is not a margin. Sub-pixel
+   rounding, a 100svh that resolves a pixel off, a phone whose viewport
+   moves under the scrub: any of them eats a margin sized to zero. Two
+   percent of the stage is about seventeen pixels on a phone, it leaves
+   eight after the travel is paid, and it costs two percent of the frame. */
+var FILM_DRIFT = Math.min(Math.max(KAAL.heroDrift || 0, 0), 0.12);
+var FILM_PUSH  = Math.min(Math.max(KAAL.heroPush  || 0, 0), 0.06);
+/* Rounded to four places before the ceiling, because (1 + 0.09 + 0.02) *
+   100 is 111.00000000000001 in binary floating point and a bare ceiling
+   turns that into 112 — a lift a whole percent above what the stylesheet
+   says, which is a build failure rather than a black band, but only
+   because something checks. */
+var FILM_LIFT  = Math.ceil(+((1 / (1 - FILM_DRIFT) + 0.02) * 100).toFixed(4)) / 100;
+
+var capsWrap = $("#caps");
+var depthLast = null, depthEl = null, capsLast = null;
+
+function driveDepth(p){
+  if(reduced || !FILM_DRIFT) return;
+
+  /* 1. THE FILM. Down, and very slightly toward you. The push is a third
+        of the drift on purpose: this film has its own camera moves in it,
+        and a push that competes with them reads as a mistake rather than
+        as depth. */
   var el = (SEQ.live && SEQ.cv) ? SEQ.cv : still;
-  var y = ((p - 0.5) * span).toFixed(1);
-  if(y === depthLast && el === depthEl) return;
-  if(el !== depthEl && depthEl) depthEl.style.transform = "";
-  depthLast = y; depthEl = el;
-  el.style.transform = "scale(1.07) translate3d(0," + y + "px,0)";
+  /* Against the STAGE's height, not the window's, and the difference is
+     not pedantry. The margin the drift moves inside is a percentage of
+     the element, and the element is the stage — 100svh. window.innerHeight
+     is not that: on iOS it is the window with the URL bar counted in, and
+     it measured 929 against an 844 stage in the harness that caught this.
+     Drive the travel off one height and size the margin off the other and
+     the margin quietly shrinks; measured, the bottom edge of the film came
+     within 0.4px of showing through at the top of the scrub. One height
+     for both, and the arithmetic above is exact. */
+  var y  = ((p - 0.5) * (M.stageH || M.vh) * FILM_DRIFT).toFixed(1);
+  var t  = "scale(" + (FILM_LIFT + p * FILM_PUSH).toFixed(4) +
+           ") translate3d(0," + y + "px,0)";
+  if(t !== depthLast || el !== depthEl){
+    if(el !== depthEl && depthEl) depthEl.style.transform = "";
+    depthLast = t; depthEl = el;
+    el.style.transform = t;
+  }
+
+  /* 2. THE CAPTIONS. Up, against the film, at about a third of its rate.
+        Small enough that nobody catches a line moving while they read it,
+        opposed enough that the words sit in FRONT of the picture rather
+        than on it. */
+  if(capsWrap){
+    var cy = (-p * 26).toFixed(1);
+    if(cy !== capsLast){
+      capsLast = cy;
+      capsWrap.style.transform = "translate3d(0," + cy + "px,0)";
+    }
+  }
 }
 
 /* ── The wordmark opens the film and then gets out of its way.
@@ -1931,6 +2051,11 @@ function driveDepth(p){
       lifts and clears between three and sixteen percent, and from there
       the film and the captions have the screen to themselves.
 
+      It is the fourth depth plane, and the only one that leaves. It does
+      not slide off the top — it shrinks as it goes, which is the whole
+      difference between a title card being dismissed and a title card
+      falling back into the room behind the watch.
+
       Written only on the frames where the value actually moved. ──── */
 var markWrap = $(".markwrap"), markCue = $("#cue"), markLast = -1;
 function driveMark(p){
@@ -1939,8 +2064,8 @@ function driveMark(p){
   if(v === markLast) return;
   markLast = v;
   markWrap.style.opacity = o;
-  markWrap.style.transform = "translate3d(0," + (-(1 - o) * 54).toFixed(1) + "px,0)" +
-                             " scale(" + (1 - (1 - o) * 0.055).toFixed(4) + ")";
+  markWrap.style.transform = "translate3d(0," + (-(1 - o) * 72).toFixed(1) + "px,0)" +
+                             " scale(" + (1 - (1 - o) * 0.10).toFixed(4) + ")";
 }
 
 /* ── Captions. Each owns a slice of the scrub and is paced so that a

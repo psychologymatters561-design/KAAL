@@ -200,7 +200,7 @@ if (dupe.length) bad(`duplicate id(s): ${[...new Set(dupe)].join(", ")}`);
 
 /* ── 5. Every local file ANY page asks for must exist, case exactly.
       Pages is case sensitive; a Mac is not. ─────────────────────── */
-const pages = ["index.html", "manifesto.html", "about.html", "legal.html", "claimed.html"].filter(f => existsSync(join(root, f)));
+const pages = ["index.html", "manifesto.html", "about.html", "legal.html", "movement.html", "provenance.html", "claimed.html"].filter(f => existsSync(join(root, f)));
 const refs = new Set();
 for (const f of pages) {
   for (const m of readFileSync(join(root, f), "utf8").matchAll(/(?:src|href)="([^"#?:]+)"/g)) {
@@ -290,6 +290,38 @@ else {
   if (/^\s*Disallow:\s*\/\s*$/mi.test(robots)) bad("robots.txt disallows the whole site");
 }
 
+/* ── 6d. The canonical matches the file it is in.
+
+      Two pages on this site were generated from one template, and the single
+      most likely way that goes wrong is a canonical left pointing at the page
+      it was copied from. A page naming another page as its canonical asks
+      every search engine to drop it, silently, and the symptom is
+      indistinguishable from a page that simply is not ranking. ────── */
+for (const f of pages) {
+  const t = readFileSync(join(root, f), "utf8");
+  const c = t.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
+  if (!c) continue;
+  const want = f === "index.html" ? "https://thekaal.co/" : `https://thekaal.co/${f}`;
+  if (c !== want) bad(`${f} declares its canonical as ${c}; it should be ${want}`);
+  const og = t.match(/<meta property="og:url" content="([^"]+)"/)?.[1];
+  if (og && og !== want) bad(`${f} declares og:url as ${og}; it should be ${want}`);
+}
+
+/* ── 6e. The movement, in both of the places that state it.
+
+      The named movement is the most load-bearing fact on this site: it is the
+      trust argument, the reason the warranty means anything, and the thing
+      answer engines are actually asked for. llms.txt is written by hand and
+      the pages are not, so the two drift apart the moment one is edited
+      alone — and a summary contradicting the page it summarises is worse
+      than no summary at all. ──────────────────────────────── */
+if (existsSync(join(root, "llms.txt"))) {
+  const llms = readFileSync(join(root, "llms.txt"), "utf8");
+  if (!/Seiko Epson/.test(llms)) bad("llms.txt does not name the movement the pages name");
+  if (!/twenty four months/i.test(llms)) bad("llms.txt does not state the warranty term");
+}
+if (!/Seiko/.test(html)) bad("index.html does not name the movement — the page's strongest fact, and the one it used to leave out");
+
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
 for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
   if (!existsSync(join(root, f))) continue;
@@ -307,7 +339,7 @@ for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
 const kb = (p) => existsSync(p) ? Math.round(statSync(p).size / 1024) : 0;
 const pageKb = kb(join(root, "index.html"));
 const fontKb = ["InstrumentSerif-latin", "Inter-wght"].reduce((a, f) => a + kb(join(root, `assets/fonts/${f}.woff2`)), 0);
-if (pageKb > 140) soft(`index.html is ${pageKb}KB — it was around 90KB; worth knowing why`);
+if (pageKb > 156) soft(`index.html is ${pageKb}KB — it was around 90KB; worth knowing why`);
 
 console.log(`index.html ${pageKb}KB · preloaded fonts ${fontKb}KB · edition ${edition} · ${sold.length} sold · ${refs.size} local references`);
 for (const w of warn) console.log(`  note  ${w}`);

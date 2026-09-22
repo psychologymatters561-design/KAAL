@@ -31,7 +31,7 @@
 <meta name="twitter:description" content="Twenty numbered watches from India on a Japanese Seiko Epson movement, backed twenty four months. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
-<script type="application/ld+json">
+<script type="application/ld+json" id="ld">
 {
   "@context": "https://schema.org",
   "@graph": [
@@ -93,44 +93,15 @@
       "inLanguage": "en"
     },
     {
-      "@type": "ItemList",
-      "@id": "https://thekaal.co/#twenty",
-      "name": "KAAL Series 01: the twenty numbers, and the dial each one carries",
-      "description": "Every number in Series 01 was assigned its dial before the site went live. The dial a number carries never changes; only whether the number is still available does.",
-      "numberOfItems": 20,
-      "itemListOrder": "https://schema.org/ItemListOrderAscending",
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "KAAL Series 01, No. 01 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 2, "name": "KAAL Series 01, No. 02 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 3, "name": "KAAL Series 01, No. 03 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 4, "name": "KAAL Series 01, No. 04 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 5, "name": "KAAL Series 01, No. 05 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 6, "name": "KAAL Series 01, No. 06 \u2014 Emerald dial" },
-        { "@type": "ListItem", "position": 7, "name": "KAAL Series 01, No. 07 \u2014 Midnight dial" },
-        { "@type": "ListItem", "position": 8, "name": "KAAL Series 01, No. 08 \u2014 Midnight dial" },
-        { "@type": "ListItem", "position": 9, "name": "KAAL Series 01, No. 09 \u2014 Midnight dial" },
-        { "@type": "ListItem", "position": 10, "name": "KAAL Series 01, No. 10 \u2014 Midnight dial" },
-        { "@type": "ListItem", "position": 11, "name": "KAAL Series 01, No. 11 \u2014 Champagne dial" },
-        { "@type": "ListItem", "position": 12, "name": "KAAL Series 01, No. 12 \u2014 Champagne dial" },
-        { "@type": "ListItem", "position": 13, "name": "KAAL Series 01, No. 13 \u2014 Champagne dial" },
-        { "@type": "ListItem", "position": 14, "name": "KAAL Series 01, No. 14 \u2014 Champagne dial" },
-        { "@type": "ListItem", "position": 15, "name": "KAAL Series 01, No. 15 \u2014 Ivory dial" },
-        { "@type": "ListItem", "position": 16, "name": "KAAL Series 01, No. 16 \u2014 Ivory dial" },
-        { "@type": "ListItem", "position": 17, "name": "KAAL Series 01, No. 17 \u2014 Ivory dial" },
-        { "@type": "ListItem", "position": 18, "name": "KAAL Series 01, No. 18 \u2014 Ivory dial" },
-        { "@type": "ListItem", "position": 19, "name": "KAAL Series 01, No. 19 \u2014 Ivory dial" },
-        { "@type": "ListItem", "position": 20, "name": "KAAL Series 01, No. 20 \u2014 Ivory dial" }
-      ]
-    },
-    {
-      "@type": "Product",
+      "@type": "ProductGroup",
       "@id": "https://thekaal.co/#series01",
       "name": "KAAL Series 01",
       "alternateName": "KAAL Series 01 numbered wristwatch",
       "brand": { "@id": "https://thekaal.co/#brand" },
       "manufacturer": { "@id": "https://thekaal.co/#org" },
       "category": "Wristwatch",
-      "productID": "KAAL-S01",
+      "productGroupID": "KAAL-S01",
+      "variesBy": ["https://schema.org/identifier"],
       "material": ["Stainless steel", "Mineral glass"],
       "colour": "Two tone steel and gold tone",
       "image": [
@@ -163,7 +134,7 @@
         "@type": "Offer",
         "price": "5999",
         "priceCurrency": "INR",
-        "availability": "https://schema.org/LimitedAvailability",
+        "availability": "https://schema.org/InStock",
         "seller": { "@id": "https://thekaal.co/#org" },
         "areaServed": "IN",
         "shippingDetails": {
@@ -185,12 +156,7 @@
           "returnFees": "https://schema.org/FreeReturn"
         }
       },
-      "hasVariant": [
-        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Emerald", "color": "Emerald" },
-        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Midnight", "color": "Midnight" },
-        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Champagne", "color": "Champagne" },
-        { "@type": "Product", "name": "KAAL Series 01 \u00b7 Ivory", "color": "Ivory" }
-      ],
+      "hasVariant": [],
       "warranty": {
         "@type": "WarrantyPromise",
         "name": "Twenty four months on the Seiko Epson movement, from dispatch",
@@ -2529,6 +2495,72 @@ var clientToken = (function(){
   }catch(e){ return ""; }
 })();
 
+/* ── THE SCHEMA, WRITTEN FROM THE SAME SET THE GRID READS.
+
+      A structured-data block that states what is in stock is a claim about
+      the shop, and it used to be a claim nobody was keeping: the graph
+      carried one hardcoded LimitedAvailability and a list of four dial
+      colours, while the twenty numbers — the thing actually being sold —
+      appeared only as names in a separate ItemList with no availability on
+      them at all. It would have gone on saying the same sentence after the
+      twentieth piece shipped.
+
+      It could not be fixed by writing the right answer into the file,
+      because the file is not where the answer lives. worker/kaal-sold-sync
+      commits a new `sold` array into index.html on a Razorpay webhook, and
+      the page then asks the worker again every minute (see liveState).
+      Anything baked in beside that array is stale from the first sale.
+
+      So the graph is generated here instead, off soldSet — which starts as
+      the config's array and is the one thing markSold updates. One set
+      drives the struck number in the grid, the tick on the rail, the count
+      in the nav and the availability in the schema, and they cannot
+      disagree because there is nothing to keep in agreement.
+
+      The cost is that a crawler which does not run JavaScript sees the
+      ProductGroup with an empty hasVariant. That is the honest trade and
+      it is the right way round: an empty list says nothing, where a baked
+      one would have said something false. ─────────────────────────────── */
+var LD = $("#ld"), ldGraph = null, ldGroup = null;
+function driveSchema(){
+  if(!LD) return;
+  if(!ldGraph){
+    try { ldGraph = JSON.parse(LD.textContent); }
+    catch(e){ LD = null; return; }              /* never break the page for a schema */
+    var g = ldGraph["@graph"] || [];
+    for(var k = 0; k < g.length; k++) if(g[k]["@type"] === "ProductGroup") ldGroup = g[k];
+    if(!ldGroup || !ldGroup.offers){ LD = null; return; }
+  }
+
+  var out = [], open = 0;
+  for(var n = 1; n <= KAAL.edition; n++){
+    var face = FACE[KAAL.dials[n]] || FACE.ivory;
+    var gone = !!soldSet[n];
+    if(!gone) open++;
+    out.push({
+      "@type": "Product",
+      "sku": "KAAL-" + pad(n),
+      "name": "KAAL Series 01 — No. " + pad(n) + " — " + face.name,
+      "color": face.name,
+      "offers": {
+        "@type": "Offer",
+        "price": String(KAAL.price).replace(/[^0-9]/g, ""),
+        "priceCurrency": "INR",
+        "availability": gone ? "https://schema.org/SoldOut"
+                             : "https://schema.org/InStock",
+        "seller": { "@id": "https://thekaal.co/#org" }
+      }
+    });
+  }
+  ldGroup.hasVariant = out;
+  /* The parent says what the twenty say together: still selling while one
+     of them is, out of stock only when the last one goes. */
+  ldGroup.offers.availability = open ? "https://schema.org/InStock"
+                                     : "https://schema.org/OutOfStock";
+  LD.textContent = JSON.stringify(ldGraph);
+}
+driveSchema();
+
 function markSold(n){
   n = parseInt(n, 10);
   if(!n || n < 1 || n > KAAL.edition || soldSet[n]) return;
@@ -2546,6 +2578,7 @@ function markSold(n){
   if(ticks[n-1]) ticks[n-1].classList.add("gone");
 
   countsFromRemaining();
+  driveSchema();          /* same set, same moment, as the grid and the rail */
 
   if(chosen === n){
     chosen = 0;

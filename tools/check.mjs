@@ -149,6 +149,44 @@ if (cfg.filmSeq) {
 }
 if (cfg.filmFrames)
   bad("filmFrames is back in the config — the hero is served from filmSeq now and must not reach for another origin");
+
+/* ── 3d. The hero's depth planes, and the one number two files share.
+
+      The film is scaled up so the parallax drift has margin to move
+      inside it. The stylesheet sets that scale on .stage canvas/.still
+      and the script derives the same number from KAAL.heroDrift. If the
+      stylesheet's is the smaller of the two, the ends of the scrub run
+      the picture out of itself and put a black band across the hero —
+      on a phone, in front of paid traffic, and only at the ends, which
+      is exactly the kind of thing that survives a desk review.
+
+      So the arithmetic is checked here rather than trusted to the two
+      comments that ask a reader to keep them in step. ─────────────── */
+const drift = parseFloat(html.match(/heroDrift:\s*([\d.]+)/)?.[1] ?? "NaN");
+const push  = parseFloat(html.match(/heroPush:\s*([\d.]+)/)?.[1] ?? "0");
+const cssLift = parseFloat(
+  html.match(/\.stage canvas,\.stage \.still\{[\s\S]*?transform:scale\(([\d.]+)\)/)?.[1] ?? "NaN");
+
+if (!Number.isFinite(drift)) {
+  bad("heroDrift is missing or not a number — the hero depth planes read it");
+} else if (drift > 0) {
+  if (!Number.isFinite(cssLift)) {
+    bad("could not read the base scale off .stage canvas/.still — the depth check cannot verify the drift has margin");
+  } else {
+    /* Mirrors FILM_LIFT in the script: ceil to 2dp of 1 + drift + 0.005. */
+    const jsLift = Math.ceil(+((1 / (1 - Math.min(drift, 0.12)) + 0.02) * 100).toFixed(4)) / 100;
+    if (Math.abs(cssLift - jsLift) > 0.0001)
+      bad(`heroDrift ${drift} needs a base scale of ${jsLift}, but the stylesheet sets scale(${cssLift}) — at the ends of the scrub the hero shows an edge`);
+  }
+  if (drift > 0.12) soft(`heroDrift is ${drift}; the script clamps it to 0.12, so the stylesheet and the script will disagree`);
+  if (push > 0.06)  soft(`heroPush is ${push}; the script clamps it to 0.06`);
+}
+
+/* The caption plane is driven by id, and a renamed id fails silently:
+   the transform is written to nothing and one of the three planes just
+   stops, which looks like taste rather than a bug. */
+if (drift > 0 && !/id="caps"/.test(html))
+  bad('#caps is missing — the hero caption depth plane is driven by that id and would silently stop');
 if (cfg.frames && !(cfg.frames.includes("{T}") && cfg.frames.includes("{W}")))
   bad("frames must carry {T} and {W}");
 if (cfg.frames && cfg.frames.includes("{H}"))

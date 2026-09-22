@@ -49,17 +49,36 @@ OUT="$ROOT/assets/img/hero-seq"
 #            for in bytes. 675 puts it at 1.6:1, between a 16:10 laptop
 #            and a 16:9 monitor.
 #
-#    Counts are 43 and 61 rather than 44 and 60 for one reason: a fixed
-#    set can only be sampled EVENLY at a whole-number stride, and a
-#    stride divides n-1, not n. 42 and 60 divide by 2 and by 3, so the
-#    reduced sequences a weak device gets are still evenly spaced in
-#    time. Uneven spacing is not a smaller film, it is a film that
-#    speeds up and slows down twice a second.
-TIERS="tall:400:880:43 wide:1080:675:61"
+#    The counts are chosen for two properties, in this order.
+#
+#    n-1 must have whole divisors, because a fixed set of files can only
+#    be sampled EVENLY at a whole-number stride and a stride divides n-1,
+#    not n. 84 divides by 2, 3, 4, 6, 7 and 12; 90 by 2, 3, 5, 6, 9 and
+#    10. So every reduced sequence a weak device is handed is still
+#    evenly spaced in time. Uneven spacing is not a smaller film, it is a
+#    film that speeds up and slows down twice a second.
+#
+#    And then: as many as the memory will hold. 85 and 91 replace 43 and
+#    61 because frames are the one thing the scrub cannot fake — blending
+#    turns a stepped sequence into a continuous one, but a dissolve
+#    between two frames far apart in time is a double exposure rather
+#    than motion, and the only fix for that is neighbours that are closer
+#    together. 85 frames of a 17-second film is one every 200ms of it.
+#
+#    The ceiling is decoded bitmap, not file size: a tall frame is
+#    400*880*4 = 1.41MB the moment it is painted and stays that way for
+#    the life of the page. 85 of them is 120MB, 91 wide ones is 265MB.
+#    Both are inside what frameWant() will hand out, and frameWant() is
+#    what decides how many of these a given device actually takes.
+TIERS="tall:400:880:85 wide:1080:675:91"
 
-# Quality. Measured, not guessed: at 82 a tall frame is ~17KB and a wide
-# one ~37KB, which puts a whole phone sequence under a megabyte. There is
-# room to go higher; there is no visible reason to.
+# Quality. Measured, not guessed: at 82 a tall frame lands at ~19KB and a
+# wide one at ~38KB. At the counts above that is 1.64MB for a phone and
+# 3.49MB for a laptop — the phone figure roughly doubled when the frame
+# count did, which is the honest cost of the smoothness and the reason
+# frameWant() and the Save-Data gate both still matter. There is room to
+# go higher on quality; there is no visible reason to, and every byte
+# here is paid on cellular before anything moves.
 Q=82
 
 # ffmpeg with no output file reports the stream and exits non-zero, which is

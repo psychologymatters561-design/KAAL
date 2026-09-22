@@ -131,10 +131,28 @@ if (cfg.filmSeq) {
 
       /* A phone pays for these on cellular before it sees anything move.
          Not a failure — it is a judgement call, and it should be a loud
-         one the moment somebody re-bakes at a higher quality. */
-      const budget = tier === "tall" ? 1.4e6 : 4.0e6;
+         one the moment somebody re-bakes at a higher quality or a higher
+         count. 1.9 and 4.0 are the deliberate ceilings for 85 tall frames
+         and 91 wide ones at quality 82; the tall figure doubled when the
+         count did and that was the trade, not an accident. */
+      const budget = tier === "tall" ? 1.9e6 : 4.0e6;
       if (bytes > budget)
         soft(`${tier} sequence is ${(bytes / 1e6).toFixed(2)}MB over ${n} frames — above the ${(budget / 1e6).toFixed(1)}MB this hero budgets`);
+
+      /* Frames nothing will ever ask for.
+
+         frameWant() caps how many frames a device takes by DECODED bitmap,
+         not by file size, and that cap is what the hero is really sized
+         against. Bake more frames than the most generous budget can hold
+         and the extra files are dead weight in the repo that no device
+         ever requests — the sequence silently runs at a coarser stride
+         than the count in the config implies, and the only symptom is that
+         the smoothness somebody just paid bytes for never arrives. */
+      const perFrame = (tier === "tall" ? 400 * 880 : 1080 * 675) * 4;
+      const ceiling  = tier === "tall" ? 130e6 : 280e6;
+      const holds    = Math.floor(ceiling / perFrame);
+      if (n > holds)
+        bad(`${tier} bakes ${n} frames but the most generous device budget holds ${holds} (${(perFrame * n / 1e6).toFixed(0)}MB of bitmap against a ${(ceiling / 1e6).toFixed(0)}MB ceiling) — the extra files would never be requested`);
 
       /* n-1 is the stride's denominator: an evenly spaced subset can only
          exist if it has whole divisors, and without one a weak device

@@ -1380,21 +1380,32 @@ var KAAL = {
      but a dissolve between two frames that are far apart is a double
      exposure, not motion. More frames put the neighbours closer together,
      and that is the only thing that removes the ghost rather than smoothing
-     it. Sixty and forty-four are where that stops being visible on this
-     film. Raise them and the bytes go up in a straight line; lower them and
-     fast movement starts to smear.
+     it. Ninety-one and eighty-five are one frame every 190ms and every
+     200ms of a seventeen-second film. Raise them and the bytes go up in a
+     straight line; lower them and fast movement starts to smear.
 
-     Sixty-one and forty-three, not sixty and forty-four, and the extra
+     They were 61 and 43. Doubling the tall tier doubles its download too,
+     0.83MB to 1.65MB, and that is paid on cellular before anything moves
+     — so the number a device is actually handed is decided by frameWant()
+     against real memory, and the Save-Data and 2g gates still turn the
+     whole thing off. What the extra frames buy is not a smaller gap
+     between painted frames: that was already 1, which is the floor. It is
+     a shorter dissolve. Blending paints between two neighbours, and how
+     much that reads as motion rather than as a double exposure depends
+     entirely on how far apart in TIME those neighbours are. Halving the
+     spacing halves the ghost.
+
+     Ninety-one and eighty-five, not ninety and eighty-four, and the extra
      frame is not a rounding error. A fixed set of files can only be
      sampled EVENLY at a whole-number stride, and a stride has to divide
-     n-1 to land on the last frame as well as the first. 60 and 42 divide
-     by 2 and by 3; 59 and 43 divide by nothing. An unevenly sampled film
-     is not a smaller film — it is a film whose motion speeds up and slows
-     down twice a second, which is the exact defect the frames were
+     n-1 to land on the last frame as well as the first. 90 divides by 2,
+     3, 5, 6, 9 and 10; 84 by 2, 3, 4, 6, 7 and 12. An unevenly sampled
+     film is not a smaller film — it is a film whose motion speeds up and
+     slows down twice a second, which is the exact defect the frames were
      bought to remove. Change these and re-run tools/bake-hero-seq.sh; the
      two must agree or the page requests a file that is not there. */
-  frameCount:      61,
-  frameCountSmall: 43,
+  frameCount:      91,
+  frameCountSmall: 85,
   /* The edition as it was actually made: six green, four black, four gold,
      six white, in blocks rather than interleaved. Everything else that
      states this mapping — the twenty in the grid, the number runs under the
@@ -1618,8 +1629,31 @@ function frameWant(tier){
   var c = navigator.connection;
   if(c && c.effectiveType === "3g") want = Math.round(want * 0.70);
 
+  /* ── THE CEILING, IN MEGABYTES OF BITMAP.
+
+     A flat 90MB here was fine while the tall tier held 43 frames, because
+     43 never reached it. At 85 it does — 85 tall frames is 120MB and 91
+     wide ones is 265MB — so this line is now the one that decides how
+     much of the sequence a device actually gets, and a single number for
+     every phone ever made is not good enough to hold that job.
+
+     So it scales with what the device says it has. Roughly two percent of
+     stated memory on a phone and three and a half on a laptop: enough
+     that eight gigabytes takes the whole film and two gigabytes is nowhere
+     near it, which is the same judgement the multipliers above make,
+     stated in the unit that actually runs out.
+
+     deviceMemory is Chromium-only. Where it is missing — which is every
+     WebKit, so every iPhone — core count stands in, and six cores is the
+     line: an A12 or later, which is where 4GB and up starts. Below that
+     the device is handed the smaller budget and the ladder does the rest.
+     It is a coarse proxy and it is the only one that platform answers. */
   var perFrame = tier.w * tier.h * 4;
-  want = Math.min(want, Math.floor((small ? 90e6 : 260e6) / perFrame));
+  var budget   = mem ? mem * (small ? 20e6 : 35e6)
+                     : (cores >= 6 ? (small ? 120e6 : 220e6)
+                                   : (small ?  70e6 : 150e6));
+  budget = Math.min(budget, small ? 130e6 : 280e6);
+  want = Math.min(want, Math.floor(budget / perFrame));
 
   return want;
 }
@@ -1908,7 +1942,15 @@ function driveFilm(p){
      sense, and dissolving them is a double exposure rather than motion.
      A hard flick therefore snaps, which is both the honest picture and
      the cheaper one — and it is the moment the frame budget is tightest. */
-  SEQ.fast = Math.abs(SEQ.pos - SEQ.show) > 1.2;
+  /* 1.2 was tuned when this sequence held 43 frames, and a threshold
+     written as a frame COUNT changes meaning the moment the count does:
+     at 85 frames the same finger speed advances twice as many indices, so
+     a flat 1.2 would cut the dissolve off at half the scroll speed it
+     used to. What the threshold is really about is distance in the FILM,
+     so it is expressed as a fraction of the sequence — 1.2 of 43 is 2.8%
+     — and floored at the old value so a device on a reduced ladder never
+     blends less than it did before. */
+  SEQ.fast = Math.abs(SEQ.pos - SEQ.show) > Math.max(1.2, SEQ.n * 0.028);
   if(moving){ SEQ.show = SEQ.pos; }
   else {
     var rest = Math.round(SEQ.pos);

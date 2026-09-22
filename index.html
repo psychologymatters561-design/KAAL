@@ -1,10 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KAAL Series 01 · Twenty watches, then the design retires</title>
-<meta name="description" content="Twenty numbered watches. One case, four faces, finished by hand. When the twentieth ships, Series 01 is retired and never made again.">
+<title>KAAL Watches India · Series 01 — Seiko movement, twenty pieces</title>
+<!-- The title is rewritten on load by countsFromRemaining() so the count in
+     it is never stale. Both strings are the same shape on purpose: brand,
+     country, series, then the one fact that decides the click. If you change
+     one, change the other. -->
+<meta name="description" content="Series 01: twenty numbered luxury watches on a Japanese Seiko Epson movement, backed twenty four months. ₹5,999, free delivery in India, seven day return. When No. 20 ships, the design retires.">
+<meta name="author" content="Arjun Dixit">
 <meta name="theme-color" content="#080908">
 <!-- The defaults cap a text snippet at roughly 160 characters and an image
      preview at a thumbnail. This brand's argument does not survive being cut
@@ -16,14 +21,14 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KAAL">
 <meta property="og:url" content="https://thekaal.co/">
-<meta property="og:title" content="KAAL Series 01 · twenty pieces, then it retires">
-<meta property="og:description" content="One case, four faces, twenty numbers. You do not choose the face. You choose a number, and the number already has one.">
+<meta property="og:title" content="KAAL Series 01 · twenty pieces, a Seiko movement, then it retires">
+<meta property="og:description" content="Twenty numbered watches from India, each on a Japanese Seiko Epson movement we back for twenty four months. You do not choose the face. You choose a number, and the number already has one.">
 <meta property="og:image" content="https://thekaal.co/assets/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="KAAL Series 01 · twenty pieces, then it retires">
-<meta name="twitter:description" content="One case, four faces, twenty numbers. When the twentieth ships, the design is finished with.">
+<meta name="twitter:title" content="KAAL Series 01 · twenty pieces, a Seiko movement, then it retires">
+<meta name="twitter:description" content="Twenty numbered watches from India on a Japanese Seiko Epson movement, backed twenty four months. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
 <script type="application/ld+json">
@@ -34,23 +39,50 @@
       "@type": "Brand",
       "@id": "https://thekaal.co/#brand",
       "name": "KAAL",
-      "alternateName": "\u0915\u093e\u0932",
+      "alternateName": ["\u0915\u093e\u0932", "KAAL Watches", "KAAL Watches India", "The KAAL", "thekaal.co"],
       "url": "https://thekaal.co/",
       "logo": "https://thekaal.co/assets/brand/wordmark.svg",
       "slogan": "Twenty watches carry this design. Then it is retired, and never drawn again.",
-      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships."
+      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships. Every piece runs a Japanese Seiko Epson movement, backed for twenty four months.",
+      "disambiguatingDescription": "KAAL is an Indian watch brand founded by Arjun Dixit and sold only at thekaal.co. It is a separate and unrelated business from Kaal Watch of Singapore (kaalwatch.com, the Multiverse series), from Kala Watch Co of India (kalawatches.com), and from thekaal.com, which sells clothing. KAAL makes no claim about any of them."
     },
     {
       "@type": "Organization",
       "@id": "https://thekaal.co/#org",
       "name": "KAAL",
+      "alternateName": ["\u0915\u093e\u0932", "KAAL Watches", "KAAL Watches India", "The KAAL", "thekaal.co"],
       "url": "https://thekaal.co/",
+      "logo": "https://thekaal.co/assets/brand/wordmark.svg",
+      "image": "https://thekaal.co/assets/img/og.jpg",
       "brand": { "@id": "https://thekaal.co/#brand" },
       "email": "connect@thekaal.co",
       "telephone": "+91-93114-16678",
-      "areaServed": "IN",
-      "founder": { "@type": "Person", "name": "Arjun Dixit" },
+      "areaServed": { "@type": "Country", "name": "India" },
+      "address": { "@type": "PostalAddress", "addressCountry": "IN" },
+      "foundingLocation": { "@type": "Country", "name": "India" },
+      "founder": { "@id": "https://thekaal.co/#founder" },
+      "knowsLanguage": ["en", "hi"],
+      "knowsAbout": ["Wristwatches", "Limited edition watches", "Seiko Epson quartz movements", "Watchmaking in India", "Numbered editions"],
+      "disambiguatingDescription": "An Indian watch brand founded and run by Arjun Dixit, selling direct at thekaal.co. Unrelated to Kaal Watch of Singapore, to Kala Watch Co of India, and to thekaal.com.",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "connect@thekaal.co",
+        "telephone": "+91-93114-16678",
+        "areaServed": "IN",
+        "availableLanguage": ["en", "hi"]
+      },
+      "subjectOf": { "@id": "https://thekaal.co/provenance.html#page" },
+      "comment": "sameAs is deliberately empty. It is not a placeholder to be filled with a plausible link: every URL in it must be a profile this brand actually controls, or it becomes the one piece of structured data on this site that is untrue. Add each one as it is created.",
       "sameAs": []
+    },
+    {
+      "@type": "Person",
+      "@id": "https://thekaal.co/#founder",
+      "name": "Arjun Dixit",
+      "jobTitle": "Founder",
+      "nationality": { "@type": "Country", "name": "India" },
+      "worksFor": { "@id": "https://thekaal.co/#org" }
     },
     {
       "@type": "WebSite",
@@ -94,13 +126,39 @@
       "@type": "Product",
       "@id": "https://thekaal.co/#series01",
       "name": "KAAL Series 01",
+      "alternateName": "KAAL Series 01 numbered wristwatch",
       "brand": { "@id": "https://thekaal.co/#brand" },
+      "manufacturer": { "@id": "https://thekaal.co/#org" },
       "category": "Wristwatch",
-      "image": "https://thekaal.co/assets/img/og.jpg",
+      "productID": "KAAL-S01",
+      "material": ["Stainless steel", "Mineral glass"],
+      "colour": "Two tone steel and gold tone",
+      "image": [
+        "https://thekaal.co/assets/img/og.jpg",
+        "https://thekaal.co/assets/img/watch-emerald.webp",
+        "https://thekaal.co/assets/img/watch-midnight.webp",
+        "https://thekaal.co/assets/img/watch-champagne.webp",
+        "https://thekaal.co/assets/img/watch-ivory.webp"
+      ],
       "url": "https://thekaal.co/",
-      "description": "Twenty numbered watches. One case design, four dials \u2014 Emerald, Midnight, Champagne and Ivory. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. Every case finished by hand and every piece inspected before dispatch. When the twentieth ships, the design is retired and never produced again.",
+      "description": "Twenty numbered watches. A Japanese Seiko Epson multi function quartz movement, backed for twenty four months from dispatch. One case design, four dials \u2014 Emerald, Midnight, Champagne and Ivory. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. Every case finished by hand and every piece inspected before dispatch. When the twentieth ships, the design is retired and never produced again.",
       "countryOfOrigin": "IN",
-      "isRelatedTo": { "@id": "https://thekaal.co/manifesto.html#page" },
+      "isRelatedTo": [
+        { "@id": "https://thekaal.co/manifesto.html#page" },
+        { "@id": "https://thekaal.co/movement.html#page" }
+      ],
+      "subjectOf": { "@id": "https://thekaal.co/movement.html#page" },
+      "additionalProperty": [
+        { "@type": "PropertyValue", "name": "Movement", "value": "Seiko Epson multi function quartz, Japanese" },
+        { "@type": "PropertyValue", "name": "Movement origin", "value": "Japan" },
+        { "@type": "PropertyValue", "name": "Movement warranty", "value": "24 months from dispatch" },
+        { "@type": "PropertyValue", "name": "Complications", "value": "Day ring, twenty four hour counter, pointer date" },
+        { "@type": "PropertyValue", "name": "Case", "value": "Stainless steel, finished by hand, gold tone bezel" },
+        { "@type": "PropertyValue", "name": "Bracelet", "value": "Two tone stainless steel" },
+        { "@type": "PropertyValue", "name": "Water resistance", "value": "Water resistant" },
+        { "@type": "PropertyValue", "name": "Edition size", "value": "20 numbered pieces, then permanently retired" },
+        { "@type": "PropertyValue", "name": "Sold by", "value": "Direct from thekaal.co only. No marketplace, no reseller." }
+      ],
       "offers": {
         "@type": "Offer",
         "price": "5999",
@@ -135,6 +193,8 @@
       ],
       "warranty": {
         "@type": "WarrantyPromise",
+        "name": "Twenty four months on the Seiko Epson movement, from dispatch",
+        "description": "The movement only. Cosmetic damage, water ingress from a case opened by anyone other than KAAL, and normal wear to the bracelet and glass are not covered.",
         "durationOfWarranty": { "@type": "QuantitativeValue", "value": 24, "unitCode": "MON" },
         "warrantyScope": "https://schema.org/PartsAndLabor"
       }
@@ -300,6 +360,42 @@ a{color:inherit}
   cursor:default;letter-spacing:.09em;text-transform:none;font-size:.8125rem;
   padding:.95rem 1.7rem;box-shadow:none}
 .buy.inert::before{display:none}
+/* ── THE TRUST BAND.
+
+      The hero sells the idea. This is the first thing under it, and it
+      answers the four questions a stranger has before they will spend
+      ₹5,999 on a name they have never heard: what is inside it, who
+      stands behind it, what happens if they hate it, and what it costs
+      to find out.
+
+      It is a band and not a paragraph because a stranger scanning a page
+      reads four short columns and does not read a sentence. The movement
+      cell carries the gold because the movement is the single fact most
+      likely to change a mind, and it was the one fact this page used to
+      leave out.
+
+      No animation on it. Everything else on this page earns attention by
+      moving; this earns it by being still and legible at the exact moment
+      somebody is deciding whether to keep scrolling. */
+.band{border-block:1px solid var(--line);background:var(--void-2);margin:0;padding:clamp(1.15rem,3.4vw,1.7rem) 0}
+.band ul{list-style:none;margin:0;padding:0;display:grid;gap:clamp(1rem,2.6vw,1.9rem);
+  grid-template-columns:repeat(4,minmax(0,1fr))}
+.band li{min-width:0}
+.band dt{font-size:.6875rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);
+  margin:0 0 .5rem;font-weight:500}
+.band dd{margin:0;font-size:.9375rem;line-height:1.4;color:var(--bone);font-weight:400}
+.band dd small{display:block;margin-top:.3rem;font-size:.8125rem;color:var(--mute);font-weight:300;line-height:1.45}
+.band .lead dt{color:var(--gold)}
+.band .lead dd{color:var(--gold-lit)}
+.band .lead{border-left:1px solid var(--gold);padding-left:clamp(.85rem,2vw,1.15rem);margin-left:-1px}
+.band a{color:inherit;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--ghost)}
+.band a:hover{text-decoration-color:currentColor}
+/* Two up on a tablet, and on a phone a single column rather than four
+   columns of two words each. The movement cell is first in the source,
+   so it is the one a phone reads first whatever the layout does. */
+@media (max-width:60rem){.band ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:26rem){.band ul{grid-template-columns:1fr;gap:1.15rem}}
+
 /* ── THE PIECE.
 
       Everything somebody needs in order to decide, in one place, at the
@@ -442,7 +538,7 @@ a{color:inherit}
      film title card was never translucent anyway. */
   background:linear-gradient(180deg,rgba(8,9,8,.84),rgba(8,9,8,.90));
   box-shadow:0 34px 90px -34px rgba(0,0,0,.9)}
-.mark{width:min(42vw,306px)}
+.mark{width:min(42vw,306px);margin:0;font-size:inherit;font-weight:inherit;line-height:0}
 .mark svg{width:100%;height:auto;overflow:visible}
 /* The mark is a stroked letterform. Filling it turns the A's into solid
    triangles and the L into a wedge, so it draws and then it stops. */
@@ -774,8 +870,9 @@ a{color:inherit}
 
     <div class="hero-ui hold">
       <div class="markwrap">
-        <div class="mark" id="mark">
-          <svg viewBox="0 0 380 120" role="img" aria-label="KAAL">
+        <h1 class="mark" id="mark">
+          <span class="sr">KAAL Series 01 — twenty numbered luxury watches from India, each on a Japanese Seiko Epson movement backed for twenty four months</span>
+          <svg viewBox="0 0 380 120" aria-hidden="true">
             <g fill="none" stroke-linecap="butt" stroke-linejoin="miter">
               <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100" style="--len:212"/>
               <path d="M108 100 L140 20 L172 100" style="--len:176;--wait:.5s"/>
@@ -783,8 +880,8 @@ a{color:inherit}
               <path d="M308 20 V100 H356" style="--len:132;--wait:.9s"/>
             </g>
           </svg>
-        </div>
-        <p class="mark-sub">Series 01 &nbsp;·&nbsp; Twenty pieces</p>
+        </h1>
+        <p class="mark-sub">Series 01 &nbsp;·&nbsp; Twenty pieces &nbsp;·&nbsp; Seiko movement</p>
       </div>
 
       <div class="caps" id="caps">
@@ -796,6 +893,31 @@ a{color:inherit}
 
       <div class="cue" id="cue"><i></i><span>Scroll</span></div>
     </div>
+  </div>
+</section>
+
+<!-- ════════ THE BAND. Four facts, before the film has finished
+     persuading anybody of anything. ════════ -->
+<section class="band" aria-label="What every piece carries">
+  <div class="hold">
+    <ul>
+      <li class="lead"><dl>
+        <dt>The movement</dt>
+        <dd>Japanese Seiko Epson<small>Multi function quartz. Day, twenty four hour, pointer date. <a href="movement.html">What that means</a>.</small></dd>
+      </dl></li>
+      <li><dl>
+        <dt>Backed for</dt>
+        <dd>Twenty four months<small>On the movement, from dispatch. Not a card in a box — <a href="legal.html#warranty">the terms are written down</a>.</small></dd>
+      </dl></li>
+      <li><dl>
+        <dt>If it is not you</dt>
+        <dd>Seven days, refunded<small>Unworn and unmarked, no reason asked. Your number goes back to the twenty.</small></dd>
+      </dl></li>
+      <li><dl>
+        <dt>The price</dt>
+        <dd>&#8377;5,999 all in<small>Free delivery anywhere in India, five working days. Sold direct, never a marketplace.</small></dd>
+      </dl></li>
+    </ul>
   </div>
 </section>
 
@@ -909,14 +1031,33 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 08 THE HEART. The only glow on the site. ════════ -->
-<section class="act act-tall" data-world="midnight" data-tick="8" id="heart">
+<!-- ════════ 08 THE MOVEMENT. The only glow on the site, and now
+     the only proper noun on it.
+
+     This act used to run 260 words about "the movement" and never once
+     said whose. That was the most expensive omission on the site: the
+     movement is the only component in a watch a buyer cannot see, cannot
+     judge and cannot replace, so it is the only one where a name does
+     the work that a photograph does everywhere else. A brand nobody has
+     heard of, at ₹5,999, asking for a card number, was withholding the
+     one fact that answers the question actually being asked.
+
+     The heading is four words for the same reason. The shortest sentence
+     on the page should be the one carrying the most weight, and a reader
+     who takes nothing else from this act takes that. ════════ -->
+<section class="act act-tall" data-world="midnight" data-tick="8" id="movement">
   <div class="hold split">
     <div class="col-a">
-      <p class="label rise">08 · The heart</p>
-      <h2 class="statement rise">A watch is a case, a dial, a bracelet, and <em>one part that is actually alive</em>.</h2>
-      <p class="sub rise">The movement is the only thing in there keeping time. Everything else is housing. So the movement is the part we put our name behind, and we say so plainly instead of printing a number on a card and hoping nobody reads it.</p>
-      <p class="sub rise"><strong>Two years on the movement.</strong> Not the strap, not the glass, not a scratch you put there. The heart.</p>
+      <p class="label rise">08 · The movement</p>
+      <h2 class="statement rise">Inside every one of them is a <em>Seiko</em>.</h2>
+      <p class="sub rise">A watch is a case, a dial, a bracelet, and one part that is actually alive. The movement is the only thing in there keeping time — everything else is housing. It is also the only part you cannot inspect, cannot judge by looking, and cannot replace on a whim. So it is the one part where the name matters more than the photograph.</p>
+      <p class="sub rise">Series 01 runs a <strong>Japanese Seiko Epson multi function quartz movement</strong>. Seiko has been making clocks and watches in Japan since 1892, and Seiko Epson is the arm of that group which supplies calibres to watchmakers who would rather buy the best small engine in the world than build a worse one. The day ring, the twenty four hour counter and the pointer date all run off that single movement. Ours does not hide behind a closed caseback because there is nothing behind it to hide.</p>
+      <p class="sub rise"><strong>And we back it for twenty four months from dispatch.</strong> Not a printed card, not a claim that evaporates on contact — <a href="legal.html#warranty">terms written down on the legal page</a>, in the same words for everybody. The movement only: not the strap, not the glass, not a scratch you put there. The heart.</p>
+      <dl class="facts rise">
+        <div class="fact"><dt>Movement</dt><dd>Seiko Epson, Japanese</dd><p>Multi function quartz. Day, twenty four hour and pointer date off one calibre. <a href="movement.html">Written out in full here</a>.</p></div>
+        <div class="fact"><dt>Backed</dt><dd>Twenty four months</dd><p>From the date of dispatch, on the movement, stated in the terms of sale rather than implied in a photograph.</p></div>
+        <div class="fact"><dt>Serviced by</dt><dd>Us, not a queue</dd><p>One email to the person who packed it. No portal, no ticket number, no authorised centre to find.</p></div>
+      </dl>
     </div>
     <div class="plate plate-tall rise" data-par="0.06">
       <img src="assets/img/jade-close.webp" data-frame="88p" loading="lazy" decoding="async"
@@ -1031,6 +1172,7 @@ a{color:inherit}
         </div>
         <dl>
           <dt>Dial</dt><dd id="pieceName">One of four. Choose a number to see which.</dd>
+          <dt>Movement</dt><dd>Seiko Epson, Japanese multi function quartz</dd>
           <dt>Face</dt><dd>Day ring, twenty four hour counter, pointer date</dd>
           <dt>Case</dt><dd>Finished by hand, gold tone bezel, water resistant</dd>
           <dt>Bracelet</dt><dd>Two tone stainless steel</dd>
@@ -1042,9 +1184,10 @@ a{color:inherit}
       <p class="claim-state" id="claimState" role="status" aria-live="polite"><span class="claim-dot" id="claimDot" aria-hidden="true"></span><span id="claimText">Nothing chosen yet.</span></p>
       <a class="buy inert" id="cta" role="button" aria-disabled="true">Choose your number</a>
       <ul class="assure">
-        <li>Five days to your door</li>
-        <li>Seven days to change your mind</li>
-        <li>Two years on the movement</li>
+        <li>Japanese Seiko Epson movement</li>
+        <li>Two years on that movement, from dispatch</li>
+        <li>Seven days to change your mind, refunded in full</li>
+        <li>Five days to your door, delivery included</li>
       </ul>
     </div>
   </div>
@@ -1063,6 +1206,11 @@ a{color:inherit}
         <p><span id="priceFoot">&#8377;5,999</span> per piece.
           <!-- UNCONFIRMED: whether shipping sits inside this price. -->
           Shipping within India included.</p>
+      </div>
+      <div>
+        <h4>The movement</h4>
+        <p>A Japanese <strong>Seiko Epson</strong> multi function quartz movement. The day ring, the twenty four hour counter and the pointer date all run off it.</p>
+        <p><a href="movement.html">What the movement is, and why it is named</a>.</p>
       </div>
       <div>
         <h4>Warranty</h4>
@@ -1087,6 +1235,8 @@ a{color:inherit}
         <p class="legal"><a href="legal.html">Seller information, terms, shipping, returns, warranty and privacy</a></p>
         <p class="legal"><a href="manifesto.html">Why twenty, written out in full</a></p>
         <p class="legal"><a href="about.html">About KAAL — the brand, the maker, and the rules</a></p>
+        <p class="legal"><a href="movement.html">The Seiko movement inside every piece</a></p>
+        <p class="legal"><a href="provenance.html">Who is selling this, and how to check before you buy</a></p>
       </div>
     </div>
     <div class="foot-end">
@@ -2174,7 +2324,13 @@ function countsFromRemaining(){
   $("#remWord").textContent = word;
   $("#navRem").textContent  = word;
   $("#dockRem").textContent = word;
-  document.title = "KAAL Series 01 · " + word.toLowerCase() + " of twenty watches remain";
+  /* The <head> title is the shape this one has to keep: brand, country,
+     series, then the fact that earns the click. The count is the better
+     fact once it starts falling, so it replaces the movement here — but
+     "KAAL Watches India" stays, because three unrelated businesses trade
+     under this name and a title that does not say which one is ours is a
+     title working for somebody else. */
+  document.title = "KAAL Watches India · Series 01 — " + word.toLowerCase() + " of twenty remain";
 }
 (function counts(){
   countsFromRemaining();

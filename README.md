@@ -141,13 +141,38 @@ or buy manually.
 ### 5. Getting found
 
 The page is built for it. What is on the site already: schema.org for the
-brand, the organisation, the product with its offer and return policy, and an
-ItemList naming the dial every one of the twenty carries; a `sitemap.xml`; a
-`robots.txt` that names the assistant crawlers individually rather than
-leaving them to the wildcard; an `llms.txt` stating the whole edition in plain
-text; snippet directives that let a search result or an AI answer quote more
-than 160 characters; and a manifesto page written so that its sentences
-survive being lifted out of context, which is how an answer engine quotes.
+brand, the organisation, the founder, the product with its offer, warranty,
+return policy and a named movement in `additionalProperty`, and an ItemList
+naming the dial every one of the twenty carries; `FAQPage` blocks on the
+manifesto, the movement page and the provenance page, generated from the same
+lists the visible questions render from so the two cannot disagree; a
+`sitemap.xml`; a `robots.txt` naming the search, assistant and link-unfurling
+agents individually; an `llms.txt` stating the whole edition, the movement and
+the verification path in plain text; snippet directives that let a search
+result or an AI answer quote more than 160 characters; and long-form pages
+written so their sentences survive being lifted out of context, which is how
+an answer engine quotes.
+
+**The two things that were wrong, and are now not.**
+
+*The movement had no name.* Every page said "the movement" and none said whose.
+It is a Japanese Seiko Epson multi function quartz movement, backed twenty four
+months, and it is now the first thing under the hero, an act of its own, a row
+in the specification, a page at `movement.html`, a `PropertyValue` in the
+product schema and a paragraph in `llms.txt`. The movement is the only
+component of a watch a photograph cannot show you, so the name is the only
+evidence a buyer has — which is exactly why withholding it reads the way it
+reads.
+
+*Three other businesses trade under this name.* Kaal Watch of Singapore (the
+Multiverse series, with a Kickstarter and a decade of watch-press coverage),
+Kala Watch Co of India, and `thekaal.com`, which sells clothing. An entity a
+search engine cannot separate from three others is an entity it will not
+vouch for, and that ambiguity — not any ranking deficiency — is the reason an
+assistant hedges when asked about this brand. The separation is now stated in
+prose on `about.html` and `provenance.html`, in `disambiguatingDescription` on
+both the Brand and the Organization, and near the top of `llms.txt`. It is
+stated once, factually, with no claim made about any of them.
 
 **None of that gets you indexed on its own.** Four things only you can do, in
 the order they pay:
@@ -168,12 +193,28 @@ the order they pay:
    substitutes for.
 
 **On ranking for the bare word "kaal":** be realistic. It is a common Hindi
-and Sanskrit word and a 2005 Bollywood film with two decades of accumulated
-authority. Nothing on a twenty-piece site outranks that quickly, and chasing
-it wastes the effort. What is winnable, and what buyers actually type:
-*kaal watches*, *kaal watch india*, *kaal series 01*, *thekaal*, and the brand
-plus a dial name. Those are the queries the markup, the manifesto and the
-llms.txt are aimed at, and they are the ones that convert.
+and Sanskrit word, a 2005 Bollywood film with two decades of accumulated
+authority, and a Singaporean watch brand with editorial coverage on Watch
+Clicker, WatchPaper, Beans & Bezels and Vario. Nothing on a twenty-piece site
+outranks that stack quickly, and chasing the bare word wastes the effort.
+
+What is winnable, and what buyers actually type: *kaal watches india*,
+*kaal watch india*, *kaal series 01*, *thekaal*, *thekaal.co*, the brand plus
+a dial name, and — the new ones, opened up by naming the movement —
+*seiko movement watch india*, *japanese movement watch under 10000*,
+*limited edition watch india*, *numbered watch india*. Those are the queries
+the markup, the long-form pages and the llms.txt are aimed at, and they are
+the ones that convert. A page targeting *luxury watch* unqualified would be
+competing with brands spending more on one photograph than this series will
+earn; a page targeting *limited edition Indian watch with a Seiko movement*
+is competing with almost nobody, and the person typing it is already sold.
+
+**What is deliberately NOT here:** a farm of thin keyword pages. On a six-page
+domain with no inbound links, twenty near-identical "KAAL luxury watch in
+[city]" pages is the fastest way to have the whole site classified as a
+doorway network, which is a penalty applied to the domain and not the page.
+Two substantial pages that a person would actually read beat twenty that
+nobody would, and they are the two an answer engine can quote.
 
 ### 6. Before you push
 
@@ -402,7 +443,14 @@ for — and a Lighthouse run.
 ## What is in here
 
 ```
-index.html               the whole site
+index.html               the shop: the film, the four dials, the twenty numbers
+movement.html            the Seiko Epson movement, and the twenty four months
+provenance.html          who is selling this, and what a buyer can verify
+manifesto.html           the complete argument for twenty and for the price
+about.html               the brand, the maker, and which KAAL this is
+legal.html               seller information, terms, warranty, returns, privacy
+llms.txt                 the whole of the above in plain text, for the agents
+                         that would rather read one file than render six
 assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
 assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/

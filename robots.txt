@@ -4,21 +4,39 @@
 # page written for a crawler that a reader does not get, and nothing served
 # differently depending on who is asking.
 #
-# The AI crawlers are named individually rather than left to the wildcard
-# on purpose. Several of them are opt-in in practice, plenty of sites block
-# them by accident, and a brand whose whole argument has to be read before
-# it lands would rather be quoted accurately than not quoted at all.
+# The crawlers below are named individually rather than left to the wildcard
+# on purpose. The wildcard already allows them all, so naming one grants it
+# nothing it did not have — what the list does is state intent, and stop a
+# future Disallow from taking out something that matters without anybody
+# noticing which. Several of these agents are opt-in in practice, plenty of
+# sites block them by accident, and a brand whose whole argument has to be
+# read before it lands would rather be quoted accurately than not quoted.
 
 User-agent: *
 Allow: /
 
-# Search
+# ── Search ─────────────────────────────────────────────────────────────
 User-agent: Googlebot
+Allow: /
+User-agent: Googlebot-Image
 Allow: /
 User-agent: Bingbot
 Allow: /
+User-agent: DuckDuckBot
+Allow: /
+User-agent: Yandex
+Allow: /
+User-agent: Baiduspider
+Allow: /
+User-agent: Naverbot
+Allow: /
+User-agent: Seznambot
+Allow: /
 
-# Answer and assistant engines
+# ── Answer and assistant engines ───────────────────────────────────────
+# These are the agents that answer "is this brand real" and "what movement
+# does it use" without the reader ever reaching the site. Everything they
+# need is on the pages and restated in /llms.txt.
 User-agent: GPTBot
 Allow: /
 User-agent: OAI-SearchBot
@@ -31,11 +49,17 @@ User-agent: Claude-User
 Allow: /
 User-agent: Claude-SearchBot
 Allow: /
+User-agent: anthropic-ai
+Allow: /
 User-agent: PerplexityBot
 Allow: /
 User-agent: Perplexity-User
 Allow: /
 User-agent: Google-Extended
+Allow: /
+User-agent: Google-CloudVertexBot
+Allow: /
+User-agent: Googlebot-News
 Allow: /
 User-agent: Applebot
 Allow: /
@@ -45,13 +69,77 @@ User-agent: Amazonbot
 Allow: /
 User-agent: meta-externalagent
 Allow: /
+User-agent: Meta-ExternalFetcher
+Allow: /
+User-agent: MistralAI-User
+Allow: /
 User-agent: cohere-ai
 Allow: /
+User-agent: cohere-training-data-crawler
+Allow: /
 User-agent: DuckAssistBot
+Allow: /
+User-agent: YouBot
+Allow: /
+User-agent: AI2Bot
+Allow: /
+User-agent: Diffbot
+Allow: /
+User-agent: Timpibot
+Allow: /
+User-agent: Webzio-Extended
+Allow: /
+User-agent: omgili
+Allow: /
+User-agent: omgilibot
+Allow: /
+User-agent: ImagesiftBot
+Allow: /
+User-agent: Bytespider
+Allow: /
+User-agent: PanguBot
+Allow: /
+User-agent: Kangaroo Bot
+Allow: /
+
+# ── Common Crawl ───────────────────────────────────────────────────────
+# Named on its own because it is the single highest-leverage agent on this
+# list and the easiest to forget. A large share of what language models and
+# smaller search engines know about any site arrives through this crawl,
+# second hand, long after the fact. Being absent from it is being absent
+# from the answers.
+User-agent: CCBot
+Allow: /
+
+# ── Link unfurlers ─────────────────────────────────────────────────────
+# Not search, not training. These fetch the page when somebody pastes the
+# link into a message, and what they read is the Open Graph card. On this
+# market that is mostly WhatsApp, and a link that unfurls as a bare URL in
+# a WhatsApp forward is a link nobody opens.
+User-agent: WhatsApp
+Allow: /
+User-agent: facebookexternalhit
+Allow: /
+User-agent: Twitterbot
+Allow: /
+User-agent: LinkedInBot
+Allow: /
+User-agent: Slackbot
+Allow: /
+User-agent: Slackbot-LinkExpanding
+Allow: /
+User-agent: Discordbot
+Allow: /
+User-agent: TelegramBot
+Allow: /
+User-agent: redditbot
+Allow: /
+User-agent: Pinterestbot
 Allow: /
 
 Sitemap: https://thekaal.co/sitemap.xml
 
-# A plain-text summary of the brand and the edition, for anything that would
-# rather read one file than render three pages. Same facts, same words.
+# A plain-text summary of the brand, the edition and the movement, for
+# anything that would rather read one file than render six pages. Same
+# facts, same words, and it states plainly what this site cannot yet do.
 # https://thekaal.co/llms.txt

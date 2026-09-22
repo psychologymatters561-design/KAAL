@@ -51,7 +51,7 @@ var KAAL = {
                            // No code reads it; the bake script is pointed at it
   frames:   ".../so_{T},w_{W},c_limit/...",     // photograph fallbacks
   filmSeq:  "assets/img/hero-seq/",             // the hero scrub, in this repo
-  frameCount: 61, frameCountSmall: 43,          // files in wide/ and tall/
+  frameCount: 91, frameCountSmall: 85,          // files in wide/ and tall/
   dials:    { 1:"bone", 2:"onyx", 3:"brass", ... }
 };
 ```
@@ -330,13 +330,45 @@ The hero is 230vh, not 340. At 340 it took two and a half screens of
 scrolling to play the film through, which is what read as slow.
 
 `KAAL.frameCount` and `KAAL.frameCountSmall` are how many stills were
-CUT — 61 at 1080x675 for landscape viewports, 43 at 400x880 for portrait
+CUT — 91 at 1080x675 for landscape viewports, 85 at 400x880 for portrait
 ones — and they have to match the files on disk, which `tools/check.mjs`
-enforces. They are 61 and 43 rather than 60 and 44 because a fixed set of
+enforces. They are 91 and 85 rather than 90 and 84 because a fixed set of
 files can only be sampled evenly at a whole-number stride, and a stride
-has to divide n-1 to land on the last frame as well as the first. 60 and
-42 divide by 2 and by 3. 59 and 43 divide by nothing, and an unevenly
+has to divide n-1 to land on the last frame as well as the first. 90
+divides by 2, 3, 5, 6, 9 and 10; 84 by 2, 3, 4, 6, 7 and 12. An unevenly
 sampled film is one whose motion speeds up and slows down twice a second.
+
+**They were 61 and 43, and what doubling them buys is not a smaller gap
+between painted frames.** That was already 1 — the floor, since there is
+no frame between frame 7 and frame 8. What it buys is a **shorter
+dissolve**. Blending paints between two neighbours, and whether that reads
+as motion or as a double exposure depends entirely on how far apart in
+*time* those neighbours are:
+
+| | frames | between neighbours | dissolving on a slow drag |
+|---|---|---|---|
+| phone, before | 43 | 396ms | 98% |
+| phone, now | **85** | **200ms** | 98% |
+| laptop, before | 61 | 279ms | 99% |
+| laptop, now | **91** | **187ms** | 97% |
+
+The right-hand column is the part that had to be earned. `SEQ.fast` cuts
+the dissolve off once the scrub is advancing faster than the neighbours
+are worth blending, and it was written as a frame *count* — 1.2. A count
+changes meaning the moment the count of frames does: at 85 the same finger
+speed advances twice as many indices, so a flat 1.2 would have cut the
+dissolve off at half the scroll speed it used to. It is a fraction of the
+sequence now, floored at the old value, so a device on a reduced ladder
+never blends less than before. Measured, the blend stays active at the
+same rate — and on a hard flick slightly more, 56% to 59%.
+
+The cost is bytes and bitmap, and it is real: the phone sequence went from
+0.83MB to **1.65MB**, and 85 decoded frames is 120MB of bitmap against 61MB.
+Which is why `frameWant()` now sizes its ceiling against what the device
+says it has rather than against one flat number, and why the Save-Data and
+2g gates still turn the whole thing off. A 2GB phone is handed the same 22
+frames it was before; a 4GB one goes from 22 to 43; only a device that
+reports the headroom gets all 85.
 
 Two sizes, not a continuum. The canvas is set to the frame's size and CSS
 covers the stage with it, so `drawImage` is a one-to-one blit at every
@@ -486,13 +518,18 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   struck**, the footer and the button all render, and nothing is left invisible
   behind a reveal that will never fire. The twenty are printed into the HTML;
   the config rebuilds them on load.
-- **The three depth planes cost nothing and gave back.** Paired against
-  `main` on the same runs, 1512×982, slow drag through the hero: median
-  frame **33.2ms → 16.7ms**, frames over 33ms **52% → 46%**. On a 390px
-  phone, 0 frames over 33ms out of 377. Frame mapping is untouched by the
-  planes: still 43 of 43 and 61 of 61 distinct frames, largest gap 1, zero
-  backwards jumps. Absolute figures move with sandbox load; the direction
-  was the same in every run
+- **Twice the frames, no measurable cost.** Paired against `main`, four runs
+  each, ~950 frame samples per side, 1512×982: median **16.7ms vs 16.7ms**,
+  frames over 33ms **36% vs 35%**. On a phone, **4 of 379 vs 1 of 378**. And
+  the mapping holds at the higher count — **85 of 85** and **91 of 91**
+  distinct frames over a slow drag, largest gap **1**, zero backwards jumps,
+  so every frame that was baked is a frame that actually gets painted
+- **The three depth planes are free.** Paired against the build before them,
+  four runs each, ~928 frame samples per side, 1512×982: median **16.7ms vs
+  16.8ms**, frames over 33ms **46% vs 49%**. Mixed, and inside this
+  environment's noise, so the honest reading is *no measurable difference* —
+  not the "faster" an earlier two-run sample appeared to show. Frame mapping
+  is untouched by the planes, largest gap 1, zero backwards jumps
 - **No exposed edge at either end of the scrub**, phone and laptop, measured
   as the real gap between the film's edge and the stage's: worst case
   **8.1px**, against 0.4px before the transform-order fix

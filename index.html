@@ -31,22 +31,36 @@
 <meta name="twitter:description" content="Twenty numbered watches from India on the Seiko Epson VX7N, a Japanese quartz calibre backed twenty four months. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
-<!-- The twenty are SEEDED here, not left for driveSchema() to fill.
+<!-- The twenty are SEEDED here, MINUS their availability.
 
-     hasVariant used to ship as [] and was populated at runtime from
-     KAAL.dials and soldSet. Googlebot renders JavaScript, so Google saw
-     the twenty. Almost nothing else does: GPTBot, ClaudeBot,
-     PerplexityBot and CCBot fetch HTML and never execute it, and to all
-     of them this edition was one product with no variants and no
-     per-number availability — invisible to exactly the answer engines
-     the rest of this markup is written for.
+     Two true things were in tension. #22 moved this list to runtime
+     because worker/kaal-sold-sync rewrites only the edition array in
+     this file, so anything baked in beside that one line is stale from
+     the first sale — correct, and a baked availability would have
+     started lying within a day. But it shipped hasVariant as [], and
+     Googlebot is
+     close to the only crawler that would ever fill it: GPTBot,
+     ClaudeBot, PerplexityBot and CCBot fetch HTML and never execute it.
+     To all of them the edition became one product with no variants, no
+     numbers, no dials and no price — invisible to exactly the answer
+     engines the rest of this markup is written for.
 
-     So the static copy is generated from the same KAAL.dials and
-     KAAL.sold the grid is, and driveSchema() still overwrites it on
-     load. A JS crawler gets the live set, a non-JS crawler gets the
-     correct set, and neither gets an empty array. check.mjs compares
-     this against the config on every push, because a second copy of the
-     edition is only safe while something is proving they agree. -->
+     Both problems have the same cause, which is that only ONE field
+     here can go stale. A number's sku, its name, the dial it was
+     assigned and what it costs are fixed for the life of the series.
+     Whether it is still available is not.
+
+     So the durable facts are baked and `availability` is left off
+     every variant. A crawler that runs no JavaScript now learns that
+     twenty numbered pieces exist, which dial each carries and what
+     each costs, and learns nothing false about what is left.
+     driveSchema() adds the availability wherever JavaScript runs, from
+     the same soldSet that strikes the number in the grid.
+
+     check.mjs compares this against KAAL.dials and the price on every
+     push, and FAILS if a variant grows an availability back, because
+     the next person to add one will have a good reason and no way to
+     know the worker cannot maintain it. -->
 <script type="application/ld+json" id="ld">
 {
   "@context": "https://schema.org",
@@ -303,7 +317,7 @@
         "@type": "Offer",
         "price": "5999",
         "priceCurrency": "INR",
-        "availability": "https://schema.org/InStock",
+        "availability": "https://schema.org/LimitedAvailability",
         "seller": {
           "@id": "https://thekaal.co/#org"
         },
@@ -358,7 +372,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -373,7 +386,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -388,7 +400,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -403,7 +414,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -418,7 +428,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -433,7 +442,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -448,7 +456,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -463,7 +470,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -478,7 +484,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -493,7 +498,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -508,7 +512,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -523,7 +526,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -538,7 +540,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -553,7 +554,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -568,7 +568,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -583,7 +582,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -598,7 +596,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -613,7 +610,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -628,7 +624,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -643,7 +638,6 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
-            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }

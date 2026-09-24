@@ -291,16 +291,28 @@ for (const f of pages) {
         bad("ProductGroup.hasVariant is empty — it is seeded so that crawlers which do not execute JavaScript still see the twenty; an empty array ships the edition to none of them");
       else if (vs.length !== edition)
         bad(`ProductGroup.hasVariant holds ${vs.length} pieces but the edition is ${edition}`);
-      const soldSet = new Set(sold);
+      /* The parent's static value is LimitedAvailability, which is true from
+         the first piece to the nineteenth. driveSchema() narrows it to the
+         exact answer wherever JavaScript runs. InStock baked here would be
+         a guess and SoldOut would be a lie. */
+      const parent = group.offers && group.offers.availability || "";
+      if (sold.length < edition && !parent.endsWith("LimitedAvailability"))
+        bad(`ProductGroup.offers.availability is ${parent.split("/").pop() || "missing"}; while the edition is open the static value should be LimitedAvailability`);
       for (const v of vs) {
         const n = +String(v.sku || "").replace(/\D/g, "");
         if (!n || n < 1 || n > edition) { bad(`hasVariant has sku "${v.sku}", which is not a number in 1..${edition}`); continue; }
         const want = NAMES[dialOf[n]];
         if (want && v.color !== want) bad(`hasVariant says No. ${n} is ${v.color}; KAAL.dials says ${want}`);
         if (want && !String(v.name || "").includes(want)) bad(`hasVariant name for No. ${n} does not name its dial: "${v.name}"`);
-        const avail = v.offers && v.offers.availability || "";
-        const wantAvail = soldSet.has(n) ? "SoldOut" : "InStock";
-        if (!avail.endsWith(wantAvail)) bad(`hasVariant No. ${n} is ${avail.split("/").pop()}; KAAL.sold says it should be ${wantAvail}`);
+        /* The seeded variants must NOT carry an availability.
+           worker/kaal-sold-sync rewrites exactly one thing in index.html —
+           the `sold:` array — so a baked availability is stale from the
+           first sale and there is nothing in this system that would ever
+           correct it. driveSchema() supplies it at runtime instead. The
+           next person to add one will have a good reason and no way to
+           know that, so the build says it here. */
+        if (v.offers && v.offers.availability)
+          bad(`hasVariant No. ${n} carries an availability. The worker rewrites only the sold: array, so a baked one is stale from the first sale — leave it to driveSchema()`);
         const paid = v.offers && String(v.offers.price || "");
         const want$ = cfg.price ? cfg.price.replace(/[^0-9]/g, "") : "";
         if (want$ && paid !== want$) bad(`hasVariant No. ${n} is priced ${paid}; the config says ${want$}`);

@@ -72,14 +72,35 @@ OUT="$ROOT/assets/img/hero-seq"
 #    what decides how many of these a given device actually takes.
 TIERS="tall:400:880:85 wide:1080:675:91"
 
-# Quality. Measured, not guessed: at 82 a tall frame lands at ~19KB and a
-# wide one at ~38KB. At the counts above that is 1.64MB for a phone and
-# 3.49MB for a laptop — the phone figure roughly doubled when the frame
-# count did, which is the honest cost of the smoothness and the reason
-# frameWant() and the Save-Data gate both still matter. There is room to
-# go higher on quality; there is no visible reason to, and every byte
-# here is paid on cellular before anything moves.
-Q=82
+# Quality.
+#
+# 82 was the first number tried and it was the wrong one — not because the
+# pictures were bad but because of where it sat on the curve. Sweeping the
+# encoder against the lossless frame, the cost of the last seven points is
+# the whole story:
+#
+#     Q    tall 85f    PSNR, dial    PSNR, frame
+#     55     1.02MB       31.81         40.96
+#     65     1.15MB       32.54         41.75
+#     75     1.30MB       33.32         42.58
+#     82     1.71MB       35.17         44.52
+#
+# From 75 to 82 is 31% more bytes. Everywhere else ten points of quality
+# costs six. 82 is the one point on this curve you pay a premium for, and
+# the premium is paid on cellular, in the seconds before anything moves.
+#
+# The dial column is why this is not simply "go as low as it goes". The
+# error at low quality is not banding in the smoke, which is what you would
+# fear from a dark film — amplified 24x the gradients stay clean. It is
+# detail on the watch face, which is the one thing on the screen that is
+# actually for sale. At 55 the tachymeter numerals begin to soften. At 65
+# they hold, and 65 keeps two thirds of the byte saving.
+#
+# So: 65. A tall frame lands at ~13.5KB and a wide one at ~26KB, which is
+# 1.15MB for a phone against 1.71MB, and 2.35MB for a laptop against 3.50MB.
+# The frames are unchanged — 85 and 91, the same pictures at the same sizes,
+# arriving a third sooner.
+Q=65
 
 # ffmpeg with no output file reports the stream and exits non-zero, which is
 # the cheapest probe there is and also why this one line is allowed to fail.

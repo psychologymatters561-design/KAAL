@@ -394,13 +394,32 @@ sequence now, floored at the old value, so a device on a reduced ladder
 never blends less than before. Measured, the blend stays active at the
 same rate — and on a hard flick slightly more, 56% to 59%.
 
-The cost is bytes and bitmap, and it is real: the phone sequence went from
-0.83MB to **1.65MB**, and 85 decoded frames is 120MB of bitmap against 61MB.
-Which is why `frameWant()` now sizes its ceiling against what the device
-says it has rather than against one flat number, and why the Save-Data and
-2g gates still turn the whole thing off. A 2GB phone is handed the same 22
-frames it was before; a 4GB one goes from 22 to 43; only a device that
-reports the headroom gets all 85.
+The cost is bytes and bitmap, and it is real: 85 decoded frames is 120MB of
+bitmap against 61MB. Which is why `frameWant()` sizes its ceiling against
+what the device says it has rather than against one flat number, and why the
+Save-Data and 2g gates still turn the whole thing off. A 2GB phone is handed
+the same 22 frames it was before; a 4GB one goes from 22 to 43; only a device
+that reports the headroom gets all 85.
+
+Bytes went the other way, and that correction is worth writing down because
+the first instinct was wrong. Doubling the frames doubled the phone sequence
+to 1.65MB, and the part of this hero that was still rough — the seconds after
+load, before enough frames have landed to scrub against — got *longer*, not
+shorter. More frames is the intuitive fix for a film that steps, and it is
+the wrong one: a frame that has not arrived cannot be blended. Measured on a
+throttled phone, the sequence took 13.6s to reach full density on slow 4G,
+and the scroll jumped by up to 11 frames at a time while it waited.
+
+Frames are capped by bitmap, so the only lever on that window is the size of
+each picture. Re-encoding at quality 65 instead of 82 took the phone sequence
+to **1.10MB** and the laptop's to 2.41MB — a third fewer bytes for the same
+85 and 91 pictures at the same dimensions. 82 turned out to be the one point
+on the encoder's curve you pay a premium for: the last seven points of
+quality cost 31% more bytes, where ten points anywhere else cost six. What
+those bytes were buying was detail on the watch face, which is why the floor
+is 65 and not lower — at 55 the tachymeter numerals start to soften, and that
+dial is the thing being sold. The smoke, which is what you would expect to
+band in a dark film, stays clean well below both.
 
 Two sizes, not a continuum. The canvas is set to the frame's size and CSS
 covers the stage with it, so `drawImage` is a one-to-one blit at every

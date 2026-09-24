@@ -129,13 +129,19 @@ if (cfg.filmSeq) {
       const extra = readdirSync(dir).filter(f => f.endsWith(".webp")).length - n;
       if (extra > 0) bad(`${cfg.filmSeq}${tier}/ holds ${extra} more .webp than frameCount says — the page will never request them`);
 
-      /* A phone pays for these on cellular before it sees anything move.
+      /* A phone pays for these on cellular before it sees anything move,
+         and the load phase is the only part of this hero that was ever
+         genuinely rough: until the sequence is dense enough to scrub, the
+         scroll jumps between whatever frames have landed. Frames are
+         capped by bitmap, not bytes, so the only lever on that window is
+         how big each picture is — which is what quality 65 buys.
+
          Not a failure — it is a judgement call, and it should be a loud
-         one the moment somebody re-bakes at a higher quality or a higher
-         count. 1.9 and 4.0 are the deliberate ceilings for 85 tall frames
-         and 91 wide ones at quality 82; the tall figure doubled when the
-         count did and that was the trade, not an accident. */
-      const budget = tier === "tall" ? 1.9e6 : 4.0e6;
+         one the moment somebody re-bakes at a higher quality. 1.35 and
+         2.90 are the ceilings for 85 tall frames and 91 wide ones at
+         quality 65, which lands at 1.10MB and 2.41MB. The headroom is for
+         a different film, not for a quieter creep back up the curve. */
+      const budget = tier === "tall" ? 1.35e6 : 2.9e6;
       if (bytes > budget)
         soft(`${tier} sequence is ${(bytes / 1e6).toFixed(2)}MB over ${n} frames — above the ${(budget / 1e6).toFixed(1)}MB this hero budgets`);
 

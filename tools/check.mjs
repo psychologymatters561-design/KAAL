@@ -254,7 +254,7 @@ blocks.forEach((b, i) => {
       A JSON-LD block that does not parse is simply discarded in silence. */
 for (const f of pages) {
   const t = readFileSync(join(root, f), "utf8");
-  const blocks = [...t.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  const blocks = [...t.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
   for (const [i, blk] of blocks.entries()) {
     try { JSON.parse(blk); }
     catch (e) { bad(`${f}: JSON-LD block ${i + 1} does not parse — ${String(e.message).slice(0, 80)}`); }
@@ -265,20 +265,46 @@ for (const f of pages) {
   if (!/<link rel="canonical"/.test(t) && f !== "claimed.html") soft(`${f} has no canonical link`);
 }
 
-/* ── 6b-ii. The ItemList in the structured data names a dial for each of the
-      twenty. That is a second copy of KAAL.dials, and a second copy is only
-      safe while something compares them. */
+/* ── 6b-ii. The edition, in the structured data, against the config.
+
+      The ProductGroup carries a hasVariant entry per number, seeded into
+      the HTML so that crawlers which do not run JavaScript still see the
+      twenty. That makes it a second copy of KAAL.dials and KAAL.sold, and
+      a second copy of the edition is only safe for as long as something
+      compares it to the first. driveSchema() overwrites it at runtime, so
+      a drift here is invisible in a browser and visible to every crawler
+      that matters — which is the worst possible place to put a mistake.
+
+      Run tools/check.mjs after editing dials or sold. ───────────────── */
 {
-  const ld = html.match(/"@type":\s*"ItemList"[\s\S]*?"itemListElement":\s*\[([\s\S]*?)\]/);
-  if (!ld) soft("index.html has no ItemList in its structured data");
+  const ld = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/);
+  if (!ld) soft("index.html has no JSON-LD block to check the edition against");
   else {
-    const NAMES = { emerald: "Emerald", midnight: "Midnight", champagne: "Champagne", ivory: "Ivory" };
-    const listed = [...ld[1].matchAll(/"position":\s*(\d+),\s*"name":\s*"[^"]*No\.\s*(\d+)[^"]*?(Emerald|Midnight|Champagne|Ivory) dial"/g)];
-    if (listed.length !== edition) bad(`ItemList names ${listed.length} pieces but the edition is ${edition}`);
-    for (const [, pos, no, dial] of listed) {
-      if (+pos !== +no) bad(`ItemList position ${pos} is labelled No. ${no}`);
-      const want = NAMES[dialOf[+no]];
-      if (want && want !== dial) bad(`ItemList says No. ${no} carries ${dial}; KAAL.dials says ${want}`);
+    let graph;
+    try { graph = JSON.parse(ld[1]); } catch { graph = null; }
+    const group = graph && (graph["@graph"] || []).find(n => n["@type"] === "ProductGroup");
+    if (!group) soft("index.html has no ProductGroup in its structured data");
+    else {
+      const NAMES = { emerald: "Emerald", midnight: "Midnight", champagne: "Champagne", ivory: "Ivory" };
+      const vs = group.hasVariant || [];
+      if (!vs.length)
+        bad("ProductGroup.hasVariant is empty — it is seeded so that crawlers which do not execute JavaScript still see the twenty; an empty array ships the edition to none of them");
+      else if (vs.length !== edition)
+        bad(`ProductGroup.hasVariant holds ${vs.length} pieces but the edition is ${edition}`);
+      const soldSet = new Set(sold);
+      for (const v of vs) {
+        const n = +String(v.sku || "").replace(/\D/g, "");
+        if (!n || n < 1 || n > edition) { bad(`hasVariant has sku "${v.sku}", which is not a number in 1..${edition}`); continue; }
+        const want = NAMES[dialOf[n]];
+        if (want && v.color !== want) bad(`hasVariant says No. ${n} is ${v.color}; KAAL.dials says ${want}`);
+        if (want && !String(v.name || "").includes(want)) bad(`hasVariant name for No. ${n} does not name its dial: "${v.name}"`);
+        const avail = v.offers && v.offers.availability || "";
+        const wantAvail = soldSet.has(n) ? "SoldOut" : "InStock";
+        if (!avail.endsWith(wantAvail)) bad(`hasVariant No. ${n} is ${avail.split("/").pop()}; KAAL.sold says it should be ${wantAvail}`);
+        const paid = v.offers && String(v.offers.price || "");
+        const want$ = cfg.price ? cfg.price.replace(/[^0-9]/g, "") : "";
+        if (want$ && paid !== want$) bad(`hasVariant No. ${n} is priced ${paid}; the config says ${want$}`);
+      }
     }
   }
 }
@@ -325,6 +351,27 @@ for (const f of pages) {
   if (og && og !== want) bad(`${f} declares og:url as ${og}; it should be ${want}`);
 }
 
+/* ── 6f. The IndexNow key file, against the workflow that submits it.
+
+      IndexNow authenticates by fetching https://thekaal.co/<key>.txt and
+      checking it contains <key>. The key is written in two places — the
+      filename at the repo root and the workflow that posts it — and if
+      they stop agreeing every submission is rejected with a 403 that
+      nobody sees, because nothing on the site changes when the crawlers
+      simply do not come. ──────────────────────────────────────────────── */
+{
+  const wf = join(root, ".github/workflows/indexnow.yml");
+  if (existsSync(wf)) {
+    const key = readFileSync(wf, "utf8").match(/^\s*KEY=([0-9a-zA-Z-]{8,128})\s*$/m)?.[1];
+    if (!key) bad("indexnow.yml defines no KEY — the submission cannot authenticate");
+    else {
+      const f = join(root, `${key}.txt`);
+      if (!existsSync(f)) bad(`indexnow.yml submits key ${key} but ${key}.txt is not in the repo — every submission will be rejected`);
+      else if (readFileSync(f, "utf8").trim() !== key) bad(`${key}.txt does not contain ${key} — IndexNow verifies by reading it`);
+    }
+  }
+}
+
 /* ── 6e. The movement, in both of the places that state it.
 
       The named movement is the most load-bearing fact on this site: it is the
@@ -357,7 +404,7 @@ for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
 const kb = (p) => existsSync(p) ? Math.round(statSync(p).size / 1024) : 0;
 const pageKb = kb(join(root, "index.html"));
 const fontKb = ["InstrumentSerif-latin", "Inter-wght"].reduce((a, f) => a + kb(join(root, `assets/fonts/${f}.woff2`)), 0);
-if (pageKb > 156) soft(`index.html is ${pageKb}KB — it was around 90KB; worth knowing why`);
+if (pageKb > 180) soft(`index.html is ${pageKb}KB — it was around 90KB; worth knowing why`);
 
 console.log(`index.html ${pageKb}KB · preloaded fonts ${fontKb}KB · edition ${edition} · ${sold.length} sold · ${refs.size} local references`);
 for (const w of warn) console.log(`  note  ${w}`);

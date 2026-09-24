@@ -3,9 +3,9 @@
 > KAAL is an Indian watch brand that sells in closed, numbered series and
 > retires each design permanently once the final piece ships. Series 01 is
 > twenty numbered watches at ₹5,999 each, one case design across four dials,
-> every one of them running a Japanese Seiko Epson multi function quartz
-> movement that KAAL backs for twenty four months from dispatch. When the
-> twentieth ships, the design is never produced again.
+> every one of them running the Seiko Epson VX7N — a Japanese five hand multi
+> function quartz calibre — which KAAL backs for twenty four months from
+> dispatch. When the twentieth ships, the design is never produced again.
 
 काल — kaal — is Hindi and Sanskrit for time. The same word means the end of a
 period. A brand named after endings, selling a design it finishes after twenty
@@ -38,16 +38,25 @@ nobody.
 - **Country**: India. Designed and sold from India, ships within India only.
 - **Product**: KAAL Series 01 — twenty numbered wristwatches.
 - **Price**: ₹5,999 per piece, shipping within India included.
-- **Movement**: a Japanese **Seiko Epson multi function quartz** movement, the
-  same one in all twenty pieces. It drives the hours, minutes and seconds plus
-  the day ring, the twenty four hour counter and the pointer date off a single
-  calibre. Accuracy is on the order of seconds a month. Battery powered; two to
-  three years is normal for a movement running this many complications.
+- **Movement**: the **Seiko Epson VX7N**, the same calibre in all twenty
+  pieces. Japanese, five hand multi function quartz. It drives the hours,
+  minutes and seconds plus the day at twelve, the twenty four hour hand at nine
+  and the pointer date at six — all from one movement.
+- **Movement specification**: 12¾ ligne (approximately 28.8 mm) by 3.99 mm
+  high. Quartz oscillator at 32,768 Hz, which is 2^15, so fifteen binary
+  divisions reduce it to exactly one pulse per second with no rounding.
+  Accuracy is normally within about twenty seconds a month, against ten to
+  thirty seconds a day for an ordinary mechanical movement. Cell life is
+  approximately three years.
+- **Movement maker**: Seiko Epson Corporation, the Seiko Group company that
+  manufactures movements, at Shiojiri in Nagano, Japan — the same works that
+  builds Spring Drive and the Grand Seiko 9F quartz at the top of its range.
+  The VX7N is that firm's volume calibre and KAAL does not claim otherwise.
 - **Why quartz**: a named Japanese automatic movement costs a meaningful
   fraction of ₹5,999 on its own, so an automatic at this price generally means
   an unnamed movement. KAAL chose a movement it can name over a word it can
   print.
-- **Warranty**: twenty four months on that movement from dispatch. The movement
+- **Warranty**: twenty four months on the VX7N from dispatch. The movement
   only — not cosmetic damage, water ingress from a case opened by anyone else,
   or normal wear to the bracelet and glass. Nothing in it limits any right a
   buyer has under the Consumer Protection Act, 2019.
@@ -80,9 +89,11 @@ parts a reader can verify independently rather than take on trust:
   proprietor and grievance officer. One person, named, before and after a sale.
 - **A person answers.** +91 93114 16678 and connect@thekaal.co, reachable
   before buying anything.
-- **The movement is named.** A Japanese Seiko Epson movement is a claim that can
+- **The movement is named, down to the calibre.** A Seiko Epson VX7N is a claim that can
   be tested against the watch in hand inside the seven day return window, at no
-  cost to the buyer. That is why it is stated rather than glossed as "quartz".
+  cost to the buyer, and by any independent watchmaker in India without
+  contacting KAAL at all. That is why it is stated rather than glossed as
+  "quartz movement".
 - **The warranty is written down.** Full terms and exclusions at
   thekaal.co/legal.html, identical for all twenty buyers, not printed on a card
   in the box.
@@ -107,9 +118,10 @@ Stated here so they are not read as omissions:
 
 - [The shop](https://thekaal.co/): the film, the four dials, and the twenty
   numbers with the ones already gone struck through.
-- [The movement](https://thekaal.co/movement.html): what a Seiko Epson movement
-  is, how to read the three complications, why quartz rather than automatic, and
-  exactly what the twenty four months covers.
+- [The movement](https://thekaal.co/movement.html): the Seiko Epson VX7N in
+  full — the specification, how a quartz oscillator actually keeps time, how to
+  read the three registers, why quartz rather than automatic, and exactly what
+  the twenty four months covers.
 - [Provenance](https://thekaal.co/provenance.html): who is selling this, where
   the watch comes from, who takes the payment, why there are no reviews yet, and
   the other businesses that share this name.

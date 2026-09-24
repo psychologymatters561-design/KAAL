@@ -178,13 +178,38 @@ prose on `about.html` and `provenance.html`, in `disambiguatingDescription` on
 both the Brand and the Organization, and near the top of `llms.txt`. It is
 stated once, factually, with no claim made about any of them.
 
+**What the repo now does by itself.** `.github/workflows/indexnow.yml` posts
+every URL in the sitemap to IndexNow on each push that touches a page. One
+submission reaches Bing, Yandex, Seznam and Naver, because they share the
+feed — and Bing is the one that matters most and the one everyone forgets,
+because Bing's index is what ChatGPT search and Copilot read. The key file at
+the repo root is the ownership proof IndexNow fetches; it is public by design,
+and `check.mjs` fails the build if it ever stops matching the key the workflow
+submits.
+
+**Google does not participate in IndexNow, and nothing in this repo can reach
+it.** Google is reached once, by hand, by a human who owns the domain. Which
+is the first of the four things below.
+
 **None of that gets you indexed on its own.** Four things only you can do, in
 the order they pay:
 
 1. **Google Search Console and Bing Webmaster Tools.** Verify `thekaal.co`,
-   submit `sitemap.xml`, and use "Request indexing" on the home page and the
-   manifesto. Bing matters more than its market share suggests: several AI
-   assistants read from its index rather than Google's.
+   submit `sitemap.xml`, and use URL Inspection → "Request indexing" on the
+   home page, the movement page and the provenance page. This is not optional
+   and nothing substitutes for it: a crawler reaches a new domain by following
+   a link to it, and with no inbound links there is no link to follow. A
+   sitemap is read *after* a crawler decides to visit, and Google retired its
+   sitemap ping endpoint in 2023 — so publishing one and waiting is the whole
+   of the problem rather than any part of the solution. Bing Webmaster Tools
+   will also import a verified Search Console property in one click.
+
+   **A symptom worth recognising:** while the domain is unindexed, a search
+   for this brand's own copy returns the *GitHub repository* instead, because
+   github.com is crawled constantly and thekaal.co is not crawled at all. That
+   is not a penalty and it resolves itself once the site is in the index. It
+   is a useful signal though: it means the content is fine and the discovery
+   path is what is missing.
 2. **Put the real social URLs into the structured data.** There is a `sameAs`
    array waiting in the `Organization` block in `index.html` and it is empty,
    because inventing profile URLs would be worse than having none. Instagram
@@ -212,6 +237,13 @@ the ones that convert. A page targeting *luxury watch* unqualified would be
 competing with brands spending more on one photograph than this series will
 earn; a page targeting *limited edition Indian watch with a Seiko movement*
 is competing with almost nobody, and the person typing it is already sold.
+
+**On how long any of this takes.** A new domain with no inbound links is
+typically days to weeks from first crawl to first ranking, and brand-name
+ranking follows indexing rather than arriving with it. Judge this work no
+earlier than three weeks after Search Console verification, and judge it in
+Search Console's Performance tab — not by typing the brand into Google and
+looking, which tells you nothing you can act on.
 
 **What is deliberately NOT here:** a farm of thin keyword pages. On a six-page
 domain with no inbound links, twenty near-identical "KAAL luxury watch in
@@ -554,8 +586,11 @@ provenance.html          who is selling this, and what a buyer can verify
 manifesto.html           the complete argument for twenty and for the price
 about.html               the brand, the maker, and which KAAL this is
 legal.html               seller information, terms, warranty, returns, privacy
+404.html                 served by Pages for any unmatched path; noindex
 llms.txt                 the whole of the above in plain text, for the agents
                          that would rather read one file than render six
+<key>.txt                the IndexNow ownership proof. Public by design, and
+                         checked against the workflow on every push
 assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
 assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/

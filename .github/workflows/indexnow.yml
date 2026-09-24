@@ -1,0 +1,80 @@
+# ══════════════════════════════════════════════════════════════════
+# Tell the crawlers, instead of waiting to be found.
+#
+# A six page site with no inbound links is not crawled on a schedule,
+# because there is no schedule to be on: a crawler reaches a new domain
+# by following a link to it, and until somebody links here there is no
+# link to follow. A sitemap does not fix that — a sitemap is read AFTER
+# a crawler has decided to visit, and Google retired its sitemap ping
+# endpoint in 2023, so publishing one and waiting is the whole of the
+# problem rather than any part of the solution.
+#
+# IndexNow is the one protocol that runs the other way: the site tells
+# the index a URL changed, and the index comes. It is a single POST,
+# and it is honoured by Bing, Yandex, Seznam and Naver from one
+# submission — they share the feed. Bing is the one that matters most
+# here and it is the one people forget: Bing's index is what ChatGPT
+# search and Copilot read. Being absent from it is being absent from
+# a large share of the answers this brand is trying to appear in.
+#
+# Google does NOT participate in IndexNow. Nothing in this file affects
+# Google, and nothing can: Google is reached through Search Console,
+# by hand, once, by a human who owns the domain. See README, step 5.
+#
+# Authentication is the key file at the repo root, served at
+# https://thekaal.co/$KEY.txt and containing exactly $KEY. The index
+# fetches it to confirm whoever is submitting controls the host. It is
+# not a secret — it is a proof of ownership, and it is public by design.
+# ══════════════════════════════════════════════════════════════════
+name: indexnow
+
+on:
+  push:
+    branches: [main]
+    paths: ['**.html', 'sitemap.xml', 'llms.txt', 'robots.txt']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pages rebuilds from main on its own schedule, and submitting a URL
+      # before the new bytes are live just means the crawler reads the old
+      # page. Ninety seconds is comfortably longer than this repo's deploy
+      # has ever taken.
+      - name: Let Pages finish deploying
+        run: sleep 90
+
+      - name: Submit every URL in the sitemap
+        run: |
+          set -euo pipefail
+          KEY=d58a84797445f7170e4c1e15771a7c52
+          # jq builds the list and the body. A shell join here is how this
+          # step was wrong the first time: `paste -d` cycles through the
+          # delimiter's CHARACTERS rather than using the string, so a
+          # hand-rolled '","' join silently produces url1"url2,url3 and the
+          # endpoint rejects the whole batch.
+          BODY=$(grep -oP '(?<=<loc>)[^<]+' sitemap.xml \
+            | jq -R . | jq -s . \
+            | jq --arg key "$KEY" '{host:"thekaal.co", key:$key, keyLocation:"https://thekaal.co/\($key).txt", urlList:.}')
+          echo "$BODY" | jq .
+          CODE=$(curl -sS -o /tmp/out.txt -w '%{http_code}' \
+            -X POST 'https://api.indexnow.org/IndexNow' \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data-raw "$BODY")
+          echo "IndexNow returned $CODE"; cat /tmp/out.txt || true
+          # 200 accepted. 202 accepted, key still being verified. Both fine.
+          case "$CODE" in
+            200|202) echo "submitted $(echo "$BODY" | jq '.urlList|length') URL(s)" ;;
+            *) echo "::error::IndexNow rejected the submission ($CODE)"; exit 1 ;;
+          esac

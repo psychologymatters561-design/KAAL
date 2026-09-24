@@ -709,6 +709,17 @@
   --ease-soft:cubic-bezier(.22,.61,.36,1);
   --gut:clamp(1.25rem,5vw,4.5rem);
   --hold:min(72rem,100% - var(--gut) * 2);
+
+  /* ── RHYTHM. One vertical scale for the whole building, keyed to the
+        SMALL viewport so a phone's URL bar arriving or leaving never
+        re-lays the page out. Each act pads top and bottom, so the air a
+        reader actually crosses between two rooms is twice --air: about a
+        fifth of a screen on every device, phone to wall. It used to be
+        half a screen, which read as the page having stopped. ────── */
+  --air:clamp(3.25rem,1.25rem + 6svh,7.5rem);
+  --air-tall:clamp(4rem,1.5rem + 8svh,9.5rem);
+  --beat:clamp(2rem,1rem + 3.2svh,4.2rem);   /* words to picture, inside an act */
+  --rise:clamp(22px,1rem + 1.6vw,42px);       /* how far an entrance travels */
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -759,7 +770,7 @@ a{color:inherit}
   line-height:1.62;
   color:var(--mute);
   max-width:44ch;
-  margin:1.6rem 0 0;
+  margin:clamp(1.1rem,.8rem + 1.2vw,1.6rem) 0 0;
   font-weight:300;
 }
 .sub strong{color:var(--bone);font-weight:400}
@@ -769,7 +780,7 @@ a{color:inherit}
   text-transform:uppercase;
   color:var(--faint);
   font-weight:500;
-  margin:0 0 2.2rem;
+  margin:0 0 clamp(1.35rem,.9rem + 1.8vw,2.2rem);
   display:flex;align-items:center;gap:.9rem;
 }
 .label::after{content:"";flex:1;height:1px;background:currentColor;opacity:.34;
@@ -865,7 +876,7 @@ a{color:inherit}
       carries. It was a drawing until the photographs landed. They have,
       so the drawing is now the layer underneath them and this stops being the best
       available answer to "what am I buying". */
-.piece{margin:clamp(2.2rem,6vh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
+.piece{margin:clamp(1.8rem,1rem + 2.6svh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
   background:var(--void-2);padding:clamp(1.35rem,4vw,1.9rem);
   display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:center}
 @media (max-width:32rem){.piece{grid-template-columns:1fr;align-items:start}}
@@ -1054,26 +1065,33 @@ a{color:inherit}
 .ring .bar{stroke:var(--gold);stroke-dasharray:56.5;stroke-dashoffset:56.5;transition:stroke-dashoffset .25s linear}
 
 /* ── ACTS. Each is a room in one continuous building. ──────────── */
-.act{position:relative;padding:clamp(6rem,17vh,13rem) 0;z-index:1}
+.act{position:relative;padding:var(--air) 0;z-index:1}
 .act > .hold{position:relative}
-.act-tall{padding-block:clamp(9rem,26vh,20rem)}
+.act-tall{padding-block:var(--air-tall)}
 .act p:last-child{margin-bottom:0}
 
 /* The common entrance. Everything rises unless it has earned its own. */
-.rise{opacity:0;transform:translate3d(0,42px,0);
-  transition:opacity 1.05s var(--ease),transform 1.15s var(--ease)}
-.lit .rise{opacity:1;transform:none}
-.lit .rise:nth-child(2){transition-delay:.09s}
-.lit .rise:nth-child(3){transition-delay:.17s}
-.lit .rise:nth-child(4){transition-delay:.25s}
-.lit .rise:nth-child(5){transition-delay:.33s}
+/* Each element enters as IT reaches the reader, not when its act does.
+   An act on a phone can be three screens deep; lighting the whole act at
+   once meant waiting on a blank screen for the top of it, and arriving at
+   the bottom of it long after anything had moved. --d is the element's
+   place among whatever arrived in the same moment, set once by the
+   reveal observer, so a heading and its paragraph still step in order. */
+.rise{opacity:0;transform:translate3d(0,var(--rise),0);
+  transition:opacity 1.05s var(--ease),transform 1.15s var(--ease);
+  transition-delay:calc(var(--d,0) * 85ms)}
+.rise.in{opacity:1;transform:none}
+/* A picture settles rather than rises: less travel, a breath of scale,
+   so the plate reads as coming into focus instead of being slid in. */
+.plate.rise{transform:translate3d(0,calc(var(--rise) * .6),0) scale(.985);transform-origin:50% 0}
+.plate.rise.in{transform:none}
 
 /* Photographs. A framed still with its own light, never a background,
    and never with type resting on it. Bone on void is 15.5:1; bone on a
    lit dial is a coin toss, and the previous build had to drown every
    picture in a vignette to win that toss. Keeping the words off the
    picture buys the photographs the right to be bright. */
-.plate{position:relative;margin:clamp(2.6rem,7vh,5.5rem) 0 0;
+.plate{position:relative;margin:var(--beat) 0 0;
   border-radius:2px;overflow:hidden;background:var(--void-2);
   clip-path:inset(0 round 2px)}
 .plate img{width:100%;height:auto;transform:scale(1.09) translate3d(0,var(--par,0),0)}
@@ -1089,7 +1107,7 @@ a{color:inherit}
 .plate.void-plate{background:
     radial-gradient(120% 90% at 30% 18%,rgba(237,232,223,.055),rgba(237,232,223,0) 62%),
     linear-gradient(150deg,rgba(237,232,223,.035),rgba(8,9,8,0) 55%);
-  border:1px solid var(--line);min-height:min(58vh,26rem);
+  border:1px solid var(--line);min-height:min(46svh,24rem);
   display:grid;place-items:center;padding:2.5rem}
 .plate.void-plate img{display:none}
 .plate.void-plate::after{box-shadow:none}
@@ -1099,16 +1117,27 @@ a{color:inherit}
   text-transform:uppercase;color:var(--faint)}
 
 /* Two-column act: words left, picture right, and neither crowds. */
-.split{display:grid;gap:clamp(2.2rem,6vw,5rem);align-items:center}
+.split{display:grid;gap:var(--beat);align-items:center}
+/* Stacked, the grid gap is the whole distance from words to picture.
+   The plate's own margin on top of it was the second half of a double. */
+.split .plate{margin-top:0}
+/* A tablet held upright stacks too, and a portrait plate at the full
+   measure is taller than its screen. Held to a column it stays whole. */
+@media (min-width:600px) and (max-width:939px){.split .plate-tall{max-width:34rem}}
 @media (min-width:940px){
-  .split{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
-  .split .plate{margin-top:0}
+  .split{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:clamp(2.2rem,6vw,5rem)}
   .split.flip .col-a{order:2}
+  /* The movement act is the one where the words run three times the
+     height of the picture. Centred, that left a screen of bare column
+     above the plate and another below it. Held beside the reading
+     instead, the dial stays in view for every paragraph about it. */
+  #movement .split{align-items:start}
+  #movement .split .plate{position:sticky;top:clamp(5.5rem,20svh,12rem)}
 }
 
 /* ── The four faces. Chips deal in like cards: their own entrance. ── */
 .four{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));
-  gap:clamp(.7rem,2vw,1.4rem);margin:clamp(2.6rem,7vh,4.4rem) 0 0;list-style:none;padding:0}
+  gap:clamp(.7rem,2vw,1.4rem);margin:var(--beat) 0 0;list-style:none;padding:0}
 .face{border:1px solid var(--line);border-radius:2px;padding:1.35rem 1.2rem 1.15rem;
   background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0));
   opacity:0;transform:translate3d(0,34px,0) rotate(var(--tilt,-1.4deg));
@@ -1119,7 +1148,7 @@ a{color:inherit}
 .lit .face:nth-child(3){transition-delay:.25s}
 .lit .face:nth-child(4){transition-delay:.35s}
 .face:hover{border-color:var(--faint)}
-.disc{width:2.3rem;height:2.3rem;border-radius:50%;margin:0 0 1rem;
+.disc{display:block;width:2.3rem;height:2.3rem;border-radius:50%;margin:0 0 1rem;
   border:1px solid rgba(237,232,223,.16);
   box-shadow:inset 0 -7px 14px rgba(0,0,0,.5),inset 0 4px 9px rgba(255,255,255,.11)}
 .face h3{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:0;letter-spacing:-.01em}
@@ -1127,9 +1156,9 @@ a{color:inherit}
 
 /* ── Facts row ─────────────────────────────────────────────────── */
 .facts{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:2px;overflow:hidden;margin:clamp(2.6rem,7vh,4.4rem) 0 0;
+  border-radius:2px;overflow:hidden;margin:var(--beat) 0 0;
   grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))}
-.fact{background:var(--void);padding:1.7rem 1.5rem}
+.fact{background:var(--void);padding:clamp(1.2rem,.9rem + 1.4vw,1.7rem) clamp(1.1rem,.9rem + 1vw,1.5rem)}
 .fact dt{font-size:.6875rem;letter-spacing:.22em;text-transform:uppercase;color:var(--faint);margin:0 0 .7rem}
 .fact dd{margin:0;font-family:var(--display);font-size:1.45rem;line-height:1.2;letter-spacing:-.01em}
 .fact p{margin:.55rem 0 0;font-size:.8125rem;color:var(--mute);line-height:1.5}
@@ -1157,7 +1186,7 @@ a{color:inherit}
 /* ── THE TWENTY. The interactive moment and the conversion mechanic
       are deliberately the same object. ─────────────────────────── */
 .twenty{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
-  gap:clamp(.4rem,1.1vw,.7rem);margin:clamp(2.4rem,6vh,3.6rem) 0 0;padding:0;
+  gap:clamp(.4rem,1.1vw,.7rem);margin:var(--beat) 0 0;padding:0;
   list-style:none;max-width:34rem}
 @media (max-width:430px){.twenty{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .pick{position:relative;width:100%;aspect-ratio:1;display:grid;place-items:center;
@@ -1193,7 +1222,7 @@ a{color:inherit}
                      to{box-shadow:0 0 0 .75rem rgba(198,161,91,0)}}
 .pick[aria-pressed="true"]{animation:pickTaken .6s var(--ease) 1}
 
-.claim{margin:clamp(2.2rem,6vh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
+.claim{margin:clamp(1.8rem,1rem + 2.6svh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
 .claim-state{font-size:.8125rem;color:var(--mute);min-height:1.4em;margin:0 0 1.1rem;letter-spacing:.01em;
   display:flex;align-items:center;gap:.62rem}
 
@@ -1232,10 +1261,10 @@ a{color:inherit}
 
 /* ── Footer. The scroll stays silent; Indian e-commerce law is not
       optional about the rest, so the paperwork lives in the basement. ─ */
-.foot{border-top:1px solid var(--line);padding:clamp(3.5rem,9vh,6rem) 0 3rem;
-  margin-top:clamp(4rem,11vh,8rem);position:relative;z-index:1;background:var(--void)}
-.foot-grid{display:grid;gap:clamp(1.8rem,4vw,3rem);
-  grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}
+.foot{border-top:1px solid var(--line);padding:clamp(2.75rem,1.5rem + 5svh,5.5rem) 0 calc(2.5rem + env(safe-area-inset-bottom));
+  margin-top:0;position:relative;z-index:1;background:var(--void)}
+.foot-grid{display:grid;gap:clamp(1.6rem,4vw,3rem);
+  grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr))}
 .foot h4{font-size:.6875rem;letter-spacing:.22em;text-transform:uppercase;
   color:var(--faint);margin:0 0 .85rem;font-weight:500}
 .foot p{margin:0 0 .6rem;font-size:.8125rem;line-height:1.65;color:var(--mute)}
@@ -1247,7 +1276,7 @@ a{color:inherit}
 .foot p.legal{margin-top:1.1rem;font-size:.6875rem;line-height:1.7;color:var(--faint)}
 .foot p.legal a{color:var(--faint)}
 .foot p.legal a:hover{color:var(--mute)}
-.foot-end{margin-top:clamp(2.5rem,6vh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
+.foot-end{margin-top:clamp(2rem,1rem + 3svh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
   display:flex;flex-wrap:wrap;gap:1rem;align-items:center;
   font-size:.75rem;color:var(--faint)}
 
@@ -1267,7 +1296,7 @@ a{color:inherit}
 /* ── Anyone who asked for less motion gets a complete, still site. ── */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
-  .rise,.face,.pick,.mark-sub,.cap{opacity:1!important;transform:none!important}
+  .rise,.face,.pick,.mark-sub,.cap{opacity:1!important;transform:none!important;transition-delay:0s!important}
   .door .leaf{opacity:1!important;transform:none!important}
   .mark path{stroke-dashoffset:0!important}
   .label::after{transform:scaleX(1)!important}
@@ -1410,7 +1439,7 @@ a{color:inherit}
     <h2 class="statement rise">One case. Four faces.<br>Twenty numbers.</h2>
     <p class="sub rise">You do not choose the face. You choose a number, and the number already has one. Every number was given its dial before this page went live.</p>
   </div>
-  <div class="plate plate-wide rise" data-par="0.09" style="margin-top:clamp(2.6rem,7vh,5rem)">
+  <div class="plate plate-wide rise" data-par="0.09" style="margin-top:var(--beat)">
     <img src="assets/img/four.webp" data-frame="30p" loading="lazy" decoding="async"
          alt="All four Series 01 dials arranged on wet black slate: green, black, gold and silver white, each with a gold bezel and two tone bracelet.">
   </div>
@@ -1446,7 +1475,7 @@ a{color:inherit}
     <h2 class="statement rise">Rain is not an event.</h2>
     <p class="sub rise">Series 01 is water resistant. Caught in weather, washed at a basin, worn through a downpour on the way to somewhere better: none of that is a story, and none of it is your problem.</p>
   </div>
-  <div class="plate plate-wide rise" data-par="0.1" style="margin-top:clamp(2.6rem,7vh,5rem)">
+  <div class="plate plate-wide rise" data-par="0.1" style="margin-top:var(--beat)">
     <img src="assets/img/onyx-rain.webp" data-frame="58p" loading="lazy" decoding="async"
          alt="Close view of the black dial with gold indices and gold hands, beaded with water on a wet black surface.">
   </div>
@@ -2640,7 +2669,14 @@ function drivePlates(){
     var top = p.top - S.raw;                    /* document space to viewport space */
     if(top + p.h < -80 || top > h + 80) continue;
     var c = (top + p.h/2 - h/2) / h;
-    var y = (-c * p.k * h).toFixed(1);
+    /* The picture is scaled 1.09 inside its frame, which leaves it 4.5% of
+       the frame's height to travel each way before its edge shows. Past
+       that, the drift was uncovering a band of bare panel inside the
+       photograph — 55px of it on a wide plate at 1440. Held to the margin,
+       the motion is the same in the middle and simply stops at the edge.
+       Four percent, not four and a half, so rounding never shows a hairline. */
+    var lim = p.h * 0.04, d = -c * p.k * h;
+    var y = (d > lim ? lim : d < -lim ? -lim : d).toFixed(1);
     if(y !== p.last){ p.last = y; p.img.style.transform = "scale(1.09) translate3d(0," + y + "px,0)"; }
   }
 }
@@ -3305,19 +3341,45 @@ function confirmPayment(res, n, done){
   }).catch(unconfirmed);
 }
 
-/* ── Reveals. One observer, and an act keeps its lit state once it has
-      been seen, because re-animating on the way back up is a tic. ── */
+/* ── Reveals. Two observers, and anything keeps its state once it has
+      been seen, because re-animating on the way back up is a tic.
+
+      The act gets "lit" as its top edge clears the bottom of the screen:
+      that drives what belongs to the room (the label rule, the faces, the
+      twenty, the door). It used to wait for twelve percent of the act's
+      own area, and an act three screens deep on a phone does not show
+      twelve percent of itself until a screen of it has already gone by
+      blank. Threshold zero is a position, not a proportion, so it means
+      the same thing for a short act and a long one.
+
+      Each .rise is watched on its own and gets "in" as it arrives. The
+      ones arriving in the same callback are numbered in order, so a
+      heading, its paragraph and its picture still step in one after
+      another however they happen to reach the screen. ── */
 (function reveals(){
+  var rises = $$(".rise");
   if(!("IntersectionObserver" in window)){
     $$(".act").forEach(function(a){ a.classList.add("lit"); });
+    rises.forEach(function(r){ r.classList.add("in"); });
     return;
   }
   var io = new IntersectionObserver(function(es){
     es.forEach(function(e){
       if(e.isIntersecting){ e.target.classList.add("lit"); io.unobserve(e.target); }
     });
-  }, { rootMargin:"0px 0px -14% 0px", threshold:0.12 });
+  }, { rootMargin:"0px 0px -8% 0px", threshold:0 });
   $$(".act").forEach(function(a){ io.observe(a); });
+
+  var ir = new IntersectionObserver(function(es){
+    var k = 0;
+    es.forEach(function(e){
+      if(!e.isIntersecting) return;
+      e.target.style.setProperty("--d", Math.min(k++, 4));
+      e.target.classList.add("in");
+      ir.unobserve(e.target);
+    });
+  }, { rootMargin:"0px 0px -6% 0px", threshold:0 });
+  rises.forEach(function(r){ ir.observe(r); });
 })();
 
 /* ── Nav and dock. Neither exists until the hero has done its job.

@@ -8,7 +8,7 @@
      it is never stale. Both strings are the same shape on purpose: brand,
      country, series, then the one fact that decides the click. If you change
      one, change the other. -->
-<meta name="description" content="Series 01: twenty numbered luxury watches on a Japanese Seiko Epson movement, backed twenty four months. ₹5,999, free delivery in India, seven day return. When No. 20 ships, the design retires.">
+<meta name="description" content="Series 01: twenty numbered luxury watches on the Seiko Epson VX7N, a Japanese five hand quartz calibre backed twenty four months. ₹5,999, free delivery in India, seven day return. When No. 20 ships, the design retires.">
 <meta name="author" content="Arjun Dixit">
 <meta name="theme-color" content="#080908">
 <!-- The defaults cap a text snippet at roughly 160 characters and an image
@@ -22,15 +22,31 @@
 <meta property="og:site_name" content="KAAL">
 <meta property="og:url" content="https://thekaal.co/">
 <meta property="og:title" content="KAAL Series 01 · twenty pieces, a Seiko movement, then it retires">
-<meta property="og:description" content="Twenty numbered watches from India, each on a Japanese Seiko Epson movement we back for twenty four months. You do not choose the face. You choose a number, and the number already has one.">
+<meta property="og:description" content="Twenty numbered watches from India, each on a Seiko Epson VX7N we back for twenty four months. You do not choose the face. You choose a number, and the number already has one.">
 <meta property="og:image" content="https://thekaal.co/assets/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="KAAL Series 01 · twenty pieces, a Seiko movement, then it retires">
-<meta name="twitter:description" content="Twenty numbered watches from India on a Japanese Seiko Epson movement, backed twenty four months. When the twentieth ships, the design is finished with.">
+<meta name="twitter:description" content="Twenty numbered watches from India on the Seiko Epson VX7N, a Japanese quartz calibre backed twenty four months. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
+<!-- The twenty are SEEDED here, not left for driveSchema() to fill.
+
+     hasVariant used to ship as [] and was populated at runtime from
+     KAAL.dials and soldSet. Googlebot renders JavaScript, so Google saw
+     the twenty. Almost nothing else does: GPTBot, ClaudeBot,
+     PerplexityBot and CCBot fetch HTML and never execute it, and to all
+     of them this edition was one product with no variants and no
+     per-number availability — invisible to exactly the answer engines
+     the rest of this markup is written for.
+
+     So the static copy is generated from the same KAAL.dials and
+     KAAL.sold the grid is, and driveSchema() still overwrites it on
+     load. A JS crawler gets the live set, a non-JS crawler gets the
+     correct set, and neither gets an empty array. check.mjs compares
+     this against the config on every push, because a second copy of the
+     edition is only safe while something is proving they agree. -->
 <script type="application/ld+json" id="ld">
 {
   "@context": "https://schema.org",
@@ -39,30 +55,64 @@
       "@type": "Brand",
       "@id": "https://thekaal.co/#brand",
       "name": "KAAL",
-      "alternateName": ["\u0915\u093e\u0932", "KAAL Watches", "KAAL Watches India", "The KAAL", "thekaal.co"],
+      "alternateName": [
+        "काल",
+        "KAAL Watches",
+        "KAAL Watches India",
+        "The KAAL",
+        "thekaal.co"
+      ],
       "url": "https://thekaal.co/",
       "logo": "https://thekaal.co/assets/brand/wordmark.svg",
       "slogan": "Twenty watches carry this design. Then it is retired, and never drawn again.",
-      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships. Every piece runs a Japanese Seiko Epson movement, backed for twenty four months.",
+      "description": "KAAL is an Indian watch brand that releases watches in closed, numbered series and retires each design permanently once the final piece ships. Every piece runs a Seiko Epson VX7N, a Japanese five hand multi function quartz calibre, backed for twenty four months.",
       "disambiguatingDescription": "KAAL is an Indian watch brand founded by Arjun Dixit and sold only at thekaal.co. It is a separate and unrelated business from Kaal Watch of Singapore (kaalwatch.com, the Multiverse series), from Kala Watch Co of India (kalawatches.com), and from thekaal.com, which sells clothing. KAAL makes no claim about any of them."
     },
     {
       "@type": "Organization",
       "@id": "https://thekaal.co/#org",
       "name": "KAAL",
-      "alternateName": ["\u0915\u093e\u0932", "KAAL Watches", "KAAL Watches India", "The KAAL", "thekaal.co"],
+      "alternateName": [
+        "काल",
+        "KAAL Watches",
+        "KAAL Watches India",
+        "The KAAL",
+        "thekaal.co"
+      ],
       "url": "https://thekaal.co/",
       "logo": "https://thekaal.co/assets/brand/wordmark.svg",
       "image": "https://thekaal.co/assets/img/og.jpg",
-      "brand": { "@id": "https://thekaal.co/#brand" },
+      "brand": {
+        "@id": "https://thekaal.co/#brand"
+      },
       "email": "connect@thekaal.co",
       "telephone": "+91-93114-16678",
-      "areaServed": { "@type": "Country", "name": "India" },
-      "address": { "@type": "PostalAddress", "addressCountry": "IN" },
-      "foundingLocation": { "@type": "Country", "name": "India" },
-      "founder": { "@id": "https://thekaal.co/#founder" },
-      "knowsLanguage": ["en", "hi"],
-      "knowsAbout": ["Wristwatches", "Limited edition watches", "Seiko Epson quartz movements", "Watchmaking in India", "Numbered editions"],
+      "areaServed": {
+        "@type": "Country",
+        "name": "India"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "IN"
+      },
+      "foundingLocation": {
+        "@type": "Country",
+        "name": "India"
+      },
+      "founder": {
+        "@id": "https://thekaal.co/#founder"
+      },
+      "knowsLanguage": [
+        "en",
+        "hi"
+      ],
+      "knowsAbout": [
+        "Wristwatches",
+        "Limited edition watches",
+        "Seiko Epson quartz movements",
+        "Watchmaking in India",
+        "Numbered editions"
+      ],
       "disambiguatingDescription": "An Indian watch brand founded and run by Arjun Dixit, selling direct at thekaal.co. Unrelated to Kaal Watch of Singapore, to Kala Watch Co of India, and to thekaal.com.",
       "contactPoint": {
         "@type": "ContactPoint",
@@ -70,9 +120,14 @@
         "email": "connect@thekaal.co",
         "telephone": "+91-93114-16678",
         "areaServed": "IN",
-        "availableLanguage": ["en", "hi"]
+        "availableLanguage": [
+          "en",
+          "hi"
+        ]
       },
-      "subjectOf": { "@id": "https://thekaal.co/provenance.html#page" },
+      "subjectOf": {
+        "@id": "https://thekaal.co/provenance.html#page"
+      },
       "comment": "sameAs is deliberately empty. It is not a placeholder to be filled with a plausible link: every URL in it must be a profile this brand actually controls, or it becomes the one piece of structured data on this site that is untrue. Add each one as it is created.",
       "sameAs": []
     },
@@ -81,28 +136,80 @@
       "@id": "https://thekaal.co/#founder",
       "name": "Arjun Dixit",
       "jobTitle": "Founder",
-      "nationality": { "@type": "Country", "name": "India" },
-      "worksFor": { "@id": "https://thekaal.co/#org" }
+      "nationality": {
+        "@type": "Country",
+        "name": "India"
+      },
+      "worksFor": {
+        "@id": "https://thekaal.co/#org"
+      }
     },
     {
       "@type": "WebSite",
       "@id": "https://thekaal.co/#website",
       "url": "https://thekaal.co/",
       "name": "KAAL",
-      "publisher": { "@id": "https://thekaal.co/#org" },
-      "inLanguage": "en"
+      "alternateName": "The KAAL",
+      "publisher": {
+        "@id": "https://thekaal.co/#org"
+      },
+      "inLanguage": "en-IN"
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://thekaal.co/#webpage",
+      "url": "https://thekaal.co/",
+      "name": "KAAL Watches India — Series 01",
+      "description": "Twenty numbered watches from India on a Seiko Epson VX7N Japanese quartz calibre, backed twenty four months. ₹5,999 each. When the twentieth ships, the design retires permanently.",
+      "inLanguage": "en-IN",
+      "isPartOf": {
+        "@id": "https://thekaal.co/#website"
+      },
+      "about": {
+        "@id": "https://thekaal.co/#org"
+      },
+      "mainEntity": {
+        "@id": "https://thekaal.co/#series01"
+      },
+      "publisher": {
+        "@id": "https://thekaal.co/#org"
+      },
+      "primaryImageOfPage": "https://thekaal.co/assets/img/og.jpg",
+      "significantLink": [
+        "https://thekaal.co/movement.html",
+        "https://thekaal.co/provenance.html",
+        "https://thekaal.co/manifesto.html",
+        "https://thekaal.co/about.html",
+        "https://thekaal.co/legal.html"
+      ],
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          ".band",
+          ".mark-sub"
+        ]
+      }
     },
     {
       "@type": "ProductGroup",
       "@id": "https://thekaal.co/#series01",
       "name": "KAAL Series 01",
       "alternateName": "KAAL Series 01 numbered wristwatch",
-      "brand": { "@id": "https://thekaal.co/#brand" },
-      "manufacturer": { "@id": "https://thekaal.co/#org" },
+      "brand": {
+        "@id": "https://thekaal.co/#brand"
+      },
+      "manufacturer": {
+        "@id": "https://thekaal.co/#org"
+      },
       "category": "Wristwatch",
       "productGroupID": "KAAL-S01",
-      "variesBy": ["https://schema.org/identifier"],
-      "material": ["Stainless steel", "Mineral glass"],
+      "variesBy": [
+        "https://schema.org/identifier"
+      ],
+      "material": [
+        "Stainless steel",
+        "Mineral glass"
+      ],
       "colour": "Two tone steel and gold tone",
       "image": [
         "https://thekaal.co/assets/img/og.jpg",
@@ -112,39 +219,124 @@
         "https://thekaal.co/assets/img/watch-ivory.webp"
       ],
       "url": "https://thekaal.co/",
-      "description": "Twenty numbered watches. A Japanese Seiko Epson multi function quartz movement, backed for twenty four months from dispatch. One case design, four dials \u2014 Emerald, Midnight, Champagne and Ivory. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. Every case finished by hand and every piece inspected before dispatch. When the twentieth ships, the design is retired and never produced again.",
+      "description": "Twenty numbered watches. A Seiko Epson VX7N — a Japanese five hand multi function quartz calibre, 12¾ ligne by 3.99 mm — backed for twenty four months from dispatch. One case design, four dials — Emerald, Midnight, Champagne and Ivory. Day ring, twenty four hour counter, pointer date. Two tone stainless steel bracelet, gold tone bezel, water resistant. Every case finished by hand and every piece inspected before dispatch. When the twentieth ships, the design is retired and never produced again.",
       "countryOfOrigin": "IN",
       "isRelatedTo": [
-        { "@id": "https://thekaal.co/manifesto.html#page" },
-        { "@id": "https://thekaal.co/movement.html#page" }
+        {
+          "@id": "https://thekaal.co/manifesto.html#page"
+        },
+        {
+          "@id": "https://thekaal.co/movement.html#page"
+        }
       ],
-      "subjectOf": { "@id": "https://thekaal.co/movement.html#page" },
+      "subjectOf": {
+        "@id": "https://thekaal.co/movement.html#page"
+      },
       "additionalProperty": [
-        { "@type": "PropertyValue", "name": "Movement", "value": "Seiko Epson multi function quartz, Japanese" },
-        { "@type": "PropertyValue", "name": "Movement origin", "value": "Japan" },
-        { "@type": "PropertyValue", "name": "Movement warranty", "value": "24 months from dispatch" },
-        { "@type": "PropertyValue", "name": "Complications", "value": "Day ring, twenty four hour counter, pointer date" },
-        { "@type": "PropertyValue", "name": "Case", "value": "Stainless steel, finished by hand, gold tone bezel" },
-        { "@type": "PropertyValue", "name": "Bracelet", "value": "Two tone stainless steel" },
-        { "@type": "PropertyValue", "name": "Water resistance", "value": "Water resistant" },
-        { "@type": "PropertyValue", "name": "Edition size", "value": "20 numbered pieces, then permanently retired" },
-        { "@type": "PropertyValue", "name": "Sold by", "value": "Direct from thekaal.co only. No marketplace, no reseller." }
+        {
+          "@type": "PropertyValue",
+          "name": "Movement",
+          "value": "Seiko Epson VX7N"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Movement type",
+          "value": "Japanese five hand multi function quartz, 32,768 Hz"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Movement size",
+          "value": "12¾ ligne (approx. 28.8 mm), 3.99 mm high"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Movement accuracy",
+          "value": "Within approximately 20 seconds per month"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Cell life",
+          "value": "Approximately 3 years"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Movement origin",
+          "value": "Japan"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Movement warranty",
+          "value": "24 months from dispatch"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Complications",
+          "value": "Day ring, twenty four hour counter, pointer date"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Case",
+          "value": "Stainless steel, finished by hand, gold tone bezel"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Bracelet",
+          "value": "Two tone stainless steel"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Water resistance",
+          "value": "Water resistant"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Edition size",
+          "value": "20 numbered pieces, then permanently retired"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "Sold by",
+          "value": "Direct from thekaal.co only. No marketplace, no reseller."
+        }
       ],
       "offers": {
         "@type": "Offer",
         "price": "5999",
         "priceCurrency": "INR",
         "availability": "https://schema.org/InStock",
-        "seller": { "@id": "https://thekaal.co/#org" },
+        "seller": {
+          "@id": "https://thekaal.co/#org"
+        },
         "areaServed": "IN",
         "shippingDetails": {
           "@type": "OfferShippingDetails",
-          "shippingRate": { "@type": "MonetaryAmount", "value": "0", "currency": "INR" },
-          "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "IN" },
+          "shippingRate": {
+            "@type": "MonetaryAmount",
+            "value": "0",
+            "currency": "INR"
+          },
+          "shippingDestination": {
+            "@type": "DefinedRegion",
+            "addressCountry": "IN"
+          },
           "deliveryTime": {
             "@type": "ShippingDeliveryTime",
-            "businessDays": { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"] },
-            "transitTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 5, "unitCode": "DAY" }
+            "businessDays": {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday"
+              ]
+            },
+            "transitTime": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 5,
+              "unitCode": "DAY"
+            }
           }
         },
         "hasMerchantReturnPolicy": {
@@ -156,12 +348,317 @@
           "returnFees": "https://schema.org/FreeReturn"
         }
       },
-      "hasVariant": [],
+      "hasVariant": [
+        {
+          "@type": "Product",
+          "sku": "KAAL-01",
+          "name": "KAAL Series 01 — No. 01 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-02",
+          "name": "KAAL Series 01 — No. 02 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-03",
+          "name": "KAAL Series 01 — No. 03 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-04",
+          "name": "KAAL Series 01 — No. 04 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-05",
+          "name": "KAAL Series 01 — No. 05 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-06",
+          "name": "KAAL Series 01 — No. 06 — Emerald",
+          "color": "Emerald",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-07",
+          "name": "KAAL Series 01 — No. 07 — Midnight",
+          "color": "Midnight",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-08",
+          "name": "KAAL Series 01 — No. 08 — Midnight",
+          "color": "Midnight",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-09",
+          "name": "KAAL Series 01 — No. 09 — Midnight",
+          "color": "Midnight",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-10",
+          "name": "KAAL Series 01 — No. 10 — Midnight",
+          "color": "Midnight",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-11",
+          "name": "KAAL Series 01 — No. 11 — Champagne",
+          "color": "Champagne",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-12",
+          "name": "KAAL Series 01 — No. 12 — Champagne",
+          "color": "Champagne",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-13",
+          "name": "KAAL Series 01 — No. 13 — Champagne",
+          "color": "Champagne",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-14",
+          "name": "KAAL Series 01 — No. 14 — Champagne",
+          "color": "Champagne",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-15",
+          "name": "KAAL Series 01 — No. 15 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-16",
+          "name": "KAAL Series 01 — No. 16 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-17",
+          "name": "KAAL Series 01 — No. 17 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-18",
+          "name": "KAAL Series 01 — No. 18 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-19",
+          "name": "KAAL Series 01 — No. 19 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        },
+        {
+          "@type": "Product",
+          "sku": "KAAL-20",
+          "name": "KAAL Series 01 — No. 20 — Ivory",
+          "color": "Ivory",
+          "offers": {
+            "@type": "Offer",
+            "price": "5999",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://thekaal.co/#org"
+            }
+          }
+        }
+      ],
       "warranty": {
         "@type": "WarrantyPromise",
         "name": "Twenty four months on the Seiko Epson movement, from dispatch",
         "description": "The movement only. Cosmetic damage, water ingress from a case opened by anyone other than KAAL, and normal wear to the bracelet and glass are not covered.",
-        "durationOfWarranty": { "@type": "QuantitativeValue", "value": 24, "unitCode": "MON" },
+        "durationOfWarranty": {
+          "@type": "QuantitativeValue",
+          "value": 24,
+          "unitCode": "MON"
+        },
         "warrantyScope": "https://schema.org/PartsAndLabor"
       }
     }
@@ -846,7 +1343,7 @@ a{color:inherit}
     <div class="hero-ui hold">
       <div class="markwrap">
         <h1 class="mark" id="mark">
-          <span class="sr">KAAL Series 01 — twenty numbered luxury watches from India, each on a Japanese Seiko Epson movement backed for twenty four months</span>
+          <span class="sr">KAAL Series 01 — twenty numbered luxury watches from India, each on a Seiko Epson VX7N Japanese quartz movement backed for twenty four months</span>
           <svg viewBox="0 0 380 120" aria-hidden="true">
             <g fill="none" stroke-linecap="butt" stroke-linejoin="miter">
               <path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100" style="--len:212"/>
@@ -878,7 +1375,7 @@ a{color:inherit}
     <ul>
       <li class="lead"><dl>
         <dt>The movement</dt>
-        <dd>Japanese Seiko Epson<small>Multi function quartz. Day, twenty four hour, pointer date. <a href="movement.html">What that means</a>.</small></dd>
+        <dd>Seiko Epson VX7N<small>Japanese five hand quartz. Day at twelve, twenty four hour at nine, date at six. <a href="movement.html">The specification</a>.</small></dd>
       </dl></li>
       <li><dl>
         <dt>Backed for</dt>
@@ -1026,10 +1523,11 @@ a{color:inherit}
       <p class="label rise">08 · The movement</p>
       <h2 class="statement rise">Inside every one of them is a <em>Seiko</em>.</h2>
       <p class="sub rise">A watch is a case, a dial, a bracelet, and one part that is actually alive. The movement is the only thing in there keeping time — everything else is housing. It is also the only part you cannot inspect, cannot judge by looking, and cannot replace on a whim. So it is the one part where the name matters more than the photograph.</p>
-      <p class="sub rise">Series 01 runs a <strong>Japanese Seiko Epson multi function quartz movement</strong>. Seiko has been making clocks and watches in Japan since 1892, and Seiko Epson is the arm of that group which supplies calibres to watchmakers who would rather buy the best small engine in the world than build a worse one. The day ring, the twenty four hour counter and the pointer date all run off that single movement. Ours does not hide behind a closed caseback because there is nothing behind it to hide.</p>
+      <p class="sub rise">Series 01 runs the <strong>Seiko Epson VX7N</strong>: a Japanese five hand multi function quartz calibre, 12¾ ligne across and 3.99 mm high, with a quartz oscillator running at 32,768 vibrations a second. Day at twelve, twenty four hour at nine, pointer date at six — the dial is drawn around where that movement puts its hand posts, not the other way about.</p>
+      <p class="sub rise">Seiko Epson is the Seiko Group company that builds movements, at Shiojiri in Nagano. At the top of its range it is where Spring Drive and the Grand Seiko 9F are made. <strong>The VX7N is not one of those and we will not imply it is</strong> — it is that firm's volume calibre, from a company that cannot afford a reputation for movements that stop.</p>
       <p class="sub rise"><strong>And we back it for twenty four months from dispatch.</strong> Not a printed card, not a claim that evaporates on contact — <a href="legal.html#warranty">terms written down on the legal page</a>, in the same words for everybody. The movement only: not the strap, not the glass, not a scratch you put there. The heart.</p>
       <dl class="facts rise">
-        <div class="fact"><dt>Movement</dt><dd>Seiko Epson, Japanese</dd><p>Multi function quartz. Day, twenty four hour and pointer date off one calibre. <a href="movement.html">Written out in full here</a>.</p></div>
+        <div class="fact"><dt>Calibre</dt><dd>Seiko Epson VX7N</dd><p>Japanese five hand quartz, 12¾ ligne, 3.99 mm. Within about twenty seconds a month. <a href="movement.html">Specified in full here</a>.</p></div>
         <div class="fact"><dt>Backed</dt><dd>Twenty four months</dd><p>From the date of dispatch, on the movement, stated in the terms of sale rather than implied in a photograph.</p></div>
         <div class="fact"><dt>Serviced by</dt><dd>Us, not a queue</dd><p>One email to the person who packed it. No portal, no ticket number, no authorised centre to find.</p></div>
       </dl>
@@ -1147,7 +1645,7 @@ a{color:inherit}
         </div>
         <dl>
           <dt>Dial</dt><dd id="pieceName">One of four. Choose a number to see which.</dd>
-          <dt>Movement</dt><dd>Seiko Epson, Japanese multi function quartz</dd>
+          <dt>Movement</dt><dd>Seiko Epson VX7N, Japanese five hand quartz</dd>
           <dt>Face</dt><dd>Day ring, twenty four hour counter, pointer date</dd>
           <dt>Case</dt><dd>Finished by hand, gold tone bezel, water resistant</dd>
           <dt>Bracelet</dt><dd>Two tone stainless steel</dd>
@@ -1159,7 +1657,7 @@ a{color:inherit}
       <p class="claim-state" id="claimState" role="status" aria-live="polite"><span class="claim-dot" id="claimDot" aria-hidden="true"></span><span id="claimText">Nothing chosen yet.</span></p>
       <a class="buy inert" id="cta" role="button" aria-disabled="true">Choose your number</a>
       <ul class="assure">
-        <li>Japanese Seiko Epson movement</li>
+        <li>Seiko Epson VX7N, a Japanese quartz calibre</li>
         <li>Two years on that movement, from dispatch</li>
         <li>Seven days to change your mind, refunded in full</li>
         <li>Five days to your door, delivery included</li>
@@ -1184,7 +1682,7 @@ a{color:inherit}
       </div>
       <div>
         <h4>The movement</h4>
-        <p>A Japanese <strong>Seiko Epson</strong> multi function quartz movement. The day ring, the twenty four hour counter and the pointer date all run off it.</p>
+        <p>The <strong>Seiko Epson VX7N</strong>, a Japanese five hand multi function quartz calibre. Day at twelve, twenty four hour at nine, pointer date at six, all off the one movement.</p>
         <p><a href="movement.html">What the movement is, and why it is named</a>.</p>
       </div>
       <div>

@@ -160,7 +160,7 @@ an answer engine quotes.
 **The two things that were wrong, and are now not.**
 
 *The movement had no name.* Every page said "the movement" and none said whose.
-It is a Japanese Seiko Epson multi function quartz movement, backed twenty four
+It is a Japanese Seiko multi function quartz movement, backed twenty four
 months, and it is now the first thing under the hero, an act of its own, a row
 in the specification, a page at `movement.html`, a `PropertyValue` in the
 product schema and a paragraph in `llms.txt`. The movement is the only
@@ -168,15 +168,12 @@ component of a watch a photograph cannot show you, so the name is the only
 evidence a buyer has — which is exactly why withholding it reads the way it
 reads.
 
-*Three other businesses trade under this name.* Kaal Watch of Singapore (the
-Multiverse series, with a Kickstarter and a decade of watch-press coverage),
-Kala Watch Co of India, and `thekaal.com`, which sells clothing. An entity a
-search engine cannot separate from three others is an entity it will not
-vouch for, and that ambiguity — not any ranking deficiency — is the reason an
-assistant hedges when asked about this brand. The separation is now stated in
-prose on `about.html` and `provenance.html`, in `disambiguatingDescription` on
-both the Brand and the Organization, and near the top of `llms.txt`. It is
-stated once, factually, with no claim made about any of them.
+*Other businesses trade under a version of this name.* The site used to list
+them by name on `about.html`, `provenance.html`, in `disambiguatingDescription`
+and in `llms.txt`. That was removed: a section naming another brand is a link
+that sends a buyer who is already here to someone else. The site now names
+nobody but itself. The durable answer is off-site — a KAAL trademark in
+Class 14 (watches) — not a paragraph on the page.
 
 **What the repo now does by itself.** `.github/workflows/indexnow.yml` posts
 every URL in the sitemap to IndexNow on each push that touches a page. One

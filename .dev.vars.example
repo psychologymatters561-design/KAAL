@@ -23,3 +23,8 @@ RAZORPAY_WEBHOOK_SECRET=
 
 # Fine-grained PAT, this repo only, Contents: Read and write.
 GITHUB_TOKEN=
+
+# Optional. Meta Conversions API — leave empty to send nothing to Meta.
+META_PIXEL_ID=
+META_CAPI_TOKEN=
+META_TEST_EVENT_CODE=

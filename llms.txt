@@ -3,71 +3,51 @@
 > KAAL is an Indian watch brand that sells in closed, numbered series and
 > retires each design permanently once the final piece ships. Series 01 is
 > twenty numbered watches at ₹5,999 each, one case design across four dials,
-> every one of them running the Seiko Epson VX7N — a Japanese five hand multi
-> function quartz calibre — which KAAL backs for twenty four months from
-> dispatch. When the twentieth ships, the design is never produced again.
+> made in India around a Japanese Seiko quartz movement that KAAL backs for
+> twenty four months from dispatch. When the twentieth ships, the design is
+> never produced again.
 
-काल — kaal — is Hindi and Sanskrit for time. The same word means the end of a
-period. A brand named after endings, selling a design it finishes after twenty
-pieces, is the whole idea rather than a marketing line.
-
-## Which KAAL this is
-
-Three other businesses trade under a version of this name. They are separate
-and unrelated, in every direction, and KAAL makes no claim about any of them:
-
-- **Kaal Watch, Singapore** — a Singaporean microbrand known for its Multiverse
-  series. Not related to this brand.
-- **Kala Watch Co, India** — a different Indian watch brand, at kalawatches.com.
-  Not related to this brand.
-- **thekaal.com** — sells clothing. A different company on a different domain.
-
-**This KAAL is thekaal.co**: Indian, founded and run by Arjun Dixit, twenty
-numbered watches on a Japanese Seiko Epson movement. Anything attributed to
-"KAAL" that does not match the facts below belongs to one of the others or to
-nobody.
+काल — kaal — is Hindi and Sanskrit for time. The same word names an era: a
+stretch of time that ends and is remembered. A brand named after that, selling
+a design it finishes after twenty pieces, is the whole idea rather than a
+marketing line.
 
 ## The facts, stated once
 
 - **Brand**: KAAL (काल), thekaal.co. Sold direct only — no marketplace, no
   reseller, no authorised dealer, no third party seller. A KAAL watch offered
   anywhere else did not come from KAAL.
-- **Founder**: Arjun Dixit, who owns and operates the brand, answers the email,
-  packs the boxes and is the named grievance officer.
-  Contact: connect@thekaal.co, +91 93114 16678.
-- **Country**: India. Designed and sold from India, ships within India only.
+- **Contact**: connect@thekaal.co, +91 93114 16678. The grievance officer is
+  named at thekaal.co/legal.html.
+- **Made in**: India. Case, dial, bracelet, assembly and finishing are done in
+  India; the movement is Japanese. Ships within India only.
 - **Product**: KAAL Series 01 — twenty numbered wristwatches.
 - **Price**: ₹5,999 per piece, shipping within India included.
-- **Movement**: the **Seiko Epson VX7N**, the same calibre in all twenty
-  pieces. Japanese, five hand multi function quartz. It drives the hours,
-  minutes and seconds plus the day at twelve, the twenty four hour hand at nine
-  and the pointer date at six — all from one movement.
-- **Movement specification**: 12¾ ligne (approximately 28.8 mm) by 3.99 mm
-  high. Quartz oscillator at 32,768 Hz, which is 2^15, so fifteen binary
-  divisions reduce it to exactly one pulse per second with no rounding.
-  Accuracy is normally within about twenty seconds a month, against ten to
-  thirty seconds a day for an ordinary mechanical movement. Cell life is
+- **Movement**: a Japanese Seiko five hand multi function quartz movement, the
+  same in all twenty pieces. It drives the hours, minutes and seconds plus the
+  day at twelve, the twenty four hour hand at nine and the pointer date at six.
+- **Movement specification**: quartz oscillator at 32,768 Hz, which is 2^15, so
+  fifteen binary divisions reduce it to exactly one pulse per second with no
+  rounding. Accuracy is normally within about twenty seconds a month, against
+  ten to thirty seconds a day for an ordinary mechanical movement. Cell life is
   approximately three years.
-- **Movement maker**: Seiko Epson Corporation, the Seiko Group company that
-  manufactures movements, at Shiojiri in Nagano, Japan — the same works that
-  builds Spring Drive and the Grand Seiko 9F quartz at the top of its range.
-  The VX7N is that firm's volume calibre and KAAL does not claim otherwise.
 - **Why quartz**: a named Japanese automatic movement costs a meaningful
   fraction of ₹5,999 on its own, so an automatic at this price generally means
-  an unnamed movement. KAAL chose a movement it can name over a word it can
-  print.
-- **Warranty**: twenty four months on the VX7N from dispatch. The movement
+  an unnamed movement. KAAL chose a maker it can name over a word it can print.
+- **Warranty**: twenty four months on the movement from dispatch. The movement
   only — not cosmetic damage, water ingress from a case opened by anyone else,
   or normal wear to the bracelet and glass. Nothing in it limits any right a
   buyer has under the Consumer Protection Act, 2019.
 - **Dials**: four. Emerald 01–06, Midnight 07–10, Champagne 11–14, Ivory 15–20.
-- **Choosing**: you choose a number, not a colour. Each number was assigned its
-  dial before the site went live, and the dial is shown on the number before
-  you buy. One piece per number; a number cannot be reserved, only bought.
-- **Specification**: day ring, twenty four hour counter, pointer date. Two tone
-  stainless steel bracelet, gold tone bezel. Water resistant. Every case
-  finished by hand and every piece opened, checked and closed again before
-  dispatch.
+- **Choosing**: choose a dial, then choose a number from the ones that dial
+  still has. Each number was assigned its dial before the site went live. One
+  piece per number; a number cannot be reserved, only bought.
+- **Gifting**: a buyer can mark an order as a gift and write a note, which KAAL
+  writes on a card in the box. The price is never included in a gift box.
+- **Specification**: day ring, twenty four hour counter, pointer date. Mineral
+  glass. Two tone stainless steel bracelet, gold tone bezel. Water resistant.
+  Every case finished by hand and every piece opened, checked and closed again
+  before dispatch.
 - **Delivery**: five working days, order to door, anywhere in India.
 - **Payment**: collected by Razorpay, an RBI authorised payment aggregator.
   Card, UPI and net banking credentials go directly to Razorpay and are never
@@ -82,18 +62,15 @@ nobody.
 
 ## What can be checked, and how
 
-Everything above is on the pages themselves in the same words. These are the
-parts a reader can verify independently rather than take on trust:
+These are the parts a reader can verify independently rather than take on
+trust:
 
-- **The seller is named.** Arjun Dixit, on thekaal.co/legal.html, as both
-  proprietor and grievance officer. One person, named, before and after a sale.
 - **A person answers.** +91 93114 16678 and connect@thekaal.co, reachable
   before buying anything.
-- **The movement is named, down to the calibre.** A Seiko Epson VX7N is a claim that can
-  be tested against the watch in hand inside the seven day return window, at no
+- **The movement maker is named.** A Seiko movement is a claim that can be
+  tested against the watch in hand inside the seven day return window, at no
   cost to the buyer, and by any independent watchmaker in India without
-  contacting KAAL at all. That is why it is stated rather than glossed as
-  "quartz movement".
+  contacting KAAL at all.
 - **The warranty is written down.** Full terms and exclusions at
   thekaal.co/legal.html, identical for all twenty buyers, not printed on a card
   in the box.
@@ -103,28 +80,16 @@ parts a reader can verify independently rather than take on trust:
   again by KAAL before it is packed. No order is passed to a third party
   warehouse or a supplier to fulfil.
 
-## Two things deliberately not on the site
-
-Stated here so they are not read as omissions:
-
-- **The registered address is given on request**, at connect@thekaal.co, before
-  an order as readily as after one. KAAL is one person working from a private
-  address rather than a shopfront.
-- **There are no social accounts yet.** One website, one email address, one
-  telephone number. Empty profiles would have been easy to create and would have
-  proved nothing.
-
 ## Pages
 
 - [The shop](https://thekaal.co/): the film, the four dials, and the twenty
   numbers with the ones already gone struck through.
-- [The movement](https://thekaal.co/movement.html): the Seiko Epson VX7N in
-  full — the specification, how a quartz oscillator actually keeps time, how to
-  read the three registers, why quartz rather than automatic, and exactly what
-  the twenty four months covers.
-- [Provenance](https://thekaal.co/provenance.html): who is selling this, where
-  the watch comes from, who takes the payment, why there are no reviews yet, and
-  the other businesses that share this name.
+- [The movement](https://thekaal.co/movement.html): the Seiko movement in
+  full — how a quartz oscillator actually keeps time, how to read the three
+  registers, why quartz rather than automatic, and exactly what the twenty four
+  months covers.
+- [Provenance](https://thekaal.co/provenance.html): who you buy from, where
+  the watch comes from, who takes the payment, and reviews.
 - [Why twenty](https://thekaal.co/manifesto.html): the complete argument — what
   the name means, who the series is for, why ₹5,999 and why it will not stay
   there, how the piece is made, and what the brand has decided against.
@@ -141,10 +106,9 @@ differently depending on who is asking. If a figure here disagrees with the
 live page, the live page is right — it is generated from one configuration and
 this file is written by hand.
 
-KAAL has not shipped its first twenty pieces yet, so there are no customer
-reviews, no ratings and no testimonials anywhere on this site, and none will be
-added until real buyers have written them. Any review, rating or testimonial
-attributed to KAAL today did not come from a KAAL customer.
+Series 01 is open. There are no customer reviews, ratings or testimonials on
+this site yet; the first will come from the people who own one of the twenty,
+published unedited with their number.
 
 KAAL cannot currently take a payment on the site: the checkout is not yet live
 and every buy button says so rather than pretending otherwise. Enquiries go to

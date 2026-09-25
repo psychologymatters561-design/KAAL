@@ -157,6 +157,11 @@ async function postOrder(request, env) {
   const edition = parseInt(env.EDITION || "20", 10);
   const n  = parseInt(body && body.n, 10);
   const by = typeof (body && body.by) === "string" ? body.by.slice(0, 64) : "";
+  /* A gift is a flag and a short note for the card in the box. Both go on
+     the order, where they are read at packing time. The note is plain
+     text, one line, capped well under Razorpay's 256-character note limit. */
+  const gift = !!(body && body.gift === true);
+  const giftNote = gift ? cleanNote(body && body.gift_note, 200) : "";
   if (isNaN(n) || n < 1 || n > edition) {
     return json(request, env, { ok: false, reason: "out-of-range" }, {}, 400);
   }
@@ -194,7 +199,14 @@ async function postOrder(request, env) {
         /* THE ONE LINE THE WHOLE CHAIN HANGS FROM. The webhook below
            reads notes.kaal_no to know which number just sold. Rename it
            here and a real sale goes unrecorded in total silence. */
-        notes: { kaal_no: pad2(n) }
+        notes: Object.assign({ kaal_no: pad2(n) },
+          gift ? { gift: "yes" } : {},
+          giftNote ? { gift_note: giftNote } : {},
+          /* What Meta's Conversions API needs to match this purchase to
+             the ad that caused it, captured here because the webhook
+             arrives from Razorpay and knows nothing about the buyer's
+             browser. Only ever read by sendPurchaseToMeta(). */
+          metaMatch(request, body))
       })
     });
     order = await res.json();
@@ -351,6 +363,7 @@ async function webhook(request, env) {
   }
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
+  await sendPurchaseToMeta(env, entity, chosen);
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
 
@@ -421,17 +434,114 @@ const isText = (v) => typeof v === "string" && v.length > 0 && v.length < 256;
 /* The number, from the one copy of it a browser never touched. /order
    wrote it onto the order; this reads it back. Both the webhook and
    /verify need exactly this, which is why it is not written twice. */
-async function numberFromOrder(env, orderId) {
-  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !orderId) return NaN;
+async function readOrder(env, orderId) {
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !orderId) return null;
   try {
     const res = await fetch(`${RZP_API}/orders/${encodeURIComponent(orderId)}`, { headers: razorpayAuth(env) });
-    if (!res.ok) { console.log("Order read-back failed:", res.status); return NaN; }
-    const order = await res.json();
-    return parseInt(order && order.notes && order.notes.kaal_no, 10);
+    if (!res.ok) { console.log("Order read-back failed:", res.status); return null; }
+    return await res.json();
   } catch (e) {
     console.log("Order read-back threw:", String(e).slice(0, 120));
-    return NaN;
+    return null;
   }
+}
+
+async function numberFromOrder(env, orderId) {
+  const order = await readOrder(env, orderId);
+  return parseInt(order && order.notes && order.notes.kaal_no, 10);
+}
+
+/* ══════════ 3b. TELLING META ══════════
+
+   The browser's Pixel fires Purchase on claimed.html, and on iOS, in
+   Safari and behind an ad blocker it often never arrives. This is the
+   server's copy of the same purchase, sent once the webhook has proved
+   the money is real. Both carry the Razorpay payment id as the event id,
+   so Meta counts the pair as one sale rather than two.
+
+   Entirely optional. Without META_PIXEL_ID and META_CAPI_TOKEN it returns
+   before doing anything, and nothing it does can fail a sale: it runs
+   after the sale is recorded and swallows its own errors.
+
+   Email and phone are hashed (SHA-256) before they leave this worker, as
+   Meta requires; nothing is sent in the clear. */
+async function sendPurchaseToMeta(env, entity, chosen) {
+  if (!env.META_PIXEL_ID || !env.META_CAPI_TOKEN) return;
+  try {
+    let m = entity.notes || {};
+    if (!m.ua && entity.order_id) {
+      const order = await readOrder(env, entity.order_id);
+      m = (order && order.notes) || m;
+    }
+    /* Meta rejects a "website" event without the browser's user agent.
+       The hosted Payment Page route never passes through /order, so it
+       has none; the browser Pixel is its only record. */
+    if (!m.ua) { console.log("Meta CAPI skipped: no user agent on the order."); return; }
+
+    const user = { client_user_agent: m.ua, country: [await sha256hex("in")] };
+    if (m.ip)  user.client_ip_address = m.ip;
+    if (m.fbp) user.fbp = m.fbp;
+    if (m.fbc) user.fbc = m.fbc;
+    const email = String(entity.email || "").trim().toLowerCase();
+    if (email) user.em = [await sha256hex(email)];
+    let phone = String(entity.contact || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (phone) user.ph = [await sha256hex(phone)];
+
+    const payload = {
+      data: [{
+        event_name: "Purchase",
+        event_time: entity.created_at || Math.floor(Date.now() / 1000),
+        event_id: String(entity.id),
+        action_source: "website",
+        event_source_url: "https://thekaal.co/claimed.html",
+        user_data: user,
+        custom_data: {
+          currency: entity.currency || "INR",
+          value: (entity.amount || 0) / 100,
+          content_ids: ["KAAL-" + pad2(chosen)],
+          content_type: "product"
+        }
+      }]
+    };
+    if (env.META_TEST_EVENT_CODE) payload.test_event_code = env.META_TEST_EVENT_CODE;
+
+    const ver = env.META_API_VERSION || "v23.0";
+    const res = await fetch(`https://graph.facebook.com/${ver}/${encodeURIComponent(env.META_PIXEL_ID)}/events?access_token=${encodeURIComponent(env.META_CAPI_TOKEN)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) console.log("Meta CAPI refused the purchase:", res.status, (await res.text()).slice(0, 300));
+  } catch (e) {
+    console.log("Meta CAPI call threw:", String(e).slice(0, 160));
+  }
+}
+
+/* The browser half of the match, taken at /order. _fbp and _fbc are the
+   Pixel's own first-party cookies, passed up by the page; the user agent
+   and IP are read off the request itself. Each is capped to fit a
+   Razorpay note. */
+function metaMatch(request, body) {
+  const out = {};
+  const ua = request.headers.get("user-agent") || "";
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  if (ua) out.ua = ua.slice(0, 250);
+  if (ip) out.ip = ip.slice(0, 64);
+  const fbp = cleanNote(body && body.fbp, 120), fbc = cleanNote(body && body.fbc, 250);
+  if (/^fb\.\d\.\d+\.\d+$/.test(fbp)) out.fbp = fbp;
+  if (/^fb\.\d\.\d+\.[\w-]+$/.test(fbc)) out.fbc = fbc;
+  return out;
+}
+
+function cleanNote(v, max) {
+  if (typeof v !== "string") return "";
+  return v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 function razorpayAuth(env) {

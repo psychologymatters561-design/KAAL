@@ -36,7 +36,7 @@
 "use strict";
 
 var TAGS = {
-  pixel: "",
+  pixel: "1607748840888926",
   ga4:   ""
 };
 

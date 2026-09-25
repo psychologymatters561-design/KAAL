@@ -160,7 +160,7 @@ an answer engine quotes.
 **The two things that were wrong, and are now not.**
 
 *The movement had no name.* Every page said "the movement" and none said whose.
-It is a Japanese Seiko multi function quartz movement, backed twenty four
+It is a Japanese Seiko Epson multi function quartz movement, backed twenty four
 months, and it is now the first thing under the hero, an act of its own, a row
 in the specification, a page at `movement.html`, a `PropertyValue` in the
 product schema and a paragraph in `llms.txt`. The movement is the only
@@ -227,12 +227,12 @@ outranks that stack quickly, and chasing the bare word wastes the effort.
 What is winnable, and what buyers actually type: *kaal watches india*,
 *kaal watch india*, *kaal series 01*, *thekaal*, *thekaal.co*, the brand plus
 a dial name, and — the new ones, opened up by naming the movement —
-*seiko movement watch india*, *japanese movement watch under 10000*,
+*japanese movement watch india*, *japanese movement watch under 10000*,
 *limited edition watch india*, *numbered watch india*. Those are the queries
 the markup, the long-form pages and the llms.txt are aimed at, and they are
 the ones that convert. A page targeting *luxury watch* unqualified would be
 competing with brands spending more on one photograph than this series will
-earn; a page targeting *limited edition Indian watch with a Seiko movement*
+earn; a page targeting *limited edition Indian watch with a Japanese movement*
 is competing with almost nobody, and the person typing it is already sold.
 
 **On how long any of this takes.** A new domain with no inbound links is
@@ -597,7 +597,7 @@ for — and a Lighthouse run.
 
 ```
 index.html               the shop: the film, the four dials, the twenty numbers
-movement.html            the Seiko movement, and the twenty four months
+movement.html            the Seiko Epson movement, and the twenty four months
 provenance.html          who is selling this, and what a buyer can verify
 manifesto.html           the complete argument for twenty and for the price
 about.html               the brand, the maker, and which KAAL this is

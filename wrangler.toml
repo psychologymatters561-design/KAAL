@@ -35,6 +35,17 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 #   wrangler secret put RAZORPAY_WEBHOOK_SECRET
 #   wrangler secret put GITHUB_TOKEN
 #
+# Optional — Meta Conversions API. With both set, every captured payment is
+# also sent to Meta server-side as a Purchase, de-duplicated against the
+# browser Pixel by the Razorpay payment id. Without them nothing is sent.
+#   wrangler secret put META_PIXEL_ID          same ID as assets/tags.js
+#   wrangler secret put META_CAPI_TOKEN        Events Manager → Settings →
+#                                              Conversions API → Generate
+#                                              access token
+# To test, set META_TEST_EVENT_CODE (Events Manager → Test events) and
+# remove it again afterwards. META_API_VERSION overrides the Graph API
+# version (default v23.0).
+#
 # Locally, `wrangler dev` reads the same names out of .dev.vars, which is
 # gitignored. Copy .dev.vars.example to start.
 

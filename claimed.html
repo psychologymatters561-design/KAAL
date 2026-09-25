@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#080908">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script src="assets/tags.js" defer></script>
 
 <link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
@@ -59,6 +60,7 @@ main{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-
 </style>
 </head>
 <body>
+<noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=1607748840888926&amp;ev=PageView&amp;noscript=1"></noscript>
 <div class="grain" aria-hidden="true"></div>
 <main>
   <div class="wrap">
@@ -84,8 +86,9 @@ main{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-
 <script>
 (function(){
 "use strict";
+var n = "";
 try{
-  var n = localStorage.getItem("kaal_claimed_no");
+  n = localStorage.getItem("kaal_claimed_no") || "";
   if(n){
     document.getElementById("headline").textContent = "No. " + n + " is yours.";
     document.getElementById("numberVal").textContent = n;
@@ -99,6 +102,17 @@ try{
   if(pid){
     document.getElementById("refVal").textContent = pid;
     document.getElementById("refRow").hidden = false;
+
+    /* Purchase, once per payment. The payment id is the eventID, so the
+       worker's server-side copy of this same purchase (Conversions API)
+       is counted with it rather than beside it. A reload of this page
+       does not buy a second watch, so it does not send a second event. */
+    var key = "kaal_purchase_" + pid, sent = false;
+    try{ sent = !!localStorage.getItem(key); localStorage.setItem(key, "1"); }catch(e){}
+    if(!sent){
+      (window.kaalQ = window.kaalQ || []).push(["purchase", { no:n, eventID:pid }]);
+      if(window.kaalFlush) window.kaalFlush();
+    }
   }
 }catch(e){}
 })();

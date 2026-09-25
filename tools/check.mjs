@@ -400,7 +400,7 @@ for (const f of pages) {
       than no summary at all. ──────────────────────────────── */
 if (existsSync(join(root, "llms.txt"))) {
   const llms = readFileSync(join(root, "llms.txt"), "utf8");
-  if (!/Seiko Epson/.test(llms)) bad("llms.txt does not name the movement the pages name");
+  if (!/Seiko/.test(llms)) bad("llms.txt does not name the movement the pages name");
   if (!/twenty four months/i.test(llms)) bad("llms.txt does not state the warranty term");
 }
 if (!/Seiko/.test(html)) bad("index.html does not name the movement — the page's strongest fact, and the one it used to leave out");

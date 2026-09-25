@@ -3,7 +3,7 @@
 > KAAL is an Indian watch brand that sells in closed, numbered series and
 > retires each design permanently once the final piece ships. Series 01 is
 > twenty numbered watches at ₹5,999 each, one case design across four dials,
-> made in India around a Japanese Seiko quartz movement that KAAL backs for
+> made in India around a Japanese Seiko Epson quartz movement that KAAL backs for
 > twenty four months from dispatch. When the twentieth ships, the design is
 > never produced again.
 
@@ -23,7 +23,7 @@ marketing line.
   India; the movement is Japanese. Ships within India only.
 - **Product**: KAAL Series 01 — twenty numbered wristwatches.
 - **Price**: ₹5,999 per piece, shipping within India included.
-- **Movement**: a Japanese Seiko five hand multi function quartz movement, the
+- **Movement**: a Japanese Seiko Epson five hand multi function quartz movement, the
   same in all twenty pieces. It drives the hours, minutes and seconds plus the
   day at twelve, the twenty four hour hand at nine and the pointer date at six.
 - **Movement specification**: quartz oscillator at 32,768 Hz, which is 2^15, so
@@ -67,7 +67,7 @@ trust:
 
 - **A person answers.** +91 93114 16678 and connect@thekaal.co, reachable
   before buying anything.
-- **The movement maker is named.** A Seiko movement is a claim that can be
+- **The movement maker is named.** A Seiko Epson movement is a claim that can be
   tested against the watch in hand inside the seven day return window, at no
   cost to the buyer, and by any independent watchmaker in India without
   contacting KAAL at all.
@@ -84,7 +84,7 @@ trust:
 
 - [The shop](https://thekaal.co/): the film, the four dials, and the twenty
   numbers with the ones already gone struck through.
-- [The movement](https://thekaal.co/movement.html): the Seiko movement in
+- [The movement](https://thekaal.co/movement.html): the Seiko Epson movement in
   full — how a quartz oscillator actually keeps time, how to read the three
   registers, why quartz rather than automatic, and exactly what the twenty four
   months covers.

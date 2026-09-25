@@ -597,7 +597,7 @@ for — and a Lighthouse run.
 
 ```
 index.html               the shop: the film, the four dials, the twenty numbers
-movement.html            the Seiko Epson movement, and the twenty four months
+movement.html            the Seiko movement, and the twenty four months
 provenance.html          who is selling this, and what a buyer can verify
 manifesto.html           the complete argument for twenty and for the price
 about.html               the brand, the maker, and which KAAL this is

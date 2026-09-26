@@ -17,10 +17,10 @@ it, otherwise rename a `.jpg` to keep the name and change the extension in
 |---|---|---|
 | 1 | Silver white dial, shot down onto a broken concrete slab, hard daylight | `stone-day.webp` |
 | 2 | Silver white dial, three quarter view on a pale concrete block, grey wall | `stone-studio.webp` |
-| 3 | Green dial upright on dark slate, green mist, shaft of light | `jade-wide.webp` |
-| 4 | Green dial, closer three quarter macro, same mist | `jade-close.webp` |
-| 5 | Black dial with gold indices, macro, water beads on a wet black surface | `onyx-rain.webp` |
-| 6 | Brass gold dial in warm smoke and golden bokeh | `ember-smoke.webp` |
+| 3 | ✅ Delivered: green dial, whole watch on green velvet | `jade-wide.webp` |
+| 4 | ✅ Delivered: green dial macro on green velvet | `jade-close.webp` |
+| 5 | ✅ Delivered: black dial macro on black stone, warm light streak | `onyx-rain.webp` |
+| 6 | ✅ Delivered: champagne dial on sandstone, raking sunlight | `ember-smoke.webp` |
 | 7 | Brass gold dial, whole watch with the bracelet curve, candlelight on stone | `hero-still.webp` |
 | 8 | All four on wet black slate, seen from above | `four.webp` |
 

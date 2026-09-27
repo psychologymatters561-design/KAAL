@@ -1,4 +1,4 @@
-# The eight files, and the film
+# The three remaining photographs
 
 Everything on the page is wired to the exact names below. Upload them and
 the site is finished. Nothing else has to change.
@@ -7,7 +7,7 @@ GitHub web works fine for this: **Add file → Upload files → Commit**.
 
 ---
 
-## The eight photographs → `assets/img/`
+## The photographs → `assets/img/`
 
 Save each one with **exactly** this name. Format: `.webp` if you can export
 it, otherwise rename a `.jpg` to keep the name and change the extension in
@@ -21,12 +21,10 @@ it, otherwise rename a `.jpg` to keep the name and change the extension in
 | 4 | ✅ Delivered: green dial macro on green velvet | `jade-close.webp` |
 | 5 | ✅ Delivered: black dial macro on black stone, warm light streak | `onyx-rain.webp` |
 | 6 | ✅ Delivered: champagne dial on sandstone, raking sunlight | `ember-smoke.webp` |
-| 7 | Brass gold dial, whole watch with the bracelet curve, candlelight on stone | `hero-still.webp` |
+| 7 | ✅ Delivered: cut automatically from the film by `tools/bake-hero-seq.sh` — no separate photo needed | `hero-still.webp` |
 | 8 | All four on wet black slate, seen from above | `four.webp` |
 
-Number 7 is doing the most work: it is the hero image that carries the whole
-first screen on every phone, and on any desktop before the film arrives. If
-one of them is worth a careful export, it is that one.
+Three left: `stone-day.webp`, `stone-studio.webp`, `four.webp`.
 
 **Size:** longest edge 1600px is plenty. The page never draws a photograph
 wider than about 1180 CSS pixels, so anything beyond 1600 is bytes your buyer
@@ -49,41 +47,34 @@ and its frame is never requested again.
 
 ---
 
-## The film → `assets/video/hero.mp4`
+## The film — already baked, no Cloudinary left
 
-Right now `index.html` points at your Cloudinary URL, so the film already
-works without you doing anything.
+This used to say to self-host `assets/video/hero.mp4` and point `index.html`
+at it. That plan is done and gone one step further: the hero does not run a
+video file at all anymore, self-hosted or not.
 
-**Self hosting it is still the better call**, for three reasons: the page
-stops depending on a free tier CDN staying un-throttled in the middle of a
-paid ad campaign, the file is fetched from the same origin as the page so
-the browser never has to ask permission for it, and you can re-encode it for
-scrubbing, which the Cloudinary copy is almost certainly not.
+`tools/bake-hero-seq.sh` cuts the film into two sequences of still frames —
+one for portrait phones, one for landscape — encodes each as WEBP, and
+commits them to `assets/img/hero-seq/`. The page paints those to a canvas as
+you scroll. There is no `<video>` element, no seek, no decoder in the loop,
+and — the point of this note — no request to Cloudinary. `KAAL.film`, the
+config line that used to name the Cloudinary URL the frames were cut from,
+has been removed from `index.html`; nothing in the page or the bake script
+ever read it.
 
-Scroll video is seeked constantly rather than played. A normal export puts a
-keyframe every couple of seconds, and every seek then has to decode forward
-from the last one, which is exactly what makes a scroll video feel sticky.
-Keyframes every few frames fixes it:
+The only Cloudinary dependency left anywhere on the site is `KAAL.frames`,
+the safety net under the three photographs still missing above — and each of
+those stops touching Cloudinary the moment its real photo lands at the right
+filename.
+
+**If you ever get a new or re-shot film**, re-bake it:
 
 ```bash
-ffmpeg -i your-original.mp4 -an \
-  -vf "scale=1440:-2" \
-  -c:v libx264 -profile:v high -pix_fmt yuv420p \
-  -g 5 -keyint_min 5 -sc_threshold 0 \
-  -crf 25 -movflags +faststart \
-  hero.mp4
+tools/bake-hero-seq.sh path/to/new-film.mp4
 ```
 
-`-an` drops the audio, which is never played and is pure weight.
-`-g 5` is the keyframe interval, and the whole point.
-`+faststart` moves the index to the front so playback can begin early.
-
-Aim for **under 6 MB**. Then upload it as `assets/video/hero.mp4` and change
-one line near the bottom of `index.html`:
-
-```js
-film: "assets/video/hero.mp4",
-```
+That overwrites everything under `assets/img/hero-seq/` and
+`assets/img/hero-still.webp`. Commit the result; nothing else changes.
 
 ---
 

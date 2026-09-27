@@ -70,6 +70,7 @@ main{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-
     <div class="card">
       <div class="row"><h4>Status</h4><p>Confirmed</p></div>
       <div class="row" id="numberRow" hidden><h4>Number</h4><p id="numberVal">&mdash;</p></div>
+      <div class="row" id="remainRow" hidden><h4>Edition</h4><p id="remainVal">&mdash;</p></div>
       <div class="row" id="refRow" hidden><h4>Payment reference</h4><p id="refVal">&mdash;</p></div>
       <div class="row"><h4>Delivery</h4><p>5 working days</p></div>
       <div class="row"><h4>Movement warranty</h4><p>24 months</p></div>
@@ -96,6 +97,25 @@ try{
     localStorage.removeItem("kaal_claimed_no");
   }
 }catch(e){}
+/* The number just confirmed is added defensively — /verify already wrote
+   it to KV before this page loaded, but a slow write should never make
+   the buyer's own purchase look uncounted on the one page that is
+   entirely about reassuring them it landed. */
+try{
+  var EDITION = 20;
+  fetch("https://kaal-edition.kaal-edition-hq.workers.dev/state", { mode:"cors", credentials:"omit" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var sold = (d && d.sold) || [];
+      if(n && sold.indexOf(parseInt(n, 10)) < 0) sold = sold.concat([parseInt(n, 10)]);
+      var remaining = Math.max(0, EDITION - sold.length);
+      var el = document.getElementById("remainVal");
+      el.textContent = remaining > 0 ? (remaining + " of " + EDITION + " remain") : "Sold out — all twenty are placed";
+      document.getElementById("remainRow").hidden = false;
+    })
+    .catch(function(){ /* the page still confirms the one thing that matters: this order */ });
+}catch(e){}
+
 try{
   var qs = new URLSearchParams(location.search);
   var pid = qs.get("razorpay_payment_id");

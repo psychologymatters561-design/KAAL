@@ -25,10 +25,38 @@ if ! command -v wrangler >/dev/null 2>&1; then
 fi
 
 echo "── 1. Cloudflare login ──────────────────────────────────────────"
-if ! $WRANGLER whoami >/dev/null 2>&1; then
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+  echo "CLOUDFLARE_API_TOKEN is set — using it, skipping interactive login."
+elif $WRANGLER whoami >/dev/null 2>&1; then
+  echo "Already logged in."
+else
   echo "Not logged in. Opening browser login…"
-  $WRANGLER login
+  $WRANGLER login || true
 fi
+
+if ! $WRANGLER whoami >/dev/null 2>&1; then
+  cat <<'EOF'
+
+Still not authenticated. This happens in Codespaces and other
+containers where `wrangler login`'s browser step has nowhere to open —
+there is no local browser for it to launch or return to.
+
+Fix: create a Cloudflare API token instead of logging in interactively.
+  1. https://dash.cloudflare.com/profile/api-tokens
+  2. Create Token → find the "Edit Cloudflare Workers" template → Use template
+  3. Under Account Resources, pick your account. Under Zone Resources, if
+     you have no zone to pick, leave the default ("All zones") — it is
+     unused by this worker either way.
+  4. Continue to summary → Create Token → copy it (shown once)
+  5. In this terminal, run:
+       export CLOUDFLARE_API_TOKEN="paste-it-here"
+     then re-run this script: bash tools/deploy-worker.sh
+
+Nothing below this point can run without that. Stopping here.
+EOF
+  exit 1
+fi
+
 $WRANGLER whoami
 
 echo

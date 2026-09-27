@@ -46,7 +46,7 @@ if (soldHits !== 1) bad(`index.html contains ${soldHits} occurrences of "sold:" 
 
 /* ── 3. The config, read the way the page reads it. ─────────────── */
 const cfg = {};
-for (const k of ["checkout", "price", "film", "frames", "filmFrames", "filmSeq"]) {
+for (const k of ["checkout", "price", "frames", "filmFrames", "filmSeq"]) {
   const m = html.match(new RegExp(`${k}:\\s*"([^"]*)"`));
   if (m) cfg[k] = m[1];
 }

@@ -118,22 +118,29 @@ To turn it on:
 Leave `pay` empty and none of this code is reachable — the page behaves exactly
 as it did before any of it existed.
 
+**Holds need KV, and the page only says there is one when there is.** `/order`
+holds the number for twelve minutes, but only if the `KAAL_STATE` namespace is
+bound — and in `wrangler.toml` that block is still commented out, so today no
+hold is written. The page used to tell every buyer who closed checkout that
+their number was "held for you for a few minutes" regardless. It now says so
+only when `/order` answers with `held_for`, which the worker sends only after
+the hold is actually written: *"Number 07 is yours for the next eleven minutes
+while you complete payment."* To turn holds on, create the namespace, uncomment
+the block, and `wrangler deploy` — the redeploy is also what ships `held_for`.
+
 `sold` drives the strike-throughs on the twenty, the remaining count, the rail
 ticks, the nav, the sticky bar and the `<title>`.
 
-### 3. Confirm what was drafted, not supplied
+### 3. What was drafted, and what is now confirmed
 
-Search `UNCONFIRMED` in `index.html`. Two things in the footer are required on
-display by the Consumer Protection (E-Commerce) Rules 2020 and are not yet
-sourced from you:
+Shipping within India is confirmed to sit inside ₹5,999, and the `UNCONFIRMED`
+marker that asked is gone — none remain in any page. Country of
+origin and the grievance officer's name, email and phone are on `legal.html`.
 
-- registered seller name, address, GSTIN, and the grievance officer's name,
-  email and phone
-- country of origin, a declarable under the Legal Metrology (Packaged
-  Commodities) Rules
-
-Also confirm whether shipping genuinely sits inside ₹5,999, which the footer
-currently states.
+Still not on the site, and required on display by the Consumer Protection
+(E-Commerce) Rules 2020: the seller's registered legal name, its GSTIN if it is
+registered, and its address — which `legal.html` currently offers on request
+rather than displays.
 
 ### 4. Meta pixel
 
@@ -175,10 +182,14 @@ that sends a buyer who is already here to someone else. The site now names
 nobody but itself. The durable answer is off-site — a KAAL trademark in
 Class 14 (watches) — not a paragraph on the page.
 
-**What the repo now does by itself.** `.github/workflows/indexnow.yml` posts
-every URL in the sitemap to IndexNow on each push that touches a page. One
-submission reaches Bing, Yandex, Seznam and Naver, because they share the
-feed — and Bing is the one that matters most and the one everyone forgets,
+**What the repo now does by itself.** On every push to `main` that touches a
+page, `.github/workflows/indexnow.yml` first re-dates `sitemap.xml` from git —
+`tools/gen-sitemap.mjs` sets each `<lastmod>` to the date of the last commit
+that touched that page, and the workflow commits it back if it moved — and
+then posts to IndexNow the pages that push actually changed, not all six. The
+dates used to be typed by hand and were stale within days; nobody has to
+remember them now. One submission reaches Bing, Yandex, Seznam and Naver,
+because they share the feed — and Bing is the one that matters most and the one everyone forgets,
 because Bing's index is what ChatGPT search and Copilot read. The key file at
 the repo root is the ownership proof IndexNow fetches; it is public by design,
 and `check.mjs` fails the build if it ever stops matching the key the workflow
@@ -262,8 +273,12 @@ asset the page names actually exists (Pages is case-sensitive, your laptop is
 not), that `CNAME` and `.nojekyll` survived, that the script parses, that no
 id is duplicated, that `dials` covers every number in the edition, that nothing
 in the diff looks like a credential, and that `sold:` appears exactly once —
-which is the contract the sold-sync worker's regex depends on. The same script
-runs in CI on every pull request.
+which is the contract the sold-sync worker's regex depends on. It parses every
+JSON-LD block on every page, whatever order its attributes are in, and fails
+on one it cannot read. And it fails if `llms.txt` says anything about whether
+checkout is live that the config does not — it went on saying "not yet live"
+after checkout went live, and nothing noticed. The same script runs in CI on
+every pull request.
 
 ---
 
@@ -510,6 +525,41 @@ which act owns the middle of the screen. Five worlds: void, stone, jade, onyx,
 ember. That is what makes ten sections read as one building rather than a
 stack of pages.
 
+### The box film is a picture until someone asks
+
+Act 08 is a poster and a play mark. The `<video>` does not exist until the
+tap, so there is nothing for a browser to preload — not the metadata, not a
+byte — and the reduced motion, Save-Data and 2g gates are satisfied by
+construction rather than by checks, because none of them can be crossed
+without a tap. Without JavaScript the play mark is a link to the file.
+
+The source is HEVC at 1440×2560 and 60fps, which not every browser can play,
+at 14.8MB. It is re-encoded to H.264, which every browser and every Android
+hardware decoder plays, at 1080×1920 and 30fps — the size the frame is actually
+shown at on a high-density phone, and half the frames to decode. Encoded as:
+
+```
+ffmpeg -i source.mp4 \
+  -vf "scale=1080:1920:flags=lanczos+accurate_rnd+full_chroma_int,fps=30,format=yuv420p" \
+  -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 24 -maxrate 4.5M -bufsize 9M \
+  -g 60 -keyint_min 30 -color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+  -c:a copy -movflags +faststart assets/video/box.mp4
+ffmpeg -i assets/video/box.mp4 -frames:v 1 -c:v libwebp -quality 78 assets/video/box-poster.webp
+```
+
+**6.5MB, 2.98 Mbps, SSIM 0.9741** against a lossless render at the same size,
+with the sub-dial numerals and the guilloché indistinguishable at 1:1. The
+poster is 47KB. The audio is the source's own, copied, not re-encoded.
+
+Whether it stalls was computed from the file rather than guessed: the byte
+offset of every packet says how much must have arrived by each moment of
+playback, so the startup buffer that guarantees no stall on a given link is
+exact. **0.33s at 10 Mbps, 0.53s at 4 Mbps** — and Chrome buffers about a
+second before the first frame at 4 Mbps, so it plays through. At 1.6 Mbps it
+would need 15.5s, below the film's own bitrate, and no 1080p encode avoids
+that. CRF 25 was tried and saves 0.8MB for 0.52s instead of 0.53s at 4 Mbps,
+which no phone would feel, so the sharper file stayed.
+
 ### Entrances that earn their own
 
 Most things rise, because varying every single one is noise. The exceptions:
@@ -537,7 +587,7 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - No horizontal overflow at 360, 390, 768, 1024, 1440 or 2560 px
 - Keyboard: every number reachable and selectable with Enter, focus ring
   measured at 2px gold, sold numbers correctly unreachable
-- All eleven acts reveal in order on desktop and on a phone
+- All twelve acts reveal in order on desktop and on a phone
 - Scroll to frame mapping exact at nine sample points and correct in
   reverse; largest gap between painted frames measured at 1, with zero
   backwards jumps during a forward drag
@@ -562,7 +612,7 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - No text sits over a photograph anywhere on the page
 - Keyboard focus visible on every focusable element
 - `prefers-reduced-motion`: settled, film never fetched, dust removed
-- JavaScript disabled: all eleven acts, **all twenty numbers with the two
+- JavaScript disabled: all twelve acts, **all twenty numbers with the two
   struck**, the footer and the button all render, and nothing is left invisible
   behind a reveal that will never fire. The twenty are printed into the HTML;
   the config rebuilds them on load.
@@ -582,6 +632,35 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   as the real gap between the film's edge and the stage's: worst case
   **8.1px**, against 0.4px before the transform-order fix
 - The main animation loop measured **asleep** when idle rather than assumed to be
+- **The dock is not in the document before the twenty.** Stepped through the
+  page at 1440×900 and as a 390 phone: absent at every position from the film
+  to 20px short of the twenty owning the middle of the screen; mounted 20px
+  inside it; still there at the foot, clearing the footer's last row by 38px;
+  removed again on scrolling back up to 08 and back on returning. It reads
+  *Choose your number* until the visitor taps a dial or a number of their own —
+  the page's default choice is never offered for sale — and that button
+  scrolls to the dials and puts keyboard focus on the active one. Reachable by
+  Tab from the main button, fires on Enter. No overflow with it mounted at
+  360, 390, 768, 1024, 1440 or 2560 px. With JavaScript off it never renders
+- **A hold is stated only when one exists.** Checkout dismissed with the worker
+  answering `held_for: 720`: *"…Number 07 is yours for the next eleven minutes
+  while you complete payment."* With no `held_for`, or `0`: *"Checkout closed.
+  Nothing has been charged."* and nothing more
+- **The box film costs nothing until it is asked for.** A full scroll of the
+  page with no tap: **0** requests for the film and **0** `<video>` elements,
+  with and without reduced motion. The play mark is reached by Tab, draws the
+  2px gold ring inside the frame, and on Enter the film is requested 39ms
+  later and plays with sound, controls, no loop and no autoplay, with focus
+  moved onto it. Played through to the end on a throttled phone: **0 stalls**
+  at 10 Mbps, first frame 0.34s. This Chromium has no H.264 decoder, so those
+  runs played a VP9 copy through the same page code, held at a constant
+  3.2 Mbps — above the film's 2.98 average and never below it, so harsher than
+  the real file. At 4 Mbps that copy stalled once for 425ms; the real file,
+  computed from its own packets (above), needs 0.53s of buffer there and gets
+  about a second. At DevTools' "Slow 4G", 1.6 Mbps, it stalls, as any 1080p
+  film would. The MP4 was decoded end to end by ffmpeg without an error. No
+  overflow with the act on screen at 360, 390, 768, 1024, 1440 or 2560 px.
+  With JavaScript off the play mark is a link to the file
 
 **Known, and older than this change:** at a 320px viewport the document is
 11px wider than the viewport. Measured identically on `main` and on this
@@ -611,8 +690,12 @@ assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
 assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/
 assets/img/hero-still.webp  the hero when the film does not run
+assets/video/box.mp4     the box film, act 08. H.264, fetched only on a tap
+assets/video/box-poster.webp  its first frame, the poster the tap replaces
 tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never
                          at deploy: its output is committed, not built.
+tools/gen-sitemap.mjs    dates sitemap.xml from git history. Run by CI on
+                         every push to main; running it by hand is harmless
 assets/brand/            the KΛΛL wordmark, both A's bare, matching the dial
 incoming/DROP.md         the eight filenames and the film encode
 docs/design-package.md   why the page is shaped the way it is

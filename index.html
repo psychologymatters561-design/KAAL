@@ -173,6 +173,9 @@
         "@id": "https://thekaal.co/#org"
       },
       "primaryImageOfPage": "https://thekaal.co/assets/img/og.jpg",
+      "video": {
+        "@id": "https://thekaal.co/#box-film"
+      },
       "significantLink": [
         "https://thekaal.co/movement.html",
         "https://thekaal.co/provenance.html",
@@ -186,6 +189,25 @@
           ".band",
           ".mark-sub"
         ]
+      }
+    },
+    {
+      "@type": "VideoObject",
+      "@id": "https://thekaal.co/#box-film",
+      "name": "The KAAL Series 01 box, opened",
+      "description": "The KAAL Series 01 box opened: the watch lifted from its cushion, turned in the hand and set back, and the lid closed again. Eighteen seconds, with sound.",
+      "thumbnailUrl": "https://thekaal.co/assets/video/box-poster.webp",
+      "contentUrl": "https://thekaal.co/assets/video/box.mp4",
+      "uploadDate": "2026-09-28",
+      "duration": "PT18S",
+      "encodingFormat": "video/mp4",
+      "width": 1080,
+      "height": 1920,
+      "about": {
+        "@id": "https://thekaal.co/#series01"
+      },
+      "publisher": {
+        "@id": "https://thekaal.co/#org"
       }
     },
     {
@@ -227,9 +249,14 @@
           "@id": "https://thekaal.co/movement.html#page"
         }
       ],
-      "subjectOf": {
-        "@id": "https://thekaal.co/movement.html#page"
-      },
+      "subjectOf": [
+        {
+          "@id": "https://thekaal.co/movement.html#page"
+        },
+        {
+          "@id": "https://thekaal.co/#box-film"
+        }
+      ],
       "additionalProperty": [
         {
           "@type": "PropertyValue",
@@ -1130,6 +1157,27 @@ a{color:inherit}
 .plate-cap{margin:.95rem 0 0;font-size:.75rem;letter-spacing:.2em;
   text-transform:uppercase;color:var(--faint)}
 
+/* The box. The film is upright, so its frame is too, and never taller than
+   most of a screen. The poster is not given the plates' 1.09 lift: it has
+   to sit exactly where the film's first frame will, or the tap reads as a
+   jump. The play mark sits above the vignette; the vignette goes once the
+   film is playing, because it would darken the controls. The focus ring is
+   drawn inside, since the plate clips anything drawn outside it. */
+.plate-box{aspect-ratio:9/16;width:min(100%,26rem,calc(78svh * 9 / 16));margin-inline:auto}
+.box-film{position:absolute;inset:0;display:block}
+.box-film img,.plate-box video{display:block;width:100%;height:100%;object-fit:cover;transform:none}
+.plate-box video{background:var(--void)}
+.box-film:focus-visible{outline-offset:-5px}
+/* Below centre on purpose: dead centre sat exactly on the wordmark on the
+   lid, and hid the one thing the poster is there to show. */
+.box-play{position:absolute;z-index:2;left:50%;top:64%;width:4.5rem;height:4.5rem;margin:-2.25rem 0 0 -2.25rem;
+  border:1px solid var(--gold);border-radius:50%;background:rgba(8,9,8,.5);
+  transition:background-color .4s var(--ease),transform .4s var(--ease)}
+.box-play::before{content:"";position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);
+  border-style:solid;border-width:.62rem 0 .62rem 1.05rem;border-color:transparent transparent transparent var(--gold)}
+.box-film:hover .box-play,.box-film:focus-visible .box-play{background:rgba(198,161,91,.2);transform:scale(1.06)}
+.plate-box.playing::after{display:none}
+
 /* Two-column act: words left, picture right, and neither crowds. */
 .split{display:grid;gap:var(--beat);align-items:center}
 /* Stacked, the grid gap is the whole distance from words to picture.
@@ -1273,8 +1321,12 @@ a{color:inherit}
 .gift-body textarea:focus{border-color:var(--gold)}
 .gift-meta{margin:0;font-size:.75rem;color:var(--mute)}
 
-/* ── Sticky call to action. It does not exist until the visitor has
-      seen the four faces. Before desire, a buy bar is just noise. ── */
+/* ── Sticky call to action. It does not exist — not hidden, not in the
+      document — until the visitor is inside the twenty, and it stays
+      from there to the end of the page. A buy bar shown before a single
+      fact has been given is reactance, not urgency; shown to someone
+      already choosing a number it is just the mechanism within reach.
+      The footer keeps room for it at its foot (.foot, below). ── */
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:7;
   padding:.85rem var(--gut) calc(.85rem + env(safe-area-inset-bottom));
   display:flex;align-items:center;gap:1rem;
@@ -1284,6 +1336,7 @@ a{color:inherit}
 .dock.show{transform:none;pointer-events:auto}
 .dock-txt{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
 .dock .buy{margin-left:auto;flex:0 0 auto}
+#choose{scroll-margin-top:clamp(4.5rem,10svh,6.5rem)}
 @media (max-width:560px){.dock-txt{display:none}.dock .buy{margin:0;width:100%}}
 
 /* ── The rail. A hairline that draws itself down the page carrying the
@@ -1308,7 +1361,7 @@ a{color:inherit}
 
 /* ── Footer. The scroll stays silent; Indian e-commerce law is not
       optional about the rest, so the paperwork lives in the basement. ─ */
-.foot{border-top:1px solid var(--line);padding:clamp(2.75rem,1.5rem + 5svh,5.5rem) 0 calc(2.5rem + env(safe-area-inset-bottom));
+.foot{border-top:1px solid var(--line);padding:clamp(2.75rem,1.5rem + 5svh,5.5rem) 0 calc(7rem + env(safe-area-inset-bottom));
   margin-top:0;position:relative;z-index:1;background:var(--void)}
 .foot-grid{display:grid;gap:clamp(1.6rem,4vw,3rem);
   grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr))}
@@ -1589,7 +1642,34 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 08 THE MOVEMENT. The only glow on the site, and now
+<!-- ════════ 08 THE BOX. The act before this one says every piece is
+     opened, checked and closed again before it is boxed. This one does not
+     say it again. It shows the box.
+
+     A picture of a play button until somebody asks for the film. Nothing
+     of the video is fetched before that tap — not its metadata, not a
+     byte — which is the same discipline the hero keeps with its frames,
+     and why no Save-Data, 2g or reduced-motion gate is needed here: none
+     of them can be crossed without a tap. Without JavaScript the link
+     opens the file itself. ════════ -->
+<section class="act act-tall" data-world="emerald" data-tick="8">
+  <div class="hold split flip">
+    <div class="col-a">
+      <p class="label rise">08 · The box</p>
+      <h2 class="statement rise">The next time it opens, it is yours.</h2>
+      <p class="sub rise">Eighteen seconds, with sound.</p>
+    </div>
+    <div class="plate plate-box rise">
+      <a class="box-film" href="assets/video/box.mp4" aria-label="Play the film of the KAAL box: eighteen seconds, with sound">
+        <img src="assets/video/box-poster.webp" width="1080" height="1920" loading="lazy" decoding="async"
+             alt="The green KAAL box, closed, on a bedside table, a hand reaching for the lid.">
+        <span class="box-play" aria-hidden="true"></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ 09 THE MOVEMENT. The only glow on the site, and now
      the only proper noun on it.
 
      This act used to run 260 words about "the movement" and never once
@@ -1607,10 +1687,10 @@ a{color:inherit}
      Trimmed to the claim and the promise. The specification, the oscillator
      and the argument for quartz live on movement.html, one link away,
      for the reader who wants them. ════════ -->
-<section class="act act-tall" data-world="midnight" data-tick="8" id="movement">
+<section class="act act-tall" data-world="midnight" data-tick="9" id="movement">
   <div class="hold split">
     <div class="col-a">
-      <p class="label rise">08 · The movement</p>
+      <p class="label rise">09 · The movement</p>
       <h2 class="statement rise">Inside every one of them, a <em>Seiko Epson</em> movement from Japan.</h2>
       <p class="sub rise">Everything you can see is made in India, by hand. The one part that keeps time comes from Japan — the only part you cannot judge by looking, so the one where the name matters most.</p>
       <p class="sub rise"><strong>We back it for twenty four months from dispatch</strong> — <a href="legal.html#warranty">in writing</a>, the same for everybody.</p>
@@ -1627,10 +1707,10 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 09 THE DOOR ════════ -->
-<section class="act act-tall" data-world="void" data-tick="9">
+<!-- ════════ 10 THE DOOR ════════ -->
+<section class="act act-tall" data-world="void" data-tick="10">
   <div class="hold door">
-    <p class="label leaf leaf-l" style="justify-content:center">09 · The door</p>
+    <p class="label leaf leaf-l" style="justify-content:center">10 · The door</p>
     <h2 class="statement leaf leaf-r">Seven days.</h2>
     <div class="door-rule" aria-hidden="true"></div>
     <p class="sub leaf leaf-l">Wear it. If it is not you, send it back unworn and unmarked inside seven days and we refund it. We will not ask why.</p>
@@ -1647,14 +1727,14 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 10 THE TWENTY ════════ -->
-<section class="act act-tall" data-world="ember" data-tick="10" id="twenty">
+<!-- ════════ 11 THE TWENTY ════════ -->
+<section class="act act-tall" data-world="ember" data-tick="11" id="twenty">
   <div class="hold">
-    <p class="label rise">10 · The twenty</p>
+    <p class="label rise">11 · The twenty</p>
     <h2 class="statement rise"><span id="remWord">Eighteen</span> remain.</h2>
     <p class="sub rise">Tap a dial to see the numbers it still has, then pick yours. Struck numbers are gone.</p>
 
-    <p class="step">1 &nbsp;·&nbsp; Choose a dial</p>
+    <p class="step" id="choose">1 &nbsp;·&nbsp; Choose a dial</p>
     <div class="dials" id="dials" role="radiogroup" aria-label="Choose a dial">
       <button type="button" class="dialpick" data-face="emerald" role="radio" aria-checked="true"><span class="dp-disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="dp-name">Emerald</span><span class="dp-left" data-left="emerald"></span></button>
       <button type="button" class="dialpick" data-face="midnight" role="radio" aria-checked="false"><span class="dp-disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="dp-name">Midnight</span><span class="dp-left" data-left="midnight"></span></button>
@@ -1792,7 +1872,6 @@ a{color:inherit}
         <p>KAAL Series 01. Twenty numbered watches, one case design, four dials.</p>
         <p>Day ring, twenty four hour counter, pointer date. Mineral glass. Water resistant. Two tone stainless steel bracelet, gold tone bezel.</p>
         <p><span id="priceFoot">&#8377;5,999</span> per piece.
-          <!-- UNCONFIRMED: whether shipping sits inside this price. -->
           Shipping within India included.</p>
       </div>
       <div>
@@ -1838,10 +1917,17 @@ a{color:inherit}
   </div>
 </footer>
 
+<!-- The dock is not on the page until the visitor is inside the twenty.
+     A <template> is inert: nothing in it renders, takes focus or is read
+     out, and without JavaScript it never leaves here — the real button in
+     the twenty is the only one. driveChrome() puts it in, and takes it out
+     again if the visitor scrolls back up into the story. -->
+<template id="dockTpl">
 <div class="dock" id="dock">
   <span class="dock-txt"><span id="dockRem">Eighteen</span> of twenty remain</span>
-  <a class="buy small inert" id="dockCta" role="button" aria-disabled="true">Choose your number</a>
+  <a class="buy small" id="dockCta" role="button" tabindex="0">Choose your number</a>
 </div>
+</template>
 
 <script>
 (function(){
@@ -2063,7 +2149,7 @@ var S = { raw:0, y:0, v:0, max:1 };
    resize, a rotation, a lazy photograph arriving, a plate falling back to
    its panel. Each of those calls remeasure(), debounced. ────────────── */
 var M = { vw:0, vh:0, stageH:0, heroTop:0, heroSpan:1,
-          acts:[], plates:[], facesTop:0, twentyTop:0 };
+          acts:[], plates:[], twentyTop:0 };
 
 /* The loop rests. It wakes on input and sleeps when nothing has moved
    for a beat, so an idle page costs nothing. */
@@ -2722,13 +2808,18 @@ function driveCaps(p){
 /* ── The world. One fixed layer whose colour is a function of which act
       owns the middle of the screen. This is what makes ten sections
       read as one continuous building. ──────────────────────────── */
-var worldEl = $("#world"), acts = $$(".act[data-world]"), curWorld = "";
+var worldEl = $("#world"), acts = $$(".act[data-world]"), curWorld = "", deciding = false;
 function driveWorld(){
   var mid = S.raw + M.vh * 0.5, found = "void", a = M.acts;
   for(var i=0;i<a.length;i++){
     if(a[i].top <= mid && a[i].bottom >= mid){ found = a[i].world; break; }
   }
   if(found !== curWorld){ curWorld = found; worldEl.style.backgroundColor = WORLD[found] || WORLD.void; }
+  /* The same line decides the one thing on this page that may only exist
+     at the decision: once the twenty owns the middle of the screen, and
+     from there to the foot of the page, the visitor is choosing. The dock
+     reads this rather than keeping a second idea of where the reader is. */
+  deciding = mid >= M.twentyTop;
 }
 
 /* ── Any photograph that fails to load becomes a designed panel rather
@@ -2762,6 +2853,35 @@ function driveWorld(){
   $$("img").forEach(function(img){
     img.addEventListener("error", function(){ fallback(img); });
     if(img.complete && img.naturalWidth === 0) fallback(img);
+  });
+})();
+
+/* ── The box. The film is fetched on the tap and not one moment earlier.
+      The <video> does not exist until then, so there is nothing for a
+      browser to preload, and it is created inside the tap so that playing
+      with sound is allowed. A modified click (new tab, save) is left to the
+      link, which is also what anyone without JavaScript gets. ── */
+(function boxFilm(){
+  var a = $(".box-film");
+  if(!a) return;
+  a.addEventListener("click", function(e){
+    if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    var plate = a.parentNode, img = $("img", a);
+    var v = document.createElement("video");
+    v.controls = true;
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.preload = "auto";
+    if(img) v.poster = img.currentSrc || img.src;
+    v.setAttribute("aria-label", "The KAAL box, opened. Eighteen seconds, with sound.");
+    v.src = a.getAttribute("href");
+    plate.replaceChild(v, a);
+    plate.classList.add("playing");
+    v.focus({ preventScroll:true });   /* the focused link has just gone; keep a keyboard in place */
+    var go = v.play();
+    if(go && go.catch) go.catch(function(){});   /* refused: the controls are still there */
+    track("film");
   });
 })();
 
@@ -2934,7 +3054,14 @@ var remaining = KAAL.edition - KAAL.sold.length;
   });
 })();
 
-var cta = $("#cta"), dockCta = $("#dockCta"), claimState = $("#claimState");
+var cta = $("#cta"), dockCta = null, claimState = $("#claimState");
+
+/* Whether the visitor has chosen anything themselves. Something is always
+   chosen — the first open number, on arrival — so `chosen` alone cannot
+   tell a buyer's choice from the page's default. The dock needs to: it
+   names a number the visitor picked, and never offers to sell them one
+   they did not. */
+var picked = false;
 var claimDot = $("#claimDot"), claimText = $("#claimText");
 var pieceDial = $("#pieceDial"), pieceName = $("#pieceName");
 var PIECE_IDLE = "One of four";
@@ -3066,9 +3193,13 @@ function choose(n){
 /* Switching dials carries the choice to that dial's first open number, so
    the button is never left naming a piece from the dial just left. */
 function chooseFace(key){
-  if(key === face) return;
   var open = openIn(key);
   if(!open.length) return;
+  if(key === face){
+    if(!picked){ picked = true; paintBuy(dockCta); }   /* tapping the dial already shown is a choice too */
+    return;
+  }
+  picked = true;
   choose(open[0]);
   track("dial", { no:pad(open[0]), dial:FACE[key].name });
 }
@@ -3093,57 +3224,85 @@ if(dialsEl){
 }
 
 function paintCta(){
-  var mode = payMode();
-  var live = !!mode;
-  var label, f = chosen ? FACE[KAAL.dials[chosen]] || FACE.ivory : null;
+  var live = !!payMode();
+  var f = chosen ? FACE[KAAL.dials[chosen]] || FACE.ivory : null;
   /* There is always a number chosen while any are open — the first open
      one is picked on load and a tap can only move the choice, never clear
      it — so the button always names a real piece and a real price. The
      only empty state left is the edition having closed. */
-  if(!chosen){
-    label = "Series 01 is complete";
-    say("All twenty have gone. Series 01 is closed.");
-  } else {
-    label = "No. " + pad(chosen) + "  ·  " + f.name + "  ·  ₹" + KAAL.price;
-    say("Number " + pad(chosen) + " carries the " + f.name + " dial." + (live ? "" : " Checkout opens at launch."), KAAL.dials[chosen]);
-  }
-  [cta, dockCta].forEach(function(el){
-    var small = el === dockCta;
-    el.textContent = small && chosen ? "No. " + pad(chosen) + "  ·  " + f.name : label;
-    if(chosen && live){
-      el.className = "buy" + (small ? " small" : "");
-      try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
-      el.removeAttribute("aria-disabled");
-      if(mode === "page"){
-        el.setAttribute("href", checkoutUrl(chosen));
-        el.removeAttribute("role"); el.removeAttribute("tabindex");
-        el.rel = "noopener";
-      } else {
-        /* Standard checkout opens over this page, so there is nowhere to
-           navigate to. An anchor without an href is not in the tab order
-           and does not fire on Enter, so it has to be told it is a
-           button in both — the keydown handler below is the other half. */
-        el.removeAttribute("href");
-        el.setAttribute("role","button");
-        el.setAttribute("tabindex","0");
-      }
-    } else {
-      el.className = "buy" + (small ? " small" : "") + (chosen ? "" : " inert");
-      el.removeAttribute("href");
-      el.removeAttribute("tabindex");
-      el.setAttribute("role","button");
-      if(chosen && !live){
-        el.className = "buy" + (small ? " small" : "") + " inert";
-        el.setAttribute("aria-disabled","true");
-      } else {
-        el.setAttribute("aria-disabled", chosen ? "false" : "true");
-      }
-    }
-  });
+  if(!chosen) say("All twenty have gone. Series 01 is closed.");
+  else say("Number " + pad(chosen) + " carries the " + f.name + " dial." + (live ? "" : " Checkout opens at launch."), KAAL.dials[chosen]);
+  paintBuy(cta);
+  paintBuy(dockCta);
 }
 
-[cta, dockCta].forEach(function(el){
+/* One button's face, apart from the sentence above it, so the dock can be
+   painted as it arrives without rewriting the claim line — which may be
+   holding a number that just went, or a checkout that just closed, and
+   that sentence has to stay the last word. */
+function paintBuy(el){
+  if(!el) return;
+  var mode = payMode(), live = !!mode, small = el === dockCta;
+  var f = chosen ? FACE[KAAL.dials[chosen]] || FACE.ivory : null;
+  /* The dock, before the visitor has chosen anything of their own, is a
+     way back to the choosing — never an offer to pay for the page's
+     default. */
+  if(small && chosen && !picked){
+    el.className = "buy small";
+    el.textContent = "Choose your number";
+    el.removeAttribute("href"); el.removeAttribute("aria-disabled");
+    el.setAttribute("role","button"); el.setAttribute("tabindex","0");
+    return;
+  }
+  var label = chosen ? "No. " + pad(chosen) + "  ·  " + f.name + "  ·  ₹" + KAAL.price : "Series 01 is complete";
+  el.textContent = small && chosen ? "No. " + pad(chosen) + "  ·  " + f.name : label;
+  if(chosen && live){
+    el.className = "buy" + (small ? " small" : "");
+    try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
+    el.removeAttribute("aria-disabled");
+    if(mode === "page"){
+      el.setAttribute("href", checkoutUrl(chosen));
+      el.removeAttribute("role"); el.removeAttribute("tabindex");
+      el.rel = "noopener";
+    } else {
+      /* Standard checkout opens over this page, so there is nowhere to
+         navigate to. An anchor without an href is not in the tab order
+         and does not fire on Enter, so it has to be told it is a
+         button in both — the keydown handler below is the other half. */
+      el.removeAttribute("href");
+      el.setAttribute("role","button");
+      el.setAttribute("tabindex","0");
+    }
+  } else {
+    el.className = "buy" + (small ? " small" : "") + (chosen ? "" : " inert");
+    el.removeAttribute("href");
+    el.removeAttribute("tabindex");
+    el.setAttribute("role","button");
+    if(chosen && !live){
+      el.className = "buy" + (small ? " small" : "") + " inert";
+      el.setAttribute("aria-disabled","true");
+    } else {
+      el.setAttribute("aria-disabled", chosen ? "false" : "true");
+    }
+  }
+}
+
+/* The dock before a choice: back to the dial row, and focus with it, so a
+   keyboard lands where the choosing is rather than at the top of the
+   document. Smooth only for those who have not asked for less motion. */
+function toChoice(){
+  var step = $("#choose");
+  if(step) step.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block:"start" });
+  var on = dialsEl && $('.dialpick[aria-checked="true"]', dialsEl);
+  if(on) on.focus({ preventScroll:true });
+}
+function choosing(el){ return el === dockCta && !!chosen && !picked; }
+
+/* Wired once per button. The dock does not exist at load, so it is wired
+   when it is first put on the page rather than here. */
+function wireBuy(el){
   el.addEventListener("click", function(e){
+    if(choosing(el)){ e.preventDefault(); toChoice(); return; }
     if(!chosen) return;
     var mode = payMode();
     if(!mode) return;
@@ -3157,12 +3316,13 @@ function paintCta(){
     if(mode === "standard"){ e.preventDefault(); startCheckout(chosen, el); }
   });
   el.addEventListener("keydown", function(e){
+    var press = e.key === "Enter" || e.key === " " || e.key === "Spacebar";
+    if(press && choosing(el)){ e.preventDefault(); toChoice(); return; }
     if(!chosen || payMode() !== "standard") return;
-    if(e.key === "Enter" || e.key === " " || e.key === "Spacebar"){
-      e.preventDefault(); startCheckout(chosen, el);
-    }
+    if(press){ e.preventDefault(); startCheckout(chosen, el); }
   });
-});
+}
+wireBuy(cta);
 
 /* A tap moves the choice; it never clears it. Tapping the number already
    chosen used to empty the button back to "Nothing chosen yet", which is
@@ -3171,7 +3331,8 @@ grid.addEventListener("click", function(e){
   var b = e.target.closest(".pick");
   if(!b || b.disabled) return;
   var n = parseInt(b.dataset.n, 10);
-  if(n === chosen) return;
+  if(n === chosen && picked) return;
+  picked = true;
   choose(n);
   track("number", { no:pad(n), dial:FACE[KAAL.dials[n]].name });
 });
@@ -3232,7 +3393,8 @@ function countsFromRemaining(){
   var word = WORDS[remaining] || String(remaining);
   $("#remWord").textContent = word;
   $("#navRem").textContent  = word;
-  $("#dockRem").textContent = word;
+  var dockRem = $("#dockRem");                   /* only while the dock is on the page */
+  if(dockRem) dockRem.textContent = word;
   var heroLeft = $("#heroLeft");
   if(heroLeft) heroLeft.textContent = remaining;
   /* The <head> title is the shape this one has to keep: brand, country,
@@ -3546,7 +3708,19 @@ function giftNotes(notes, g){
   return notes;
 }
 
+/* The hold, said only when the worker says it wrote one, and said as what
+   it is: a number of minutes, on this device's own clock. Not a countdown —
+   one sentence, written once, when the buyer comes back from the modal. */
+function heldLine(n, until){
+  var left = until ? Math.floor((until - Date.now()) / 60000) : 0;
+  if(left < 1) return "";
+  return " Number " + pad(n) + " is yours for the next " +
+         (left === 1 ? "minute" : (WORDS[left] || String(left)).toLowerCase() + " minutes") +
+         " while you complete payment.";
+}
+
 function openRzp(order, n, el, done, g){
+  var heldUntil = order.held_for > 0 ? Date.now() + order.held_for * 1000 : 0;
   try{
     var rzp = new window.Razorpay({
       key:         order.key_id,
@@ -3563,7 +3737,7 @@ function openRzp(order, n, el, done, g){
       theme:       { color: "#C6A15B" },
       handler:     function(res){ confirmPayment(res, n, done); },
       modal:       { ondismiss: function(){
-        done("Checkout closed. Nothing has been charged, and number " + pad(n) + " is held for you for a few minutes.");
+        done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
       } }
     });
 
@@ -3656,11 +3830,40 @@ function confirmPayment(res, n, done){
   rises.forEach(function(r){ ir.observe(r); });
 })();
 
-/* ── Nav and dock. Neither exists until the hero has done its job.
-      A buy bar shown before desire is built is the single most common
-      way a page like this loses the sale it was designed to make. ── */
-var nav = $("#nav"), dock = $("#dock"), faces = $("#faces"), cue = $("#cue"), twentyEl = $("#twenty");
+/* ── Nav and dock. The nav waits for the hero to have done its job. The
+      dock waits for the twenty: from the film through the tenth act it is
+      not on the page at all — not hidden, not faded, not in the document —
+      because a buy bar shown before a single fact has been given reads as
+      a shop that wants the sale more than the buyer does. ── */
+var nav = $("#nav"), cue = $("#cue"), twentyEl = $("#twenty");
+var dockTpl = $("#dockTpl"), dock = null, dockOut = 0;
 var navShown = false, dockShown = false, cueHidden = null;
+
+/* Put in on the way into the twenty, taken out on the way back up into
+   the story. Showing waits a frame so the slide is a transition rather
+   than a jump; removing waits for the slide to finish. Nothing here reads
+   layout, so it is safe inside the loop. */
+function placeDock(on){
+  clearTimeout(dockOut);
+  if(on){
+    if(!dock){
+      if(!dockTpl || !dockTpl.content) return;   /* no <template>: the real button stands alone */
+      dock = dockTpl.content.firstElementChild.cloneNode(true);
+      dockCta = $("#dockCta", dock);
+      wireBuy(dockCta);
+    }
+    if(!dock.parentNode) document.body.appendChild(dock);
+    paintBuy(dockCta);
+    countsFromRemaining();
+    requestAnimationFrame(function(){ if(dockShown) dock.classList.add("show"); });
+  } else if(dock){
+    dock.classList.remove("show");
+    dockOut = setTimeout(function(){
+      if(!dockShown && dock.parentNode) dock.parentNode.removeChild(dock);
+    }, 900);
+  }
+}
+
 function driveChrome(){
   /* Each of these was a classList.toggle written on every frame whether or
      not the answer had changed, and two of them sat between a pair of
@@ -3670,10 +3873,7 @@ function driveChrome(){
   var past = S.y > M.vh * 0.8;
   if(past !== navShown){ navShown = past; nav.classList.toggle("show", past); }
 
-  var earned  = (M.facesTop  - S.raw) < M.vh * 0.5;
-  var arrived = (M.twentyTop - S.raw) < M.vh * 0.72;   /* the real button is here */
-  var want = earned && !arrived;
-  if(want !== dockShown){ dockShown = want; dock.classList.toggle("show", want); }
+  if(deciding !== dockShown){ dockShown = deciding; placeDock(deciding); }
 
   if(cue){
     var hide = S.raw > 60;
@@ -3743,7 +3943,6 @@ function measure(){
     dst.h    = src.el.offsetHeight;
     dst.dead = src.el.classList.contains("void-plate");
   }
-  M.facesTop  = docTop(faces);
   M.twentyTop = docTop(twentyEl);
 }
 

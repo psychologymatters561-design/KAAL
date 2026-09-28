@@ -64,7 +64,6 @@ else {
   if (new Set(sold).size !== sold.length) bad("sold contains a duplicate");
 }
 if (!cfg.price) bad("price is empty — every price on the page reads from it");
-if (!cfg.checkout) soft("checkout is empty: the page will render, and it cannot take money");
 
 /* ── 3b. The price, written down twice.
 
@@ -81,6 +80,8 @@ if (payMode && payMode !== "standard")
   bad(`pay is "${payMode}" — the only values are "" (hosted payment page) and "standard"`);
 if (payMode === "standard" && !apiUrl)
   bad("pay is \"standard\" but api is empty — the page has no worker to create an order with, so every button fails");
+if (payMode !== "standard" && !cfg.checkout)
+  soft("pay is not \"standard\" and checkout is empty: the page will render, and it cannot take money");
 
 if (existsSync(join(root, "wrangler.toml"))) {
   const toml = readFileSync(join(root, "wrangler.toml"), "utf8");
@@ -223,8 +224,13 @@ const dupe = ids.filter((v, i) => ids.indexOf(v) !== i);
 if (dupe.length) bad(`duplicate id(s): ${[...new Set(dupe)].join(", ")}`);
 
 /* ── 5. Every local file ANY page asks for must exist, case exactly.
-      Pages is case sensitive; a Mac is not. ─────────────────────── */
-const pages = ["index.html", "manifesto.html", "about.html", "legal.html", "movement.html", "provenance.html", "claimed.html"].filter(f => existsSync(join(root, f)));
+      Pages is case sensitive; a Mac is not.
+
+      The pages are whatever .html sits at the root, read off the disk.
+      This was a hand-kept list, and a hand-kept list is the one place a
+      new page is guaranteed to be forgotten — it had already missed
+      404.html, so nothing below had ever looked at it. ─────────────── */
+const pages = readdirSync(root).filter(f => f.endsWith(".html")).sort();
 const refs = new Set();
 for (const f of pages) {
   for (const m of readFileSync(join(root, f), "utf8").matchAll(/(?:src|href)="([^"#?:]+)"/g)) {
@@ -236,6 +242,11 @@ for (const f of pages) {
 }
 for (const r of refs) {
   const p = join(root, r);
+  /* A film is fetched on a tap, on whatever connection the tap happens on.
+     12MB is the ceiling for playing through on ordinary 4G without a stall;
+     the box film was encoded to 6.5MB against it. */
+  if (/\.(mp4|webm)$/i.test(r) && existsSync(p) && statSync(p).size > 12e6)
+    soft(`${r} is ${(statSync(p).size / 1e6).toFixed(1)}MB — above the 12MB a phone on 4G plays through without stalling`);
   if (!existsSync(p)) {
     /* The eight photographs are a known pending state with a designed
        fallback, so they are a warning and never a failure. */
@@ -257,18 +268,57 @@ blocks.forEach((b, i) => {
 
 /* ── 6b. Structured data. It is the one part of the page no reader will
       ever notice is broken, and the part an answer engine reads first.
-      A JSON-LD block that does not parse is simply discarded in silence. */
+      A JSON-LD block that does not parse is simply discarded in silence.
+
+      The tag is found by its type wherever the attribute sits. This used
+      to match only a tag that opened with type=, so a block written
+      <script id="…" type="application/ld+json"> was never read at all —
+      skipped rather than failed, which is the same silence one step
+      earlier. Every ld+json tag is now counted separately, so one the
+      parser cannot pair with a closing tag is a failure, not a pass. ── */
 for (const f of pages) {
   const t = readFileSync(join(root, f), "utf8");
-  const blocks = [...t.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  const ldTag = /<script\b[^>]*\btype\s*=\s*["']application\/ld\+json["'][^>]*>/gi;
+  const tags = (t.match(ldTag) || []).length;
+  const blocks = [...t.matchAll(/<script\b[^>]*\btype\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+  if (tags !== blocks.length) bad(`${f}: ${tags} JSON-LD tag(s) but only ${blocks.length} readable block(s) — one is unclosed or malformed`);
   for (const [i, blk] of blocks.entries()) {
-    try { JSON.parse(blk); }
-    catch (e) { bad(`${f}: JSON-LD block ${i + 1} does not parse — ${String(e.message).slice(0, 80)}`); }
+    let ld;
+    try { ld = JSON.parse(blk); }
+    catch (e) { bad(`${f}: JSON-LD block ${i + 1} does not parse — ${String(e.message).slice(0, 80)}`); continue; }
+    /* Valid JSON is not yet structured data. Without a schema.org context
+       every type in it is a bare word, and the block is read as nothing. */
+    if (!/schema\.org/.test(JSON.stringify(ld && ld["@context"] || "")))
+      bad(`${f}: JSON-LD block ${i + 1} has no schema.org @context — it parses and means nothing`);
+
+    /* Media the structured data points at. These are absolute URLs, so the
+       src/href sweep in §5 never sees them — and a VideoObject whose file or
+       thumbnail is missing is dropped by every engine that fetches it, while
+       the page itself still looks fine. A video also has to carry what a
+       video result needs, or it is never shown as one. */
+    const walk = (n) => {
+      if (Array.isArray(n)) return n.forEach(walk);
+      if (!n || typeof n !== "object") return;
+      for (const k of ["contentUrl", "thumbnailUrl"]) {
+        for (const u of [].concat(n[k] || [])) {
+          const local = String(u).match(/^https:\/\/thekaal\.co\/(.+)$/)?.[1];
+          if (local && !existsSync(join(root, local))) bad(`${f}: JSON-LD ${k} ${u} is not in the repo`);
+        }
+      }
+      if (n["@type"] === "VideoObject") {
+        for (const k of ["name", "description", "thumbnailUrl", "uploadDate", "contentUrl"])
+          if (!n[k]) bad(`${f}: VideoObject ${n["@id"] || ""} has no ${k} — it cannot appear as a video result`);
+        if (n.duration && !/^PT(\d+H)?(\d+M)?(\d+(\.\d+)?S)?$/.test(n.duration))
+          bad(`${f}: VideoObject duration "${n.duration}" is not ISO 8601`);
+      }
+      Object.values(n).forEach(walk);
+    };
+    walk(ld);
   }
   if (f === "index.html" && !blocks.length) soft("index.html carries no structured data");
   const robotsMetas = (t.match(/<meta\s+name="robots"/gi) || []).length;
   if (robotsMetas > 1) bad(`${f} has ${robotsMetas} robots meta tags — a crawler reads the most restrictive and the intent becomes a guess`);
-  if (!/<link rel="canonical"/.test(t) && f !== "claimed.html") soft(`${f} has no canonical link`);
+  if (!/<link rel="canonical"/.test(t) && f !== "claimed.html" && f !== "404.html") soft(`${f} has no canonical link`);
 }
 
 /* ── 6b-ii. The edition, in the structured data, against the config.
@@ -347,6 +397,20 @@ else {
     const target = path === "" ? "index.html" : path;
     if (!existsSync(join(root, target))) bad(`sitemap.xml lists ${loc}, which does not exist in the repo`);
   }
+  /* The dates are written by tools/gen-sitemap.mjs from git history, on
+     every push to main (indexnow.yml), never by hand. What is checked here
+     is only that each one is a real W3C date and not in the future — a
+     lastmod a crawler cannot parse or cannot believe is ignored, and a
+     sitemap whose dates are ignored has told the crawler nothing. */
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [, block] of sm.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+    const loc = block.match(/<loc>\s*([^<\s]+)/)?.[1] ?? "?";
+    const mods = [...block.matchAll(/<lastmod>\s*([^<\s]*)\s*<\/lastmod>/g)].map(m => m[1]);
+    if (mods.length !== 1) { bad(`sitemap.xml: ${loc} has ${mods.length} <lastmod> — run node tools/gen-sitemap.mjs`); continue; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(mods[0]) || isNaN(Date.parse(mods[0])))
+      bad(`sitemap.xml: ${loc} has lastmod "${mods[0]}", which is not a date`);
+    else if (mods[0] > today) bad(`sitemap.xml: ${loc} is dated ${mods[0]}, which is in the future`);
+  }
   const robots = existsSync(join(root, "robots.txt")) ? readFileSync(join(root, "robots.txt"), "utf8") : "";
   if (robots && !/^\s*Sitemap:/mi.test(robots)) soft("robots.txt does not point at the sitemap");
   if (/^\s*Disallow:\s*\/\s*$/mi.test(robots)) bad("robots.txt disallows the whole site");
@@ -404,6 +468,37 @@ if (existsSync(join(root, "llms.txt"))) {
   if (!/twenty four months/i.test(llms)) bad("llms.txt does not state the warranty term");
 }
 if (!/Seiko/.test(html)) bad("index.html does not name the movement — the page's strongest fact, and the one it used to leave out");
+
+/* ── 6g. Whether the site can take money, in both places that say so.
+
+      The config decides it. llms.txt is written by hand and repeats it,
+      and on the one question an assistant is most often asked about a
+      shop — can I buy this there, now — the two disagreed: checkout went
+      live in index.html and llms.txt went on telling every agent that
+      read it that it was not, which turned each of them into a voice
+      saying come back later. The rule below is the page's own payMode():
+      live when pay is "standard" with a worker behind it, or when a
+      Payment Page URL is set. The llms.txt sentence must say
+      "Checkout is live" or "checkout is not yet live", and must name the
+      route that is actually wired. ─────────────────────────────────── */
+if (existsSync(join(root, "llms.txt"))) {
+  const llms = readFileSync(join(root, "llms.txt"), "utf8").replace(/\s+/g, " ");
+  const live = (payMode === "standard" && !!apiUrl) || !!cfg.checkout;
+  const saysLive = /\bcheckout is live\b/i.test(llms);
+  const saysDead = /\bcheckout is not (?:yet )?live\b|\bcannot (?:currently )?take a payment\b/i.test(llms);
+  if (live && saysDead)
+    bad(`llms.txt says the checkout is not live, but index.html takes payments (pay "${payMode}") — every assistant reading it tells a buyer to come back later`);
+  else if (live && !saysLive)
+    bad(`index.html takes payments (pay "${payMode}") but llms.txt never says "Checkout is live"`);
+  else if (!live && saysLive)
+    bad('llms.txt says "Checkout is live", but index.html has neither pay "standard" with an api nor a checkout URL — it cannot take a payment');
+  else if (!live && !saysDead)
+    bad('index.html cannot take a payment, and llms.txt does not say "checkout is not yet live"');
+  if (live && payMode === "standard" && !/Standard Checkout/.test(llms))
+    bad('pay is "standard" but llms.txt does not name Razorpay Standard Checkout');
+  if (live && payMode !== "standard" && !/Payment Page/i.test(llms))
+    bad("checkout is a hosted Payment Page but llms.txt does not say so");
+}
 
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
 for (const f of [...pages, "worker/kaal-sold-sync.js"]) {

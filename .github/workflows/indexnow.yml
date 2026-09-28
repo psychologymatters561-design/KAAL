@@ -34,8 +34,10 @@ on:
     paths: ['**.html', 'sitemap.xml', 'llms.txt', 'robots.txt']
   workflow_dispatch:
 
+# write, for one file: the step below commits sitemap.xml back to main when
+# its dates have moved. Nothing else in this job writes.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: indexnow
@@ -46,7 +48,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Full history, not the default single commit: every lastmod is read
+      # off its own page's history, and in a shallow clone every page's
+      # last commit is the only one there is. gen-sitemap refuses to run
+      # on one rather than date the whole site to today.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Before anything is announced, the sitemap is made true. Its dates
+      # used to be typed by hand and were stale within days. A push by
+      # this job's own token starts no workflow, so this cannot loop; the
+      # retry is for the sold-sync worker, which also commits to main.
+      - name: Date the sitemap from git history
+        run: |
+          set -euo pipefail
+          node tools/gen-sitemap.mjs
+          if git diff --quiet -- sitemap.xml; then exit 0; fi
+          git add sitemap.xml
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Date sitemap.xml from git history'
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            sleep $((i * 5))
+            git pull --rebase origin main
+          done
+          echo "::error::could not push the re-dated sitemap.xml"; exit 1
 
       # Pages rebuilds from main on its own schedule, and submitting a URL
       # before the new bytes are live just means the crawler reads the old
@@ -55,16 +87,34 @@ jobs:
       - name: Let Pages finish deploying
         run: sleep 90
 
-      - name: Submit every URL in the sitemap
+      # Only what this push changed. Announcing all six pages on every
+      # push says six pages changed when one did, and a feed that cries
+      # wolf is a feed whose signal gets discounted. A manual run, a first
+      # push, or a before-commit this clone cannot see submits everything.
+      - name: Submit the URLs this push changed
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
           KEY=d58a84797445f7170e4c1e15771a7c52
+          CHANGED=ALL
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ -n "${BEFORE//0/}" ] \
+             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+          fi
+          URLS=$(grep -oP '(?<=<loc>)[^<]+' sitemap.xml | while read -r loc; do
+            f=${loc#https://thekaal.co/}; f=${f:-index.html}
+            if [ "$CHANGED" = ALL ] || grep -qxF "$f" <<<"$CHANGED"; then echo "$loc"; fi
+          done)
+          if [ -z "$URLS" ]; then echo "no page in the sitemap changed in this push"; exit 0; fi
           # jq builds the list and the body. A shell join here is how this
           # step was wrong the first time: `paste -d` cycles through the
           # delimiter's CHARACTERS rather than using the string, so a
           # hand-rolled '","' join silently produces url1"url2,url3 and the
           # endpoint rejects the whole batch.
-          BODY=$(grep -oP '(?<=<loc>)[^<]+' sitemap.xml \
+          BODY=$(printf '%s\n' "$URLS" \
             | jq -R . | jq -s . \
             | jq --arg key "$KEY" '{host:"thekaal.co", key:$key, keyLocation:"https://thekaal.co/\($key).txt", urlList:.}')
           echo "$BODY" | jq .

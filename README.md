@@ -525,6 +525,32 @@ which act owns the middle of the screen. Five worlds: void, stone, jade, onyx,
 ember. That is what makes ten sections read as one building rather than a
 stack of pages.
 
+### The box film is a picture until someone asks
+
+Act 08 is a poster and a play mark. The `<video>` does not exist until the
+tap, so there is nothing for a browser to preload — not the metadata, not a
+byte — and the reduced motion, Save-Data and 2g gates are satisfied by
+construction rather than by checks, because none of them can be crossed
+without a tap. Without JavaScript the play mark is a link to the file.
+
+The source was HEVC 10-bit at 1440×2560 and 60fps, which Firefox and many
+Android builds of Chrome cannot play at all. It was also tagged HLG HDR while
+graded like SDR: tone-mapping it properly made it flat, and honouring the tag
+blew the highlights, so its pixels are kept and re-tagged BT.709. Encoded as:
+
+```
+ffmpeg -i source.mp4 \
+  -vf "scale=1080:1920:flags=lanczos+accurate_rnd+full_chroma_int,fps=30,format=yuv420p" \
+  -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 24 -maxrate 4.5M -bufsize 9M \
+  -g 60 -keyint_min 30 -color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+  -c:a copy -movflags +faststart assets/video/box.mp4
+ffmpeg -i assets/video/box.mp4 -frames:v 1 -c:v libwebp -quality 78 assets/video/box-poster.webp
+```
+
+CRF 24 rather than 20: **6.0MB against 9.6MB, SSIM 0.9712 against 0.9728**,
+and the sub-dial numerals and the guilloché indistinguishable at 1:1. The
+audio is the source's own, copied, not re-encoded.
+
 ### Entrances that earn their own
 
 Most things rise, because varying every single one is noise. The exceptions:
@@ -552,7 +578,7 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - No horizontal overflow at 360, 390, 768, 1024, 1440 or 2560 px
 - Keyboard: every number reachable and selectable with Enter, focus ring
   measured at 2px gold, sold numbers correctly unreachable
-- All eleven acts reveal in order on desktop and on a phone
+- All twelve acts reveal in order on desktop and on a phone
 - Scroll to frame mapping exact at nine sample points and correct in
   reverse; largest gap between painted frames measured at 1, with zero
   backwards jumps during a forward drag
@@ -577,7 +603,7 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
 - No text sits over a photograph anywhere on the page
 - Keyboard focus visible on every focusable element
 - `prefers-reduced-motion`: settled, film never fetched, dust removed
-- JavaScript disabled: all eleven acts, **all twenty numbers with the two
+- JavaScript disabled: all twelve acts, **all twenty numbers with the two
   struck**, the footer and the button all render, and nothing is left invisible
   behind a reveal that will never fire. The twenty are printed into the HTML;
   the config rebuilds them on load.
@@ -611,6 +637,19 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   answering `held_for: 720`: *"…Number 07 is yours for the next eleven minutes
   while you complete payment."* With no `held_for`, or `0`: *"Checkout closed.
   Nothing has been charged."* and nothing more
+- **The box film costs nothing until it is asked for.** A full scroll of the
+  page with no tap: **0** requests for the film and **0** `<video>` elements,
+  with and without reduced motion. The play mark is reached by Tab, draws the
+  2px gold ring inside the frame, and on Enter the film is requested 39ms
+  later and plays with sound, controls, no loop and no autoplay, with focus
+  moved onto it. Played through to the end on a throttled phone: **0 stalls**
+  at 10 Mbps (first frame 0.35s) and at 4 Mbps (1.2s). At DevTools' "Slow 4G",
+  1.6 Mbps — below the film's own 2.7 — it stalls five times for 17s, which
+  no encode at 1080p avoids. This Chromium has no H.264 decoder, so those runs
+  played a VP9 copy at a slightly higher bitrate through the same page code;
+  the MP4 itself was decoded end to end by ffmpeg without an error. No
+  overflow with the act on screen at 360, 390, 768, 1024, 1440 or 2560 px.
+  With JavaScript off the play mark is a link to the file
 
 **Known, and older than this change:** at a 320px viewport the document is
 11px wider than the viewport. Measured identically on `main` and on this
@@ -640,6 +679,8 @@ assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
 assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/
 assets/img/hero-still.webp  the hero when the film does not run
+assets/video/box.mp4     the box film, act 08. H.264, fetched only on a tap
+assets/video/box-poster.webp  its first frame, the poster the tap replaces
 tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never
                          at deploy: its output is committed, not built.
 tools/gen-sitemap.mjs    dates sitemap.xml from git history. Run by CI on

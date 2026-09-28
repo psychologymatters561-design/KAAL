@@ -173,6 +173,9 @@
         "@id": "https://thekaal.co/#org"
       },
       "primaryImageOfPage": "https://thekaal.co/assets/img/og.jpg",
+      "video": {
+        "@id": "https://thekaal.co/#box-film"
+      },
       "significantLink": [
         "https://thekaal.co/movement.html",
         "https://thekaal.co/provenance.html",
@@ -186,6 +189,25 @@
           ".band",
           ".mark-sub"
         ]
+      }
+    },
+    {
+      "@type": "VideoObject",
+      "@id": "https://thekaal.co/#box-film",
+      "name": "The KAAL Series 01 box, opened",
+      "description": "The KAAL Series 01 box opened: the watch lifted from its cushion, turned in the hand and set back, and the lid closed again. Eighteen seconds, with sound.",
+      "thumbnailUrl": "https://thekaal.co/assets/video/box-poster.webp",
+      "contentUrl": "https://thekaal.co/assets/video/box.mp4",
+      "uploadDate": "2026-09-28",
+      "duration": "PT18S",
+      "encodingFormat": "video/mp4",
+      "width": 1080,
+      "height": 1920,
+      "about": {
+        "@id": "https://thekaal.co/#series01"
+      },
+      "publisher": {
+        "@id": "https://thekaal.co/#org"
       }
     },
     {
@@ -227,9 +249,14 @@
           "@id": "https://thekaal.co/movement.html#page"
         }
       ],
-      "subjectOf": {
-        "@id": "https://thekaal.co/movement.html#page"
-      },
+      "subjectOf": [
+        {
+          "@id": "https://thekaal.co/movement.html#page"
+        },
+        {
+          "@id": "https://thekaal.co/#box-film"
+        }
+      ],
       "additionalProperty": [
         {
           "@type": "PropertyValue",
@@ -1130,6 +1157,27 @@ a{color:inherit}
 .plate-cap{margin:.95rem 0 0;font-size:.75rem;letter-spacing:.2em;
   text-transform:uppercase;color:var(--faint)}
 
+/* The box. The film is upright, so its frame is too, and never taller than
+   most of a screen. The poster is not given the plates' 1.09 lift: it has
+   to sit exactly where the film's first frame will, or the tap reads as a
+   jump. The play mark sits above the vignette; the vignette goes once the
+   film is playing, because it would darken the controls. The focus ring is
+   drawn inside, since the plate clips anything drawn outside it. */
+.plate-box{aspect-ratio:9/16;width:min(100%,26rem,calc(78svh * 9 / 16));margin-inline:auto}
+.box-film{position:absolute;inset:0;display:block}
+.box-film img,.plate-box video{display:block;width:100%;height:100%;object-fit:cover;transform:none}
+.plate-box video{background:var(--void)}
+.box-film:focus-visible{outline-offset:-5px}
+/* Below centre on purpose: dead centre sat exactly on the wordmark on the
+   lid, and hid the one thing the poster is there to show. */
+.box-play{position:absolute;z-index:2;left:50%;top:64%;width:4.5rem;height:4.5rem;margin:-2.25rem 0 0 -2.25rem;
+  border:1px solid var(--gold);border-radius:50%;background:rgba(8,9,8,.5);
+  transition:background-color .4s var(--ease),transform .4s var(--ease)}
+.box-play::before{content:"";position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);
+  border-style:solid;border-width:.62rem 0 .62rem 1.05rem;border-color:transparent transparent transparent var(--gold)}
+.box-film:hover .box-play,.box-film:focus-visible .box-play{background:rgba(198,161,91,.2);transform:scale(1.06)}
+.plate-box.playing::after{display:none}
+
 /* Two-column act: words left, picture right, and neither crowds. */
 .split{display:grid;gap:var(--beat);align-items:center}
 /* Stacked, the grid gap is the whole distance from words to picture.
@@ -1594,7 +1642,34 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 08 THE MOVEMENT. The only glow on the site, and now
+<!-- ════════ 08 THE BOX. The act before this one says every piece is
+     opened, checked and closed again before it is boxed. This one does not
+     say it again. It shows the box.
+
+     A picture of a play button until somebody asks for the film. Nothing
+     of the video is fetched before that tap — not its metadata, not a
+     byte — which is the same discipline the hero keeps with its frames,
+     and why no Save-Data, 2g or reduced-motion gate is needed here: none
+     of them can be crossed without a tap. Without JavaScript the link
+     opens the file itself. ════════ -->
+<section class="act act-tall" data-world="emerald" data-tick="8">
+  <div class="hold split flip">
+    <div class="col-a">
+      <p class="label rise">08 · The box</p>
+      <h2 class="statement rise">The next time it opens, it is yours.</h2>
+      <p class="sub rise">Eighteen seconds, with sound.</p>
+    </div>
+    <div class="plate plate-box rise">
+      <a class="box-film" href="assets/video/box.mp4" aria-label="Play the film of the KAAL box: eighteen seconds, with sound">
+        <img src="assets/video/box-poster.webp" width="1080" height="1920" loading="lazy" decoding="async"
+             alt="The green KAAL box, closed, on a bedside table, a hand reaching for the lid.">
+        <span class="box-play" aria-hidden="true"></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ 09 THE MOVEMENT. The only glow on the site, and now
      the only proper noun on it.
 
      This act used to run 260 words about "the movement" and never once
@@ -1612,10 +1687,10 @@ a{color:inherit}
      Trimmed to the claim and the promise. The specification, the oscillator
      and the argument for quartz live on movement.html, one link away,
      for the reader who wants them. ════════ -->
-<section class="act act-tall" data-world="midnight" data-tick="8" id="movement">
+<section class="act act-tall" data-world="midnight" data-tick="9" id="movement">
   <div class="hold split">
     <div class="col-a">
-      <p class="label rise">08 · The movement</p>
+      <p class="label rise">09 · The movement</p>
       <h2 class="statement rise">Inside every one of them, a <em>Seiko Epson</em> movement from Japan.</h2>
       <p class="sub rise">Everything you can see is made in India, by hand. The one part that keeps time comes from Japan — the only part you cannot judge by looking, so the one where the name matters most.</p>
       <p class="sub rise"><strong>We back it for twenty four months from dispatch</strong> — <a href="legal.html#warranty">in writing</a>, the same for everybody.</p>
@@ -1632,10 +1707,10 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 09 THE DOOR ════════ -->
-<section class="act act-tall" data-world="void" data-tick="9">
+<!-- ════════ 10 THE DOOR ════════ -->
+<section class="act act-tall" data-world="void" data-tick="10">
   <div class="hold door">
-    <p class="label leaf leaf-l" style="justify-content:center">09 · The door</p>
+    <p class="label leaf leaf-l" style="justify-content:center">10 · The door</p>
     <h2 class="statement leaf leaf-r">Seven days.</h2>
     <div class="door-rule" aria-hidden="true"></div>
     <p class="sub leaf leaf-l">Wear it. If it is not you, send it back unworn and unmarked inside seven days and we refund it. We will not ask why.</p>
@@ -1652,10 +1727,10 @@ a{color:inherit}
   </div>
 </section>
 
-<!-- ════════ 10 THE TWENTY ════════ -->
-<section class="act act-tall" data-world="ember" data-tick="10" id="twenty">
+<!-- ════════ 11 THE TWENTY ════════ -->
+<section class="act act-tall" data-world="ember" data-tick="11" id="twenty">
   <div class="hold">
-    <p class="label rise">10 · The twenty</p>
+    <p class="label rise">11 · The twenty</p>
     <h2 class="statement rise"><span id="remWord">Eighteen</span> remain.</h2>
     <p class="sub rise">Tap a dial to see the numbers it still has, then pick yours. Struck numbers are gone.</p>
 
@@ -2778,6 +2853,35 @@ function driveWorld(){
   $$("img").forEach(function(img){
     img.addEventListener("error", function(){ fallback(img); });
     if(img.complete && img.naturalWidth === 0) fallback(img);
+  });
+})();
+
+/* ── The box. The film is fetched on the tap and not one moment earlier.
+      The <video> does not exist until then, so there is nothing for a
+      browser to preload, and it is created inside the tap so that playing
+      with sound is allowed. A modified click (new tab, save) is left to the
+      link, which is also what anyone without JavaScript gets. ── */
+(function boxFilm(){
+  var a = $(".box-film");
+  if(!a) return;
+  a.addEventListener("click", function(e){
+    if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    var plate = a.parentNode, img = $("img", a);
+    var v = document.createElement("video");
+    v.controls = true;
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.preload = "auto";
+    if(img) v.poster = img.currentSrc || img.src;
+    v.setAttribute("aria-label", "The KAAL box, opened. Eighteen seconds, with sound.");
+    v.src = a.getAttribute("href");
+    plate.replaceChild(v, a);
+    plate.classList.add("playing");
+    v.focus({ preventScroll:true });   /* the focused link has just gone; keep a keyboard in place */
+    var go = v.play();
+    if(go && go.catch) go.catch(function(){});   /* refused: the controls are still there */
+    track("film");
   });
 })();
 

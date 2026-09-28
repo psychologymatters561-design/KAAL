@@ -242,6 +242,11 @@ for (const f of pages) {
 }
 for (const r of refs) {
   const p = join(root, r);
+  /* A film is fetched on a tap, on whatever connection the tap happens on.
+     12MB is the ceiling for playing through on ordinary 4G without a stall;
+     the box film was encoded to 6MB against it. */
+  if (/\.(mp4|webm)$/i.test(r) && existsSync(p) && statSync(p).size > 12e6)
+    soft(`${r} is ${(statSync(p).size / 1e6).toFixed(1)}MB — above the 12MB a phone on 4G plays through without stalling`);
   if (!existsSync(p)) {
     /* The eight photographs are a known pending state with a designed
        fallback, so they are a warning and never a failure. */
@@ -285,6 +290,30 @@ for (const f of pages) {
        every type in it is a bare word, and the block is read as nothing. */
     if (!/schema\.org/.test(JSON.stringify(ld && ld["@context"] || "")))
       bad(`${f}: JSON-LD block ${i + 1} has no schema.org @context — it parses and means nothing`);
+
+    /* Media the structured data points at. These are absolute URLs, so the
+       src/href sweep in §5 never sees them — and a VideoObject whose file or
+       thumbnail is missing is dropped by every engine that fetches it, while
+       the page itself still looks fine. A video also has to carry what a
+       video result needs, or it is never shown as one. */
+    const walk = (n) => {
+      if (Array.isArray(n)) return n.forEach(walk);
+      if (!n || typeof n !== "object") return;
+      for (const k of ["contentUrl", "thumbnailUrl"]) {
+        for (const u of [].concat(n[k] || [])) {
+          const local = String(u).match(/^https:\/\/thekaal\.co\/(.+)$/)?.[1];
+          if (local && !existsSync(join(root, local))) bad(`${f}: JSON-LD ${k} ${u} is not in the repo`);
+        }
+      }
+      if (n["@type"] === "VideoObject") {
+        for (const k of ["name", "description", "thumbnailUrl", "uploadDate", "contentUrl"])
+          if (!n[k]) bad(`${f}: VideoObject ${n["@id"] || ""} has no ${k} — it cannot appear as a video result`);
+        if (n.duration && !/^PT(\d+H)?(\d+M)?(\d+(\.\d+)?S)?$/.test(n.duration))
+          bad(`${f}: VideoObject duration "${n.duration}" is not ISO 8601`);
+      }
+      Object.values(n).forEach(walk);
+    };
+    walk(ld);
   }
   if (f === "index.html" && !blocks.length) soft("index.html carries no structured data");
   const robotsMetas = (t.match(/<meta\s+name="robots"/gi) || []).length;

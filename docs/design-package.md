@@ -175,7 +175,10 @@ to send.
    Indian brand is committing to.
 4. **Desire.** Jade, onyx, brass, bone, each in its own world.
 5. **Justify.** The hands. Effort that is visible raises perceived worth;
-   labour nobody sees does not.
+   labour nobody sees does not. Then the box: the hands say every piece is
+   opened, checked and closed again, and the next act does not say it a
+   second time — it shows the box, and says the next time it opens it is
+   the buyer's.
 6. **De-risk.** The heart, then the door. Warranty, then returns.
 7. **Qualify.** Who this is not for.
 8. **Act.** The twenty.

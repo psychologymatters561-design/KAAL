@@ -227,7 +227,14 @@ async function postOrder(request, env) {
   /* Placing the hold here rather than trusting the page's keepalive call
      means the number is held by the act of being priced, which is the
      closest thing to intent this worker can observe. A failure to hold
-     is not a failure to sell: the order is already good. */
+     is not a failure to sell: the order is already good.
+
+     held_for goes back to the page only when the hold was actually
+     written. The page used to promise one on every closed checkout,
+     including from a worker with no KV bound and so nowhere to keep it —
+     and a hold that is promised and not real is worse than none. It is a
+     duration, not a timestamp, so a buyer's wrong clock cannot misstate it. */
+  let heldFor = 0;
   if (env.KAAL_STATE) {
     try {
       await env.KAAL_STATE.put(
@@ -235,6 +242,7 @@ async function postOrder(request, env) {
         JSON.stringify({ by, until: Date.now() + HOLD_SECONDS * 1000 }),
         { expirationTtl: HOLD_SECONDS }
       );
+      heldFor = HOLD_SECONDS;
     } catch (e) { console.log("Hold failed after a good order:", String(e).slice(0, 120)); }
   }
 
@@ -250,7 +258,8 @@ async function postOrder(request, env) {
     amount: order.amount,
     currency: order.currency,
     key_id: env.RAZORPAY_KEY_ID,
-    n
+    n,
+    held_for: heldFor
   });
 }
 

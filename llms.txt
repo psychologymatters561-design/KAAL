@@ -110,6 +110,10 @@ Series 01 is open. There are no customer reviews, ratings or testimonials on
 this site yet; the first will come from the people who own one of the twenty,
 published unedited with their number.
 
-KAAL cannot currently take a payment on the site: the checkout is not yet live
-and every buy button says so rather than pretending otherwise. Enquiries go to
+Checkout is live on the site. Payment runs through Razorpay Standard Checkout,
+which opens over thekaal.co itself rather than sending the buyer to another
+page. The price is set by KAAL's server and never by the browser: the page
+asks for a number and is told what it costs, so nothing a buyer's browser does
+can change the amount charged. A payment is only treated as complete once the
+server has checked Razorpay's signature on it. Enquiries go to
 connect@thekaal.co.

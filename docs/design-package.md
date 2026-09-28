@@ -146,11 +146,24 @@ Underneath it, at the exact moment of maximum hesitation:
 Delivery and risk reversal in nine words, at the only place on the page where
 someone is actually deciding.
 
-**The sticky bar does not exist until the visitor has seen the four faces**,
-and it disappears again once the real button is on screen. A buy bar shown
-before desire is built is the most common way a page like this loses the sale
-it was designed to make, and two buttons saying the same thing at once reads
-as a checkout, not a house.
+**The sticky bar does not exist until the visitor is inside the twenty**, and
+from there it stays to the foot of the page. Not hidden, not faded: it is a
+`<template>` until then, so it is not in the document at all. A purchase
+button shown before the visitor has been given a single fact about the
+product creates reactance, not urgency — it reads as a shop wanting the sale
+more than the buyer does. Shown to someone who is already choosing a number,
+the same button is just the mechanism within reach. It keys off the same line
+that colours the world (the act that owns the middle of the screen), so there
+is no second idea of where the reader is.
+
+It says what the visitor has done, and nothing they have not. Before they
+have tapped a dial or a number of their own it reads *Choose your number* and
+takes them to the dials — the page's default choice is never offered for
+sale. After, it names their number and dial and opens checkout.
+
+Do not move it earlier for exposure. More impressions of a buy button in the
+narrative acts are more impressions of the one message this page is built not
+to send.
 
 ## 6. The order of the acts is a funnel, not a slideshow
 

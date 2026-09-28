@@ -118,22 +118,29 @@ To turn it on:
 Leave `pay` empty and none of this code is reachable — the page behaves exactly
 as it did before any of it existed.
 
+**Holds need KV, and the page only says there is one when there is.** `/order`
+holds the number for twelve minutes, but only if the `KAAL_STATE` namespace is
+bound — and in `wrangler.toml` that block is still commented out, so today no
+hold is written. The page used to tell every buyer who closed checkout that
+their number was "held for you for a few minutes" regardless. It now says so
+only when `/order` answers with `held_for`, which the worker sends only after
+the hold is actually written: *"Number 07 is yours for the next eleven minutes
+while you complete payment."* To turn holds on, create the namespace, uncomment
+the block, and `wrangler deploy` — the redeploy is also what ships `held_for`.
+
 `sold` drives the strike-throughs on the twenty, the remaining count, the rail
 ticks, the nav, the sticky bar and the `<title>`.
 
-### 3. Confirm what was drafted, not supplied
+### 3. What was drafted, and what is now confirmed
 
-Search `UNCONFIRMED` in `index.html`. Two things in the footer are required on
-display by the Consumer Protection (E-Commerce) Rules 2020 and are not yet
-sourced from you:
+Shipping within India is confirmed to sit inside ₹5,999, and the `UNCONFIRMED`
+marker that asked is gone — none remain in any page. Country of
+origin and the grievance officer's name, email and phone are on `legal.html`.
 
-- registered seller name, address, GSTIN, and the grievance officer's name,
-  email and phone
-- country of origin, a declarable under the Legal Metrology (Packaged
-  Commodities) Rules
-
-Also confirm whether shipping genuinely sits inside ₹5,999, which the footer
-currently states.
+Still not on the site, and required on display by the Consumer Protection
+(E-Commerce) Rules 2020: the seller's registered legal name, its GSTIN if it is
+registered, and its address — which `legal.html` currently offers on request
+rather than displays.
 
 ### 4. Meta pixel
 
@@ -175,10 +182,14 @@ that sends a buyer who is already here to someone else. The site now names
 nobody but itself. The durable answer is off-site — a KAAL trademark in
 Class 14 (watches) — not a paragraph on the page.
 
-**What the repo now does by itself.** `.github/workflows/indexnow.yml` posts
-every URL in the sitemap to IndexNow on each push that touches a page. One
-submission reaches Bing, Yandex, Seznam and Naver, because they share the
-feed — and Bing is the one that matters most and the one everyone forgets,
+**What the repo now does by itself.** On every push to `main` that touches a
+page, `.github/workflows/indexnow.yml` first re-dates `sitemap.xml` from git —
+`tools/gen-sitemap.mjs` sets each `<lastmod>` to the date of the last commit
+that touched that page, and the workflow commits it back if it moved — and
+then posts to IndexNow the pages that push actually changed, not all six. The
+dates used to be typed by hand and were stale within days; nobody has to
+remember them now. One submission reaches Bing, Yandex, Seznam and Naver,
+because they share the feed — and Bing is the one that matters most and the one everyone forgets,
 because Bing's index is what ChatGPT search and Copilot read. The key file at
 the repo root is the ownership proof IndexNow fetches; it is public by design,
 and `check.mjs` fails the build if it ever stops matching the key the workflow
@@ -262,8 +273,12 @@ asset the page names actually exists (Pages is case-sensitive, your laptop is
 not), that `CNAME` and `.nojekyll` survived, that the script parses, that no
 id is duplicated, that `dials` covers every number in the edition, that nothing
 in the diff looks like a credential, and that `sold:` appears exactly once —
-which is the contract the sold-sync worker's regex depends on. The same script
-runs in CI on every pull request.
+which is the contract the sold-sync worker's regex depends on. It parses every
+JSON-LD block on every page, whatever order its attributes are in, and fails
+on one it cannot read. And it fails if `llms.txt` says anything about whether
+checkout is live that the config does not — it went on saying "not yet live"
+after checkout went live, and nothing noticed. The same script runs in CI on
+every pull request.
 
 ---
 
@@ -582,6 +597,20 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   as the real gap between the film's edge and the stage's: worst case
   **8.1px**, against 0.4px before the transform-order fix
 - The main animation loop measured **asleep** when idle rather than assumed to be
+- **The dock is not in the document before the twenty.** Stepped through the
+  page at 1440×900 and as a 390 phone: absent at every position from the film
+  to 20px short of the twenty owning the middle of the screen; mounted 20px
+  inside it; still there at the foot, clearing the footer's last row by 38px;
+  removed again on scrolling back up to 08 and back on returning. It reads
+  *Choose your number* until the visitor taps a dial or a number of their own —
+  the page's default choice is never offered for sale — and that button
+  scrolls to the dials and puts keyboard focus on the active one. Reachable by
+  Tab from the main button, fires on Enter. No overflow with it mounted at
+  360, 390, 768, 1024, 1440 or 2560 px. With JavaScript off it never renders
+- **A hold is stated only when one exists.** Checkout dismissed with the worker
+  answering `held_for: 720`: *"…Number 07 is yours for the next eleven minutes
+  while you complete payment."* With no `held_for`, or `0`: *"Checkout closed.
+  Nothing has been charged."* and nothing more
 
 **Known, and older than this change:** at a 320px viewport the document is
 11px wider than the viewport. Measured identically on `main` and on this
@@ -613,6 +642,8 @@ assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/
 assets/img/hero-still.webp  the hero when the film does not run
 tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never
                          at deploy: its output is committed, not built.
+tools/gen-sitemap.mjs    dates sitemap.xml from git history. Run by CI on
+                         every push to main; running it by hand is harmless
 assets/brand/            the KΛΛL wordmark, both A's bare, matching the dial
 incoming/DROP.md         the eight filenames and the film encode
 docs/design-package.md   why the page is shaped the way it is

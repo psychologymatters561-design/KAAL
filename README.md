@@ -533,10 +533,10 @@ byte — and the reduced motion, Save-Data and 2g gates are satisfied by
 construction rather than by checks, because none of them can be crossed
 without a tap. Without JavaScript the play mark is a link to the file.
 
-The source was HEVC 10-bit at 1440×2560 and 60fps, which Firefox and many
-Android builds of Chrome cannot play at all. It was also tagged HLG HDR while
-graded like SDR: tone-mapping it properly made it flat, and honouring the tag
-blew the highlights, so its pixels are kept and re-tagged BT.709. Encoded as:
+The source is HEVC at 1440×2560 and 60fps, which not every browser can play,
+at 14.8MB. It is re-encoded to H.264, which every browser and every Android
+hardware decoder plays, at 1080×1920 and 30fps — the size the frame is actually
+shown at on a high-density phone, and half the frames to decode. Encoded as:
 
 ```
 ffmpeg -i source.mp4 \
@@ -547,9 +547,18 @@ ffmpeg -i source.mp4 \
 ffmpeg -i assets/video/box.mp4 -frames:v 1 -c:v libwebp -quality 78 assets/video/box-poster.webp
 ```
 
-CRF 24 rather than 20: **6.0MB against 9.6MB, SSIM 0.9712 against 0.9728**,
-and the sub-dial numerals and the guilloché indistinguishable at 1:1. The
-audio is the source's own, copied, not re-encoded.
+**6.5MB, 2.98 Mbps, SSIM 0.9741** against a lossless render at the same size,
+with the sub-dial numerals and the guilloché indistinguishable at 1:1. The
+poster is 47KB. The audio is the source's own, copied, not re-encoded.
+
+Whether it stalls was computed from the file rather than guessed: the byte
+offset of every packet says how much must have arrived by each moment of
+playback, so the startup buffer that guarantees no stall on a given link is
+exact. **0.33s at 10 Mbps, 0.53s at 4 Mbps** — and Chrome buffers about a
+second before the first frame at 4 Mbps, so it plays through. At 1.6 Mbps it
+would need 15.5s, below the film's own bitrate, and no 1080p encode avoids
+that. CRF 25 was tried and saves 0.8MB for 0.52s instead of 0.53s at 4 Mbps,
+which no phone would feel, so the sharper file stayed.
 
 ### Entrances that earn their own
 
@@ -643,11 +652,13 @@ Chromium at 1440×900 and as a Pixel 5, run rather than reasoned about.
   2px gold ring inside the frame, and on Enter the film is requested 39ms
   later and plays with sound, controls, no loop and no autoplay, with focus
   moved onto it. Played through to the end on a throttled phone: **0 stalls**
-  at 10 Mbps (first frame 0.35s) and at 4 Mbps (1.2s). At DevTools' "Slow 4G",
-  1.6 Mbps — below the film's own 2.7 — it stalls five times for 17s, which
-  no encode at 1080p avoids. This Chromium has no H.264 decoder, so those runs
-  played a VP9 copy at a slightly higher bitrate through the same page code;
-  the MP4 itself was decoded end to end by ffmpeg without an error. No
+  at 10 Mbps, first frame 0.34s. This Chromium has no H.264 decoder, so those
+  runs played a VP9 copy through the same page code, held at a constant
+  3.2 Mbps — above the film's 2.98 average and never below it, so harsher than
+  the real file. At 4 Mbps that copy stalled once for 425ms; the real file,
+  computed from its own packets (above), needs 0.53s of buffer there and gets
+  about a second. At DevTools' "Slow 4G", 1.6 Mbps, it stalls, as any 1080p
+  film would. The MP4 was decoded end to end by ffmpeg without an error. No
   overflow with the act on screen at 360, 390, 768, 1024, 1440 or 2560 px.
   With JavaScript off the play mark is a link to the file
 

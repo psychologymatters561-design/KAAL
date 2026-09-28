@@ -244,7 +244,7 @@ for (const r of refs) {
   const p = join(root, r);
   /* A film is fetched on a tap, on whatever connection the tap happens on.
      12MB is the ceiling for playing through on ordinary 4G without a stall;
-     the box film was encoded to 6MB against it. */
+     the box film was encoded to 6.5MB against it. */
   if (/\.(mp4|webm)$/i.test(r) && existsSync(p) && statSync(p).size > 12e6)
     soft(`${r} is ${(statSync(p).size / 1e6).toFixed(1)}MB — above the 12MB a phone on 4G plays through without stalling`);
   if (!existsSync(p)) {

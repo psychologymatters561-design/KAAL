@@ -1803,16 +1803,29 @@ a{color:inherit}
               <span class="piece-bezel"></span>
               <span class="piece-dial" id="pieceDial"></span>
             </div>
+            <!-- Each shot is shown at most 248px wide (the stage's clamp:
+                 10.5rem, 31vw, 15.5rem), so a phone is offered 380 and 480
+                 pixel copies and takes the smallest that is still sharp at
+                 its own pixel density. A 3x phone still gets the 760.
+                 Made from the 760 originals, SSIM ≥ 0.99 at display size. -->
             <img class="piece-shot" data-dial="emerald" src="assets/img/watch-emerald.webp"
+              srcset="assets/img/watch-emerald-380.webp 380w, assets/img/watch-emerald-480.webp 480w, assets/img/watch-emerald.webp 760w"
+              sizes="(min-width: 800px) 248px, (min-width: 542px) 31vw, 168px"
               alt="KAAL Series 01 wristwatch, Emerald dial, gold tone bezel and two tone steel bracelet"
               width="760" height="1197" loading="lazy" decoding="async">
             <img class="piece-shot" data-dial="midnight" src="assets/img/watch-midnight.webp"
+              srcset="assets/img/watch-midnight-380.webp 380w, assets/img/watch-midnight-480.webp 480w, assets/img/watch-midnight.webp 760w"
+              sizes="(min-width: 800px) 248px, (min-width: 542px) 31vw, 168px"
               alt="KAAL Series 01 wristwatch, Midnight dial, gold tone bezel and two tone steel bracelet"
               width="760" height="1197" loading="lazy" decoding="async">
             <img class="piece-shot" data-dial="champagne" src="assets/img/watch-champagne.webp"
+              srcset="assets/img/watch-champagne-380.webp 380w, assets/img/watch-champagne-480.webp 480w, assets/img/watch-champagne.webp 760w"
+              sizes="(min-width: 800px) 248px, (min-width: 542px) 31vw, 168px"
               alt="KAAL Series 01 wristwatch, Champagne dial, gold tone bezel and two tone steel bracelet"
               width="760" height="1197" loading="lazy" decoding="async">
             <img class="piece-shot" data-dial="ivory" src="assets/img/watch-ivory.webp"
+              srcset="assets/img/watch-ivory-380.webp 380w, assets/img/watch-ivory-480.webp 480w, assets/img/watch-ivory.webp 760w"
+              sizes="(min-width: 800px) 248px, (min-width: 542px) 31vw, 168px"
               alt="KAAL Series 01 wristwatch, Ivory dial, gold tone bezel and two tone steel bracelet"
               width="760" height="1197" loading="lazy" decoding="async">
           </div>
@@ -1976,6 +1989,10 @@ var KAAL = {
      lets anyone choose — which is the difference between two buyers
      colliding on 07 and one of them being told, before they pay. */
   api:      "https://kaal-edition.kaal-edition-hq.workers.dev",
+  /* The rehearsal worker: same code, Razorpay test keys, records no sale.
+     Used only when this file is opened somewhere that is not thekaal.co
+     and is a known rehearsal address — see the line under this object. */
+  apiTest:  "https://kaal-edition-test.kaal-edition-hq.workers.dev",
 
   /* ── HERO DEPTH. Three planes, three rates.
 
@@ -2092,6 +2109,12 @@ var KAAL = {
    16:"ivory",    17:"ivory",    18:"ivory",    19:"ivory",    20:"ivory"
   }
 };
+/* A rehearsal never touches the live worker. This file on localhost, or on
+   the Cloudflare Pages preview, talks to the test worker instead — so a
+   test payment can never mark a real number sold. thekaal.co, and anywhere
+   else, is left exactly as configured above. assets/tags.js makes the same
+   choice for measurement. */
+if(/^(localhost|127\.0\.0\.1)$|kaal-preview[a-z0-9-]*\.pages\.dev$/.test(location.hostname)) KAAL.api = KAAL.apiTest;
 
 var FACE = {
   emerald: { name:"Emerald", css:"radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)", tint:"rgba(93,143,110,.15)" },
@@ -3361,19 +3384,10 @@ if(giftNote && giftCount){
   });
 }
 
-/* The twenty arriving on screen is the ViewContent the ad account learns
-   from: a landing is a PageView, reaching the numbers is intent. Once. */
-(function viewed(){
-  var t = document.getElementById("twenty");
-  if(!t || !("IntersectionObserver" in window)) return;
-  var io = new IntersectionObserver(function(es){
-    for(var i = 0; i < es.length; i++) if(es[i].isIntersecting){
-      track("view", chosen ? { no:pad(chosen), dial:FACE[KAAL.dials[chosen]].name } : {});
-      io.disconnect(); return;
-    }
-  }, { threshold:0.2 });
-  io.observe(t);
-})();
+/* ViewContent is a dial being chosen (chooseFace, above), not the twenty
+   scrolling into view: the scroll version fired for everybody with the
+   page's own default, No. 03, which taught the ad account that every
+   visitor looked at the same watch. */
 var heroCta = $("#heroCta");
 if(heroCta) heroCta.addEventListener("click", function(){ track("hero"); });
 
@@ -3659,12 +3673,18 @@ function startCheckout(n, el){
 
   var g = giftInfo();
 
+  /* Where this buyer came from — UTM tags, the ad click, the hashed browser
+     id — kept by assets/tags.js since they landed. The worker writes it
+     onto the order. Empty when tags.js never loaded, which costs nothing. */
+  var a = {};
+  try{ a = (window.kaalAttr && window.kaalAttr()) || {}; }catch(e){}
+
   loadRzp().then(function(){
     return fetch(base + "/order", {
       method:"POST", mode:"cors", credentials:"omit",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ n:n, by:clientToken, gift:g.on, gift_note:g.note,
-                             fbp:cookie("_fbp"), fbc:cookie("_fbc") })
+                             fbp:cookie("_fbp"), fbc:cookie("_fbc") || a.fbc || "", attr:a })
     });
   }).then(function(r){
     return r.json().catch(function(){ return null; });
@@ -3784,6 +3804,11 @@ function confirmPayment(res, n, done){
        route and is kept exactly, so both ways of paying land on the
        same page saying the same thing. */
     try{ localStorage.setItem("kaal_claimed_no", pad(n)); }catch(e){}
+    /* The worker's word that this payment is real, handed to claimed.html
+       for one use: it is what lets that page send Purchase, once, and it
+       is thrown away as soon as it has. Without it — a reload, a pasted
+       link — the page confirms and sends nothing. */
+    try{ if(d.purchase) sessionStorage.setItem("kaal_purchase", JSON.stringify(d.purchase)); }catch(e){}
     markSold(n);
     location.href = "claimed.html?razorpay_payment_id=" + encodeURIComponent(ref);
   }).catch(unconfirmed);

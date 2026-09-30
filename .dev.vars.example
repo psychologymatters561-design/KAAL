@@ -25,6 +25,10 @@ RAZORPAY_WEBHOOK_SECRET=
 GITHUB_TOKEN=
 
 # Optional. Meta Conversions API — leave empty to send nothing to Meta.
-META_PIXEL_ID=
+# The Pixel ID is public and is in the worker's code.
 META_CAPI_TOKEN=
 META_TEST_EVENT_CODE=
+
+# Locally you are always rehearsing: use Razorpay TEST keys above, and keep
+# this at "0" so a test payment is never committed to index.html on GitHub.
+COMMIT_SOLD=0

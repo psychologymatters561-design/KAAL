@@ -35,6 +35,19 @@
      POST /order {n}    the order for that number, priced by this file
      POST /verify {..}  the signature, checked before anything is believed
 
+   AND WHAT META IS TOLD. One more route, and one more job for the webhook:
+
+     POST /event {..}   the server's copy of a browsing event the Pixel
+                        just sent, under the same event id
+
+   Every event the page sends to the Pixel is sent here too, with the id
+   the Pixel was given, and this worker forwards it to the Conversions
+   API with the buyer's IP and browser attached. Meta sees both, matches
+   them on (event name, event id), and counts one. Purchase is the
+   exception and never comes through /event: a browser cannot say that
+   money moved. The webhook says it, once per order, after Razorpay has
+   signed for it — see TELLING META below.
+
    Two things about /order are the whole point of it existing. It reads
    the price from PRICE_PAISE and ignores whatever the browser said the
    watch costs — a page that can name its own price is a page that sells
@@ -70,8 +83,20 @@ const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
 
+/* The Pixel this worker reports to. Public — it is in assets/tags.js and in
+   every page's noscript tag — so it lives in the code rather than as a
+   secret; META_PIXEL_ID, if set, still wins. tools/check.mjs fails the
+   build if this and tags.js ever disagree. */
+const PIXEL_ID = "1607748840888926";
+const SERIES   = "series01";        /* content_ids are series01-01 … series01-20 */
+const DIALS    = ["Emerald", "Midnight", "Champagne", "Ivory"];
+
+/* What /event will forward, and nothing else. Purchase is not on it and
+   must never be: it is sent from the webhook, after a signature. */
+const RELAYED = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "ChooseNumber", "GiftOrder"];
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
@@ -81,7 +106,8 @@ export default {
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
-    if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
+    if (request.method === "POST" && path === "/event") return postEvent(request, env, ctx);
+    if (request.method === "POST") return webhook(request, env, ctx);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
   }
@@ -293,7 +319,8 @@ async function postVerify(request, env) {
      free to name any of the twenty, and a script that named all twenty
      would close the shop with one real ₹5,999 payment. Razorpay is asked
      instead, and it answers with the note this worker wrote itself. */
-  const n = (await numberFromOrder(env, orderId)) || 0;
+  const order = await readOrder(env, orderId);
+  const n = parseInt(order && order.notes && order.notes.kaal_no, 10) || 0;
 
   /* KV only. The webhook still owns the commit that makes index.html
      true on its own, and two writers on one file would be a race for no
@@ -309,12 +336,47 @@ async function postVerify(request, env) {
     } catch (e) { console.log("KV update after verify failed:", String(e).slice(0, 120)); }
   }
 
-  return json(request, env, { ok: true, n: n || null });
+  return json(request, env, { ok: true, n: n || null, purchase: await purchaseRecord(env, order, orderId, paymentId, n) });
+}
+
+/* THE ONLY THING THAT LETS A BROWSER SAY "PURCHASE".
+
+   claimed.html used to fire the Pixel's Purchase for anybody who opened it
+   with a payment id in the address bar — any string, from anyone, at
+   ₹5,999 a time. Now the page carries this record from here to there in
+   sessionStorage, fires once if and only if it holds one for the payment
+   in its address, and throws it away. A reload, the back button, a
+   bookmark or a shared link finds nothing and sends nothing.
+
+   event_id is the ORDER id, and so is the webhook's. One order is one
+   watch: a card declined and retried inside the same checkout is two
+   payments against one order, and still exactly one Purchase.
+
+   Email and telephone come from Razorpay's copy of the payment, hashed
+   here. They go back only to the browser that just proved, with a
+   signature, that it made this payment — they are the buyer's own. */
+async function purchaseRecord(env, order, orderId, paymentId, n) {
+  const paise = (order && order.amount) || parseInt(env.PRICE_PAISE || "0", 10);
+  const rec = {
+    event_id:   String(orderId),
+    order_id:   String(orderId),
+    payment_id: String(paymentId),
+    no:         n ? pad2(n) : "",
+    value:      paise / 100,
+    currency:   (order && order.currency) || env.CURRENCY || "INR"
+  };
+  const payment = await readPayment(env, paymentId);
+  if (payment && payment.order_id === orderId) {
+    const h = await hashedContact(payment);
+    if (h.em) rec.em = h.em;
+    if (h.ph) rec.ph = h.ph;
+  }
+  return rec;
 }
 
 /* ══════════ 3. WHAT RAZORPAY SAYS ══════════ */
 
-async function webhook(request, env) {
+async function webhook(request, env, ctx) {
   const rawBody   = await request.text();
   const signature = request.headers.get("x-razorpay-signature") || "";
 
@@ -332,19 +394,36 @@ async function webhook(request, env) {
   const entity    = (event.payload && event.payload.payment && event.payload.payment.entity) || {};
   const notes     = entity.notes || {};
   const paymentId = entity.id || "unknown";
-  const raw       = notes.kaal_no;
-  let   chosen    = parseInt(raw, 10);
 
-  /* These notes are on the PAYMENT, and nothing here wrote them. The
-     Payment Page route put the number there as a custom field; Standard
-     Checkout puts it there from the browser's checkout options. Both
-     arrive the same way and neither is this worker's own handwriting,
-     so when it is missing or nonsense the order is asked instead —
-     /order wrote kaal_no onto the order itself, somewhere no browser
-     can reach. A captured payment that goes unrecorded is the one
-     failure on this path that costs an actual watch, and it is worth
-     one extra call to avoid it. */
-  if (isNaN(chosen) && entity.order_id) chosen = await numberFromOrder(env, entity.order_id);
+  /* Which number sold. The ORDER's note first: /order wrote it there
+     itself, somewhere no browser can reach. The PAYMENT's note is only
+     the fallback, because nothing here wrote it — Standard Checkout puts
+     it there from the browser's checkout options, where a buyer who
+     edits the page can type any number they like over the one they were
+     priced for. The Payment Page route has no order note at all, which
+     is the one case the payment's copy is still read for. */
+  const order  = entity.order_id ? await readOrder(env, entity.order_id) : null;
+  const raw    = (order && order.notes && order.notes.kaal_no) || notes.kaal_no;
+  const chosen = parseInt(raw, 10);
+
+  /* Meta hears about the money whatever happens to the commit below. It
+     used to be told only after GitHub accepted the new sold array, so an
+     expired token, a busy API or a retry of a sale already recorded all
+     meant that Meta never learnt a purchase had happened at all. It is
+     idempotent per order (see sendPurchaseToMeta), so the retries that a
+     failed commit asks Razorpay for cannot send it twice. */
+  const meta = sendPurchaseToMeta(env, entity, order, chosen);
+  if (ctx && ctx.waitUntil) ctx.waitUntil(meta); else await meta;
+
+  /* A test-mode payment is not a sale. Without this, a single rehearsal
+     with Razorpay's test keys would commit a real number as SOLD to the
+     live page. The test worker (wrangler.toml [env.test]) sets
+     COMMIT_SOLD = "0"; a test key id turns it off here as well, in case
+     somebody ever pastes one into the production worker. */
+  if (commitDisabled(env)) {
+    console.log(`Test mode: payment ${paymentId} for number ${raw} verified, NOT recorded as sold.`);
+    return new Response("Test mode — verified, not recorded.", { status: 200 });
+  }
 
   /* The upper bound is read from the file itself rather than written
      here. The old `chosen > 20` was a second copy of `edition`, and the
@@ -372,9 +451,11 @@ async function webhook(request, env) {
   }
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
-  await sendPurchaseToMeta(env, entity, chosen);
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
+
+const testKeys = (env) => /^rzp_test_/.test(env.RAZORPAY_KEY_ID || "");
+const commitDisabled = (env) => env.COMMIT_SOLD === "0" || testKeys(env);
 
 /* Read, modify, write — and mean it. Two webhooks landing together both
    read the same blob sha, and the second PUT is rejected with a 409. The
@@ -455,92 +536,265 @@ async function readOrder(env, orderId) {
   }
 }
 
-async function numberFromOrder(env, orderId) {
-  const order = await readOrder(env, orderId);
-  return parseInt(order && order.notes && order.notes.kaal_no, 10);
+/* The payment itself, for the two things only Razorpay's copy of it holds:
+   the email and telephone the buyer typed into checkout, which this page
+   never sees because checkout is Razorpay's own frame. */
+async function readPayment(env, paymentId) {
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !paymentId) return null;
+  try {
+    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(paymentId)}`, { headers: razorpayAuth(env) });
+    if (!res.ok) { console.log("Payment read failed:", res.status); return null; }
+    return await res.json();
+  } catch (e) {
+    console.log("Payment read threw:", String(e).slice(0, 120));
+    return null;
+  }
 }
 
 /* ══════════ 3b. TELLING META ══════════
 
-   The browser's Pixel fires Purchase on claimed.html, and on iOS, in
-   Safari and behind an ad blocker it often never arrives. This is the
-   server's copy of the same purchase, sent once the webhook has proved
-   the money is real. Both carry the Razorpay payment id as the event id,
-   so Meta counts the pair as one sale rather than two.
+   Two routes into the Conversions API, one door out (sendToMeta).
 
-   Entirely optional. Without META_PIXEL_ID and META_CAPI_TOKEN it returns
-   before doing anything, and nothing it does can fail a sale: it runs
-   after the sale is recorded and swallows its own errors.
+   /event is the server's copy of what the Pixel just saw — a page view, a
+   dial, a number, the pay button — sent by the page with the same event
+   id it gave the Pixel, so Meta keeps one of each pair. It adds what only
+   a server has: the buyer's IP address and browser, read off the request.
 
-   Email and phone are hashed (SHA-256) before they leave this worker, as
-   Meta requires; nothing is sent in the clear. */
-async function sendPurchaseToMeta(env, entity, chosen) {
-  if (!env.META_PIXEL_ID || !env.META_CAPI_TOKEN) return;
+   The webhook sends Purchase, and only the webhook does, because only
+   the webhook arrives with Razorpay's signature on it.
+
+   Entirely optional. Without META_CAPI_TOKEN nothing is sent, and nothing
+   here can fail a sale: Purchase runs beside the commit, not in front of
+   it, and every error is logged and swallowed.
+
+   Email and phone are normalised and hashed (SHA-256) before they leave
+   this worker, as Meta requires; nothing is sent in the clear.
+
+   metaReady is also the second half of the test-mode guard: a worker on
+   Razorpay test keys reports to Meta only with a test event code, so a
+   rehearsal lands in Events Manager → Test events and never in the
+   numbers the ads are optimised on. */
+const metaReady = (env) => !!env.META_CAPI_TOKEN && !(testKeys(env) && !env.META_TEST_EVENT_CODE);
+
+async function sendPurchaseToMeta(env, entity, order, chosen) {
+  if (!metaReady(env)) return "skipped";
+  const eventId = String(entity.order_id || entity.id || "");
+  if (!eventId) return "skipped";
   try {
-    let m = entity.notes || {};
-    if (!m.ua && entity.order_id) {
-      const order = await readOrder(env, entity.order_id);
-      m = (order && order.notes) || m;
-    }
+    /* Once per order. Razorpay retries a webhook it did not like the
+       answer to, and a commit that fails asks it to; the marker is what
+       keeps a retry from being a second sale in the ad account. */
+    const mark = "meta:" + eventId;
+    if (env.KAAL_STATE && await env.KAAL_STATE.get(mark).catch(() => null)) return "already";
+
+    /* The order's notes are this worker's own handwriting; the payment's
+       are the browser's. Where both say something, the order wins. */
+    const m = Object.assign({}, entity.notes || {}, (order && order.notes) || {});
     /* Meta rejects a "website" event without the browser's user agent.
        The hosted Payment Page route never passes through /order, so it
        has none; the browser Pixel is its only record. */
-    if (!m.ua) { console.log("Meta CAPI skipped: no user agent on the order."); return; }
+    if (!m.ua) { console.log("Meta CAPI skipped: no user agent on the order."); return "skipped"; }
 
     const user = { client_user_agent: m.ua, country: [await sha256hex("in")] };
-    if (m.ip)  user.client_ip_address = m.ip;
-    if (m.fbp) user.fbp = m.fbp;
-    if (m.fbc) user.fbc = m.fbc;
-    const email = String(entity.email || "").trim().toLowerCase();
-    if (email) user.em = [await sha256hex(email)];
-    let phone = String(entity.contact || "").replace(/\D/g, "");
-    if (phone.length === 10) phone = "91" + phone;
-    if (phone) user.ph = [await sha256hex(phone)];
+    if (m.ip) user.client_ip_address = m.ip;
+    if (cleanFbp(m.fbp)) user.fbp = m.fbp;
+    if (cleanFbc(m.fbc)) user.fbc = m.fbc;
+    if (isHash(m.xid)) user.external_id = [m.xid];
+    const h = await hashedContact(entity);
+    if (h.em) user.em = [h.em];
+    if (h.ph) user.ph = [h.ph];
 
-    const payload = {
-      data: [{
-        event_name: "Purchase",
-        event_time: entity.created_at || Math.floor(Date.now() / 1000),
-        event_id: String(entity.id),
-        action_source: "website",
-        event_source_url: "https://thekaal.co/claimed.html",
-        user_data: user,
-        custom_data: {
-          currency: entity.currency || "INR",
-          value: (entity.amount || 0) / 100,
-          content_ids: ["KAAL-" + pad2(chosen)],
-          content_type: "product"
-        }
-      }]
-    };
-    if (env.META_TEST_EVENT_CODE) payload.test_event_code = env.META_TEST_EVENT_CODE;
-
-    const ver = env.META_API_VERSION || "v23.0";
-    const res = await fetch(`https://graph.facebook.com/${ver}/${encodeURIComponent(env.META_PIXEL_ID)}/events?access_token=${encodeURIComponent(env.META_CAPI_TOKEN)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) console.log("Meta CAPI refused the purchase:", res.status, (await res.text()).slice(0, 300));
+    const ok = await sendToMeta(env, [{
+      event_name: "Purchase",
+      event_time: entity.created_at || Math.floor(Date.now() / 1000),
+      event_id: eventId,
+      action_source: "website",
+      event_source_url: siteUrl(env) + "/claimed.html",
+      user_data: user,
+      custom_data: {
+        currency: entity.currency || "INR",
+        value: (entity.amount || 0) / 100,
+        content_ids: [contentId(parseInt(chosen, 10), env)],
+        content_type: "product",
+        num_items: 1,
+        order_id: eventId
+      }
+    }], 3);
+    if (ok && env.KAAL_STATE) {
+      await env.KAAL_STATE.put(mark, "1", { expirationTtl: 7 * 24 * 3600 }).catch(() => {});
+    }
+    return ok ? "sent" : "failed";
   } catch (e) {
-    console.log("Meta CAPI call threw:", String(e).slice(0, 160));
+    console.log("Meta CAPI purchase threw:", String(e).slice(0, 160));
+    return "failed";
   }
 }
 
+/* THE SERVER HALF OF EVERY BROWSING EVENT.
+
+   The page calls this with navigator.sendBeacon, as text/plain, so there
+   is no preflight and the request survives the page navigating away.
+   Everything Meta receives is either read off the request by this worker
+   (IP, browser) or checked against a short list of what it can be: six
+   event names, twenty numbers, four dials, and a price from this file.
+   A caller can choose which of those it claims; it cannot invent a value,
+   a product, or a Purchase.
+
+   The page only calls this when the browser's own Pixel actually loaded —
+   see assets/tags.js — so blocking Meta in the browser still blocks it
+   here, which is what legal.html promises. */
+async function postEvent(request, env, ctx) {
+  const headers = cors(request, env);
+  const reply = (status) => new Response(null, { status, headers });
+  if (!metaReady(env)) return reply(204);
+  /* Browsers put an Origin on a beacon's POST; the odd one that does not
+     still sends a Referer, and its origin is held to the same list. */
+  let from = request.headers.get("Origin") || "";
+  if (!from) { try { from = new URL(request.headers.get("Referer") || "").origin; } catch (e) { from = ""; } }
+  if (!originAllowed(from, env)) return reply(403);
+
+  const raw = await request.text().catch(() => "");
+  if (!raw || raw.length > 4096) return reply(400);
+  let b;
+  try { b = JSON.parse(raw); } catch (e) { return reply(400); }
+  if (!b || RELAYED.indexOf(b.name) < 0) return reply(400);
+  if (typeof b.id !== "string" || !/^[\w.-]{8,64}$/.test(b.id)) return reply(400);
+  let page;
+  try { page = new URL(String(b.url || "")); } catch (e) { return reply(400); }
+  if (!originAllowed(page.origin, env)) return reply(400);
+  const ua = request.headers.get("user-agent") || "";
+  if (!ua) return reply(400);
+
+  const user = { client_user_agent: ua.slice(0, 512) };
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  if (ip) user.client_ip_address = ip.slice(0, 64);
+  if (cleanFbp(b.fbp)) user.fbp = b.fbp;
+  if (cleanFbc(b.fbc)) user.fbc = b.fbc;
+  if (isHash(b.xid)) user.external_id = [b.xid];
+
+  const ev = {
+    event_name: b.name,
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: b.id,
+    action_source: "website",
+    event_source_url: page.href.slice(0, 1000),
+    user_data: user
+  };
+  if (b.name !== "PageView") {
+    const cd = {
+      content_ids: [contentId(parseInt(b.no, 10), env)],
+      content_type: "product",
+      value: parseInt(env.PRICE_PAISE || "0", 10) / 100,
+      currency: env.CURRENCY || "INR"
+    };
+    if (DIALS.indexOf(b.dial) > -1) cd.content_name = "KAAL Series 01 " + b.dial;
+    if (b.name === "InitiateCheckout") cd.num_items = 1;
+    ev.custom_data = cd;
+  }
+
+  const send = sendToMeta(env, [ev], 1);
+  if (ctx && ctx.waitUntil) ctx.waitUntil(send); else await send;
+  return reply(204);
+}
+
+/* The one door out. The token goes in the body, never in the URL, so it
+   cannot turn up in a log line that prints a request address. A send is
+   retried on a network error, a 429 or a 5xx; a 4xx is a mistake in what
+   was sent, and sending it again changes nothing. */
+async function sendToMeta(env, data, attempts) {
+  const ver = env.META_API_VERSION || "v23.0";
+  const pixel = env.META_PIXEL_ID || PIXEL_ID;
+  const body = { data, access_token: env.META_CAPI_TOKEN };
+  if (env.META_TEST_EVENT_CODE) body.test_event_code = env.META_TEST_EVENT_CODE;
+  for (let i = 0; i < attempts; i++) {
+    if (i) await new Promise(r => setTimeout(r, i === 1 ? 1000 : 3000));
+    try {
+      const res = await fetch(`https://graph.facebook.com/${ver}/${encodeURIComponent(pixel)}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) return true;
+      const text = (await res.text().catch(() => "")).slice(0, 300);
+      console.log(`Meta CAPI refused ${data[0].event_name} ${data[0].event_id}:`, res.status, text);
+      if (res.status < 500 && res.status !== 429) return false;
+    } catch (e) {
+      console.log("Meta CAPI call threw:", String(e).slice(0, 160));
+    }
+  }
+  return false;
+}
+
+/* Meta's normalisation, which is not optional: a hash of " A@B.com" is a
+   hash of nothing Meta holds. Email is trimmed and lower-cased. A phone is
+   digits only with the country code in front — Razorpay stores
+   +919876543210, which becomes 919876543210; a bare ten digit Indian
+   number gets its 91; a leading trunk zero is dropped first. */
+async function hashedContact(p) {
+  const out = {};
+  const email = String((p && p.email) || "").trim().toLowerCase();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) out.em = await sha256hex(email);
+  const phone = normPhone(p && p.contact);
+  if (phone) out.ph = await sha256hex(phone);
+  return out;
+}
+function normPhone(v) {
+  let d = String(v || "").replace(/\D/g, "");
+  if (d.length === 11 && d[0] === "0") d = d.slice(1);
+  if (d.length === 10) d = "91" + d;
+  return d.length >= 11 && d.length <= 15 ? d : "";
+}
+
+function contentId(n, env) {
+  const edition = parseInt(env.EDITION || "20", 10);
+  return n >= 1 && n <= edition ? `${SERIES}-${pad2(n)}` : SERIES;
+}
+const siteUrl = (env) => (env.SITE_URL || "https://thekaal.co").replace(/\/+$/, "");
+
 /* The browser half of the match, taken at /order. _fbp and _fbc are the
    Pixel's own first-party cookies, passed up by the page; the user agent
-   and IP are read off the request itself. Each is capped to fit a
-   Razorpay note. */
+   and IP are read off the request itself.
+
+   And where the buyer came from: the UTM tags and the fbclid of the ad
+   click that brought them, kept by assets/tags.js from the landing page
+   to here. They go on the order so that every sale in the Razorpay
+   dashboard says which campaign made it, whether or not Meta ever heard
+   from the browser. xid is the buyer's anonymous browser id, already
+   hashed by the page — the same external_id the Pixel was given.
+
+   Razorpay allows fifteen notes of 256 characters each. This writes at
+   most fourteen with kaal_no and the gift, and anything that would not
+   fit whole is dropped rather than cut: a truncated click id is not a
+   shorter click id, it is a wrong one. */
 function metaMatch(request, body) {
   const out = {};
   const ua = request.headers.get("user-agent") || "";
   const ip = request.headers.get("cf-connecting-ip") || "";
   if (ua) out.ua = ua.slice(0, 250);
   if (ip) out.ip = ip.slice(0, 64);
-  const fbp = cleanNote(body && body.fbp, 120), fbc = cleanNote(body && body.fbc, 250);
-  if (/^fb\.\d\.\d+\.\d+$/.test(fbp)) out.fbp = fbp;
-  if (/^fb\.\d\.\d+\.[\w-]+$/.test(fbc)) out.fbc = fbc;
+  const fbp = cleanFbp(body && body.fbp), fbc = cleanFbc(body && body.fbc);
+  if (fbp) out.fbp = fbp;
+  if (fbc) out.fbc = fbc;
+
+  const a = (body && typeof body.attr === "object" && body.attr) || {};
+  for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+    const v = cleanNote(a[k], 256);
+    if (v && v.length <= 200) out[k] = v;
+  }
+  const fbclid = cleanNote(a.fbclid, 256);
+  if (/^[\w-]{10,240}$/.test(fbclid)) out.fbclid = fbclid;
+  if (isHash(a.xid)) out.xid = a.xid;
   return out;
+}
+
+const isHash = (v) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
+function cleanFbp(v) {
+  const s = cleanNote(v, 120);
+  return /^fb\.\d\.\d+\.\d+$/.test(s) ? s : "";
+}
+function cleanFbc(v) {
+  const s = cleanNote(v, 256);
+  return s.length <= 250 && /^fb\.\d\.\d+\.[\w-]+$/.test(s) ? s : "";
 }
 
 function cleanNote(v, max) {
@@ -636,10 +890,22 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
+/* ALLOW_ORIGIN is a comma separated list. An entry may carry a `*`, which
+   stands for letters, digits, dots and hyphens and nothing else — enough
+   for the test worker to accept whatever address Cloudflare Pages gives a
+   preview (https://*kaal-preview*.pages.dev), never enough to cross a
+   scheme, a port or a slash. Production lists its two origins exactly. */
+function originList(env) {
+  return (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(s => s.trim()).filter(Boolean);
+}
+function originAllowed(origin, env) {
+  if (!origin) return false;
+  return originList(env).some(o => o.indexOf("*") < 0 ? o === origin
+    : new RegExp("^" + o.split("*").map(p => p.replace(/[.+?^${}()|[\]\\\/]/g, "\\$&")).join("[a-z0-9.-]*") + "$").test(origin));
+}
 function allowedOrigin(request, env) {
-  const list = (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(s => s.trim());
   const origin = request.headers.get("Origin") || "";
-  return list.indexOf(origin) > -1 ? origin : list[0];
+  return originAllowed(origin, env) ? origin : originList(env)[0];
 }
 
 function cors(request, env) {
@@ -701,4 +967,12 @@ function json(request, env, body, extra, status) {
    7. Send one real ₹1 test transaction before trusting this with a real
       ₹5,999 one. Watch `wrangler tail`, watch the commit land, watch the
       live site's count move. Do this before turning Meta ads on.
+
+   8. Meta Conversions API: one secret, META_CAPI_TOKEN (Events Manager →
+      the Pixel → Settings → Conversions API → Generate access token).
+      Rehearse on the TEST worker, never on this one: `wrangler deploy
+      --env test` runs this same file as kaal-edition-test, on Razorpay
+      test keys, with COMMIT_SOLD = "0" and META_TEST_EVENT_CODE set, so
+      nothing it sees is recorded as a sale or counted as one by Meta.
+      .github/workflows/deploy.yml does all of this from GitHub.
    ══════════════════════════════════════════════════════════════════ */

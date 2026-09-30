@@ -1,0 +1,204 @@
+# ══════════════════════════════════════════════════════════════════
+# Deploy the edition worker, and rehearse before it.
+#
+# Two jobs, and neither runs unless a person has done something that
+# means "yes":
+#
+#   REHEARSAL  runs when the pull request is marked "Ready for review"
+#              (and on each later push to it), or from the Actions tab.
+#              Deploys this branch's worker as kaal-edition-test — Razorpay
+#              TEST keys, COMMIT_SOLD = "0", Meta in test mode only — and
+#              publishes this branch's pages to a private Cloudflare Pages
+#              preview, https://test.kaal-preview.pages.dev, which talks to
+#              that test worker and nothing else. Nothing it does can mark
+#              a number sold, take real money, or count in the ads.
+#
+#   LIVE       runs when a change to the worker reaches main — which only
+#              happens when a person merges — or from the Actions tab.
+#              Deploys the live worker, keeping its KV and its secrets.
+#
+# It needs these repository secrets (Settings → Secrets and variables →
+# Actions). Nothing here ever prints them.
+#   CLOUDFLARE_API_TOKEN         both jobs
+#   CLOUDFLARE_ACCOUNT_ID        both jobs
+#   META_CAPI_TOKEN              both jobs (the live worker is given it)
+#   META_TEST_EVENT_CODE         rehearsal
+#   RAZORPAY_TEST_KEY_ID         rehearsal
+#   RAZORPAY_TEST_KEY_SECRET     rehearsal
+#   RAZORPAY_TEST_WEBHOOK_SECRET rehearsal
+# The live worker's Razorpay keys, webhook secret and GitHub token are
+# already stored in Cloudflare and are left exactly as they are.
+# ══════════════════════════════════════════════════════════════════
+name: deploy
+
+on:
+  pull_request:
+    types: [ready_for_review, synchronize, reopened]
+  push:
+    branches: [main]
+    paths: ['worker/**', 'wrangler.toml']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which worker to deploy"
+        type: choice
+        options: [test, production]
+        default: test
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  WRANGLER: npx --yes wrangler@4.144.0
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+jobs:
+  rehearsal:
+    name: Rehearsal — test worker and preview site
+    if: >-
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RAZORPAY_TEST_KEY_ID: ${{ secrets.RAZORPAY_TEST_KEY_ID }}
+      RAZORPAY_TEST_KEY_SECRET: ${{ secrets.RAZORPAY_TEST_KEY_SECRET }}
+      RAZORPAY_TEST_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_TEST_WEBHOOK_SECRET }}
+      META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+      META_TEST_EVENT_CODE: ${{ secrets.META_TEST_EVENT_CODE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: The same checks every push gets
+        run: node tools/check.mjs && node tools/test-worker.mjs
+
+      - name: Every secret the rehearsal needs is set
+        run: |
+          missing=""
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID RAZORPAY_TEST_KEY_ID RAZORPAY_TEST_KEY_SECRET \
+                   RAZORPAY_TEST_WEBHOOK_SECRET META_CAPI_TOKEN META_TEST_EVENT_CODE; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::These GitHub secrets are not set yet:$missing"
+            exit 1
+          fi
+          case "$RAZORPAY_TEST_KEY_ID" in
+            rzp_test_*) ;;
+            *) echo "::error::RAZORPAY_TEST_KEY_ID must be a TEST key (it starts with rzp_test_). Refusing to rehearse with a live key."; exit 1 ;;
+          esac
+
+      # The test worker gets a KV namespace of its own — never the live one —
+      # so a rehearsal behaves like the shop: holds, a number struck after a
+      # verified payment, and the once-per-order Purchase marker. Found by
+      # name, created the first time.
+      - name: Give the test worker its own KV
+        run: |
+          $WRANGLER kv namespace list > kv.json
+          id=$(node -e '
+            const all = JSON.parse(require("fs").readFileSync("kv.json", "utf8"));
+            const hit = all.find(n => n.title === "kaal-edition-test-KAAL_STATE");
+            if (hit) console.log(hit.id);
+          ')
+          if [ -z "$id" ]; then
+            $WRANGLER kv namespace create KAAL_STATE --env test | tee kv-create.log
+            id=$(grep -oE '[a-f0-9]{32}' kv-create.log | head -1)
+          fi
+          [ -n "$id" ] || { echo "::error::Could not find or create the test KV namespace."; exit 1; }
+          printf '\n[[env.test.kv_namespaces]]\nbinding = "KAAL_STATE"\nid      = "%s"\n' "$id" >> wrangler.toml
+          echo "Test worker bound to its own KV namespace $id."
+
+      - name: Deploy the test worker
+        run: $WRANGLER deploy --env test
+
+      - name: Give the test worker its secrets
+        run: |
+          put() { printf '%s' "$2" | $WRANGLER secret put "$1" --env test > /dev/null && echo "set $1"; }
+          put RAZORPAY_KEY_ID         "$RAZORPAY_TEST_KEY_ID"
+          put RAZORPAY_KEY_SECRET     "$RAZORPAY_TEST_KEY_SECRET"
+          put RAZORPAY_WEBHOOK_SECRET "$RAZORPAY_TEST_WEBHOOK_SECRET"
+          put META_CAPI_TOKEN         "$META_CAPI_TOKEN"
+          put META_TEST_EVENT_CODE    "$META_TEST_EVENT_CODE"
+
+      - name: Gather the pages (no worker, no tools, no config)
+        run: |
+          mkdir _site
+          git ls-files -z -- '*.html' '*.txt' '*.xml' assets | xargs -0 cp --parents -t _site
+          ls _site
+
+      - name: Publish the preview
+        run: |
+          $WRANGLER pages project create kaal-preview --production-branch=main 2>/dev/null || true
+          $WRANGLER pages deploy _site --project-name=kaal-preview --branch=test --commit-dirty=true | tee pages.log
+          echo "### Rehearsal is ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "Preview site: https://test.kaal-preview.pages.dev (if Cloudflare renamed the project, the address is in the log)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Test worker: https://kaal-edition-test.kaal-edition-hq.workers.dev" >> "$GITHUB_STEP_SUMMARY"
+
+  live:
+    name: Live worker
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+    steps:
+      - name: Only ever from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::The live worker is only deployed from main. Merge first."
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: The same checks every push gets
+        run: node tools/check.mjs && node tools/test-worker.mjs
+
+      - name: Cloudflare access is set
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be set as GitHub secrets."
+            exit 1
+          fi
+
+      # The live worker keeps its holds and its fast sold list in a KV
+      # namespace. wrangler.toml in the repo does not name it, and a deploy
+      # from a config without it would switch holds off in silence. So the
+      # namespace is found by name in the Cloudflare account and bound for
+      # this deploy — and if it cannot be found, nothing is deployed.
+      - name: Keep the live worker's KV
+        run: |
+          if grep -Eq '^\[\[kv_namespaces\]\]' wrangler.toml; then echo "wrangler.toml binds KV itself."; exit 0; fi
+          $WRANGLER kv namespace list > kv.json
+          id=$(node -e '
+            const all = JSON.parse(require("fs").readFileSync("kv.json", "utf8"));
+            const hit = all.filter(n => /KAAL_STATE$/.test(n.title) && !/test/i.test(n.title));
+            if (hit.length !== 1) { console.error("Found " + hit.length + " KAAL_STATE namespaces: " + all.map(n => n.title).join(", ")); process.exit(1); }
+            console.log(hit[0].id);
+          ') || { echo "::error::Could not identify exactly one KAAL_STATE KV namespace. Nothing was deployed."; exit 1; }
+          printf '\n[[kv_namespaces]]\nbinding = "KAAL_STATE"\nid      = "%s"\n' "$id" >> wrangler.toml
+          echo "Binding KAAL_STATE to $id for this deploy."
+
+      - name: Deploy the live worker
+        run: $WRANGLER deploy --env=""
+
+      - name: Give it the Meta token
+        run: |
+          if [ -n "$META_CAPI_TOKEN" ]; then
+            printf '%s' "$META_CAPI_TOKEN" | $WRANGLER secret put META_CAPI_TOKEN --env="" > /dev/null && echo "set META_CAPI_TOKEN"
+          else
+            echo "::warning::META_CAPI_TOKEN is not set — the live worker will not report anything to Meta."
+          fi

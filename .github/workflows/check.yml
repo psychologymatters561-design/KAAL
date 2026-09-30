@@ -39,3 +39,6 @@ jobs:
 
       - name: Validate the worker parses
         run: node --check worker/kaal-sold-sync.js
+
+      - name: Exercise the worker (Razorpay, GitHub and Meta faked)
+        run: node tools/test-worker.mjs

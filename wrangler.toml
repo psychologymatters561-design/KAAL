@@ -35,16 +35,22 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 #   wrangler secret put RAZORPAY_WEBHOOK_SECRET
 #   wrangler secret put GITHUB_TOKEN
 #
-# Optional — Meta Conversions API. With both set, every captured payment is
-# also sent to Meta server-side as a Purchase, de-duplicated against the
-# browser Pixel by the Razorpay payment id. Without them nothing is sent.
-#   wrangler secret put META_PIXEL_ID          same ID as assets/tags.js
-#   wrangler secret put META_CAPI_TOKEN        Events Manager → Settings →
-#                                              Conversions API → Generate
-#                                              access token
-# To test, set META_TEST_EVENT_CODE (Events Manager → Test events) and
-# remove it again afterwards. META_API_VERSION overrides the Graph API
-# version (default v23.0).
+# Meta Conversions API. With the token set, every browsing event the Pixel
+# sends is also sent server-side through /event, and every captured payment
+# is sent as a Purchase from the webhook — each under the same event id as
+# its browser twin (the Razorpay ORDER id, for Purchase), so Meta counts
+# each pair once. Without the token nothing is sent.
+#   wrangler secret put META_CAPI_TOKEN        Events Manager → the Pixel →
+#                                              Settings → Conversions API →
+#                                              Generate access token
+# The Pixel ID is public and lives in the worker's code (and in
+# assets/tags.js; check.mjs holds the two equal). META_PIXEL_ID still
+# overrides it if set. META_API_VERSION overrides the Graph API version
+# (default v23.0).
+#
+# Never rehearse on this worker. The test worker below exists so that a
+# test payment can never mark a real number sold, and a test purchase is
+# never counted by the ads.
 #
 # Locally, `wrangler dev` reads the same names out of .dev.vars, which is
 # gitignored. Copy .dev.vars.example to start.
@@ -60,3 +66,45 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 # [[kv_namespaces]]
 # binding = "KAAL_STATE"
 # id      = "paste-the-id-here"
+
+# ══════════════════════════════════════════════════════════════════
+# THE TEST WORKER. Same code, deployed as `kaal-edition-test`:
+#   wrangler deploy --env test
+#
+# It is the only place a rehearsal is allowed to happen. Three guards,
+# each enough on its own:
+#   COMMIT_SOLD = "0"   the webhook verifies a payment and records nothing
+#   no GITHUB_TOKEN     it has no way to write to index.html even if asked;
+#                       its KV namespace is its own (the deploy workflow
+#                       finds or creates kaal-edition-test-KAAL_STATE), so
+#                       a test "sale" strikes a number on the preview only
+#   Razorpay TEST keys  the worker notices rzp_test_ and refuses to commit,
+#                       and refuses to tell Meta anything without a test
+#                       event code
+#
+# Its secrets are its own, set with --env test:
+#   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET   Razorpay dashboard in TEST mode
+#   RAZORPAY_WEBHOOK_SECRET                the test-mode webhook's secret
+#   META_CAPI_TOKEN                        the same token as production
+#   META_TEST_EVENT_CODE                   Events Manager → Test events
+#
+# The pages decide which worker to call by where they are loaded from:
+# thekaal.co always gets the live worker; localhost and the Cloudflare
+# Pages preview (kaal-preview*.pages.dev) get this one. No page on
+# thekaal.co can reach it.
+# ══════════════════════════════════════════════════════════════════
+[env.test]
+name = "kaal-edition-test"
+
+[env.test.vars]
+EDITION       = "20"
+CURRENCY      = "INR"
+PRICE_PAISE   = "599900"          # ₹5,999 — check.mjs holds this equal to the page too
+COMMIT_SOLD   = "0"
+# Named so the config is whole, never used to write: the test worker is
+# never given a GITHUB_TOKEN, and COMMIT_SOLD = "0" stops the commit first.
+GITHUB_OWNER  = "psychologymatters561-design"
+GITHUB_REPO   = "KAAL"
+GITHUB_BRANCH = "main"
+SITE_URL      = "https://test.kaal-preview.pages.dev"
+ALLOW_ORIGIN  = "https://*kaal-preview*.pages.dev,http://localhost:8080,http://127.0.0.1:8080"

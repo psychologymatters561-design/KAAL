@@ -58,6 +58,21 @@ var TAGS = {
   ga4:   ""
 };
 
+/* ── ASKING. How measurement relates to the visitor's answer in the notice
+   at the foot of every page.
+
+     "notice"  measure unless the visitor says No thanks. Today's setting:
+               India's data protection rules (DPDP) do not yet require
+               prior consent, and advertising learns from every visit.
+     "ask"     measure only after the visitor says OK. Switch to this
+               before DPDP's consent duties apply (expected around May
+               2027 — confirm the date with a lawyer).
+
+   Either way "No thanks" is honoured everywhere: no Pixel, no server copy,
+   and the order carries mc = "0" so the worker never reports the purchase
+   to Meta either. The answer is kept in this browser as kaal_consent. */
+var CONSENT = "notice";
+
 /* The edition worker, chosen by where the page is. thekaal.co always gets
    the live one. A rehearsal — this repo on localhost, or the Cloudflare
    Pages preview — gets the test worker, which records no sales and tells
@@ -79,6 +94,10 @@ function apiFor(h){
   return "";
 }
 var BASE = apiFor(location.hostname);
+
+var answer = null;
+try{ answer = localStorage.getItem("kaal_consent"); }catch(e){}
+function allowed(){ return answer === "ok" || (CONSENT === "notice" && answer !== "no"); }
 
 function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function put(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
@@ -142,6 +161,7 @@ function attr(){
     out.fbc = "fb.1." + a.fbcAt + "." + a.fbclid;
   }
   if(xid) out.xid = xid;
+  if(!allowed()) out.mc = "0";
   return out;
 }
 window.kaalAttr = attr;
@@ -192,7 +212,7 @@ function probe(n){
   else settle(false);
 }
 function relay(name, id, d){
-  if(!BASE || px < 0) return;
+  if(!BASE || px < 0 || !allowed()) return;
   var b = { name:name, id:id, url:location.href, no:d.no || "", dial:d.dial || "" };
   if(px === 0) held.push(b); else beacon(b);
 }
@@ -230,6 +250,7 @@ function loadPixel(){
   setTimeout(function(){ settle(false); }, 20000);
 }
 
+function loadGa4(){
 if(TAGS.ga4 && !window.gtag){
   var s = document.createElement("script");
   s.async = true;
@@ -239,6 +260,7 @@ if(TAGS.ga4 && !window.gtag){
   window.gtag = function(){ window.dataLayer.push(arguments); };
   window.gtag("js", new Date());
   window.gtag("config", TAGS.ga4);
+}
 }
 
 var MAP = {
@@ -301,7 +323,7 @@ window.kaalFlush = function(){
    whatever the page queued meanwhile. A purchase queued by claimed.html
    carries the buyer's hashed email and phone (from the worker, after the
    signature) and they go into init as advanced matching. */
-function init(){
+function initPixel(){
   if(TAGS.pixel && window.fbq){
     var user = {}, q = window.kaalQ || [];
     if(xid) user.external_id = xid;
@@ -317,13 +339,82 @@ function init(){
       relay("PageView", id, {});
     }catch(e){}
   }
+}
+function init(){
+  if(allowed()) initPixel();
+  else px = -1;
   ready = true;
   probe(0);
   flush();
+  offer();
+}
+
+/* ── THE NOTICE ───────────────────────────────────────────────────────
+   A small card at the foot of the page, shown once a visitor has started
+   reading (their first scroll, or six seconds) so the first screen stays
+   the hero's. Two answers of equal weight: a notice that makes "OK" loud
+   and "No thanks" faint is asking a question it has already answered.
+   It sits above the buy bar when the buy bar is showing, never over it. */
+var CSS = ".kc{position:fixed;z-index:8;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));" +
+  "max-width:26rem;margin-left:auto;padding:1rem 1.1rem;display:grid;gap:.85rem;" +
+  "background:rgba(8,9,8,.96);color:var(--bone,#EDE8DF);border:1px solid var(--line,#221F1C);border-radius:3px;" +
+  "box-shadow:0 20px 60px -20px rgba(0,0,0,.9);font:400 .8125rem/1.55 var(--body,system-ui,sans-serif);" +
+  "opacity:0;transform:translate3d(0,8px,0);transition:opacity .5s ease,transform .5s ease}" +
+  ".kc.on{opacity:1;transform:none}" +
+  ".kc p{margin:0;color:var(--mute,#B3AC9F)}" +
+  ".kc a{color:var(--bone,#EDE8DF);text-decoration:underline;text-underline-offset:3px}" +
+  ".kc-b{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap}" +
+  ".kc button{font:500 .6875rem/1 var(--body,system-ui,sans-serif);letter-spacing:.16em;text-transform:uppercase;" +
+  "padding:.85rem 1.3rem;border-radius:999px;cursor:pointer;border:1px solid var(--mute,#B3AC9F);background:transparent;color:var(--bone,#EDE8DF)}" +
+  ".kc button:hover{border-color:var(--gold,#C6A15B);color:var(--gold,#C6A15B)}" +
+  ".kc button:focus-visible{outline:2px solid var(--bone,#EDE8DF);outline-offset:2px}" +
+  "body:has(.dock.show) .kc{bottom:calc(5.8rem + env(safe-area-inset-bottom,0px))}" +
+  "@media (prefers-reduced-motion:reduce){.kc{transition:none}}";
+var shown = false;
+function offer(){
+  if(answer || shown) return;
+  function show(){
+    if(shown || answer) return;
+    shown = true;
+    removeEventListener("scroll", show);
+    try{
+      var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
+      var box = document.createElement("div");
+      box.className = "kc"; box.setAttribute("role", "region"); box.setAttribute("aria-label", "Measurement notice");
+      box.innerHTML = '<p>We use Meta\u2019s pixel, which sets cookies, to see which of our ads bring people here. ' +
+        '<a href="/legal.html#privacy">What that means</a></p>' +
+        '<div class="kc-b"><button type="button" data-a="no">No thanks</button><button type="button" data-a="ok">OK</button></div>';
+      box.addEventListener("click", function(e){
+        var a = e.target && e.target.getAttribute && e.target.getAttribute("data-a");
+        if(a) decide(a, box);
+      });
+      document.body.appendChild(box);
+      requestAnimationFrame(function(){ box.classList.add("on"); });
+    }catch(e){}
+  }
+  addEventListener("scroll", show, { passive:true });
+  setTimeout(show, 6000);
+}
+function decide(a, box){
+  answer = a;
+  try{ localStorage.setItem("kaal_consent", a); }catch(e){}
+  if(a === "no"){
+    px = -1; held = [];
+    try{ if(window.fbq) window.fbq("consent", "revoke"); }catch(e){}
+  } else if(!window.fbq){
+    /* "ask" mode, now answered yes: measurement starts from here. (A Pixel
+       that already started — "notice" mode — is never started twice.) */
+    px = 0;
+    try{ loadPixel(); loadGa4(); initPixel(); probe(0); }catch(e){}
+  }
+  if(box && box.parentNode) box.parentNode.removeChild(box);
 }
 
 try{ capture(); }catch(e){}
-try{ loadPixel(); }catch(e){}
+if(allowed()){
+  try{ loadPixel(); }catch(e){}
+  try{ loadGa4(); }catch(e){}
+}
 var tok = "";
 try{ tok = clientToken(); }catch(e){}
 (tok ? sha256(tok) : Promise.resolve("")).then(function(h){ xid = h || ""; }, function(){})

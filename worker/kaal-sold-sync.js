@@ -55,29 +55,54 @@
    or held by somebody else, which is the job the Payment Page's stock
    limit used to do and nothing else was doing.
 
-   A hold is advisory on purpose. It is not a lock, it is not payment,
-   and it NEVER stands between a buyer and the checkout page — if the
-   hold call is slow or fails, the page proceeds to Razorpay regardless.
-   It exists to stop the honest collision, not a determined attacker;
-   the authority on a sale is /order refusing to price a number that is
-   gone, and the webhook below recording the one that sold.
+   THE LOCK. This file used to say: move `hold` and `sold` into a Durable
+   Object "when the cadence arrives". Paid ads arrived, and with them the
+   one fact that makes collisions likely rather than rare: every visitor
+   lands with the same number already chosen (the first one open), so the
+   buyers an ad sends all reach for it at once. Workers KV could not stop
+   that. It takes up to a minute to agree with itself across the world, and
+   "is 03 free? then hold it" was two steps with a gap between them.
+
+   So the edition now lives in ONE Durable Object (class Edition, below).
+   Cloudflare runs exactly one copy of it and hands it requests one at a
+   time, which turns "check, then hold" into a single step nothing can get
+   between. It answers four questions:
+
+     claim   may this buyer hold this number for twelve minutes?
+     check   has somebody else's order already bought it?
+     sell    record that this captured order bought it
+     mark    has this one-time thing (a Purchase sent, a refund made)
+             already happened?
+
+   /order claims before it prices, and the page closes Razorpay's checkout
+   two minutes before the hold runs out, so a payment cannot be finished on
+   a number the buyer no longer holds. A second payment for a number that a
+   different captured order already owns is refunded in full, at once and
+   automatically — which is what legal.html promises — and is never told to
+   Meta as a sale. AUTO_REFUND = "0" turns the refund off and leaves it to
+   a person, with the case in the logs.
+
+   The lock only refunds what it can prove. It records an owner only from a
+   captured payment's webhook, and it refunds only a payment whose number
+   it has seen captured by a DIFFERENT order. Where nobody is on record —
+   a number sold before the lock kept owners — the payment is recorded and
+   nobody is refunded on a guess: refunding a real buyer would be worse
+   than the problem this solves.
+
+   Without the Durable Object bound (an old wrangler.toml) every route
+   falls back to the KV behaviour this file had before, which is weaker
+   but never broken.
 
    WHAT THIS STILL DOES NOT DO: it is not a database, a cart, or an
-   inventory system. It holds two small keys and edits one line of one
+   inventory system. It holds one small record and edits one line of one
    file, because that is the entire footprint of "sold" in this codebase.
-
-   WHEN TO OUTGROW IT: Workers KV is eventually consistent — a write can
-   take up to about a minute to be visible everywhere. At twenty units
-   that is irrelevant: the window where it matters is the window where
-   two people buy within the same minute, and there are only twenty
-   units in total. If this ever becomes a real cadence — a restock, a
-   larger series, more than a sale a minute — move `hold` and `sold`
-   into a Durable Object, which serialises writes by construction. That
-   is a contained change to two functions here and nothing on the page.
-   Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
 const HOLD_SECONDS = 12 * 60;
+/* How long Razorpay's checkout stays open. Shorter than the hold, so a
+   payment can never be completed on a number whose hold has already lapsed
+   and passed to somebody else. The page is told this by /order. */
+const CHECKOUT_SECONDS = HOLD_SECONDS - 2 * 60;
 const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
@@ -113,6 +138,124 @@ export default {
   }
 };
 
+/* ══════════ 0. THE EDITION, ONE REQUEST AT A TIME ══════════
+
+   The Durable Object. One instance, named after the series, holds the whole
+   edition as one small record:
+
+     sold    numbers that are gone (from captured payments, and from what
+             index.html and KV already said when a request passed it in)
+     owner   number → the Razorpay order that bought it; only ever written
+             by a captured payment's webhook
+     holds   number → { by, until }: who is paying for it, and until when
+     marks   one-time markers — "Purchase sent to Meta for order X",
+             "refund issued for payment Y" — each tested and set in one step
+
+   Every request reads the record, decides, and writes it back without
+   waiting on anything else in between, so Cloudflare's guarantee that a
+   Durable Object handles its storage one request at a time is what makes
+   each answer atomic. Written in the plain fetch style so it needs no
+   imports and runs unchanged under tools/test-worker.mjs. */
+export class Edition {
+  constructor(state) { this.storage = state.storage; }
+
+  async fetch(request) {
+    let a;
+    try { a = await request.json(); } catch (e) { return Response.json({ error: "bad-request" }, { status: 400 }); }
+    const now = Date.now();
+    const s = (await this.storage.get("s")) || { sold: [], owner: {}, holds: {}, marks: {} };
+    let dirty = false, out;
+
+    for (const k of Object.keys(s.holds)) if (!(s.holds[k].until > now)) { delete s.holds[k]; dirty = true; }
+    /* What the caller already knows is sold (index.html, KV) is folded in
+       on a claim or a read — never on a sale, where a number this very
+       order was just recorded under must not look like somebody else's. */
+    if ((a.op === "claim" || a.op === "state") && Array.isArray(a.known)) {
+      for (const x of a.known) {
+        const k = parseInt(x, 10);
+        if (k > 0 && s.sold.indexOf(k) < 0) { s.sold.push(k); dirty = true; }
+      }
+    }
+    const n = parseInt(a.n, 10);
+
+    switch (a.op) {
+      case "state":
+        out = { sold: s.sold.slice().sort((x, y) => x - y), held: Object.keys(s.holds).map(Number) };
+        break;
+      case "claim": {
+        if (s.sold.indexOf(n) > -1) { out = { ok: false, reason: "sold" }; break; }
+        const h = s.holds[n];
+        if (h && h.by !== a.by) { out = { ok: false, reason: "held", until: h.until }; break; }
+        s.holds[n] = { by: String(a.by), until: now + a.ttl * 1000 };
+        dirty = true;
+        out = { ok: true, until: s.holds[n].until };
+        break;
+      }
+      case "release":
+        if (s.holds[n] && s.holds[n].by === a.by) { delete s.holds[n]; dirty = true; }
+        out = { ok: true };
+        break;
+      case "check": {
+        const who = s.owner[n];
+        out = { conflict: !!(who && who !== a.order) };
+        break;
+      }
+      case "sell": {
+        const who = s.owner[n];
+        if (who && who !== a.order) { out = { status: "conflict", owner: who }; break; }
+        if (who === a.order) { out = { status: "already" }; break; }
+        /* No owner yet: this captured order is it. That holds even when the
+           number is already in `sold` — /verify marks a paid number sold a
+           few seconds before its webhook lands, and a number sold before
+           the lock kept owners has nobody on record to prefer. Either way
+           nobody is refunded on a guess. */
+        s.owner[n] = String(a.order);
+        if (s.sold.indexOf(n) < 0) s.sold.push(n);
+        delete s.holds[n];
+        dirty = true;
+        out = { status: "new" };
+        break;
+      }
+      case "mark":
+        if (s.marks[a.key]) { out = { was: true }; break; }
+        s.marks[a.key] = now;
+        dirty = true;
+        out = { was: false };
+        break;
+      case "unmark":
+        if (s.marks[a.key]) { delete s.marks[a.key]; dirty = true; }
+        out = { ok: true };
+        break;
+      default:
+        out = { error: "unknown-op" };
+    }
+    if (dirty) await this.storage.put("s", s);
+    return Response.json(out);
+  }
+}
+
+/* One door to the lock, for every route. */
+async function lock(env, body) {
+  const stub = env.LOCK.get(env.LOCK.idFromName(SERIES));
+  const res = await stub.fetch("https://edition.internal/", { method: "POST", body: JSON.stringify(body) });
+  return res.json();
+}
+
+/* One-time markers: the lock's when there is one, KV's otherwise. Returns
+   true if this is the first time `key` has been seen. */
+async function firstTime(env, key) {
+  if (env.LOCK) return !(await lock(env, { op: "mark", key })).was;
+  if (env.KAAL_STATE) {
+    if (await env.KAAL_STATE.get(key).catch(() => null)) return false;
+    await env.KAAL_STATE.put(key, "1", { expirationTtl: 7 * 24 * 3600 }).catch(() => {});
+  }
+  return true;
+}
+async function forget(env, key) {
+  if (env.LOCK) await lock(env, { op: "unmark", key }).catch(() => {});
+  else if (env.KAAL_STATE) await env.KAAL_STATE.delete(key).catch(() => {});
+}
+
 /* ══════════ 1. WHAT THE PAGE ASKS ══════════ */
 
 /* The page merges this into what it already believes. It only ever ADDS
@@ -121,6 +264,12 @@ export default {
    that can only ever be more cautious than the static page is a backend
    that cannot take the site down. */
 async function getState(request, env) {
+  if (env.LOCK) {
+    try {
+      const s = await lock(env, { op: "state", known: (await readSold(env)) || [] });
+      return json(request, env, { sold: s.sold, held: s.held, at: Date.now() }, { "Cache-Control": "public, max-age=10" });
+    } catch (e) { console.log("Lock unreachable on /state:", String(e).slice(0, 120)); }
+  }
   if (!env.KAAL_STATE) return json(request, env, { sold: null, held: [] });
 
   const sold = await readSold(env);
@@ -138,15 +287,20 @@ async function getState(request, env) {
 }
 
 async function postHold(request, env) {
-  if (!env.KAAL_STATE) return json(request, env, { ok: false, reason: "no-store" });
+  if (!env.KAAL_STATE && !env.LOCK) return json(request, env, { ok: false, reason: "no-store" });
 
   let body;
   try { body = await request.json(); } catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
 
   const n  = parseInt(body && body.n, 10);
-  const by = typeof (body && body.by) === "string" ? body.by.slice(0, 64) : "";
+  const by = buyerToken(body);
   const edition = parseInt(env.EDITION || "20", 10);
   if (isNaN(n) || n < 1 || n > edition) return json(request, env, { ok: false, reason: "out-of-range" }, {}, 400);
+
+  if (env.LOCK) {
+    const c = await lock(env, { op: "claim", n, by, ttl: HOLD_SECONDS, known: (await knownSold(env)) || [] });
+    return c.ok ? json(request, env, { ok: true, n, until: c.until }) : json(request, env, { ok: false, reason: c.reason });
+  }
 
   const sold = await readSold(env);
   if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" });
@@ -182,7 +336,7 @@ async function postOrder(request, env) {
 
   const edition = parseInt(env.EDITION || "20", 10);
   const n  = parseInt(body && body.n, 10);
-  const by = typeof (body && body.by) === "string" ? body.by.slice(0, 64) : "";
+  const by = buyerToken(body);
   /* A gift is a flag and a short note for the card in the box. Both go on
      the order, where they are read at packing time. The note is plain
      text, one line, capped well under Razorpay's 256-character note limit. */
@@ -204,9 +358,18 @@ async function postOrder(request, env) {
   const sold = await knownSold(env);
   if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" }, {}, 409);
 
-  /* Somebody else's hold stops an order exactly as it stops a hold. Your
-     own does not, so reloading the page and trying again still works. */
-  if (env.KAAL_STATE) {
+  /* THE LOCK. The number is claimed BEFORE it is priced, in one step that
+     no other buyer's request can get between. A number somebody else is
+     paying for is refused here, before any money is asked for; your own
+     claim is extended, so reloading and trying again still works. */
+  let claimed = false;
+  if (env.LOCK) {
+    const c = await lock(env, { op: "claim", n, by, ttl: HOLD_SECONDS, known: sold || [] });
+    if (!c.ok) return json(request, env, { ok: false, reason: c.reason }, {}, 409);
+    claimed = true;
+  } else if (env.KAAL_STATE) {
+    /* Somebody else's hold stops an order exactly as it stops a hold. Your
+       own does not, so reloading the page and trying again still works. */
     const existing = await env.KAAL_STATE.get(HOLD_PREFIX + n, "json").catch(() => null);
     if (existing && existing.by && existing.by !== by) {
       return json(request, env, { ok: false, reason: "held" }, {}, 409);
@@ -238,9 +401,15 @@ async function postOrder(request, env) {
     order = await res.json();
   } catch (e) {
     console.log("Razorpay order call never completed:", String(e).slice(0, 160));
+    if (claimed) await lock(env, { op: "release", n, by }).catch(() => {});
     return json(request, env, { ok: false, reason: "upstream" }, {}, 500);
   }
 
+  /* No order, no hold: a number must not sit locked behind a checkout
+     that never opened. */
+  if (!res.ok || !order || !order.id) {
+    if (claimed) await lock(env, { op: "release", n, by }).catch(() => {});
+  }
   if (res.status === 401 || res.status === 403) {
     console.log("Razorpay rejected the key pair on /order:", res.status);
     return json(request, env, { ok: false, reason: "auth" }, {}, 401);
@@ -260,8 +429,8 @@ async function postOrder(request, env) {
      including from a worker with no KV bound and so nowhere to keep it —
      and a hold that is promised and not real is worse than none. It is a
      duration, not a timestamp, so a buyer's wrong clock cannot misstate it. */
-  let heldFor = 0;
-  if (env.KAAL_STATE) {
+  let heldFor = claimed ? HOLD_SECONDS : 0;
+  if (!claimed && env.KAAL_STATE) {
     try {
       await env.KAAL_STATE.put(
         HOLD_PREFIX + n,
@@ -285,8 +454,20 @@ async function postOrder(request, env) {
     currency: order.currency,
     key_id: env.RAZORPAY_KEY_ID,
     n,
-    held_for: heldFor
+    held_for: heldFor,
+    /* Razorpay's checkout closes itself after this many seconds — two
+       minutes inside the hold, so no payment can finish on a number that
+       has meanwhile passed to somebody else. Only sent with a real lock. */
+    timeout: claimed ? CHECKOUT_SECONDS : 0
   });
+}
+
+/* The buyer's anonymous token, from the page. A request without one gets a
+   random one of its own, so two token-less buyers are never mistaken for
+   the same person and handed each other's hold. */
+function buyerToken(body) {
+  const t = typeof (body && body.by) === "string" ? body.by.replace(/[^\w.-]/g, "").slice(0, 64) : "";
+  return t || "anon-" + crypto.randomUUID();
 }
 
 /* A signature is the only thing here that proves a payment happened.
@@ -321,6 +502,18 @@ async function postVerify(request, env) {
      instead, and it answers with the note this worker wrote itself. */
   const order = await readOrder(env, orderId);
   const n = parseInt(order && order.notes && order.notes.kaal_no, 10) || 0;
+
+  /* The one case where a real payment must NOT be greeted with "it's
+     yours": a different order has already been captured for this number.
+     The buyer is told so on the spot, with no Purchase record, and the
+     webhook refunds the payment when Razorpay confirms it. */
+  if (n && env.LOCK) {
+    const c = await lock(env, { op: "check", n, order: orderId }).catch(() => ({}));
+    if (c.conflict) {
+      console.log(`/verify: order ${orderId} paid for No. ${pad2(n)}, which another order already bought.`);
+      return json(request, env, { ok: true, n, conflict: true, refund: env.AUTO_REFUND === "0" ? "manual" : "automatic" });
+    }
+  }
 
   /* KV only. The webhook still owns the commit that makes index.html
      true on its own, and two writers on one file would be a race for no
@@ -406,6 +599,19 @@ async function webhook(request, env, ctx) {
   const raw    = (order && order.notes && order.notes.kaal_no) || notes.kaal_no;
   const chosen = parseInt(raw, 10);
 
+  /* THE LOCK DECIDES WHOSE IT IS. The first captured order for a number
+     owns it. A second, different order that also got paid — two tabs open
+     at once, a hold that ran out mid-payment — is refunded in full here,
+     is never recorded as a sale, and is never told to Meta as one. */
+  if (env.LOCK && chosen > 0 && entity.order_id) {
+    const sale = await lock(env, { op: "sell", n: chosen, order: String(entity.order_id) });
+    if (sale.status === "conflict") {
+      const r = await refundConflict(env, entity, chosen, sale.owner);
+      if (r === "failed") return new Response("Double payment — refund failed, will retry.", { status: 502 });
+      return new Response(`Number ${chosen} already sold to ${sale.owner}; payment ${paymentId} ${r === "manual" ? "left for a manual refund" : "refunded"}.`, { status: 200 });
+    }
+  }
+
   /* Meta hears about the money whatever happens to the commit below. It
      used to be told only after GitHub accepted the new sold array, so an
      expired token, a busy API or a retry of a sale already recorded all
@@ -452,6 +658,39 @@ async function webhook(request, env, ctx) {
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
+}
+
+/* legal.html: "where two orders reach us for the same number, the earlier
+   captured payment stands and the later one is refunded in full". This is
+   that sentence, kept without anybody having to notice first. Once per
+   payment, in full, at normal speed; a refund Razorpay says is already
+   done counts as done. A refund that fails asks Razorpay to send the
+   webhook again, so it is retried rather than forgotten. */
+async function refundConflict(env, entity, n, owner) {
+  const paymentId = String(entity.id || "");
+  console.log(`DOUBLE PAYMENT: ${paymentId} (order ${entity.order_id}) for No. ${pad2(n)}, already sold to ${owner}.`);
+  if (env.AUTO_REFUND === "0" || !paymentId) return "manual";
+  const key = "refund:" + paymentId;
+  if (!(await firstTime(env, key))) return "already";
+  try {
+    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(paymentId)}/refund`, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, razorpayAuth(env)),
+      body: JSON.stringify({
+        speed: "normal",
+        receipt: ("dup-" + paymentId).slice(0, 40),
+        notes: { reason: `No. ${pad2(n)} was already sold to an earlier order`, kaal_no: pad2(n) }
+      })
+    });
+    if (res.ok) return "refunded";
+    const text = (await res.text().catch(() => "")).slice(0, 300);
+    if (res.status === 400 && /refunded/i.test(text)) return "refunded";
+    console.log("Refund refused:", res.status, text);
+  } catch (e) {
+    console.log("Refund call threw:", String(e).slice(0, 160));
+  }
+  await forget(env, key);
+  return "failed";
 }
 
 const testKeys = (env) => /^rzp_test_/.test(env.RAZORPAY_KEY_ID || "");
@@ -585,11 +824,14 @@ async function sendPurchaseToMeta(env, entity, order, chosen) {
        answer to, and a commit that fails asks it to; the marker is what
        keeps a retry from being a second sale in the ad account. */
     const mark = "meta:" + eventId;
-    if (env.KAAL_STATE && await env.KAAL_STATE.get(mark).catch(() => null)) return "already";
 
     /* The order's notes are this worker's own handwriting; the payment's
        are the browser's. Where both say something, the order wins. */
     const m = Object.assign({}, entity.notes || {}, (order && order.notes) || {});
+    /* A buyer who said "No thanks" to measurement is not reported, not
+       even the purchase. The page wrote that choice onto the order. */
+    if (m.mc === "0") { console.log("Meta CAPI skipped: the buyer declined measurement."); return "skipped"; }
+    if (!(await firstTime(env, mark))) return "already";
     /* Meta rejects a "website" event without the browser's user agent.
        The hosted Payment Page route never passes through /order, so it
        has none; the browser Pixel is its only record. */
@@ -620,9 +862,7 @@ async function sendPurchaseToMeta(env, entity, order, chosen) {
         order_id: eventId
       }
     }], 3);
-    if (ok && env.KAAL_STATE) {
-      await env.KAAL_STATE.put(mark, "1", { expirationTtl: 7 * 24 * 3600 }).catch(() => {});
-    }
+    if (!ok) await forget(env, mark);
     return ok ? "sent" : "failed";
   } catch (e) {
     console.log("Meta CAPI purchase threw:", String(e).slice(0, 160));
@@ -784,6 +1024,10 @@ function metaMatch(request, body) {
   const fbclid = cleanNote(a.fbclid, 256);
   if (/^[\w-]{10,240}$/.test(fbclid)) out.fbclid = fbclid;
   if (isHash(a.xid)) out.xid = a.xid;
+  /* "No thanks" to measurement, from the page's notice. Read by the webhook,
+     which then tells Meta nothing about this order. Fifteenth note of
+     fifteen: nothing else may be added to an order without taking one away. */
+  if (a.mc === "0") out.mc = "0";
   return out;
 }
 

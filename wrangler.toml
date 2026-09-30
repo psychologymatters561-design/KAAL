@@ -23,6 +23,11 @@ PRICE_PAISE   = "599900"          # ₹5,999
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
+# A second payment for a number that a different captured order already
+# owns is refunded in full, automatically — what legal.html promises.
+# "0" leaves it to a person instead (the case is written to the logs).
+AUTO_REFUND   = "1"
+
 # Secrets are never written here. Set them once, each on its own:
 #   wrangler secret put RAZORPAY_KEY_ID        publishable; the worker
 #                                              hands it to the browser
@@ -67,6 +72,18 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 # binding = "KAAL_STATE"
 # id      = "paste-the-id-here"
 
+# THE LOCK. One Durable Object holds the edition — sold, held, and whose —
+# and answers one request at a time, so two buyers can never be handed the
+# same number. SQLite-backed, which is what the Workers Free plan provides.
+# The migration runs once, on the first deploy that carries it.
+[[durable_objects.bindings]]
+name       = "LOCK"
+class_name = "Edition"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Edition"]
+
 # ══════════════════════════════════════════════════════════════════
 # THE TEST WORKER. Same code, deployed as `kaal-edition-test`:
 #   wrangler deploy --env test
@@ -96,11 +113,17 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 [env.test]
 name = "kaal-edition-test"
 
+# Its own lock, holding only rehearsal numbers.
+[[env.test.durable_objects.bindings]]
+name       = "LOCK"
+class_name = "Edition"
+
 [env.test.vars]
 EDITION       = "20"
 CURRENCY      = "INR"
 PRICE_PAISE   = "599900"          # ₹5,999 — check.mjs holds this equal to the page too
 COMMIT_SOLD   = "0"
+AUTO_REFUND   = "1"               # test-mode refunds, so the double-payment path can be rehearsed
 # Named so the config is whole, never used to write: the test worker is
 # never given a GITHUB_TOKEN, and COMMIT_SOLD = "0" stops the commit first.
 GITHUB_OWNER  = "psychologymatters561-design"

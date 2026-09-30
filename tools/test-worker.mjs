@@ -24,7 +24,29 @@ const root = process.cwd();
 const dir = mkdtempSync(join(tmpdir(), "kaal-worker-"));
 const file = join(dir, "worker.mjs");
 writeFileSync(file, readFileSync(join(root, "worker/kaal-sold-sync.js"), "utf8"));
-const worker = (await import(file)).default;
+const mod = await import(file);
+const worker = mod.default;
+const { Edition } = mod;
+
+/* The Durable Object, as Cloudflare runs it: one instance, one request at
+   a time. The queue is that guarantee; the instance is the real class. */
+function lockNamespace() {
+  const store = new Map();
+  const inst = new Edition({ storage: {
+    async get(k) { return store.has(k) ? JSON.parse(store.get(k)) : undefined; },
+    async put(k, v) { store.set(k, JSON.stringify(v)); }
+  } });
+  let queue = Promise.resolve();
+  return {
+    store,
+    idFromName: (name) => name,
+    get: () => ({ fetch: (url, init) => {
+      const run = queue.then(() => inst.fetch(new Request(url, init)));
+      queue = run.catch(() => {});
+      return run;
+    } })
+  };
+}
 
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const hmac = (s, k) => createHmac("sha256", k).update(s).digest("hex");
@@ -34,7 +56,7 @@ let world;
 function reset(opts = {}) {
   world = {
     orders: {}, payments: {}, meta: [], commits: [], metaStatus: opts.metaStatus || [],
-    githubPut: opts.githubPut || 200,
+    githubPut: opts.githubPut || 200, refunds: [], refundStatus: [], orderStatus: 200,
     file: 'var KAAL = {\n  edition:  20,\n  sold:     [1, 2],\n};\n', sha: "s1"
   };
 }
@@ -52,6 +74,15 @@ const reply = (body, status = 200) => new Response(typeof body === "string" ? bo
 
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input), method = (init.method || "GET").toUpperCase();
+  let r = url.match(/^https:\/\/api\.razorpay\.com\/v1\/payments\/(.+)\/refund$/);
+  if (r && method === "POST") {
+    const status = world.refundStatus.length ? world.refundStatus.shift() : 200;
+    world.refunds.push({ payment: r[1], status, body: JSON.parse(init.body) });
+    return reply(status === 200 ? { id: "rfnd_" + r[1], status: "processed" } : { error: { description: "nope" } }, status);
+  }
+  if (url === "https://api.razorpay.com/v1/orders" && method === "POST" && world.orderStatus !== 200) {
+    return reply({ error: { description: "refused" } }, world.orderStatus);
+  }
   if (url === "https://api.razorpay.com/v1/orders" && method === "POST") {
     const b = JSON.parse(init.body);
     const id = "order_T" + (Object.keys(world.orders).length + 1);
@@ -344,6 +375,140 @@ await test("without a Meta token nothing is sent and nothing breaks", async () =
   const o = await order(env);
   const r = await hook(env, webhookBody(pay(o.order_id, "pay_A")));
   eq([r.status, world.meta.length, world.commits.length], [200, 0, 1], "sale recorded, Meta untouched");
+});
+
+/* ── The lock: one number, one buyer ──────────────────────────────── */
+const LOCKED = () => Object.assign(LIVE(), { LOCK: lockNamespace() });
+const orderAs = (env, by, n = 7) => call(env, "POST", "/order", { headers: json, body: { n, by } });
+
+await test("lock: ten buyers reach for No. 07 at the same instant — exactly one gets it", async () => {
+  const env = LOCKED();
+  const rs = await Promise.all([...Array(10)].map((_, i) => orderAs(env, "buyer" + i)));
+  const won = rs.filter(r => r.json && r.json.ok), lost = rs.filter(r => r.status === 409);
+  eq([won.length, lost.length], [1, 9], "one order, nine refusals");
+  ok(lost.every(r => r.json.reason === "held"), "the nine are told it is held");
+  eq(Object.keys(world.orders).length, 1, "Razorpay was asked to price it exactly once");
+  eq([won[0].json.held_for, won[0].json.timeout], [720, 600], "held 12 min; checkout closes at 10");
+});
+
+await test("lock: the same buyer retrying keeps the number; a sold number is refused", async () => {
+  const env = LOCKED();
+  ok((await orderAs(env, "me")).json.ok, "first try");
+  ok((await orderAs(env, "me")).json.ok, "retry by the same buyer");
+  eq((await orderAs(env, "me", 1)).json.reason, "sold", "No. 01 is sold in index.html");
+});
+
+await test("lock: two buyers without a token are not mistaken for one", async () => {
+  const env = LOCKED();
+  const a = await call(env, "POST", "/order", { headers: json, body: { n: 7 } });
+  const b = await call(env, "POST", "/order", { headers: json, body: { n: 7 } });
+  eq([a.json.ok, b.status], [true, 409], "the second anonymous buyer is refused");
+});
+
+await test("lock: a hold that runs out frees the number for the next buyer", async () => {
+  const env = LOCKED();
+  ok((await orderAs(env, "first")).json.ok, "first holds");
+  eq((await orderAs(env, "second")).status, 409, "second refused while held");
+  const real = Date.now;
+  Date.now = () => real() + 13 * 60 * 1000;
+  try { ok((await orderAs(env, "second")).json.ok, "second gets it after 13 minutes"); }
+  finally { Date.now = real; }
+});
+
+await test("lock: Razorpay refusing the order releases the hold", async () => {
+  const env = LOCKED();
+  world.orderStatus = 500;
+  eq((await orderAs(env, "first")).status, 500, "order failed");
+  world.orderStatus = 200;
+  ok((await orderAs(env, "second")).json.ok, "nobody is left locked out");
+});
+
+/* Two tabs, one buyer, two orders for the same number, both paid. */
+async function twoPaid(env) {
+  const a = (await orderAs(env, "me")).json, b = (await orderAs(env, "me")).json;
+  const pa = pay(a.order_id, "pay_A", { kaal_no: "07" }), pb = pay(b.order_id, "pay_B", { kaal_no: "07" });
+  return { a, b, pa, pb };
+}
+
+await test("double payment: the second is refunded in full, never recorded, never sent to Meta", async () => {
+  const env = LOCKED();
+  const { a, b, pa, pb } = await twoPaid(env);
+  eq((await hook(env, webhookBody(pa))).status, 200, "first payment recorded");
+  const r = await hook(env, webhookBody(pb));
+  eq(r.status, 200, "second payment answered");
+  ok(/refunded/.test(r.text), "and refunded: " + r.text);
+  eq(world.refunds.map(x => x.payment), ["pay_B"], "exactly the second payment refunded");
+  ok(!("amount" in world.refunds[0].body), "in full (no partial amount)");
+  eq(world.commits.length, 1, "one sale committed");
+  eq(world.meta.filter(m => m.body.data[0].event_name === "Purchase").map(m => m.body.data[0].event_id), [a.order_id], "one Purchase, for the first order");
+  await hook(env, webhookBody(pb));
+  eq(world.refunds.length, 1, "a retried webhook does not refund twice");
+});
+
+await test("double payment: the second buyer's page is told the truth, not 'it's yours'", async () => {
+  const env = LOCKED();
+  const { a, b, pa } = await twoPaid(env);
+  await hook(env, webhookBody(pa));
+  const v = await call(env, "POST", "/verify", { headers: json, body: { razorpay_order_id: b.order_id, razorpay_payment_id: "pay_B", razorpay_signature: hmac(b.order_id + "|pay_B", "ks") } });
+  eq([v.json.ok, v.json.conflict, v.json.refund, !!v.json.purchase], [true, true, "automatic", false], "conflict, refund, no Purchase record");
+  const va = await call(env, "POST", "/verify", { headers: json, body: { razorpay_order_id: a.order_id, razorpay_payment_id: "pay_A", razorpay_signature: hmac(a.order_id + "|pay_A", "ks") } });
+  ok(va.json.purchase && !va.json.conflict, "the first buyer still gets their record");
+});
+
+await test("double payment: a refund Razorpay refuses is retried, not forgotten", async () => {
+  const env = LOCKED();
+  const { pa, pb } = await twoPaid(env);
+  await hook(env, webhookBody(pa));
+  world.refundStatus = [500];
+  eq((await hook(env, webhookBody(pb))).status, 502, "failed refund asks Razorpay to retry");
+  eq((await hook(env, webhookBody(pb))).status, 200, "the retry refunds");
+  eq(world.refunds.map(x => x.status), [500, 200], "two attempts, one refund");
+});
+
+await test("double payment: AUTO_REFUND = 0 leaves it to a person", async () => {
+  const env = Object.assign(LOCKED(), { AUTO_REFUND: "0" });
+  const { pa, pb } = await twoPaid(env);
+  await hook(env, webhookBody(pa));
+  const r = await hook(env, webhookBody(pb));
+  eq([r.status, world.refunds.length, world.commits.length], [200, 0, 1], "no refund, no second sale");
+});
+
+await test("never refunds on a guess: a number sold before the lock existed is left alone", async () => {
+  const env = LOCKED();
+  world.orders.order_OLD = { id: "order_OLD", amount: 599900, currency: "INR", notes: { kaal_no: "01", ua: "x" } };
+  const r = await hook(env, webhookBody(pay("order_OLD", "pay_OLD", { kaal_no: "01" })));
+  eq(world.refunds.length, 0, "no refund for an ownerless sold number");
+  ok(/already recorded/.test(r.text), "treated as the recorded sale it may be: " + r.text);
+});
+
+await test("a buyer who said No thanks is sold to but not reported to Meta", async () => {
+  const env = LOCKED();
+  const o = (await call(env, "POST", "/order", { headers: json, body: { n: 7, by: "me", attr: { mc: "0" } } })).json;
+  eq(world.orders[o.order_id].notes.mc, "0", "the choice is on the order");
+  await hook(env, webhookBody(pay(o.order_id, "pay_A")));
+  eq([world.commits.length, world.meta.length], [1, 0], "sale recorded, nothing sent to Meta");
+});
+
+await test("the rightful owner is recorded even if the number was marked sold seconds before", async () => {
+  const env = LOCKED();
+  const x = (await orderAs(env, "x")).json;
+  pay(x.order_id, "pay_X", { kaal_no: "07" });
+  /* /verify writes 07 into KV at once; somebody else's /order then folds
+     KV's sold list into the lock before X's webhook arrives. */
+  await call(env, "POST", "/verify", { headers: json, body: { razorpay_order_id: x.order_id, razorpay_payment_id: "pay_X", razorpay_signature: hmac(x.order_id + "|pay_X", "ks") } });
+  await orderAs(env, "someone-else", 9);
+  await hook(env, webhookBody(world.payments.pay_X));
+  /* A stray second payment for 07 must now be caught. */
+  world.orders.order_STRAY = { id: "order_STRAY", amount: 599900, currency: "INR", notes: { kaal_no: "07", ua: "x" } };
+  await hook(env, webhookBody(pay("order_STRAY", "pay_STRAY", { kaal_no: "07" })));
+  eq(world.refunds.map(r => r.payment), ["pay_STRAY"], "the stray payment is refunded, X is not");
+});
+
+await test("/state answers from the lock: sold and held, merged with index.html", async () => {
+  const env = LOCKED();
+  await orderAs(env, "me", 9);
+  const s = (await call(env, "GET", "/state", { headers: { Origin: "https://thekaal.co" } })).json;
+  eq([s.held, s.sold.includes(9)], [[9], false], "No. 09 held, not sold");
 });
 
 /* ── Report ────────────────────────────────────────────────────────── */

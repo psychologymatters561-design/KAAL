@@ -41,7 +41,8 @@ marketing line.
 - **Dials**: four. Emerald 01–06, Midnight 07–10, Champagne 11–14, Ivory 15–20.
 - **Choosing**: choose a dial, then choose a number from the ones that dial
   still has. Each number was assigned its dial before the site went live. One
-  piece per number; a number cannot be reserved, only bought.
+  piece per number, held for the buyer for twelve minutes at checkout and
+  sold only once.
 - **Gifting**: a buyer can mark an order as a gift and write a note, which KAAL
   writes on a card in the box. The price is never included in a gift box.
 - **Specification**: day ring, twenty four hour counter, pointer date. Mineral

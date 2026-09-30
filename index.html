@@ -857,6 +857,28 @@ a{color:inherit}
   cursor:default;letter-spacing:.09em;text-transform:none;font-size:.8125rem;
   padding:.95rem 1.7rem;box-shadow:none}
 .buy.inert::before{display:none}
+/* ── OWN IT. The main button, once there is something to own. Two lines,
+      because the moment of paying is the moment a buyer checks everything
+      at once: the act and the number on the first, the dial, the price and
+      the delivery on the second, and nothing left to discover after the
+      tap. The arrow is the only thing that moves, and only on hover. ─── */
+.buy.own{width:100%;max-width:34rem;justify-content:space-between;gap:1rem;
+  padding:.9rem .9rem .9rem 1.9rem;text-align:left;letter-spacing:0}
+.own-txt{display:grid;gap:.28rem;min-width:0}
+.own-main{font-size:.9375rem;font-weight:600;letter-spacing:.16em;line-height:1.2}
+.own-sub{font-size:.75rem;font-weight:500;letter-spacing:.02em;line-height:1.35;text-transform:none;opacity:.78}
+.own-go{flex:0 0 auto;width:2.6rem;height:2.6rem;border-radius:50%;display:grid;place-items:center;
+  background:rgba(8,9,8,.11);transition:transform .55s var(--ease)}
+.own-go svg{width:1rem;height:1rem}
+.buy.own:hover .own-go,.buy.own:focus-visible .own-go{transform:translate3d(.3rem,0,0)}
+.buy.own:focus-visible{outline:2px solid var(--bone);outline-offset:3px}
+.buy.own[aria-busy="true"]{cursor:progress}
+.buy.own.held .own-sub{opacity:.86}
+@media (max-width:360px){.buy.own{padding-left:1.4rem}.own-main{letter-spacing:.12em}}
+@media (prefers-reduced-motion:reduce){.own-go{transition:none}.buy.own:hover .own-go{transform:none}}
+/* What the tap does, said under the button where the doubt is. */
+.buy-note{margin:.95rem 0 0;display:grid;gap:.3rem;font-size:.75rem;line-height:1.5;color:var(--mute);max-width:34rem}
+.buy-note[hidden]{display:none}
 /* ── THE TRUST BAND.
 
       The hero sells the idea. This is the first thing under it, and it
@@ -1864,6 +1886,13 @@ a{color:inherit}
         </div>
       </div>
       <a class="buy inert" id="cta" role="button" aria-disabled="true">No. 03 &nbsp;·&nbsp; Emerald &nbsp;·&nbsp; &#8377;5,999</a>
+      <!-- Shown only when checkout is live and a number is chosen. The hold
+           is real: the worker's lock gives the buyer the number for twelve
+           minutes and closes Razorpay's checkout before that runs out. -->
+      <p class="buy-note" id="buyNote" hidden>
+        <span id="buyHold">Held for you alone for twelve minutes while you pay.</span>
+        <span>Secure payment by Razorpay &nbsp;·&nbsp; UPI and cards</span>
+      </p>
       <ul class="assure">
         <li>Made in India, finished by hand</li>
         <li>Two years on that movement, from dispatch</li>
@@ -1900,7 +1929,7 @@ a{color:inherit}
       <div>
         <h4>Ordering and delivery</h4>
         <p>Five working days from order to delivery, anywhere in India. Every piece is inspected before dispatch.</p>
-        <p>One piece per number. A number cannot be reserved, only bought.</p>
+        <p>One piece per number, held for you alone for twelve minutes at checkout and sold only once.</p>
       </div>
       <div>
         <h4>Returns</h4>
@@ -3077,7 +3106,7 @@ var remaining = KAAL.edition - KAAL.sold.length;
   });
 })();
 
-var cta = $("#cta"), dockCta = null, claimState = $("#claimState");
+var cta = $("#cta"), dockCta = null, claimState = $("#claimState"), buyNote = $("#buyNote");
 
 /* Whether the visitor has chosen anything themselves. Something is always
    chosen — the first open number, on arrival — so `chosen` alone cannot
@@ -3257,6 +3286,11 @@ function paintCta(){
   else say("Number " + pad(chosen) + " carries the " + f.name + " dial." + (live ? "" : " Checkout opens at launch."), KAAL.dials[chosen]);
   paintBuy(cta);
   paintBuy(dockCta);
+  if(buyNote) buyNote.hidden = !(chosen && live);
+  /* While the number is already held, the button says so; the note does
+     not say it a second time. */
+  var holdLine = $("#buyHold");
+  if(holdLine) holdLine.hidden = heldNo === chosen && heldUntil > Date.now();
 }
 
 /* One button's face, apart from the sentence above it, so the dock can be
@@ -3279,8 +3313,24 @@ function paintBuy(el){
   }
   var label = chosen ? "No. " + pad(chosen) + "  ·  " + f.name + "  ·  ₹" + KAAL.price : "Series 01 is complete";
   el.textContent = small && chosen ? "No. " + pad(chosen) + "  ·  " + f.name : label;
+  el.removeAttribute("aria-label");
   if(chosen && live){
-    el.className = "buy" + (small ? " small" : "");
+    el.className = "buy" + (small ? " small" : " own");
+    /* OWN IT. The button names an act and the one thing it acts on, in
+       the buyer's own terms: this number, this dial, this price. While the
+       buyer's number is held after a closed checkout it says so, with the
+       time the hold ends — a clock time, said once, never a countdown. */
+    var held = heldNo === chosen && heldUntil > Date.now();
+    if(small){
+      el.textContent = held ? "Complete  ·  No. " + pad(chosen) : "Own No. " + pad(chosen) + "  ·  ₹" + KAAL.price;
+    } else if(held){
+      el.className = "buy own held";
+      ownFace(el, "Complete your order", "No. " + pad(chosen) + " held for you until " + clockTime(heldUntil).replace(" ", "\u00a0"));
+      el.setAttribute("aria-label", "Complete your order. Number " + pad(chosen) + " is held for you until " + clockTime(heldUntil) + ".");
+    } else {
+      ownFace(el, "Own No. " + pad(chosen), f.name + "  ·  ₹" + KAAL.price + "  ·  Free\u00a0delivery");
+      el.setAttribute("aria-label", "Own number " + pad(chosen) + ", " + f.name + " dial, " + KAAL.price + " rupees, free delivery. Opens secure checkout.");
+    }
     try{ localStorage.setItem("kaal_claimed_no", pad(chosen)); }catch(e){}
     el.removeAttribute("aria-disabled");
     if(mode === "page"){
@@ -3308,6 +3358,36 @@ function paintBuy(el){
       el.setAttribute("aria-disabled", chosen ? "false" : "true");
     }
   }
+}
+
+/* The main button's two lines and its arrow, built from text nodes only. */
+function ownFace(el, main, sub){
+  el.textContent = "";
+  var t = document.createElement("span"), a = document.createElement("span"), b = document.createElement("span");
+  t.className = "own-txt"; a.className = "own-main"; b.className = "own-sub";
+  a.textContent = main; b.textContent = sub;
+  t.appendChild(a); t.appendChild(b);
+  var g = document.createElement("span");
+  g.className = "own-go"; g.setAttribute("aria-hidden", "true");
+  g.innerHTML = '<svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  el.appendChild(t); el.appendChild(g);
+}
+
+/* 7:42 pm, on this device's clock — which is the clock the buyer reads. */
+function clockTime(ms){
+  var d = new Date(ms), h = d.getHours(), m = d.getMinutes();
+  return (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + (h < 12 ? " am" : " pm");
+}
+
+/* The number a closed checkout left held for this buyer, and until when.
+   Set by openRzp from what the worker says it actually held; the buttons
+   fall back to "Own" by themselves when the time passes. */
+var heldNo = 0, heldUntil = 0, heldTimer = 0;
+function rememberHold(n, until){
+  heldNo = until > Date.now() ? n : 0;
+  heldUntil = heldNo ? until : 0;
+  clearTimeout(heldTimer);
+  if(heldNo) heldTimer = setTimeout(function(){ heldNo = 0; heldUntil = 0; paintCta(); }, heldUntil - Date.now() + 500);
 }
 
 /* The dock before a choice: back to the dial row, and focus with it, so a
@@ -3656,7 +3736,8 @@ function startCheckout(n, el){
   if(paying) return;
   paying = true;
   el.setAttribute("aria-busy", "true");
-  el.textContent = "Opening…";
+  if(el === cta) ownFace(el, "Holding No. " + pad(n) + "…", "Opening secure checkout");
+  else el.textContent = "Opening…";
 
   /* Every branch below leaves through here, so the button can never be
      left saying "Opening…" over a modal that never arrived. The dial
@@ -3740,7 +3821,7 @@ function heldLine(n, until){
 }
 
 function openRzp(order, n, el, done, g){
-  var heldUntil = order.held_for > 0 ? Date.now() + order.held_for * 1000 : 0;
+  var holdEnds = order.held_for > 0 ? Date.now() + order.held_for * 1000 : 0;
   try{
     var rzp = new window.Razorpay({
       key:         order.key_id,
@@ -3755,9 +3836,14 @@ function openRzp(order, n, el, done, g){
          worker reads the order's own notes behind it regardless. */
       notes:       giftNotes({ kaal_no: pad(n) }, g),
       theme:       { color: "#C6A15B" },
+      /* Razorpay closes its own checkout before the worker's hold on this
+         number runs out, so nobody can finish paying for a number that
+         has meanwhile passed to somebody else. The worker sets it. */
+      timeout:     order.timeout > 0 ? order.timeout : undefined,
       handler:     function(res){ confirmPayment(res, n, done); },
       modal:       { ondismiss: function(){
-        done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
+        rememberHold(n, holdEnds);
+        done("Checkout closed. Nothing has been charged." + heldLine(n, holdEnds));
       } }
     });
 
@@ -3765,6 +3851,7 @@ function openRzp(order, n, el, done, g){
        page's business. Say the one thing that is: no money moved. */
     rzp.on("payment.failed", function(e){
       var err = (e && e.error) || {};
+      rememberHold(n, holdEnds);
       done("That payment did not go through" + (err.description ? " — " + err.description : "") + ". Nothing has been charged, and you can try again.");
     });
 
@@ -3799,6 +3886,20 @@ function confirmPayment(res, n, done){
     return r.json().catch(function(){ return null; });
   }).then(function(d){
     if(!(d && d.ok)){ unconfirmed(); return; }
+    /* The rare case the lock exists for: this payment is real, but a
+       different order bought the same number moments earlier. The buyer is
+       told that, here, instead of "it's yours" — and the worker refunds
+       the payment as soon as Razorpay confirms it. No Purchase is sent. */
+    if(d.conflict){
+      rememberHold(0, 0);
+      markSold(n);
+      done("Your payment went through, but No. " + pad(n) + " was bought moments earlier by another buyer. " +
+           (d.refund === "manual"
+             ? "We will refund your \u20b9" + KAAL.price + " in full within a day; write to connect@thekaal.co with any question."
+             : "Your \u20b9" + KAAL.price + " is being refunded in full, automatically, to the way you paid, usually within five to seven working days.") +
+           " You can choose another number.");
+      return;
+    }
     /* claimed.html reads the number out of localStorage and the
        reference off the query string. That contract predates this
        route and is kept exactly, so both ways of paying land on the

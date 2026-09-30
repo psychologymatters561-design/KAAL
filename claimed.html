@@ -123,15 +123,34 @@ try{
     document.getElementById("refVal").textContent = pid;
     document.getElementById("refRow").hidden = false;
 
-    /* Purchase, once per payment. The payment id is the eventID, so the
-       worker's server-side copy of this same purchase (Conversions API)
-       is counted with it rather than beside it. A reload of this page
-       does not buy a second watch, so it does not send a second event. */
-    var key = "kaal_purchase_" + pid, sent = false;
-    try{ sent = !!localStorage.getItem(key); localStorage.setItem(key, "1"); }catch(e){}
-    if(!sent){
-      (window.kaalQ = window.kaalQ || []).push(["purchase", { no:n, eventID:pid }]);
-      if(window.kaalFlush) window.kaalFlush();
+    /* Purchase — only for a payment the worker has verified, and once.
+
+       A payment id in the address bar proves nothing; anybody can type
+       one. What proves it is the record the worker returned from /verify
+       after checking Razorpay's signature, which index.html left in this
+       tab's sessionStorage on the way here. It must name this payment, it
+       is used once and deleted, and the order id it carries is the
+       eventID, so the worker's own copy of this purchase (sent from the
+       Razorpay webhook to the Conversions API under the same id) is
+       counted with it, not beside it. A reload, the back button, a
+       bookmark or a shared link finds no record and sends nothing.
+
+       Its hashed email and phone ride along for tags.js to hand the
+       Pixel as advanced matching. */
+    var rec = null;
+    try{ rec = JSON.parse(sessionStorage.getItem("kaal_purchase") || "null"); }catch(e){}
+    try{ sessionStorage.removeItem("kaal_purchase"); }catch(e){}
+    if(rec && rec.payment_id === pid && rec.event_id){
+      var key = "kaal_purchase_" + rec.event_id, sent = false;
+      try{ sent = !!localStorage.getItem(key); localStorage.setItem(key, "1"); }catch(e){}
+      if(!sent){
+        (window.kaalQ = window.kaalQ || []).push(["purchase", {
+          no: rec.no || n, eventID: rec.event_id, order_id: rec.order_id,
+          value: rec.value, currency: rec.currency,
+          user: { em: rec.em || "", ph: rec.ph || "" }
+        }]);
+        if(window.kaalFlush) window.kaalFlush();
+      }
     }
   }
 }catch(e){}

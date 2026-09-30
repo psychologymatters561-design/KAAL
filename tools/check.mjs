@@ -233,13 +233,45 @@ if (dupe.length) bad(`duplicate id(s): ${[...new Set(dupe)].join(", ")}`);
 const pages = readdirSync(root).filter(f => f.endsWith(".html")).sort();
 const refs = new Set();
 for (const f of pages) {
-  for (const m of readFileSync(join(root, f), "utf8").matchAll(/(?:src|href)="([^"#?:]+)"/g)) {
-    const u = m[1];
-    if (u.startsWith("http") || u.startsWith("//") || u.startsWith("mailto") || u.startsWith("data:")) continue;
+  const text = readFileSync(join(root, f), "utf8");
+  const found = [...text.matchAll(/(?:src|href)="([^"#?:]+)"/g)].map(m => m[1]);
+  /* A srcset (or a preload's imagesrcset) names several files at once, each
+     followed by its width. Every one is a file some screen will ask for. */
+  for (const m of text.matchAll(/(?:srcset|imagesrcset)="([^"]+)"/g))
+    for (const part of m[1].split(",")) found.push(part.trim().split(/\s+/)[0]);
+  for (const u of found) {
+    if (!u || u.startsWith("http") || u.startsWith("//") || u.startsWith("mailto") || u.startsWith("data:")) continue;
     if (u === "/") continue;
     refs.add(u.replace(/^\.\//, ""));
   }
 }
+/* A smaller copy in a srcset must be the same picture, including what is
+   NOT in it. The watch shots are cut out on a transparent ground so the
+   halo behind them shows through; a resized copy saved without its alpha
+   is the same watch on a black rectangle — which is exactly what the first
+   cut of these variants was. WebP says whether it has alpha in its VP8X
+   header (or is lossless VP8L with the alpha hint), so this is checkable
+   without decoding a pixel. */
+const webpAlpha = (p) => {
+  const b = readFileSync(p);
+  const kind = b.toString("latin1", 12, 16);
+  if (kind === "VP8X") return (b[20] & 0x10) !== 0;
+  if (kind === "VP8L") return ((b[24] >> 4) & 1) === 1;
+  return false;
+};
+for (const f of pages) {
+  const text = readFileSync(join(root, f), "utf8");
+  for (const m of text.matchAll(/<img\b[^>]*?\bsrc="([^"]+\.webp)"[^>]*?\bsrcset="([^"]+)"/g)) {
+    const base = join(root, m[1]);
+    if (!existsSync(base) || !webpAlpha(base)) continue;
+    for (const part of m[2].split(",")) {
+      const v = part.trim().split(/\s+/)[0];
+      if (v.endsWith(".webp") && existsSync(join(root, v)) && !webpAlpha(join(root, v)))
+        bad(`${v} has no transparency but ${m[1]} does — it would show on a solid rectangle`);
+    }
+  }
+}
+
 for (const r of refs) {
   const p = join(root, r);
   /* A film is fetched on a tap, on whatever connection the tap happens on.
@@ -500,14 +532,58 @@ if (existsSync(join(root, "llms.txt"))) {
     bad("checkout is a hosted Payment Page but llms.txt does not say so");
 }
 
+/* ── 6h. Measurement, written down in more than one place.
+
+      The Pixel ID is in assets/tags.js, in the worker (which reports the
+      server half of every event to it) and in every page's noscript tag.
+      The two worker URLs are in index.html (checkout) and assets/tags.js
+      (the server half of measurement). The price is in both workers'
+      config. Any pair of these disagreeing is silent: events reported to
+      a pixel nobody reads, a checkout on one worker and its measurement on
+      another, a test worker charging a different price from the page.
+
+      And the one rule that makes the Purchase number mean anything:
+      claimed.html may only send it with the worker's verified record in
+      hand — never on the strength of a payment id in the address bar. ── */
+const tagsJs = existsSync(join(root, "assets/tags.js")) ? readFileSync(join(root, "assets/tags.js"), "utf8") : "";
+const workerJs = existsSync(join(root, "worker/kaal-sold-sync.js")) ? readFileSync(join(root, "worker/kaal-sold-sync.js"), "utf8") : "";
+if (tagsJs) {
+  const pixel = tagsJs.match(/pixel:\s*"(\d*)"/)?.[1] ?? "";
+  const workerPixel = workerJs.match(/const PIXEL_ID\s*=\s*"(\d+)"/)?.[1] ?? "";
+  if (pixel && workerPixel !== pixel)
+    bad(`assets/tags.js reports to Pixel ${pixel} but the worker's PIXEL_ID is ${workerPixel || "missing"} — the two halves of every event would land in different datasets`);
+  for (const f of pages) {
+    for (const m of readFileSync(join(root, f), "utf8").matchAll(/facebook\.com\/tr\?id=(\d+)/g))
+      if (pixel && m[1] !== pixel) bad(`${f} has a noscript Pixel for ${m[1]}, but assets/tags.js uses ${pixel}`);
+  }
+  const live = tagsJs.match(/live:\s*"([^"]+)"/)?.[1] ?? "", test = tagsJs.match(/test:\s*"([^"]+)"/)?.[1] ?? "";
+  const apiTest = html.match(/apiTest:\s*"([^"]*)"/)?.[1] ?? "";
+  if (apiUrl && live !== apiUrl) bad(`index.html checks out on ${apiUrl} but assets/tags.js measures on ${live || "nothing"}`);
+  if (apiTest !== test) bad(`index.html's apiTest (${apiTest || "missing"}) and assets/tags.js's test worker (${test || "missing"}) disagree`);
+  if (/\btrack\(\s*["']purchase["']/.test(html)) bad("index.html sends Purchase itself — only claimed.html may, and only with the worker's verified record");
+}
+if (existsSync(join(root, "claimed.html"))) {
+  const claimed = readFileSync(join(root, "claimed.html"), "utf8");
+  if (/\["purchase"/.test(claimed) && !/sessionStorage\.getItem\("kaal_purchase"\)/.test(claimed))
+    bad("claimed.html sends Purchase without reading the worker's verified record — any visitor with a payment id in the URL would count as a sale");
+  if (/\["purchase"/.test(claimed) && !/rec\.payment_id === pid/.test(claimed))
+    bad("claimed.html sends Purchase without checking the verified record is for the payment in its address");
+}
+if (existsSync(join(root, "wrangler.toml"))) {
+  const prices = [...readFileSync(join(root, "wrangler.toml"), "utf8").matchAll(/^\s*PRICE_PAISE\s*=\s*"(\d+)"/gm)].map(m => m[1]);
+  if (new Set(prices).size > 1) bad(`wrangler.toml prices the watch differently per environment (${prices.join(" vs ")}) — the test worker must charge what the page shows`);
+}
+
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
-for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
+for (const f of [...pages, "worker/kaal-sold-sync.js", "assets/tags.js", "wrangler.toml", ".dev.vars.example",
+                 ...readdirSync(join(root, ".github/workflows")).map(w => ".github/workflows/" + w)]) {
   if (!existsSync(join(root, f))) continue;
   const t = readFileSync(join(root, f), "utf8");
   for (const [name, re] of [
     ["GitHub token", /\bgh[pousr]_[A-Za-z0-9]{20,}/],
     ["Razorpay key", /\brzp_(live|test)_[A-Za-z0-9]{10,}/],
     ["AWS key", /\bAKIA[0-9A-Z]{16}\b/],
+    ["Meta access token", /\bEAA[A-Za-z0-9]{60,}/],
     ["private key block", /-----BEGIN [A-Z ]*PRIVATE KEY-----/]
   ]) if (re.test(t)) bad(`${f} looks like it contains a ${name}`);
 }

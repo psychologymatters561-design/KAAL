@@ -782,7 +782,11 @@ a{color:inherit}
 /* ── The fixed environment. One layer, one colour, lerped by scroll.
       This is what makes the site read as a single continuous world
       instead of a stack of sections. ───────────────────────────── */
-.world{position:fixed;inset:0;z-index:-2;background:var(--void);transition:background-color .9s var(--ease-soft);pointer-events:none}
+.world{position:fixed;inset:0;z-index:-2;background:var(--void);pointer-events:none}
+/* The next room, laid over the current one and faded in across the last
+   15% of the act being left, so rooms blend instead of cutting. Opacity on
+   a flat fixed layer is the one colour change the compositor does alone. */
+.world-next{opacity:0}
 .dust{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5}
 .dust.near{z-index:5}
 .grain{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
@@ -1171,6 +1175,96 @@ a{color:inherit}
 .act-tall{padding-block:var(--air-tall)}
 .act p:last-child{margin-bottom:0}
 
+/* ── DEPTH. One system, three planes per act, declared in the markup.
+
+      back   data-depth="back"   the room: a soft wash of the act's own
+                                 colour, travelling at 0.85x the scroll
+      mid    data-depth="mid"    the photograph. Its frame drifts 0 → -6%
+                                 of its height as it crosses the screen,
+                                 while the picture inside zooms from 1.12
+                                 to 1 — a reveal, inside a frame that
+                                 clips, so no edge ever shows
+      front  data-depth="front"  the eyebrow, heading and copy, at 1.08x
+
+      Three rates is the whole trick: a near layer outpacing a far one is
+      read as distance before anything else in the frame is read at all.
+
+      THE ENGINE is the browser's own scroll-driven animation wherever it
+      exists — a view() timeline per element, run on the compositor, no
+      script involved at all. Where it does not, the page's one rAF loop
+      writes each plane's progress through the screen to --dp and the rules
+      below turn it into the same transforms. No scroll listener writes
+      anything, and nothing here touches layout: every value is a
+      translate, a scale or an opacity.
+
+      --amp halves on a low-end device (.lowfx, set by the script) and the
+      whole system is absent for anyone who asked for less motion. The
+      transforms are the independent `translate` and `scale` properties so
+      they compose with, rather than fight, the entrance each element
+      already has on `transform`. ──────────────────────────────────── */
+:root{--amp:1}
+.lowfx{--amp:.5}
+.act-back{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(58% 46% at 72% 38%,var(--glow,rgba(237,232,223,.05)),rgba(0,0,0,0) 72%),
+    radial-gradient(44% 36% at 18% 74%,var(--glow2,rgba(237,232,223,.025)),rgba(0,0,0,0) 70%)}
+[data-world="stone"]    > .act-back{--glow:rgba(216,208,194,.055);--glow2:rgba(216,208,194,.03)}
+[data-world="emerald"]  > .act-back{--glow:rgba(78,138,101,.12);--glow2:rgba(78,138,101,.06)}
+[data-world="midnight"] > .act-back{--glow:rgba(198,161,91,.06);--glow2:rgba(184,186,190,.035)}
+[data-world="ember"]    > .act-back{--glow:rgba(209,155,63,.10);--glow2:rgba(209,155,63,.05)}
+[data-world="void"]     > .act-back{--glow:rgba(237,232,223,.035);--glow2:rgba(0,0,0,0)}
+.plate[data-depth="mid"]{overflow:clip}
+/* The four dial photographs hold still for about 40vh while the picture
+   pushes in, then let go: the pin is a sticky plate inside a wrapper 40vh
+   taller than it. --pin-top centres it; the script measures it. */
+/* The hold is a spacer INSIDE the wrapper, not padding on it: a sticky
+   element is kept within its container's content box, so padding is room
+   it can never move into. */
+.pin::after{content:"";display:block;height:40svh}
+.pin > .plate{position:sticky;top:var(--pin-top,12svh)}
+
+@media (prefers-reduced-motion:no-preference){
+  /* The fallback engine: progress through the screen, 0 entering at the
+     bottom, 1 leaving at the top, written by the script as --dp. */
+  [data-depth="back"]{translate:0 calc((var(--dp,.5) - .5) * (15vh + 15%) * var(--amp))}
+  [data-depth="front"]{translate:0 calc((var(--dp,.5) - .5) * -1 * (8vh + 8%) * var(--amp))}
+  .plate[data-depth="mid"]{translate:0 calc(var(--dp,0) * -6% * var(--amp))}
+  .plate[data-depth="mid"] img{scale:calc(1 + (1 - var(--dp,0)) * .12 * var(--amp))}
+  .pin .plate[data-depth="mid"]{translate:none}
+  .pin .plate[data-depth="mid"] img{scale:var(--pz,1)}
+  [data-depth].dz,[data-depth].dz img{will-change:translate,scale}
+
+  /* The native engine, where it exists. Same numbers, same planes; the
+     script sees support and leaves these alone. */
+  @supports (animation-timeline: view()){
+    [data-depth="back"]{animation:d-back linear both;animation-timeline:view();animation-range:entry 0% exit 100%}
+    [data-depth="front"]{animation:d-front linear both;animation-timeline:view();animation-range:entry 0% exit 100%}
+    .plate[data-depth="mid"]{animation:d-mid linear both;animation-timeline:view();animation-range:entry 0% exit 100%}
+    .plate[data-depth="mid"] img{animation:d-zoom linear both;animation-timeline:view();animation-range:entry 0% exit 100%}
+    .pin{view-timeline:--pin block}
+    .pin .plate[data-depth="mid"]{animation:none}
+    .pin .plate[data-depth="mid"] img{animation:d-pin linear both;animation-timeline:--pin;animation-range:cover 0% cover 100%}
+  }
+}
+/* Two exceptions, both on purpose. The Stillness act is the one moment on
+   the page designed to arrive with no motion at all, so its planes are
+   declared and held still. And the void rooms have no colour to wash, so
+   their back plane has nothing to move. Both keep the page inside its
+   budget of six planes moving at once where three short acts share one
+   screen. */
+.still-act [data-depth],[data-world="void"] > .act-back{animation:none!important;translate:none!important}
+@keyframes d-back{from{translate:0 calc(-1 * (7.5vh + 7.5%) * var(--amp))}to{translate:0 calc((7.5vh + 7.5%) * var(--amp))}}
+@keyframes d-front{from{translate:0 calc((4vh + 4%) * var(--amp))}to{translate:0 calc(-1 * (4vh + 4%) * var(--amp))}}
+@keyframes d-mid{from{translate:0 0}to{translate:0 calc(-6% * var(--amp))}}
+@keyframes d-zoom{from{scale:calc(1 + .12 * var(--amp))}to{scale:1}}
+/* In: the reveal, 1.12 to 1 as the plate arrives. Held: 1 to 1.06 across
+   the pin. Out: it leaves at 1.06. */
+@keyframes d-pin{0%{scale:calc(1 + .12 * var(--amp))}40%{scale:1}60%{scale:calc(1 + .06 * var(--amp))}100%{scale:calc(1 + .06 * var(--amp))}}
+@media (prefers-reduced-motion:reduce){
+  .pin::after{display:none}
+  .pin > .plate{position:relative;top:auto}
+}
+
 /* The common entrance. Everything rises unless it has earned its own. */
 /* Each element enters as IT reaches the reader, not when its act does.
    An act on a phone can be three screens deep; lighting the whole act at
@@ -1195,7 +1289,7 @@ a{color:inherit}
 .plate{position:relative;margin:var(--beat) 0 0;
   border-radius:2px;overflow:hidden;background:var(--void-2);
   clip-path:inset(0 round 2px)}
-.plate img{width:100%;height:auto;transform:scale(1.09) translate3d(0,var(--par,0),0)}
+.plate img{width:100%;height:auto}
 .plate::after{content:"";position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 0 0 130px 20px rgba(8,9,8,.5)}
 .plate-tall{max-width:min(46rem,100%);margin-inline:auto}
@@ -1237,6 +1331,13 @@ a{color:inherit}
   border-style:solid;border-width:.62rem 0 .62rem 1.05rem;border-color:transparent transparent transparent var(--gold)}
 .box-film:hover .box-play,.box-film:focus-visible .box-play{background:rgba(198,161,91,.2);transform:scale(1.06)}
 .plate-box.playing::after{display:none}
+/* While the box film plays, the rest of its act steps back to 40% and the
+   film steps forward 4%. Scaled as a plate rather than as a <video>, so the
+   native controls are never clipped by the frame. */
+.plate-box{transition:opacity 1.05s var(--ease),transform 1.15s var(--ease),scale .9s var(--ease);transition-delay:calc(var(--d,0) * 85ms),calc(var(--d,0) * 85ms),0s}
+.plate-box.showing{scale:1.04}
+.act .col-a,.act .act-back{transition:opacity .9s var(--ease-soft)}
+.act.film-on .col-a,.act.film-on .act-back{opacity:.4}
 
 /* Two-column act: words left, picture right, and neither crowds. */
 .split{display:grid;gap:var(--beat);align-items:center}
@@ -1260,15 +1361,25 @@ a{color:inherit}
 /* ── The four faces. Chips deal in like cards: their own entrance. ── */
 .four{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));
   gap:clamp(.7rem,2vw,1.4rem);margin:var(--beat) 0 0;list-style:none;padding:0}
+/* The four arrive from four depths. Each starts a different distance
+   behind the page (translateZ under a 1200px perspective) and settles
+   flat, eighty milliseconds apart, so the set reads as four objects in a
+   room coming forward rather than four cards sliding up. */
+.four{perspective:1200px}
 .face{border:1px solid var(--line);border-radius:2px;padding:1.35rem 1.2rem 1.15rem;
   background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0));
   opacity:0;transform:translate3d(0,34px,0) rotate(var(--tilt,-1.4deg));
   transition:opacity .8s var(--ease),transform .95s var(--ease),border-color .5s var(--ease)}
+.face{transform:translate3d(0,34px,var(--z,-90px)) rotate(var(--tilt,-1.4deg))}
+.face:nth-child(1){--z:-70px}
+.face:nth-child(2){--z:-150px}
+.face:nth-child(3){--z:-110px}
+.face:nth-child(4){--z:-190px}
 .lit .face{opacity:1;transform:none}
 .lit .face:nth-child(1){transition-delay:.05s}
-.lit .face:nth-child(2){transition-delay:.15s}
-.lit .face:nth-child(3){transition-delay:.25s}
-.lit .face:nth-child(4){transition-delay:.35s}
+.lit .face:nth-child(2){transition-delay:.13s}
+.lit .face:nth-child(3){transition-delay:.21s}
+.lit .face:nth-child(4){transition-delay:.29s}
 .face:hover{border-color:var(--faint)}
 .disc{display:block;width:2.3rem;height:2.3rem;border-radius:50%;margin:0 0 1rem;
   border:1px solid rgba(237,232,223,.16);
@@ -1541,6 +1652,7 @@ a{color:inherit}
 <script>document.body.classList.remove('nojs')</script>
 
 <div class="world" id="world" aria-hidden="true"></div>
+<div class="world world-next" id="worldNext" aria-hidden="true"></div>
 <canvas class="dust" id="dust" aria-hidden="true"></canvas>
 <div class="grain" aria-hidden="true"></div>
 <div class="tick-top" id="tickTop" aria-hidden="true"></div>
@@ -1632,14 +1744,15 @@ a{color:inherit}
 
 <!-- ════════ 01 THE RULE ════════ -->
 <section class="act act-tall" data-world="stone" data-tick="1">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">01 · The rule</p>
       <h2 class="statement rise">Most brands draw a watch, then make it forever.</h2>
       <p class="sub rise">We are making twenty. When the twentieth ships, Series 01 closes. There is no second run, no Mark II, no anniversary reissue, and no quiet return in a different strap.</p>
       <p class="sub rise"><strong>The design retires with the twentieth buyer.</strong> That is the whole promise, and it is the only one that cannot be walked back.</p>
     </div>
-    <div class="plate rise" data-par="0.06">
+    <div class="plate rise" data-depth="mid">
       <img src="assets/img/stone-day.webp" data-frame="8p" loading="lazy" decoding="async"
            alt="A KAAL watch with a silver white dial and gold bezel resting on a broken concrete slab in daylight.">
     </div>
@@ -1648,11 +1761,12 @@ a{color:inherit}
 
 <!-- ════════ 02 FOUR FACES ════════ -->
 <section class="act" data-world="stone" data-tick="2" id="faces">
-  <div class="hold">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
     <p class="label rise">02 · Four faces</p>
     <h2 class="statement rise">One case. Four faces.<br>Twenty numbers.</h2>
   </div>
-  <div class="plate plate-wide rise" data-par="0.09" style="margin-top:var(--beat)">
+  <div class="plate plate-wide rise" data-depth="mid" style="margin-top:var(--beat)">
     <img src="assets/img/four.webp" data-frame="30p" loading="lazy" decoding="async"
          alt="All four Series 01 dials arranged on wet black slate: green, black, gold and silver white, each with a gold bezel and two tone bracelet.">
   </div>
@@ -1668,65 +1782,78 @@ a{color:inherit}
 
 <!-- ════════ 03 EMERALD ════════ -->
 <section class="act act-tall" data-world="emerald" data-tick="3">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split flip">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">03 · Emerald</p>
       <h2 class="statement rise">Green reads black until the light finds it.</h2>
       <p class="sub rise">Sunray brushed, lacquered, then cut by the same gold bezel every piece carries. In a room it is a dark dial. Under a window it is not.</p>
     </div>
-    <div class="plate plate-tall rise" data-par="0.08">
-      <img src="assets/img/jade-wide.webp" data-frame="45p" width="1280" height="1600" loading="lazy" decoding="async"
-           alt="A KAAL watch with a deep green sunray dial, gold bezel and two tone bracelet, standing on dark green velvet.">
+    <div class="pin">
+      <div class="plate plate-tall rise" data-depth="mid">
+        <img src="assets/img/jade-wide.webp" data-frame="45p" width="1280" height="1600" loading="lazy" decoding="async"
+             alt="A KAAL watch with a deep green sunray dial, gold bezel and two tone bracelet, standing on dark green velvet.">
+      </div>
     </div>
   </div>
 </section>
 
 <!-- ════════ 04 MIDNIGHT, and the water ════════ -->
 <section class="act act-tall" data-world="midnight" data-tick="4">
-  <div class="hold">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
     <p class="label rise">04 · Midnight</p>
     <h2 class="statement rise">Rain is not an event.</h2>
     <p class="sub rise">Series 01 is water resistant. Caught in weather, washed at a basin, worn through a downpour on the way to somewhere better: none of that is a story, and none of it is your problem.</p>
   </div>
-  <div class="plate plate-tall rise" data-par="0.1" style="margin-top:var(--beat)">
-    <img src="assets/img/onyx-rain.webp" data-frame="58p" width="1280" height="1600" loading="lazy" decoding="async"
-         alt="Close view of the black dial with gold indices, gold hands and gold subdial print, on black stone under a streak of warm light.">
+  <div class="pin">
+    <div class="plate plate-tall rise" data-depth="mid" style="margin-top:var(--beat)">
+      <img src="assets/img/onyx-rain.webp" data-frame="58p" width="1280" height="1600" loading="lazy" decoding="async"
+           alt="Close view of the black dial with gold indices, gold hands and gold subdial print, on black stone under a streak of warm light.">
+    </div>
   </div>
 </section>
 
 <!-- ════════ 05 CHAMPAGNE ════════ -->
 <section class="act act-tall" data-world="ember" data-tick="5">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">05 · Champagne</p>
       <h2 class="statement rise">The loudest of the four. Still quiet.</h2>
       <p class="sub rise">A full champagne dial is a decision, not a default. It is the piece in the series that does not wait to be noticed, and the one most likely to go first.</p>
     </div>
-    <div class="plate plate-tall rise" data-par="0.07">
-      <img src="assets/img/ember-smoke.webp" data-frame="72p" width="1280" height="1600" loading="lazy" decoding="async"
-           alt="A KAAL watch with a champagne gold dial and two tone bracelet resting on warm sandstone in low, raking sunlight.">
+    <div class="pin">
+      <div class="plate plate-tall rise" data-depth="mid">
+        <img src="assets/img/ember-smoke.webp" data-frame="72p" width="1280" height="1600" loading="lazy" decoding="async"
+             alt="A KAAL watch with a champagne gold dial and two tone bracelet resting on warm sandstone in low, raking sunlight.">
+      </div>
     </div>
   </div>
 </section>
 
 <!-- ════════ 06 IVORY ════════ -->
 <section class="act act-tall" data-world="stone" data-tick="6">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split flip">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">06 · Ivory</p>
       <h2 class="statement rise">Nothing to hide behind.</h2>
       <p class="sub rise">A pale dial shows every flaw in a finish, which is exactly why it is in the series. Day ring, twenty four hour counter and pointer date, all legible at arm's length in daylight.</p>
     </div>
-    <div class="plate plate-tall rise" data-par="0.08">
-      <img src="assets/img/stone-studio.webp" data-frame="20p" loading="lazy" decoding="async"
-           alt="A KAAL watch with a silver white dial photographed three quarters on a pale concrete block against a grey wall.">
+    <div class="pin">
+      <div class="plate plate-tall rise" data-depth="mid">
+        <img src="assets/img/stone-studio.webp" data-frame="20p" loading="lazy" decoding="async"
+             alt="A KAAL watch with a silver white dial photographed three quarters on a pale concrete block against a grey wall.">
+      </div>
     </div>
   </div>
 </section>
 
 <!-- ════════ 07 THE HANDS ════════ -->
 <section class="act act-tall" data-world="stone" data-tick="7">
-  <div class="hold">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
     <p class="label rise">07 · The hands</p>
     <h2 class="statement rise">Every case is finished by hand.</h2>
     <p class="sub rise">By people who have spent their working lives doing this and nothing else. Not a season of it. A life of it.</p>
@@ -1750,8 +1877,9 @@ a{color:inherit}
      of them can be crossed without a tap. Without JavaScript the link
      opens the file itself. ════════ -->
 <section class="act act-tall" data-world="emerald" data-tick="8">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split flip">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">08 · The box</p>
       <h2 class="statement rise">The next time it opens, it is yours.</h2>
       <p class="sub rise">Eighteen seconds, with sound.</p>
@@ -1785,8 +1913,9 @@ a{color:inherit}
      and the argument for quartz live on movement.html, one link away,
      for the reader who wants them. ════════ -->
 <section class="act act-tall" data-world="midnight" data-tick="9" id="movement">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold split">
-    <div class="col-a">
+    <div class="col-a" data-depth="front">
       <p class="label rise">09 · The movement</p>
       <h2 class="statement rise">Inside every one of them, a <em>Seiko Epson</em> movement from Japan.</h2>
       <p class="sub rise">Everything you can see is made in India, by hand. The one part that keeps time comes from Japan — the only part you cannot judge by looking, so the one where the name matters most.</p>
@@ -1797,7 +1926,7 @@ a{color:inherit}
         <div class="fact"><dt>Serviced by</dt><dd>Us, not a queue</dd><p>One email. No portal, no ticket number.</p></div>
       </dl>
     </div>
-    <div class="plate plate-tall rise" data-par="0.06">
+    <div class="plate plate-tall rise" data-depth="mid">
       <img src="assets/img/jade-close.webp" data-frame="88p" width="1280" height="1600" loading="lazy" decoding="async"
            alt="Macro view of the green dial showing the day ring, the twenty four hour counter and the pointer date subdial.">
     </div>
@@ -1806,7 +1935,8 @@ a{color:inherit}
 
 <!-- ════════ 10 THE DOOR ════════ -->
 <section class="act act-tall" data-world="void" data-tick="10">
-  <div class="hold door">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold door" data-depth="front">
     <p class="label leaf leaf-l" style="justify-content:center">10 · The door</p>
     <h2 class="statement leaf leaf-r">Seven days.</h2>
     <div class="door-rule" aria-hidden="true"></div>
@@ -1818,7 +1948,8 @@ a{color:inherit}
 
 <!-- ════════ STILLNESS. No entrance. That is the entrance. ════════ -->
 <section class="act act-tall still-act" data-world="void">
-  <div class="hold">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
     <h2 class="statement">This is not for someone who needs a watch to speak for them.</h2>
     <h2 class="statement">It is for someone who has already been heard.</h2>
   </div>
@@ -1826,6 +1957,7 @@ a{color:inherit}
 
 <!-- ════════ 11 THE TWENTY ════════ -->
 <section class="act act-tall" data-world="ember" data-tick="11" id="twenty">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold">
     <p class="label rise">11 · The twenty</p>
     <h2 class="statement rise"><span id="remWord">Eighteen</span> remain.</h2>
@@ -2221,6 +2353,14 @@ function track(name, data){
 }
 
 var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* A low-end device gets half the depth: the same planes at half the
+   travel. Under four gigabytes, or four cores or fewer where memory is not
+   reported — which is every WebKit, so every iPhone below an A12. */
+if((navigator.deviceMemory && navigator.deviceMemory < 4) ||
+   (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)){
+  document.documentElement.classList.add("lowfx");
+}
 var qs = new URLSearchParams(location.search);
 
 /* ── One scroll value, eased, and everything on the page derives from
@@ -2250,7 +2390,7 @@ var S = { raw:0, y:0, v:0, max:1 };
    resize, a rotation, a lazy photograph arriving, a plate falling back to
    its panel. Each of those calls remeasure(), debounced. ────────────── */
 var M = { vw:0, vh:0, stageH:0, heroTop:0, heroSpan:1,
-          acts:[], plates:[], twentyTop:0 };
+          acts:[], twentyTop:0 };
 
 /* The loop rests. It wakes on input and sleeps when nothing has moved
    for a beat, so an idle page costs nothing. */
@@ -2913,16 +3053,37 @@ function driveCaps(p){
   }
 }
 
-/* ── The world. One fixed layer whose colour is a function of which act
-      owns the middle of the screen. This is what makes ten sections
-      read as one continuous building. ──────────────────────────── */
-var worldEl = $("#world"), acts = $$(".act[data-world]"), curWorld = "", deciding = false;
+/* ── The world. Two fixed layers whose colours are a function of which act
+      owns the middle of the screen. This is what makes ten sections read
+      as one continuous building.
+
+      Rooms used to change on a timer: the moment the middle of the screen
+      crossed into a new act, the colour started a 0.9s transition, however
+      fast or slow the reader was moving. Now the change is ON the scroll:
+      across the last 15% of the act being left, the next room's colour is
+      faded in over the current one by opacity, so a reader who stops halfway
+      through the doorway is standing halfway between two rooms. When the
+      middle crosses over, the layers swap colours at the one moment they
+      look identical. ────────────────────────────────────────────────── */
+var worldEl = $("#world"), worldNext = $("#worldNext"), acts = $$(".act[data-world]");
+var curWorld = "", nextWorld = "", worldMix = "", deciding = false;
 function driveWorld(){
-  var mid = S.raw + M.vh * 0.5, found = "void", a = M.acts;
+  var mid = S.raw + M.vh * 0.5, a = M.acts, here = -1;
   for(var i=0;i<a.length;i++){
-    if(a[i].top <= mid && a[i].bottom >= mid){ found = a[i].world; break; }
+    if(a[i].top <= mid && a[i].bottom >= mid){ here = i; break; }
+  }
+  var found = here < 0 ? "void" : a[here].world, toward = found, mix = 0;
+  if(here >= 0 && !reduced){
+    var f = (mid - a[here].top) / Math.max(1, a[here].bottom - a[here].top);
+    var nx = a[here + 1];
+    if(f > 0.85 && nx && nx.world !== found && nx.top - a[here].bottom < M.vh * 0.5){
+      toward = nx.world; mix = (f - 0.85) / 0.15;
+    }
   }
   if(found !== curWorld){ curWorld = found; worldEl.style.backgroundColor = WORLD[found] || WORLD.void; }
+  if(toward !== nextWorld){ nextWorld = toward; worldNext.style.backgroundColor = WORLD[toward] || WORLD.void; }
+  var m = mix.toFixed(3);
+  if(m !== worldMix){ worldMix = m; worldNext.style.opacity = m; }
   /* The same line decides the one thing on this page that may only exist
      at the decision: once the twenty owns the middle of the screen, and
      from there to the foot of the page, the visitor is choosing. The dock
@@ -2980,12 +3141,25 @@ function driveWorld(){
     v.controls = true;
     v.playsInline = true;
     v.setAttribute("playsinline", "");
-    v.preload = "auto";
+    /* Nothing of the film is fetched before this tap, and preload="none"
+       keeps it that way until play() itself asks — which it does on the
+       next line but one. */
+    v.preload = "none";
     if(img) v.poster = img.currentSrc || img.src;
     v.setAttribute("aria-label", "The KAAL box, opened. Eighteen seconds, with sound.");
     v.src = a.getAttribute("href");
     plate.replaceChild(v, a);
     plate.classList.add("playing");
+    /* While it plays, the rest of the act steps back and the film steps
+       forward; a pause or the end gives the act back. */
+    var act = plate.closest(".act");
+    function showing(on){
+      plate.classList.toggle("showing", on && !reduced);
+      if(act) act.classList.toggle("film-on", on && !reduced);
+    }
+    v.addEventListener("play",  function(){ showing(true); });
+    v.addEventListener("pause", function(){ showing(false); });
+    v.addEventListener("ended", function(){ showing(false); });
     v.focus({ preventScroll:true });   /* the focused link has just gone; keep a keyboard in place */
     var go = v.play();
     if(go && go.catch) go.catch(function(){});   /* refused: the controls are still there */
@@ -2993,30 +3167,58 @@ function driveWorld(){
   });
 })();
 
-/* ── Plates carry a little parallax, and they carry it as a transform
-      so the compositor does all of it. ─────────────────────────── */
-var plates = $$(".plate[data-par]").map(function(el){
-  return { el:el, img:el.querySelector("img"), k:parseFloat(el.dataset.par)||0.06, last:null };
-});
-function drivePlates(){
-  var h = M.vh, m = M.plates;
-  for(var i=0;i<m.length;i++){
-    var p = m[i];
-    if(!p.img || p.dead) continue;
-    var top = p.top - S.raw;                    /* document space to viewport space */
-    if(top + p.h < -80 || top > h + 80) continue;
-    var c = (top + p.h/2 - h/2) / h;
-    /* The picture is scaled 1.09 inside its frame, which leaves it 4.5% of
-       the frame's height to travel each way before its edge shows. Past
-       that, the drift was uncovering a band of bare panel inside the
-       photograph — 55px of it on a wide plate at 1440. Held to the margin,
-       the motion is the same in the middle and simply stops at the edge.
-       Four percent, not four and a half, so rounding never shows a hairline. */
-    var lim = p.h * 0.04, d = -c * p.k * h;
-    var y = (d > lim ? lim : d < -lim ? -lim : d).toFixed(1);
-    if(y !== p.last){ p.last = y; p.img.style.transform = "scale(1.09) translate3d(0," + y + "px,0)"; }
+/* ── DEPTH, THE FALLBACK ENGINE. (The system itself, and why, is in the
+      stylesheet under DEPTH.)
+
+      Where the browser runs scroll-driven animations natively this whole
+      block is skipped: the compositor does it and no script is involved.
+      Elsewhere the page's one loop writes each plane's progress through the
+      screen — 0 as it enters at the bottom, 1 as it leaves at the top — to
+      --dp on that plane, and the same rules turn it into the same
+      transforms. Positions come from measure(), so this is arithmetic and
+      never a layout read, and a value is written only when it changed and
+      only while its plane is near the screen. ─────────────────────────── */
+var NATIVE_DEPTH = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: view()"));
+var depthEls = (reduced || NATIVE_DEPTH) ? [] : $$("[data-depth]").filter(function(el){
+  return !el.closest(".still-act") && !el.closest('[data-world="void"] > .act-back') && !el.closest(".pin");
+}).map(function(el){ return { el:el, last:"" }; });
+var pinEls = (reduced || NATIVE_DEPTH) ? [] : $$(".pin").map(function(el){ return { el:el, last:"" }; });
+function coverAt(top, h){ return (M.vh - (top - S.raw)) / (M.vh + h); }
+function driveDepth(){
+  var i, d, c, v;
+  for(i = 0; i < depthEls.length; i++){
+    d = depthEls[i];
+    c = coverAt(d.top, d.h);
+    if(c < -0.05 || c > 1.05) continue;
+    v = clamp(c, 0, 1).toFixed(3);
+    if(v !== d.last){ d.last = v; d.el.style.setProperty("--dp", v); }
+  }
+  /* The pinned dial plates: 1.12 to 1 as they arrive, 1 to 1.06 across the
+     40vh hold, 1.06 as they leave — the d-pin keyframes, in arithmetic. */
+  for(i = 0; i < pinEls.length; i++){
+    d = pinEls[i];
+    c = coverAt(d.top, d.h);
+    if(c < -0.05 || c > 1.05) continue;
+    c = clamp(c, 0, 1);
+    var amp = document.documentElement.classList.contains("lowfx") ? 0.5 : 1;
+    var z = c < 0.4 ? 1 + 0.12 * amp * (1 - c / 0.4)
+          : c < 0.6 ? 1 + 0.06 * amp * ((c - 0.4) / 0.2)
+          : 1 + 0.06 * amp;
+    v = z.toFixed(4);
+    if(v !== d.last){ d.last = v; d.el.style.setProperty("--pz", v); }
   }
 }
+
+/* will-change is a promise to the compositor that costs memory for as long
+   as it stands, so it is made only while a plane is on or near the screen
+   and withdrawn the moment it leaves. Under both engines. */
+(function depthLayers(){
+  if(reduced || !("IntersectionObserver" in window)) return;
+  var io = new IntersectionObserver(function(es){
+    for(var i = 0; i < es.length; i++) es[i].target.classList.toggle("dz", es[i].isIntersecting);
+  }, { rootMargin:"4% 0px" });
+  $$("[data-depth]").forEach(function(el){ io.observe(el); });
+})();
 
 /* ── The rail. Twenty ticks down the page, two of them struck, drawn as
       the visitor descends. A numbered rail is a generic device almost
@@ -4034,7 +4236,7 @@ function tick(now){
   driveCaps(p);
   driveDust();
   driveWorld();
-  drivePlates();
+  driveDepth();
   driveRail();
   driveChrome();
 
@@ -4061,16 +4263,23 @@ function measure(){
     var t = docTop(el);
     return { top:t, bottom:t + el.offsetHeight, world:el.dataset.world };
   });
-  if(M.plates.length !== plates.length){
-    M.plates = plates.map(function(p){ return { img:p.img, k:p.k, last:null }; });
+  for(var di = 0; di < depthEls.length; di++){
+    depthEls[di].top = docTop(depthEls[di].el);
+    depthEls[di].h   = depthEls[di].el.offsetHeight;
   }
-  for(var pi=0; pi<plates.length; pi++){
-    var src = plates[pi], dst = M.plates[pi];
-    dst.top  = docTop(src.el);
-    dst.h    = src.el.offsetHeight;
-    dst.dead = src.el.classList.contains("void-plate");
+  for(var pj = 0; pj < pinEls.length; pj++){
+    pinEls[pj].top = docTop(pinEls[pj].el);
+    pinEls[pj].h   = pinEls[pj].el.offsetHeight;
   }
   M.twentyTop = docTop(twentyEl);
+
+  /* Each pinned plate is held centred on the stage, below the nav. Read
+     every height first, write every position after, so measuring does not
+     re-lay the page out once per plate. */
+  var pins = $$(".pin"), ph = pins.map(function(el){ var pl = el.firstElementChild; return pl ? pl.offsetHeight : 0; });
+  for(var pk = 0; pk < pins.length; pk++){
+    pins[pk].style.setProperty("--pin-top", Math.max(72, Math.round((M.stageH - ph[pk]) / 2)) + "px");
+  }
 }
 
 /* A photograph arriving, a plate falling back to its panel, a rotation:

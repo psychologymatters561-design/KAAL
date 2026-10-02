@@ -97,6 +97,34 @@ if (existsSync(join(root, "wrangler.toml"))) {
 } else if (payMode === "standard") {
   bad("pay is \"standard\" but there is no wrangler.toml — nothing defines the price the buyer is charged");
 }
+/* ── 3b-ii. The dial map the sale emails use, against the page's own. ── */
+if (existsSync(join(root, "wrangler.toml"))) {
+  const toml = readFileSync(join(root, "wrangler.toml"), "utf8");
+  const raw = toml.match(/^\s*DIALS\s*=\s*'([^']*)'/m)?.[1];
+  if (raw) {
+    let map = null;
+    try { map = JSON.parse(raw); } catch { bad("wrangler.toml DIALS is not valid JSON"); }
+    if (map) for (let i = 1; i <= edition; i++) {
+      const want = dialOf[i] ? dialOf[i][0].toUpperCase() + dialOf[i].slice(1) : "";
+      if (map[String(i)] !== want) bad(`wrangler.toml DIALS says No. ${i} is ${map[String(i)]}; KAAL.dials says ${want} — the sale email would name the wrong dial`);
+    }
+  }
+}
+
+/* The thank-you page names the dial too, from its own mirror of the map. */
+if (existsSync(join(root, "claimed.html"))) {
+  const c = readFileSync(join(root, "claimed.html"), "utf8");
+  const raw = c.match(/var DIALS = \{([^}]*)\}/)?.[1];
+  if (!raw) soft("claimed.html carries no DIALS map — the receipt cannot name the dial");
+  else {
+    const map = Object.fromEntries([...raw.matchAll(/(\d+):"(\w+)"/g)].map(m => [+m[1], m[2]]));
+    for (let i = 1; i <= edition; i++) {
+      const want = dialOf[i] ? dialOf[i][0].toUpperCase() + dialOf[i].slice(1) : "";
+      if (map[i] !== want) bad(`claimed.html DIALS says No. ${i} is ${map[i]}; KAAL.dials says ${want}`);
+    }
+  }
+}
+
 /* ── 3c. The hero sequence.
 
       The frames are files now, not a transform someone else computes on

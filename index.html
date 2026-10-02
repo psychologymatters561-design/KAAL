@@ -2990,6 +2990,22 @@ function decodeBlob(blob){
     im.src = u;
   });
 }
+/* Every decoded frame closed, every pending decode left to land and be
+   closed in turn. Called when checkout opens and when the page is hidden:
+   iOS reclaims the memory of a background tab first by discarding it, and
+   a discarded tab is a checkout the buyer cannot come back to. feed()
+   decodes the window again from the encoded files the moment it is
+   needed. */
+function releaseFilm(){
+  for(var i = 0; i < SEQ.n; i++) if(SEQ.st[i] === 4) release(i);
+  SEQ.painted = -1;
+}
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "hidden") releaseFilm();
+  else if(SEQ.n){ feed(); wake(); }
+});
+addEventListener("pagehide", releaseFilm);
+
 function release(i){
   var b = SEQ.bmp[i];
   if(b && b.close) b.close();
@@ -4478,6 +4494,37 @@ function markSold(n){
   if(!chosen) paintCta();
 }
 
+/* ── A PAYMENT THAT FINISHED WHILE THIS PAGE WAS GONE.
+
+      A phone that switches to a UPI app may discard this tab, and the page
+      that loads on the way back knows nothing about the checkout that was
+      open. So it asks: if an order was opened here in the last three hours,
+      the worker says whether it was paid, and a paid one goes straight to
+      its thank-you page. An unpaid one is left alone; the buyer is simply
+      back where they were. And a payment Razorpay reports as failed comes
+      back here with ?checkout=failed, and says so in the line that already
+      exists for it. ──────────────────────────────────────────────── */
+(function recoverCheckout(){
+  if(qs.get("checkout") === "failed"){
+    say("That payment did not go through. Nothing has been charged, and you can try again.", chosen ? KAAL.dials[chosen] : null);
+    if(!location.hash) anchorTo($("#choose"));
+  }
+  if(!KAAL.api || !window.fetch) return;
+  var p = null;
+  try{ p = JSON.parse(localStorage.getItem("kaal_pending") || "null"); }catch(e){ p = null; }
+  if(!p || !p.o || !p.at) return;
+  if(Date.now() - p.at > 3 * 3600 * 1000){ try{ localStorage.removeItem("kaal_pending"); }catch(e){} return; }
+  fetch(KAAL.api.replace(/\/+$/, "") + "/receipt?o=" + encodeURIComponent(p.o), { mode:"cors", credentials:"omit", cache:"no-store" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.ok || !d.paid) return;
+      try{ localStorage.removeItem("kaal_pending"); localStorage.setItem("kaal_claimed_no", pad(d.n)); }catch(e){}
+      location.replace("claimed.html?razorpay_payment_id=" + encodeURIComponent(d.payment_id || "") +
+                       "&o=" + encodeURIComponent(p.o) + "&n=" + pad(d.n));
+    })
+    .catch(function(){});
+})();
+
 (function liveState(){
   if(!KAAL.api || !window.fetch) return;
   var base = KAAL.api.replace(/\/+$/, ""), busy = false, timer = 0;
@@ -4688,7 +4735,13 @@ function openRzp(order, n, el, done, g){
          worker reads the order's own notes behind it regardless. */
       notes:       giftNotes({ kaal_no: pad(n) }, g),
       theme:       { color: "#C6A15B" },
-      handler:     function(res){ confirmPayment(res, n, done); },
+      handler:     function(res){ confirmPayment(res, n, done, order.order_id); },
+      /* Where Razorpay sends the buyer when it cannot hand the result back
+         to this page: in-app browsers, and payment methods that leave the
+         page. The worker checks the signature and redirects to the
+         thank-you page itself, so getting home never depends on this tab
+         having survived a trip to a UPI app. */
+      callback_url: KAAL.api.replace(/\/+$/, "") + "/callback",
       modal:       { ondismiss: function(){
         done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
       } }
@@ -4701,6 +4754,15 @@ function openRzp(order, n, el, done, g){
       done("That payment did not go through" + (err.description ? " — " + err.description : "") + ". Nothing has been charged, and you can try again.");
     });
 
+    /* Remembered before the modal opens: if the phone throws this tab away
+       while the buyer is in their payment app, the page that loads when
+       they come back asks the worker whether this order was paid. */
+    try{ localStorage.setItem("kaal_pending", JSON.stringify({ o:order.order_id, n:n, at:Date.now() })); }catch(e){}
+    /* And give the phone less reason to throw it away: the film's decoded
+       frames are the largest thing this page holds, and nobody is
+       scrolling it while they pay. They come back from their files the
+       moment the scrub moves again. */
+    releaseFilm();
     rzp.open();
 
     /* The modal owns the screen now. The button behind it should not
@@ -4714,7 +4776,7 @@ function openRzp(order, n, el, done, g){
   }
 }
 
-function confirmPayment(res, n, done){
+function confirmPayment(res, n, done, orderId){
   var ref = (res && res.razorpay_payment_id) || "";
   function unconfirmed(){
     done("Your payment went through, but this page could not confirm it. Nothing is lost — write to connect@thekaal.co quoting " + (ref || "your payment reference") + " and a person will answer.");
@@ -4738,7 +4800,9 @@ function confirmPayment(res, n, done){
        same page saying the same thing. */
     try{ localStorage.setItem("kaal_claimed_no", pad(n)); }catch(e){}
     markSold(n);
-    location.href = "claimed.html?razorpay_payment_id=" + encodeURIComponent(ref);
+    try{ localStorage.removeItem("kaal_pending"); }catch(e){}
+    location.href = "claimed.html?razorpay_payment_id=" + encodeURIComponent(ref) +
+                    (orderId ? "&o=" + encodeURIComponent(orderId) : "") + "&n=" + pad(n);
   }).catch(unconfirmed);
 }
 

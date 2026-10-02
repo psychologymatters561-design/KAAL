@@ -23,6 +23,16 @@ PRICE_PAISE   = "599900"          # ₹5,999
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
+# Every sale emails the owner and the buyer (docs/payments.md). The owner's
+# inbox, the verified sender, and the site the buyer is sent back to.
+OWNER_EMAIL   = "connect@thekaal.co"
+MAIL_FROM     = "KAAL <connect@thekaal.co>"
+SITE_URL      = "https://thekaal.co"
+
+# Which dial each number carries, for the sale emails. A mirror of
+# KAAL.dials in index.html; tools/check.mjs fails the build if they differ.
+DIALS = '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald","6":"Emerald","7":"Midnight","8":"Midnight","9":"Midnight","10":"Midnight","11":"Champagne","12":"Champagne","13":"Champagne","14":"Champagne","15":"Ivory","16":"Ivory","17":"Ivory","18":"Ivory","19":"Ivory","20":"Ivory"}'
+
 # The one email after an unfinished checkout. Built and OFF. Read
 # docs/email.md before turning it on; "on" is the only value that sends.
 ABANDON_EMAIL = "off"

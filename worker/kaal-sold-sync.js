@@ -37,6 +37,13 @@
 
    AND TWO THAT ARE NOT ABOUT MONEY (October 2026):
 
+     POST /callback     where Razorpay sends the buyer after paying, when the
+                        page itself cannot be relied on to still be there
+     GET  /receipt?o=   a verified receipt for one order: paid or not, which
+                        number, how much. No email, no phone, no address.
+     POST /shipping     where the watch goes, given after paying, once the
+                        payment is proved; tells the owner at once
+
      POST /list {email} the Series 02 list: one address, stored under the
                         hash of itself, rate limited, nothing else kept
      scheduled()        the abandoned-checkout email. Built, and OFF until
@@ -89,6 +96,9 @@ export default {
     if (request.method === "POST" && path === "/order") return postOrder(request, env);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
     if (request.method === "POST" && path === "/list") return postList(request, env);
+    if (request.method === "POST" && path === "/callback") return postCallback(request, env);
+    if (request.method === "GET" && path === "/receipt") return getReceipt(request, env, url);
+    if (request.method === "POST" && path === "/shipping") return postShipping(request, env);
     if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
@@ -333,6 +343,203 @@ async function postVerify(request, env) {
   return json(request, env, { ok: true, n: n || null });
 }
 
+/* ══════════ 2b. AFTER THE MONEY ══════════
+
+   A real sale on an iPhone, October 2026: the payment was captured, the
+   webhook recorded No. 09, and the buyer never came back to the site. The
+   page that opened checkout is the only thing that knew where to send
+   them, and a phone that switches to a UPI app is free to throw that page
+   away. Nothing told the owner either.
+
+   So the buyer's way home no longer depends on the page surviving:
+
+     callback_url   Razorpay posts the result HERE, server to browser, and
+                    this answers with a redirect to the thank-you page.
+                    Used by Razorpay wherever its modal cannot hand the
+                    result back to the page (in-app browsers, redirects).
+     /receipt       the thank-you page, and a page reloaded mid-payment,
+                    ask here whether an order is paid. Verified against
+                    Razorpay, never against anything the browser says.
+     /shipping      the one thing Standard Checkout never collects: where
+                    the watch goes. Accepted only for a paid order.
+
+   And the owner and the buyer each get an email for every sale. */
+
+function siteUrl(env) {
+  return (env.SITE_URL || (env.ALLOW_ORIGIN || "https://thekaal.co").split(",")[0]).trim().replace(/\/+$/, "");
+}
+
+async function postCallback(request, env) {
+  const site = siteUrl(env);
+  let form;
+  try { form = await request.formData(); } catch (e) { form = null; }
+  const get = (k) => (form && typeof form.get(k) === "string") ? form.get(k) : "";
+
+  const paymentId = get("razorpay_payment_id");
+  const orderId   = get("razorpay_order_id");
+  const signature = get("razorpay_signature");
+
+  if (paymentId && orderId && signature && env.RAZORPAY_KEY_SECRET) {
+    const expected = await hmacHex(`${orderId}|${paymentId}`, env.RAZORPAY_KEY_SECRET);
+    if (timingSafeEqual(expected, signature)) {
+      const n = (await numberFromOrder(env, orderId)) || 0;
+      if (n && env.KAAL_STATE) {
+        try {
+          const sold = (await readSold(env)) || [];
+          if (sold.indexOf(n) < 0) sold.push(n);
+          await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(sold.sort((a, b) => a - b)));
+          await env.KAAL_STATE.delete(HOLD_PREFIX + n);
+        } catch (e) { console.log("KV update on callback failed:", String(e).slice(0, 120)); }
+      }
+      const q = `razorpay_payment_id=${encodeURIComponent(paymentId)}&o=${encodeURIComponent(orderId)}` + (n ? `&n=${pad2(n)}` : "");
+      return Response.redirect(`${site}/claimed.html?${q}`, 303);
+    }
+    console.log("Signature mismatch on /callback for order", String(orderId).slice(0, 40));
+  }
+  /* A failed or cancelled payment arrives here too, as error[...] fields.
+     Nothing was charged; the buyer goes back to the twenty to try again. */
+  return Response.redirect(`${site}/?checkout=failed#twenty`, 303);
+}
+
+const ORDER_ID = /^order_[A-Za-z0-9]{6,40}$/;
+
+async function paymentsOf(env, orderId) {
+  try {
+    const res = await fetch(`${RZP_API}/orders/${encodeURIComponent(orderId)}/payments`, { headers: razorpayAuth(env) });
+    if (!res.ok) return [];
+    const page = await res.json();
+    return (page && page.items) || [];
+  } catch (e) { return []; }
+}
+
+async function getReceipt(request, env, url) {
+  const orderId = url.searchParams.get("o") || "";
+  if (!ORDER_ID.test(orderId)) return json(request, env, { ok: false, reason: "bad-order" }, { "Cache-Control": "no-store" }, 400);
+  const order = await readOrder(env, orderId);
+  const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
+  if (!order || !n) return json(request, env, { ok: false, reason: "unknown-order" }, { "Cache-Control": "no-store" }, 404);
+
+  const pays = await paymentsOf(env, orderId);
+  const good = pays.find(p => p.status === "captured" || p.status === "authorized");
+  const paid = order.status === "paid" || !!good;
+  let shipping = false;
+  if (env.KAAL_STATE) { try { shipping = !!(await env.KAAL_STATE.get("ship:" + orderId)); } catch (e) { shipping = false; } }
+
+  return json(request, env, {
+    ok: true, paid, n,
+    amount: order.amount, currency: order.currency || "INR",
+    payment_id: good ? good.id : null,
+    created_at: order.created_at,
+    gift: !!(order.notes && order.notes.gift === "yes"),
+    shipping
+  }, { "Cache-Control": "no-store" });
+}
+
+function cleanField(v, max) { return cleanNote(v, max); }
+
+async function postShipping(request, env) {
+  let body;
+  try { body = await request.json(); }
+  catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
+  const orderId = String((body && body.o) || "");
+  if (!ORDER_ID.test(orderId)) return json(request, env, { ok: false, reason: "bad-order" }, {}, 400);
+
+  const a = {
+    name:  cleanField(body.name, 80),
+    phone: String(body.phone || "").replace(/[^\d+]/g, "").slice(0, 15),
+    line1: cleanField(body.line1, 120),
+    line2: cleanField(body.line2, 120),
+    city:  cleanField(body.city, 60),
+    state: cleanField(body.state, 40),
+    pin:   String(body.pin || "").replace(/\D/g, "").slice(0, 6)
+  };
+  if (!a.name || !a.line1 || !a.city || !a.state || a.pin.length !== 6 || a.phone.replace(/\D/g, "").length < 10) {
+    return json(request, env, { ok: false, reason: "incomplete" }, {}, 400);
+  }
+
+  const order = await readOrder(env, orderId);
+  const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
+  if (!order || !n) return json(request, env, { ok: false, reason: "unknown-order" }, {}, 404);
+  const pays = await paymentsOf(env, orderId);
+  const good = pays.find(p => p.status === "captured" || p.status === "authorized");
+  if (order.status !== "paid" && !good) return json(request, env, { ok: false, reason: "not-paid" }, {}, 409);
+
+  let updated = false;
+  if (env.KAAL_STATE) {
+    try {
+      updated = !!(await env.KAAL_STATE.get("ship:" + orderId));
+      await env.KAAL_STATE.put("ship:" + orderId, JSON.stringify(Object.assign({ at: new Date().toISOString() }, a)));
+    } catch (e) { console.log("Shipping KV write failed:", String(e).slice(0, 120)); }
+  }
+
+  const addr = [a.name, a.line1, a.line2, `${a.city}, ${a.state} ${a.pin}`, `Phone ${a.phone}`].filter(Boolean).join("\n");
+  const owner = env.OWNER_EMAIL || "connect@thekaal.co";
+  await sendEmail(env, owner,
+    `${updated ? "Address updated" : "Ship to"} · No. ${pad2(n)}`,
+    `No. ${pad2(n)} ${updated ? "has a new delivery address" : "goes here"}:\n\n${addr}\n\nOrder ${orderId}${good ? `, payment ${good.id}` : ""}.${order.notes && order.notes.gift === "yes" ? `\nGift: yes${order.notes.gift_note ? `. Card: "${order.notes.gift_note}"` : ""}. No price in the box.` : ""}`);
+  const buyerEmail = good && good.email;
+  if (buyerEmail && validEmail(String(buyerEmail).toLowerCase())) {
+    await sendEmail(env, buyerEmail, `No. ${pad2(n)} will come to you here`,
+      `We have your address for No. ${pad2(n)}:\n\n${addr}\n\nIf anything in it is wrong, reply to this email before it is dispatched and we will correct it.\n\nKAAL`);
+  }
+  return json(request, env, { ok: true, updated });
+}
+
+/* One email to the owner and one to the buyer, for every captured payment,
+   once. Sent through the same provider as the rest (Resend or Brevo). With
+   no provider key it logs and returns: a sale is never held up by mail. */
+async function notifySale(env, entity, chosen) {
+  try {
+    if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) { console.log("Sale emails skipped: no RESEND_API_KEY or BREVO_API_KEY."); return; }
+    const paymentId = String(entity.id || "");
+    if (env.KAAL_STATE) {
+      const key = "mailed:" + paymentId;
+      if (await env.KAAL_STATE.get(key).catch(() => null)) return;
+      await env.KAAL_STATE.put(key, "1", { expirationTtl: 90 * 24 * 3600 });
+    }
+    const n = pad2(chosen), site = siteUrl(env);
+    const order = entity.order_id ? await readOrder(env, entity.order_id) : null;
+    const notes = (order && order.notes) || entity.notes || {};
+    const dial = DIAL_OF(env, chosen);
+    const amount = `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`;
+    const sold = (await knownSold(env)) || [];
+    const edition = parseInt(env.EDITION || "20", 10);
+    const left = Math.max(0, edition - Math.max(sold.length, 1));
+
+    const owner = env.OWNER_EMAIL || "connect@thekaal.co";
+    await sendEmail(env, owner, `Sold · No. ${n}${dial ? " · " + dial : ""} · ${amount}`,
+      [`No. ${n}${dial ? ` (${dial})` : ""} has sold.`, "",
+       `Amount: ${amount}`, `Payment: ${paymentId}`, entity.order_id ? `Order: ${entity.order_id}` : "",
+       `Buyer email: ${entity.email || "not given"}`, `Buyer phone: ${entity.contact || "not given"}`,
+       notes.gift === "yes" ? `Gift: yes${notes.gift_note ? `. Card: "${notes.gift_note}"` : ""}. No price in the box.` : "Gift: no",
+       "", "Delivery address: the buyer was asked for it on the confirmation page. A second email comes the moment they give it.",
+       `${left} of ${edition} remain.`, "", `Razorpay: https://dashboard.razorpay.com/app/payments/${paymentId}`
+      ].filter(x => x !== "").join("\n"));
+
+    const buyer = String(entity.email || "").trim();
+    if (buyer && validEmail(buyer.toLowerCase())) {
+      const ship = entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}#ship` : `${site}/claimed.html`;
+      await sendEmail(env, buyer, `No. ${n} is yours`,
+        [`No. ${n} is yours.`, "",
+         `Series 01${dial ? `, ${dial} dial` : ""}. ${amount} received. Payment reference ${paymentId}.`, "",
+         "What happens next: we inspect it, box it and dispatch it within five working days, anywhere in India. Tracking comes to this address the day it leaves.", "",
+         `Where should it go? If you have not told us yet: ${ship}`, "",
+         "Questions: reply to this email, or call +91 93114 16678. A person answers.", "",
+         "KAAL"].join("\n"));
+    }
+  } catch (e) { console.log("Sale emails threw:", String(e).slice(0, 160)); }
+}
+
+/* The dial a number carries. The page's config is the source of truth;
+   DIALS in wrangler.toml mirrors it for the emails, and an unknown number
+   simply gets no dial name rather than a wrong one. */
+function DIAL_OF(env, n) {
+  try {
+    const map = JSON.parse(env.DIALS || "{}");
+    return map[String(n)] || "";
+  } catch (e) { return ""; }
+}
+
 /* ══════════ 3. WHAT RAZORPAY SAYS ══════════ */
 
 async function webhook(request, env) {
@@ -394,6 +601,7 @@ async function webhook(request, env) {
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
   await sendPurchaseToMeta(env, entity, chosen);
+  await notifySale(env, entity, chosen);
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
 
@@ -640,8 +848,8 @@ async function listPayments(env, from, to) {
    ABANDON_FROM, replies to connect@thekaal.co unless ABANDON_REPLY_TO says
    otherwise. A refused send is logged and never retried. */
 async function sendEmail(env, to, subject, text) {
-  const from    = env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
-  const replyTo = env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  const from    = env.MAIL_FROM || env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
+  const replyTo = env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
   try {
     let res;
     if (env.RESEND_API_KEY) {

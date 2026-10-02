@@ -676,8 +676,13 @@
 }
 </script>
 
+<!-- Two things are preloaded and only two: the display face, which sets the
+     line on the first screen, and the poster below, which is the largest
+     paint. Inter was preloaded too; it is a third request racing the poster
+     for the same connection on a phone, and the text it sets above the fold
+     is small enough that a swap to it moves nothing (CLS measured: see
+     docs/funnel-metrics.md). -->
 <link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/Inter-wght.woff2" as="font" type="font/woff2" crossorigin>
 <!-- The poster IS the hero until the film is ready, and in Instagram's
      in-app browser it is often the only hero anyone sees. Asked for first,
      at high priority, so the first paint has a picture in it. It is frame
@@ -789,6 +794,13 @@ a{color:inherit}
 .world-next{opacity:0}
 .dust{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5}
 .dust.near{z-index:5}
+/* Outside the hero the dust is not drawn and not composited at all. It used
+   to drift behind every act at a few percent alpha, and a full-screen canvas
+   repainted on every frame of every scroll was measured as the largest
+   single cost in the delay before a tap at the twenty is answered (INP
+   168-176ms without it, 192-248ms with). In the hero it is the near plane
+   the camera moves through, and there it stays. */
+.dust:not(.near){visibility:hidden}
 .grain{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
 
@@ -1204,7 +1216,11 @@ a{color:inherit}
       already has on `transform`. ──────────────────────────────────── */
 :root{--amp:1}
 .lowfx{--amp:.5}
-.act-back{position:absolute;inset:0;z-index:-1;pointer-events:none;
+/* At most a little over a screen tall: the wash lives where the act opens.
+   Sized to the whole act, an act three screens deep made a layer 5,400
+   device pixels tall to rasterise for a gradient nobody sees the bottom of,
+   and that was measured in the delay before a tap is answered. */
+.act-back{position:absolute;inset:0 0 auto 0;height:min(100%,120vh);z-index:-1;pointer-events:none;
   background:
     radial-gradient(58% 46% at 72% 38%,var(--glow,rgba(237,232,223,.05)),rgba(0,0,0,0) 72%),
     radial-gradient(44% 36% at 18% 74%,var(--glow2,rgba(237,232,223,.025)),rgba(0,0,0,0) 70%)}
@@ -1521,16 +1537,12 @@ a{color:inherit}
 .ep-left{font-size:.6875rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-variant-numeric:tabular-nums}
 
 /* The dial a visitor chose early tints the page's accents — the rail, the
-   progress hairline, the rules under the act labels — so the choice is
-   carried all the way down. The buttons stay gold: the tint is a
-   reminder, never a second call to action. */
-html[data-tint="emerald"]{--tint:#5D8F6E}
-html[data-tint="midnight"]{--tint:#B8BABE}
-html[data-tint="champagne"]{--tint:#D9B977}
-html[data-tint="ivory"]{--tint:#EDE8DF}
-html[data-tint] .rail-fill,html[data-tint] .tick-top{background:var(--tint)}
-html[data-tint] .label::after{background:var(--tint)}
-.rail-fill,.tick-top,.label::after{transition:background-color .8s var(--ease-soft)}
+   progress hairline, the ring on the chosen disc — so the choice is carried
+   all the way down. The buttons stay gold: the tint is a reminder, never a
+   second call to action. The script writes the colour to those few
+   elements directly; an attribute on <html> would restyle the whole
+   document on the tap, and that was measured costing the tap 60ms. */
+.rail-fill,.tick-top{transition:background-color .8s var(--ease-soft)}
 
 /* ── The quiet link at the foot of each dial's act. A sentence, not a
       button: by this point the page has asked once already. ── */
@@ -2952,6 +2964,7 @@ function paintAt(x, moving){
   /* The record the verification pass reads: how far, in frames, the
      picture ever moved between two paints. */
   var shown = b >= 0 && t >= 0.5 ? b : a;
+  SEQ.lag = Math.abs(shown - x);
   if(SEQ.last >= 0) SEQ.maxJump = Math.max(SEQ.maxJump, Math.abs(shown - SEQ.last));
   SEQ.last = shown; SEQ.paints++;
   return true;
@@ -3203,12 +3216,19 @@ function driveHero(now){
    whole film plays it through in under a second, every paint a near
    neighbour of the last. */
 var FILM_VMAX = 6;
-SEQ.chasing = false;
+SEQ.chasing = false; SEQ.vmax = FILM_VMAX; SEQ.lag = 0;
 function driveFilm(p, dt){
   if(!SEQ.n) return;
+  /* The limit adapts to the device. When the last paint had to stand in a
+     frame more than three away from where the picture should be, the
+     decoder is behind, and running the picture further ahead of it only
+     makes the next stand-in further off — so the limit comes down until the
+     decoder catches up, and goes back up as soon as it has. A slow phone's
+     film lags a little behind a hard fling; it does not teleport. */
+  SEQ.vmax = SEQ.lag > 3 ? Math.max(2, SEQ.vmax * 0.6) : Math.min(FILM_VMAX, SEQ.vmax + 0.5);
   /* Time-aware, so 120Hz and 60Hz play at one speed — but a dropped frame
      buys at most half a tick more, never a leap. */
-  var want = filmAt(p), d = want - SEQ.x, step = FILM_VMAX * Math.min((dt || 16.67) / 16.67, 1.5);
+  var want = filmAt(p), d = want - SEQ.x, step = SEQ.vmax * Math.min((dt || 16.67) / 16.67, 1.5);
   SEQ.x = Math.abs(d) <= step ? want : SEQ.x + (d > 0 ? step : -step);
   SEQ.chasing = SEQ.x !== want;
   feed();
@@ -3622,6 +3642,13 @@ var driveDust = function(){};
   function paint(ts){
     raf = requestAnimationFrame(paint);
     if(awake > 0) return;              /* the page's loop owns this frame */
+    /* Below the hero the dust sits behind the page at a few percent alpha,
+       where a drift nobody can see still costs a full-screen repaint every
+       frame — and that repaint is the frame a tap has to wait behind
+       (measured: it was most of the input delay at the twenty). So at rest
+       it drifts only where it is the near plane. Scrolling still moves it
+       everywhere, at 1.3x, from the page's own loop. */
+    if(near === false) return;
     if(gap){
       if((ts || 0) - lastT < gap) return;
       lastT = ts || 0;
@@ -3629,9 +3656,9 @@ var driveDust = function(){};
     draw();
   }
   driveDust = function(){
-    var front = S.raw < M.heroTop + M.heroSpan + M.vh * 0.2;
+    var front = S.raw < M.heroTop + M.heroSpan;
     if(front !== near){ near = front; cv.classList.toggle("near", front); }
-    if(!document.hidden) draw();
+    if(front && !document.hidden) draw();
   };
   var dustTimer = 0;
   size(); paint();
@@ -3737,8 +3764,14 @@ var picked = false;
    dock appear before the twenty without being an offer to sell anybody
    something they have not looked at. */
 var engaged = false;
+var TINT = { emerald:"#5D8F6E", midnight:"#B8BABE", champagne:"#D9B977", ivory:"#EDE8DF" }, tinted = "";
 function setTint(key){
-  if(key && FACE[key]) document.documentElement.setAttribute("data-tint", key);
+  if(!key || !TINT[key] || key === tinted) return;
+  tinted = key;
+  var c = TINT[key], row = $("#earlyRow"), rf = $("#railFill"), tt = $("#tickTop");
+  if(rf) rf.style.backgroundColor = c;
+  if(tt) tt.style.backgroundColor = c;
+  if(row) row.style.setProperty("--tint", c);
 }
 var claimDot = $("#claimDot"), claimText = $("#claimText");
 var pieceDial = $("#pieceDial"), pieceName = $("#pieceName");
@@ -4820,7 +4853,7 @@ function driveChrome(){
    S.max used to be recomputed here from scrollHeight — a document-wide
    layout question, asked sixty times a second, whose answer changes only
    when the document changes shape. It lives in measure() now. ─────── */
-var prevY = 0;
+var prevY = 0, heroDone = false;
 function tick(now){
   now = now || (window.performance ? performance.now() : Date.now());
   S.raw = window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -4829,6 +4862,9 @@ function tick(now){
   S.v = S.y - prevY; prevY = S.y;
 
   var p = driveHero(now);
+  /* The film watched to its end, once: the first stage of the funnel that
+     says more than "landed". */
+  if(!heroDone && p >= 0.999){ heroDone = true; track("hero_complete"); }
   driveFilm(p, H.dt);
   driveStage(p);
   driveCaps(p);

@@ -1679,6 +1679,7 @@ html.vt .piece-shot,html.vt .piece-halo{transition:none}
 .sheen:hover::after,.sheen:focus-visible::after,#cta:not(.inert):hover::after,#cta:not(.inert):focus-visible::after{
   transform:translateX(120%);transition:transform .9s var(--ease)}
 .dp-disc,.early-pick .disc{position:relative;overflow:hidden}
+.no-sheen #cta::after,.no-sheen .dp-disc::after,.no-sheen .early-pick .disc::after{display:none}
 .dp-disc::after,.early-pick .disc::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
   background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 70%);
   transform:translateX(-130%)}
@@ -2496,6 +2497,28 @@ var KAAL = {
      colliding on 07 and one of them being told, before they pay. */
   api:      "https://kaal-edition.kaal-edition-hq.workers.dev",
 
+  /* ── THE SWITCHES. Everything added in October 2026, one line each.
+     Set one to false and that piece is gone from the page on the next
+     load; nothing else moves, and every fallback underneath it still
+     works. To try a combination before committing it, add ?off= to the
+     address, e.g. thekaal.co/?off=depth,world3d. That changes only your
+     own view, only for that load. docs/rollback.md has the full list and
+     how to go back to the site exactly as it was on 2 October. */
+  features: {
+    early:    true,   // "Which one is yours?" after the film
+    ctx:      true,   // "Emerald · 4 of 6 remain → Choose yours" under each dial
+    caseback: true,   // choosing a number turns the piece to its engraved back
+    list:     true,   // the two Series 02 email forms
+    depth:    true,   // parallax planes and the pinned dial photographs
+    light:    true,   // the light you move across the green dial photograph
+    sheen:    true,   // the light sweep across the buttons and dial discs
+    wipe:     true,   // the four dial headlines revealed by a wipe
+    morph:    true,   // one dial picture turning into the next
+    sharp:    true,   // phones swap in a full-resolution frame when the film rests
+    world3d:  true,   // the live light-and-dust world behind the page
+    reviews:  true    // owners' reviews, shown only once KAAL.reviews holds real ones
+  },
+
   /* ── THE HERO CAMERA.
 
      The stage is pinned while the film scrubs inside it. The camera is the
@@ -2652,6 +2675,31 @@ if((navigator.deviceMemory && navigator.deviceMemory < 4) ||
   document.documentElement.classList.add("lowfx");
 }
 var qs = new URLSearchParams(location.search);
+
+/* The switches, applied before anything below looks for what they remove.
+   Off means absent, not hidden: the element leaves the document, so no
+   count, listener or observer further down ever finds it. */
+var OFF = {};
+(function switches(){
+  var f = KAAL.features || {}, k;
+  for(k in f) if(f.hasOwnProperty(k) && f[k] === false) OFF[k] = 1;
+  (qs.get("off") || "").split(",").forEach(function(x){ x = x.replace(/\s/g, ""); if(x) OFF[x] = 1; });
+  var root = document.documentElement;
+  function rm(el){ if(el.parentNode) el.parentNode.removeChild(el); }
+  function un(sel, cls){ $$(sel).forEach(function(el){ el.classList.remove(cls); }); }
+  if(OFF.early) $$("#early").forEach(rm);
+  if(OFF.ctx)   $$(".ctx-wrap").forEach(rm);
+  if(OFF.list)  $$("form.list").forEach(rm);
+  if(OFF.light) $$(".lightfind,.tilt-hint").forEach(rm);
+  if(OFF.depth){
+    $$("[data-depth]").forEach(function(el){ el.removeAttribute("data-depth"); });
+    un(".pin", "pin");
+  }
+  if(OFF.sheen) un(".sheen", "sheen");
+  if(OFF.wipe)  un(".wipe", "wipe");
+  for(k in OFF) root.classList.add("no-" + k);
+})();
+function on(k){ return !OFF[k]; }
 
 /* ── One scroll value, eased, and everything on the page derives from
       it. The page itself never scrolls anything but natively: nothing
@@ -3975,7 +4023,7 @@ function chooseFace(key){
    piece where the browser has them, the existing crossfade where it does
    not, and an instant swap for anyone who asked for less motion. */
 function withPieceTransition(fn){
-  if(reduced || !document.startViewTransition){ fn(); return; }
+  if(reduced || OFF.morph || !document.startViewTransition){ fn(); return; }
   var root = document.documentElement;
   root.classList.add("vt");
   var done = function(){ root.classList.remove("vt"); };
@@ -4149,7 +4197,7 @@ grid.addEventListener("click", function(e){
 var psCard = $("#psCard"), cbText = $("#cbText"), cbPlate = $("#cbPlate"), engraveLive = $("#engraveLive");
 var turned = false, cbProbed = false;
 function turnTo(n){
-  if(!psCard || !n) return;
+  if(!psCard || !n || OFF.caseback) return;
   if(cbText) cbText.textContent = "LIMITED EDITION NO. " + pad(n);
   /* The plate is drawn in CSS until a photograph of the real caseback is
      in the repo. Asked for once, on the first turn, and only used if it

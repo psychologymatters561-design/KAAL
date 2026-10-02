@@ -316,7 +316,9 @@ no second place to forget.
 hard cuts at frames 123 and 261). Every frame is baked: `tall/` is the
 film's own 9:16 at 608x1080 for phones, `plate/` a 1080 square at native
 resolution for tablets and desktops, `plate-low/` the square at 720 and every
-second frame for slow links. The page fetches coarse to fine (every 16th
+second frame for slow links, and `tall-hd/` the phone frames at the film's own
+1080x1918, fetched one at a time and laid over the canvas only while the film
+is at rest. The page fetches coarse to fine (every 16th
 frame, then 8th, 4th, 2nd, all), nearest the playhead first, holds every
 frame as an encoded Blob and decodes only a window of ±8..24 around the
 playhead with `createImageBitmap`, closing bitmaps that leave it. The
@@ -702,7 +704,8 @@ llms.txt                 the whole of the above in plain text, for the agents
 assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
 assets/img/hero-seq/     the hero film, baked to stills: tall/ (9:16 phones),
-                         plate/ (1080 square), plate-low/. Frame 000 of each
+                         plate/ (1080 square), plate-low/, tall-hd/ (a phone's
+                         sharp frame at rest). Frame 000 of each
                          is the poster: the hero when the film does not run
 incoming/film/           the master film the stills are cut from
 assets/video/box.mp4     the box film, act 08. H.264, fetched only on a tap

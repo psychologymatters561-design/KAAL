@@ -87,8 +87,23 @@ OUT="$ROOT/assets/img/hero-seq"
 #    leave it — see the sequence loader in index.html. Memory now caps
 #    the window, not the film.
 #
+#    `tall-hd`     the phone tier at the film's own resolution, 1080x1918.
+#                  Never scrubbed: a phone at 3x draws the 608 frame about
+#                  2.3 times its size, which is soft. When the film comes to
+#                  rest the page fetches this one file for the frame on
+#                  screen and lays it over the canvas, and drops it the
+#                  moment the scrub moves again. Every frame exists so the
+#                  sharp picture is always the exact frame that was resting,
+#                  never a neighbour. About 42KB each, one per pause.
+#
 #    name : width : height : frames : crop (ffmpeg filter, applied first)
-TIERS="tall:608:1080:409:crop=1080:1918:0:1 plate:1080:1080:409:crop=1080:1080:0:286 plate-low:720:720:205:crop=1080:1080:0:286"
+TIERS="tall:608:1080:409:crop=1080:1918:0:1 tall-hd:1080:1918:409:crop=1080:1918:0:1 plate:1080:1080:409:crop=1080:1080:0:286 plate-low:720:720:205:crop=1080:1080:0:286"
+
+# ONLY=tall-hd bakes one tier and leaves the others on disk untouched.
+if [ -n "${ONLY:-}" ]; then
+  TIERS=$(for T in $TIERS; do if [ "${T%%:*}" = "$ONLY" ]; then printf '%s ' "$T"; fi; done)
+  [ -n "$TIERS" ] || { echo "no tier named $ONLY" >&2; exit 2; }
+fi
 
 # Quality.
 #

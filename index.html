@@ -1058,6 +1058,13 @@ a{color:inherit}
   opacity:0;transition:opacity .6s var(--ease-soft)}
 .cam canvas.on,.cam .still.on{opacity:1}
 .cam canvas{image-rendering:auto}
+/* The sharp frame (phones only): the film's own 1080x1918 frame, laid over the
+   canvas only while the film is at rest. It arrives with a short fade and
+   leaves with none, so the moment the scrub moves, the canvas underneath
+   carries the motion and nothing ever fades against it. */
+.cam .sharp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;
+  opacity:0;pointer-events:none}
+.cam .sharp.on{opacity:1;transition:opacity .24s var(--ease-soft)}
 @media (min-width:600px),(orientation:landscape){
   .cam{--plate:min(100svh,62vw);inset:auto;right:0;top:calc((100svh - var(--plate)) / 2);
     width:var(--plate);height:var(--plate);transform-origin:52% 44%}
@@ -3069,10 +3076,11 @@ function decodeBlob(blob){
 function releaseFilm(){
   for(var i = 0; i < SEQ.n; i++) if(SEQ.st[i] === 4) release(i);
   SEQ.painted = -1;
+  sharpRelease();
 }
 document.addEventListener("visibilitychange", function(){
   if(document.visibilityState === "hidden") releaseFilm();
-  else if(SEQ.n){ feed(); wake(); }
+  else { if(SEQ.n) feed(); wake(); }
 });
 addEventListener("pagehide", releaseFilm);
 
@@ -3159,6 +3167,65 @@ function goLive(){
      never before, so there is no frame in which neither is showing. */
   setTimeout(function(){ still.classList.remove("on"); }, 650);
   wake();
+}
+
+/* ── SHARP AT REST. A phone at 3x draws a 608-pixel frame across about
+      1300 device pixels, and that is soft. The scrub needs small frames,
+      because it decodes dozens of them a second; a picture at rest needs
+      only one. So when the film stops, the same frame at the film's own
+      resolution (tall-hd, 1080x1918, about 42KB) is fetched and laid over
+      the canvas, and the moment the scrub moves it is dropped and the
+      canvas carries the motion. Always the exact frame the canvas is
+      resting on, so the swap changes sharpness and nothing else.
+
+      Only for phones above 1.5x, only after the page has loaded, never on
+      Save-Data, never while the hero is off screen. KAAL.features.sharp
+      turns it off. */
+var SHARP = { el:null, m:-1, pend:-1, timer:0, on:false, ready:false, ok:false };
+(function(){
+  var c = navigator.connection;
+  SHARP.ok = on("sharp") && !!KAAL.filmSeq && (window.devicePixelRatio || 1) >= 1.5 &&
+             !(c && c.saveData) && !!window.Promise;
+  if(!SHARP.ok) return;
+  var cam = $("#cam"), im = document.createElement("img");
+  if(!cam) { SHARP.ok = false; return; }
+  im.className = "sharp"; im.alt = ""; im.setAttribute("aria-hidden", "true"); im.decoding = "async";
+  cam.insertBefore(im, $("#seq").nextSibling);
+  SHARP.el = im;
+})();
+function sharpFits(){
+  /* The poster switches crop with the screen's shape; the canvas keeps the
+     tier it loaded with. The sharp frame must match whichever is showing. */
+  return SEQ.live ? SEQ.tier === FILM_TIERS.tall : window.matchMedia(PHONE_Q).matches;
+}
+function sharpHide(){
+  clearTimeout(SHARP.timer); SHARP.pend = -1; SHARP.m = -1;
+  if(SHARP.on){ SHARP.on = false; SHARP.el.classList.remove("on"); }
+}
+function sharpSync(){
+  if(!SHARP.ok || !SHARP.ready) return;
+  if(!sharpFits()){ sharpHide(); return; }
+  var resting = !SEQ.live || (H.settled && !SEQ.chasing);
+  if(!resting){ if(SHARP.on || SHARP.pend >= 0 || SHARP.m >= 0) sharpHide(); return; }
+  var m = 0;
+  if(SEQ.live) m = Math.round(clamp(Math.round(SEQ.x), 0, SEQ.n - 1) * SEQ.srcStep);
+  if(m === SHARP.m || m === SHARP.pend) return;
+  sharpHide();
+  if(S.raw > M.heroTop + M.heroSpan + M.stageH) return;     /* hero off screen */
+  SHARP.pend = m;
+  SHARP.timer = setTimeout(function(){
+    SHARP.pend = -1; SHARP.m = m;
+    var im = SHARP.el;
+    var show = function(){ if(SHARP.m === m){ SHARP.on = true; im.classList.add("on"); } };
+    im.onload = function(){ if(im.decode) im.decode().then(show, show); else show(); };
+    im.onerror = function(){ if(SHARP.m === m) SHARP.m = -1; };
+    im.src = KAAL.filmSeq + "tall-hd/" + ("00" + m).slice(-3) + ".webp";
+  }, 160);
+}
+function sharpRelease(){
+  if(!SHARP.el) return;
+  sharpHide();
+  SHARP.el.removeAttribute("src");
 }
 
 function loadFilm(){
@@ -4998,6 +5065,7 @@ function tick(now){
      says more than "landed". */
   if(!heroDone && p >= 0.999){ heroDone = true; track("hero_complete"); }
   driveFilm(p, H.dt);
+  sharpSync();
   driveStage(p);
   driveCaps(p);
   driveDust();
@@ -5091,6 +5159,15 @@ wake();
    which the HTTP cache answers without touching the network. */
 function filmAfterPaint(){
   requestAnimationFrame(function(){ requestAnimationFrame(loadFilm); });
+}
+/* The sharp frame waits for the same moment, so it never competes with the
+   poster for the first screen. */
+function sharpAfterPaint(){
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ SHARP.ready = true; sharpSync(); }); });
+}
+if(SHARP.ok){
+  if(document.readyState === "complete") sharpAfterPaint();
+  else addEventListener("load", sharpAfterPaint, { once:true });
 }
 if(filmAllowed() && window.fetch && window.Promise){
   if(document.readyState === "complete") filmAfterPaint();

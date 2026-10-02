@@ -192,6 +192,21 @@ if (cfg.filmSeq) {
         (counts.plate - 1) % (counts["plate-low"] - 1))
       bad(`plate-low has ${counts["plate-low"]} frames, which is not an even subset of the plate's ${counts.plate} — the cut map would land between frames`);
 
+    /* The sharp frames a phone lays over the film at rest. One file for
+       every frame of the phone tier, at the film's own size, or a pause
+       asks for a file that is not there and the picture stays soft. */
+    if (/tall-hd\//.test(html) && Number.isFinite(counts.tall)) {
+      const dir = join(root, cfg.filmSeq, "tall-hd");
+      if (!existsSync(dir)) bad(`${cfg.filmSeq}tall-hd/ is missing — run ONLY=tall-hd tools/bake-hero-seq.sh`);
+      else {
+        const missing = [];
+        for (let i = 0; i < counts.tall; i++) if (!existsSync(join(dir, String(i).padStart(3, "0") + ".webp"))) missing.push(i);
+        if (missing.length) bad(`${cfg.filmSeq}tall-hd/ is missing ${missing.length} frame(s): ${missing.slice(0, 6).join(", ")}`);
+        const big = readdirSync(dir).filter(f => statSync(join(dir, f)).size > 90e3);
+        if (big.length) soft(`${big.length} tall-hd frame(s) over 90KB — each is one whole download on a pause`);
+      }
+    }
+
     /* The cuts. The painter never dissolves across one, so a cut index
        outside the film, or out of order, silently re-enables a double
        exposure of two different rooms. */

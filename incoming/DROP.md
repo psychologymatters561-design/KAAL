@@ -1,49 +1,26 @@
-# The three remaining photographs
+# Photographs: none pending
 
-Everything on the page is wired to the exact names below. Upload them and
-the site is finished. Nothing else has to change.
+Every picture on the page now exists. The three that were waiting
+(`stone-day.webp`, `stone-studio.webp`, `four.webp`) are no longer referenced:
 
-GitHub web works fine for this: **Add file → Upload files → Commit**.
-
----
-
-## The photographs → `assets/img/`
-
-Save each one with **exactly** this name. Format: `.webp` if you can export
-it, otherwise rename a `.jpg` to keep the name and change the extension in
-`index.html` with one find and replace.
-
-| # | The shot you sent | Save as |
+| # | Was waiting for | Now shows |
 |---|---|---|
-| 1 | Silver white dial, shot down onto a broken concrete slab, hard daylight | `stone-day.webp` |
-| 2 | Silver white dial, three quarter view on a pale concrete block, grey wall | `stone-studio.webp` |
-| 3 | ✅ Delivered: green dial, whole watch on green velvet | `jade-wide.webp` |
-| 4 | ✅ Delivered: green dial macro on green velvet | `jade-close.webp` |
-| 5 | ✅ Delivered: black dial macro on black stone, warm light streak | `onyx-rain.webp` |
-| 6 | ✅ Delivered: champagne dial on sandstone, raking sunlight | `ember-smoke.webp` |
-| 7 | ✅ Delivered: frame 000 of the baked film is the poster — no separate photo needed | `hero-seq/tall/000.webp`, `hero-seq/plate/000.webp` |
-| 8 | All four on wet black slate, seen from above | `four.webp` |
+| 1 | Silver white dial on broken concrete (act 01) | `film-desk.webp`: a real frame of the film, the emerald watch on the desk by the lamp (frame 192, 1080×1350) |
+| 2 | Silver white dial on a concrete block (act 02) | The four dials side by side on slate, from the four product cut-outs (`watch-*.webp`) |
+| 8 | All four on wet black slate (act 06) | `watch-ivory.webp` alone on a pale stone ground |
+| 3–6 | ✅ Delivered | `jade-wide`, `jade-close`, `onyx-rain`, `ember-smoke` |
+| 7 | ✅ Hero | frame 000 of the baked film |
 
-Three left: `stone-day.webp`, `stone-studio.webp`, `four.webp`.
+**If you shoot the originals later,** save them under the old names in
+`assets/img/` and ask for them to be put back in place of the stand-ins; it is
+three `src` changes in `index.html`.
 
 **Size:** longest edge 1600px is plenty. The page never draws a photograph
-wider than about 1180 CSS pixels, so anything beyond 1600 is bytes your buyer
-pays for and never sees.
+wider than about 1180 CSS pixels.
 
-Until they land the page does not break, and it is not empty either. Each
-missing picture falls back to a still cut out of your own film by Cloudinary,
-at a set percentage of its duration, and only falls back to a designed panel
-if that cannot be reached. The site is live now on that basis.
-
-Those frames are a safety net, not the plan. A frame of a moving product video
-is never as good as a photograph composed to be one, and I have not been able
-to see them: this session cannot reach Cloudinary, so I wired the frames but
-have never looked at them. **Open the site and look.** If any frame is blurred
-or mid-motion, change its percentage in `KAAL.frames` usage on that picture
-(the `data-frame` attribute), or set `frames: ""` to go back to panels.
-
-The moment a real photograph exists at its filename below, it wins outright
-and its frame is never requested again.
+`KAAL.frames` (the Cloudinary stills) is still the safety net under the four
+delivered photographs: if one ever fails to load, a frame of the film stands
+in. It is never requested while the real photo loads.
 
 ---
 

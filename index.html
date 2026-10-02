@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KAAL Watches India · Series 01 — Seiko Epson movement, twenty pieces</title>
+<title>KAAL Watches India · Series 01 · Seiko Epson movement, twenty pieces</title>
 <!-- The title is rewritten on load by countsFromRemaining() so the count in
      it is never stale. Both strings are the same shape on purpose: brand,
      country, series, then the one fact that decides the click. If you change
@@ -1615,6 +1615,24 @@ a{color:inherit}
 /* Without script there is nothing to send it with, so there is no form. */
 .nojs .list{display:none}
 
+/* ── THE FOUR, AND THE SOLO PIECE. The real product photographs are
+      cut-outs, so they are set on a ground made here: slate for the four,
+      pale stone for the ivory. At the photographs' own 760px they stay
+      sharp at every size this page draws them. ── */
+.four-shot{margin:var(--beat) auto 0;width:min(100% - var(--gut) * 2,72rem);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:clamp(.4rem,2vw,1.6rem);align-items:end;padding:clamp(1.6rem,4vw,3.4rem) clamp(.8rem,3vw,2.6rem) clamp(1.2rem,3vw,2.4rem);
+  border-radius:2px;position:relative;overflow:clip;
+  background:
+    radial-gradient(80% 60% at 50% 115%,rgba(198,161,91,.10),rgba(0,0,0,0) 70%),
+    radial-gradient(120% 90% at 50% 0%,rgba(237,232,223,.05),rgba(0,0,0,0) 60%),
+    linear-gradient(180deg,#151613 0%,#0b0c0a 100%);
+  box-shadow:inset 0 0 0 1px rgba(237,232,223,.06)}
+.four-shot img{width:100%;height:auto;filter:drop-shadow(0 22px 26px rgba(0,0,0,.7))}
+.plate img.solo{display:block;width:auto;height:88%;max-height:88%;margin:6% auto;filter:drop-shadow(0 30px 34px rgba(40,34,26,.45))}
+.plate:has(img.solo){aspect-ratio:4/5;background:
+    radial-gradient(70% 55% at 50% 40%,#e4dfd5 0%,#c9c3b7 60%,#a8a296 100%)}
+.plate:has(img.solo)::after{box-shadow:inset 0 0 120px 10px rgba(8,9,8,.35)}
+
 /* ── MICRO-INTERACTIONS ─────────────────────────────────────────── */
 
 /* "Green reads black until the light finds it." On the Emerald photograph
@@ -1910,7 +1928,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 
       <div class="caps" id="caps">
         <p class="cap" data-at="0.34" data-until="0.51">KAAL means time.</p>
-        <p class="cap" data-at="0.53" data-until="0.70">In the same language, it names <em>an era</em> — one that ends, and is remembered.</p>
+        <p class="cap" data-at="0.53" data-until="0.70">In the same language, it names <em>an era</em>, one that ends and is remembered.</p>
         <p class="cap" data-at="0.80" data-until="0.92">Twenty watches carry this design.</p>
         <p class="cap" data-at="0.92" data-until="1.01">Then it is retired, and never drawn again.</p>
       </div>
@@ -1931,7 +1949,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       </dl></li>
       <li><dl>
         <dt>Backed for</dt>
-        <dd>Twenty four months<small>On the movement, from dispatch. Not a card in a box — <a href="legal.html#warranty">the terms are written down</a>.</small></dd>
+        <dd>Twenty four months<small>On the movement, from dispatch. Not a card in a box: <a href="legal.html#warranty">the terms are written down</a>.</small></dd>
       </dl></li>
       <li><dl>
         <dt>If it is not you</dt>
@@ -1976,8 +1994,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       <p class="sub rise"><strong>The design retires with the twentieth buyer.</strong> That is the whole promise, and it is the only one that cannot be walked back.</p>
     </div>
     <div class="plate rise" data-depth="mid">
-      <img src="assets/img/stone-day.webp" data-frame="8p" loading="lazy" decoding="async"
-           alt="A KAAL watch with a silver white dial and gold bezel resting on a broken concrete slab in daylight.">
+      <img src="assets/img/film-desk.webp" width="1080" height="1350" loading="lazy" decoding="async"
+           alt="A KAAL Series 01 watch with an emerald dial standing on a dark wooden desk beside a leather notebook, lit by a single warm lamp.">
     </div>
   </div>
 </section>
@@ -1989,10 +2007,15 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
     <p class="label rise">02 · Four faces</p>
     <h2 class="statement rise">One case. Four faces.<br>Twenty numbers.</h2>
   </div>
-  <div class="plate plate-wide rise" data-depth="mid" style="margin-top:var(--beat)">
-    <img src="assets/img/four.webp" data-frame="30p" loading="lazy" decoding="async"
-         alt="All four Series 01 dials arranged on wet black slate: green, black, gold and silver white, each with a gold bezel and two tone bracelet.">
-  </div>
+  <!-- The four, side by side, from the same four photographs the twenty
+       shows when a number is chosen: one case, normalised to one size, so
+       the only thing that changes along the row is the face. -->
+  <figure class="four-shot rise" data-depth="mid">
+    <img src="assets/img/watch-emerald.webp" width="760" height="1197" loading="lazy" decoding="async" alt="KAAL Series 01, Emerald dial">
+    <img src="assets/img/watch-midnight.webp" width="760" height="1197" loading="lazy" decoding="async" alt="KAAL Series 01, Midnight dial">
+    <img src="assets/img/watch-champagne.webp" width="760" height="1197" loading="lazy" decoding="async" alt="KAAL Series 01, Champagne dial">
+    <img src="assets/img/watch-ivory.webp" width="760" height="1197" loading="lazy" decoding="async" alt="KAAL Series 01, Ivory dial">
+  </figure>
   <div class="hold">
     <ul class="four" id="fourList">
       <li class="face" style="--tilt:-1.6deg"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><h3>Emerald</h3><p class="nums" data-nums="emerald">01–06</p></li>
@@ -2071,8 +2094,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
     </div>
     <div class="pin">
       <div class="plate plate-tall rise" data-depth="mid">
-        <img src="assets/img/stone-studio.webp" data-frame="20p" loading="lazy" decoding="async"
-             alt="A KAAL watch with a silver white dial photographed three quarters on a pale concrete block against a grey wall.">
+        <img class="solo" src="assets/img/watch-ivory.webp" width="760" height="1197" loading="lazy" decoding="async"
+             alt="A KAAL Series 01 watch with an ivory dial, gold tone bezel and two tone steel bracelet.">
       </div>
     </div>
   </div>
@@ -2111,10 +2134,10 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
     <div class="col-a" data-depth="front">
       <p class="label rise">08 · The box</p>
       <h2 class="statement rise">The next time it opens, it is yours.</h2>
-      <p class="sub rise">Eighteen seconds, with sound.</p>
+      <p class="sub rise">Inspected, then sealed. You are the first to open it.</p>
     </div>
     <div class="plate plate-box rise">
-      <a class="box-film" href="assets/video/box.mp4" aria-label="Play the film of the KAAL box: eighteen seconds, with sound">
+      <a class="box-film" href="assets/video/box.mp4" aria-label="Play the film of the KAAL box, with sound">
         <img src="assets/video/box-poster.webp" width="1080" height="1920" loading="lazy" decoding="async"
              alt="The green KAAL box, closed, on a bedside table, a hand reaching for the lid.">
         <span class="box-play" aria-hidden="true"></span>
@@ -2147,8 +2170,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
     <div class="col-a" data-depth="front">
       <p class="label rise">09 · The movement</p>
       <h2 class="statement rise">Inside every one of them, a <em>Seiko Epson</em> movement from Japan.</h2>
-      <p class="sub rise">Everything you can see is made in India, by hand. The one part that keeps time comes from Japan — the only part you cannot judge by looking, so the one where the name matters most.</p>
-      <p class="sub rise"><strong>We back it for twenty four months from dispatch</strong> — <a href="legal.html#warranty">in writing</a>, the same for everybody.</p>
+      <p class="sub rise">Everything you can see is made in India, by hand. The one part that keeps time comes from Japan. It is the only part you cannot judge by looking, so it is the one where the name matters most.</p>
+      <p class="sub rise"><strong>We back it for twenty four months from dispatch</strong>, <a href="legal.html#warranty">in writing</a>, the same for everybody.</p>
       <dl class="facts rise">
         <div class="fact"><dt>Movement</dt><dd>Japanese quartz</dd><p>Day, date and twenty four hour. <a href="movement.html">The full specification</a>.</p></div>
         <div class="fact"><dt>Backed</dt><dd>Twenty four months</dd><p>On the movement, from dispatch.</p></div>
@@ -2201,7 +2224,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
   <div class="hold">
     <p class="label rise">11 · The twenty</p>
     <h2 class="statement rise"><span id="remWord">Seventeen</span> remain.</h2>
-    <p class="sub rise">Tap a dial to see the numbers it still has, then pick yours. Struck numbers are gone.</p>
+    <p class="sub rise">Every number is engraved on one caseback, once.</p>
 
     <p class="step" id="choose">1 &nbsp;·&nbsp; Choose a dial</p>
     <div class="dials" id="dials" role="radiogroup" aria-label="Choose a dial">
@@ -2297,7 +2320,6 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
            </div>
           </div>
           <p class="sr" id="engraveLive" aria-live="polite"></p>
-          <p class="piece-cap">The dial this number carries. Every piece shares the same case.</p>
         </div>
         <dl>
           <dt>Dial</dt><dd id="pieceName">Emerald</dd>
@@ -2326,7 +2348,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       <div class="gift">
         <label class="gift-toggle"><input type="checkbox" id="giftOn"><span>This is a gift <small>Handwritten note, no price in the box</small></span></label>
         <div class="gift-body" id="giftBody" hidden>
-          <label for="giftNote">Your note <small>— we write it by hand on a card</small></label>
+          <label for="giftNote">Your note <small>We write it by hand on a card.</small></label>
           <textarea id="giftNote" maxlength="200" rows="3" placeholder="For the one who never disappeared into the crowd."></textarea>
           <p class="gift-meta"><span id="giftCount">200</span> characters left &nbsp;·&nbsp; The price is not included in the box.</p>
         </div>
@@ -2349,7 +2371,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 
 <footer class="foot">
   <div class="hold">
-    <p class="label" style="margin-bottom:2.6rem">The part the scroll stays quiet about</p>
+    <p class="label" style="margin-bottom:2.6rem">The details</p>
     <div class="foot-grid">
       <div>
         <h4>The piece</h4>
@@ -2384,7 +2406,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
         <p>A person answers. Not a ticket, not a bot.</p>
         <p><a href="mailto:connect@thekaal.co">connect@thekaal.co</a><br><a href="tel:+919311416678">+91 93114 16678</a></p>
         <p class="legal"><a href="manifesto.html">Why twenty, written out in full</a></p>
-        <p class="legal"><a href="about.html">About KAAL — the brand, the maker, and the rules</a></p>
+        <p class="legal"><a href="about.html">About KAAL: the brand, the maker and the rules</a></p>
         <p class="legal"><a href="movement.html">The movement inside every piece</a></p>
         <p class="legal"><a href="provenance.html">Who is selling this, and how to check before you buy</a></p>
       </div>
@@ -3396,11 +3418,9 @@ function driveWorld(){
     var plate = img.closest(".plate");
     if(plate){
       if(plate.classList.contains("void-plate")) return;
+      /* A designed panel and nothing written on it: words like
+         "photograph pending" read as a site that is not finished. */
       plate.classList.add("void-plate");
-      var n = document.createElement("p");
-      n.className = "await";
-      n.textContent = "Photograph pending";
-      plate.appendChild(n);
       remeasure();                 /* the panel is a different height */
     } else if(img.id === "still"){
       img.style.display = "none";
@@ -3493,7 +3513,7 @@ function driveWorld(){
        next line but one. */
     v.preload = "none";
     if(img) v.poster = img.currentSrc || img.src;
-    v.setAttribute("aria-label", "The KAAL box, opened. Eighteen seconds, with sound.");
+    v.setAttribute("aria-label", "The KAAL box, opened, with sound.");
     v.src = a.getAttribute("href");
     plate.replaceChild(v, a);
     plate.classList.add("playing");
@@ -4315,7 +4335,7 @@ function countsFromRemaining(){
      "KAAL Watches India" stays, because three unrelated businesses trade
      under this name and a title that does not say which one is ours is a
      title working for somebody else. */
-  document.title = "KAAL Watches India · Series 01 — " + word.toLowerCase() + " of twenty remain";
+  document.title = "KAAL Watches India · Series 01 · " + word.toLowerCase() + " of twenty remain";
 }
 (function counts(){
   countsFromRemaining();
@@ -4677,16 +4697,16 @@ function startCheckout(n, el){
     var why = d && d.reason;
     if(why === "sold"){
       markSold(n);
-      done("Number " + pad(n) + " went while you were deciding. Nothing has been charged — choose another.");
+      done("Number " + pad(n) + " went while you were deciding. Nothing has been charged. Choose another.");
       return;
     }
     if(why === "held"){
-      done("Number " + pad(n) + " is with another buyer for the next few minutes. Nothing has been charged — choose another, or try this one again shortly.");
+      done("Number " + pad(n) + " is with another buyer for the next few minutes. Nothing has been charged. Choose another, or try this one again shortly.");
       return;
     }
-    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+    done("Checkout would not open. Nothing has been charged. Try again, or write to connect@thekaal.co.");
   }).catch(function(){
-    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+    done("Checkout would not open. Nothing has been charged. Try again, or write to connect@thekaal.co.");
   });
 }
 
@@ -4751,7 +4771,7 @@ function openRzp(order, n, el, done, g){
        page's business. Say the one thing that is: no money moved. */
     rzp.on("payment.failed", function(e){
       var err = (e && e.error) || {};
-      done("That payment did not go through" + (err.description ? " — " + err.description : "") + ". Nothing has been charged, and you can try again.");
+      done("That payment did not go through" + (err.description ? ": " + err.description : "") + ". Nothing has been charged, and you can try again.");
     });
 
     /* Remembered before the modal opens: if the phone throws this tab away
@@ -4772,14 +4792,14 @@ function openRzp(order, n, el, done, g){
     el.removeAttribute("aria-busy");
     paintCta();
   }catch(e){
-    done("Checkout would not open. Nothing has been charged — try again, or write to connect@thekaal.co.");
+    done("Checkout would not open. Nothing has been charged. Try again, or write to connect@thekaal.co.");
   }
 }
 
 function confirmPayment(res, n, done, orderId){
   var ref = (res && res.razorpay_payment_id) || "";
   function unconfirmed(){
-    done("Your payment went through, but this page could not confirm it. Nothing is lost — write to connect@thekaal.co quoting " + (ref || "your payment reference") + " and a person will answer.");
+    done("Your payment went through, but this page could not confirm it. Nothing is lost. Write to connect@thekaal.co quoting " + (ref || "your payment reference") + " and a person will answer.");
   }
 
   fetch(KAAL.api.replace(/\/+$/, "") + "/verify", {

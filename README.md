@@ -540,6 +540,23 @@ which act owns the middle of the screen. Five worlds: void, stone, jade, onyx,
 ember. That is what makes ten sections read as one building rather than a
 stack of pages.
 
+Over it, where the device can carry it, is a live WebGL room
+(`assets/world.js`, three.js and GSAP ScrollTrigger, vendored in
+`assets/vendor/`). The camera travels forward through it for the length of
+the page, so scrolling reads as time passing: each act has a dial ring at its
+own place on the journey, sixty ticks that step once a second like the quartz
+movement, and the ring at the twenty is the brightest. Each act eases the room
+into its own colour and light. It stays dark at the film (the film owns that
+screen) and comes up under the hand-off.
+
+It is loaded only after the page has loaded and stood still for half a
+second, only with motion allowed, no Save-Data, module scripts and WebGL2. It
+refuses software rendering, pauses while checkout is open, and takes itself
+off if the median frame runs past 28ms in its first ninety; the colour wash
+underneath is then the world, as it always was. `?world=0` shows the page
+without it, `?world=1` skips the speed check for review, and
+`features.world3d` turns it off for everyone.
+
 ### The box film is a picture until someone asks
 
 Act 08 is a poster and a play mark. The `<video>` does not exist until the
@@ -710,6 +727,9 @@ assets/img/hero-seq/     the hero film, baked to stills: tall/ (9:16 phones),
 incoming/film/           the master film the stills are cut from
 assets/video/box.mp4     the box film, act 08. H.264, fetched only on a tap
 assets/video/box-poster.webp  its first frame, the poster the tap replaces
+assets/world.js          the WebGL room behind the acts (a module; loaded late)
+assets/vendor/           three.js 0.170 (MIT) and GSAP 3.12.5 with ScrollTrigger,
+                         copied as published. Nothing is installed or built
 tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never
                          at deploy: its output is committed, not built.
 tools/gen-sitemap.mjs    dates sitemap.xml from git history. Run by CI on

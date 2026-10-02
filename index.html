@@ -792,6 +792,13 @@ a{color:inherit}
    15% of the act being left, so rooms blend instead of cutting. Opacity on
    a flat fixed layer is the one colour change the compositor does alone. */
 .world-next{opacity:0}
+/* The WebGL room (assets/world.js), over the colour wash and under every
+   act. A large-viewport box, so a phone's URL bar never resizes it. */
+.world-canvas{position:fixed;left:0;top:0;width:100%;height:100vh;height:100lvh;z-index:-2;
+  pointer-events:none;opacity:0;display:block}
+/* With the room lit by the world, the per-act washes would be a second,
+   rectangular light on top of it. They step aside. */
+.world-gl .act-back{opacity:0}
 .dust{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5}
 .dust.near{z-index:5}
 /* Outside the hero the dust is not drawn and not composited at all. It used
@@ -895,15 +902,18 @@ a{color:inherit}
       No animation on it. Everything else on this page earns attention by
       moving; this earns it by being still and legible at the exact moment
       somebody is deciding whether to keep scrolling. */
-.band{border-block:1px solid var(--line);background:var(--void-2);margin:0;padding:clamp(1.15rem,3.4vw,1.7rem) 0}
+/* No box. The strip is a denser stretch of the same room: it thickens out
+   of the film above and thins back into the world below, so nothing on the
+   way down reads as a section edge. */
+.band{background:linear-gradient(to bottom,rgba(14,15,13,0) 0%,rgba(14,15,13,.94) 30%,rgba(14,15,13,.94) 74%,rgba(14,15,13,0) 100%);
+  margin:0;padding:clamp(2.6rem,7vw,4.2rem) 0 clamp(2.2rem,6vw,3.6rem)}
 /* The hand-off. The band overlaps the last sixteenth of the hero and is
    raised above it, so as the film ends the next section rises OVER the
    dimmed room instead of the room scrolling away first — the script lifts
    it the last 8vh. Without motion, or without script, there is no film to
    hand off from and the band simply follows the poster. */
 @media (prefers-reduced-motion:no-preference){
-  body:not(.nojs) .hero + .band{position:relative;z-index:4;margin-top:-16svh;
-    box-shadow:0 -28px 60px -18px rgba(0,0,0,.85)}
+  body:not(.nojs) .hero + .band{position:relative;z-index:4;margin-top:-16svh}
 }
 .band ul{list-style:none;margin:0;padding:0;display:grid;gap:clamp(1rem,2.6vw,1.9rem);
   grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -1628,12 +1638,12 @@ a{color:inherit}
       sharp at every size this page draws them. ── */
 .four-shot{margin:var(--beat) auto 0;width:min(100% - var(--gut) * 2,72rem);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   gap:clamp(.4rem,2vw,1.6rem);align-items:end;padding:clamp(1.6rem,4vw,3.4rem) clamp(.8rem,3vw,2.6rem) clamp(1.2rem,3vw,2.4rem);
-  border-radius:2px;position:relative;overflow:clip;
+  position:relative;
+  /* Standing in the room, not in a box: a pool of light under the four and
+     nothing at the edges for the eye to find. */
   background:
-    radial-gradient(80% 60% at 50% 115%,rgba(198,161,91,.10),rgba(0,0,0,0) 70%),
-    radial-gradient(120% 90% at 50% 0%,rgba(237,232,223,.05),rgba(0,0,0,0) 60%),
-    linear-gradient(180deg,#151613 0%,#0b0c0a 100%);
-  box-shadow:inset 0 0 0 1px rgba(237,232,223,.06)}
+    radial-gradient(56% 46% at 50% 92%,rgba(198,161,91,.10),rgba(0,0,0,0) 72%),
+    radial-gradient(60% 60% at 50% 40%,rgba(237,232,223,.035),rgba(0,0,0,0) 70%)}
 .four-shot img{width:100%;height:auto;filter:drop-shadow(0 22px 26px rgba(0,0,0,.7))}
 .plate img.solo{display:block;width:auto;height:88%;max-height:88%;margin:6% auto;filter:drop-shadow(0 30px 34px rgba(40,34,26,.45))}
 .plate:has(img.solo){aspect-ratio:4/5;background:
@@ -3661,10 +3671,20 @@ function driveWorld(){
       never a layout read, and a value is written only when it changed and
       only while its plane is near the screen. ─────────────────────────── */
 var NATIVE_DEPTH = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: view()"));
+/* On a touch screen the page is scrolled by the compositor, on its own
+   thread, and a transform written by script lands a frame behind it: the
+   planes shiver against the page they are meant to float in. That is the
+   iPhone before iOS 26, which has no scroll-driven animations. There the
+   planes stay flat (the pinned photographs still hold, natively) rather
+   than ride a frame late. Phones that run the native engine keep depth. */
+if(!NATIVE_DEPTH && window.matchMedia("(pointer: coarse)").matches){
+  $$("[data-depth]").forEach(function(el){ el.removeAttribute("data-depth"); });
+  document.documentElement.classList.add("depth-flat");
+}
 var depthEls = (reduced || NATIVE_DEPTH) ? [] : $$("[data-depth]").filter(function(el){
   return !el.closest(".still-act") && !el.closest('[data-world="void"] > .act-back') && !el.closest(".pin");
 }).map(function(el){ return { el:el, last:"" }; });
-var pinEls = (reduced || NATIVE_DEPTH) ? [] : $$(".pin").map(function(el){ return { el:el, last:"" }; });
+var pinEls = (reduced || NATIVE_DEPTH || document.documentElement.classList.contains("depth-flat")) ? [] : $$(".pin").map(function(el){ return { el:el, last:"" }; });
 function coverAt(top, h){ return (M.vh - (top - S.raw)) / (M.vh + h); }
 function driveDepth(){
   var i, d, c, v;
@@ -4878,6 +4898,7 @@ function openRzp(order, n, el, done, g){
          having survived a trip to a UPI app. */
       callback_url: KAAL.api.replace(/\/+$/, "") + "/callback",
       modal:       { ondismiss: function(){
+        if(window.kaalWorld && kaalWorld.pause) kaalWorld.pause(false);
         done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
       } }
     });
@@ -4898,6 +4919,7 @@ function openRzp(order, n, el, done, g){
        scrolling it while they pay. They come back from their files the
        moment the scrub moves again. */
     releaseFilm();
+    if(window.kaalWorld && kaalWorld.pause) kaalWorld.pause(true);
     rzp.open();
 
     /* The modal owns the screen now. The button behind it should not
@@ -5132,6 +5154,7 @@ function remeasure(){
     if(anchorEl) anchorEl.scrollIntoView({ behavior:"auto", block:"start" });
     measure();
     if(real) sizeCanvas();
+    if(window.kaalWorld && kaalWorld.refresh) kaalWorld.refresh();
     wake();
   }, 150);
 }
@@ -5160,6 +5183,48 @@ wake();
 function filmAfterPaint(){
   requestAnimationFrame(function(){ requestAnimationFrame(loadFilm); });
 }
+/* ── THE WORLD. A WebGL room behind every act (assets/world.js), loaded
+      only where it can run well and only once the first screen and the
+      film's first frames are in: motion allowed, no Save-Data, module
+      scripts and WebGL2 present, KAAL.features.world3d on. It is a module
+      so that a browser too old to parse one never even fetches it, and
+      that browser keeps the colour wash in driveWorld, which is what
+      every browser shows until the world has proved it can run. The
+      module removes itself if it cannot hold its frame rate. ──────── */
+function worldAllowed(){
+  if(!on("world3d") || reduced || qs.get("world") === "0") return false;
+  var c = navigator.connection;
+  if(c && (c.saveData || /(^|\W)(slow-2g|2g)($|\W)/.test(c.effectiveType || ""))) return false;
+  if(!("noModule" in document.createElement("script"))) return false;
+  if(!window.WebGL2RenderingContext) return false;
+  return true;
+}
+function loadWorld(){
+  var src = ["assets/vendor/gsap.min.js", "assets/vendor/ScrollTrigger.min.js"], k = 0;
+  (function next(){
+    var el = document.createElement("script");
+    if(k < src.length){ el.src = src[k++]; el.onload = next; }
+    else { el.type = "module"; el.src = "assets/world.js"; }
+    document.head.appendChild(el);
+  })();
+}
+if(worldAllowed()){
+  /* Compiling three.js is one long task. It waits until the page has
+     stood still for a moment, so it never lands in the middle of a scrub. */
+  var worldGo = function(){
+    var still = 0;
+    var poll = setInterval(function(){
+      still = running ? 0 : still + 1;
+      if(still < 2) return;
+      clearInterval(poll);
+      if(window.requestIdleCallback) requestIdleCallback(loadWorld, { timeout:1500 }); else loadWorld();
+    }, 250);
+  };
+  var worldWait = function(){ setTimeout(worldGo, window.matchMedia(PHONE_Q).matches ? 2200 : 900); };
+  if(document.readyState === "complete") worldWait();
+  else addEventListener("load", worldWait, { once:true });
+}
+
 /* The sharp frame waits for the same moment, so it never competes with the
    poster for the first screen. */
 function sharpAfterPaint(){

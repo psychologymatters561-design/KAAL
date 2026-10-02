@@ -21,7 +21,7 @@ it, otherwise rename a `.jpg` to keep the name and change the extension in
 | 4 | ✅ Delivered: green dial macro on green velvet | `jade-close.webp` |
 | 5 | ✅ Delivered: black dial macro on black stone, warm light streak | `onyx-rain.webp` |
 | 6 | ✅ Delivered: champagne dial on sandstone, raking sunlight | `ember-smoke.webp` |
-| 7 | ✅ Delivered: cut automatically from the film by `tools/bake-hero-seq.sh` — no separate photo needed | `hero-still.webp` |
+| 7 | ✅ Delivered: frame 000 of the baked film is the poster — no separate photo needed | `hero-seq/tall/000.webp`, `hero-seq/plate/000.webp` |
 | 8 | All four on wet black slate, seen from above | `four.webp` |
 
 Three left: `stone-day.webp`, `stone-studio.webp`, `four.webp`.
@@ -53,8 +53,9 @@ This used to say to self-host `assets/video/hero.mp4` and point `index.html`
 at it. That plan is done and gone one step further: the hero does not run a
 video file at all anymore, self-hosted or not.
 
-`tools/bake-hero-seq.sh` cuts the film into two sequences of still frames —
-one for portrait phones, one for landscape — encodes each as WEBP, and
+`tools/bake-hero-seq.sh` cuts the film into three sequences of still frames —
+the film's own 9:16 for phones, a 1080 square plate for tablets and desktops,
+and a lighter plate for slow links — encodes each as WEBP, and
 commits them to `assets/img/hero-seq/`. The page paints those to a canvas as
 you scroll. There is no `<video>` element, no seek, no decoder in the loop,
 and — the point of this note — no request to Cloudinary. `KAAL.film`, the
@@ -73,8 +74,9 @@ filename.
 tools/bake-hero-seq.sh path/to/new-film.mp4
 ```
 
-That overwrites everything under `assets/img/hero-seq/` and
-`assets/img/hero-still.webp`. Commit the result; nothing else changes.
+That overwrites everything under `assets/img/hero-seq/`. Commit the result,
+and paste the `filmCuts` line it prints into the config if the cuts moved.
+The current master lives at `incoming/film/kaal_commercial.mp4`.
 
 ---
 

@@ -113,8 +113,10 @@ if (cfg.filmSeq) {
   else if (!cfg.filmSeq.endsWith("/"))
     bad("filmSeq must end in a slash — the page appends the tier directory to it");
   else {
-    const counts = { tall: +(html.match(/frameCountSmall:\s*(\d+)/)?.[1] ?? NaN),
-                     wide: +(html.match(/frameCount:\s*(\d+)/)?.[1] ?? NaN) };
+    const counts = { tall:        +(html.match(/frameCountSmall:\s*(\d+)/)?.[1] ?? NaN),
+                     plate:       +(html.match(/frameCount:\s*(\d+)/)?.[1] ?? NaN),
+                     "plate-low": +(html.match(/frameCountLow:\s*(\d+)/)?.[1] ?? NaN) };
+    const size = { tall: [608, 1080], plate: [1080, 1080], "plate-low": [720, 720] };
     for (const [tier, n] of Object.entries(counts)) {
       const dir = join(root, cfg.filmSeq, tier);
       if (!Number.isFinite(n) || n < 2) { bad(`no frame count configured for the ${tier} tier`); continue; }
@@ -128,38 +130,26 @@ if (cfg.filmSeq) {
       if (missing.length)
         bad(`${cfg.filmSeq}${tier}/ is missing ${missing.length} frame(s): ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? "…" : ""}`);
       const extra = readdirSync(dir).filter(f => f.endsWith(".webp")).length - n;
-      if (extra > 0) bad(`${cfg.filmSeq}${tier}/ holds ${extra} more .webp than frameCount says — the page will never request them`);
+      if (extra > 0) bad(`${cfg.filmSeq}${tier}/ holds ${extra} more .webp than its frame count says — the page will never request them`);
 
-      /* A phone pays for these on cellular before it sees anything move,
-         and the load phase is the only part of this hero that was ever
-         genuinely rough: until the sequence is dense enough to scrub, the
-         scroll jumps between whatever frames have landed. Frames are
-         capped by bitmap, not bytes, so the only lever on that window is
-         how big each picture is — which is what quality 65 buys.
-
-         Not a failure — it is a judgement call, and it should be a loud
-         one the moment somebody re-bakes at a higher quality. 1.35 and
-         2.90 are the ceilings for 85 tall frames and 91 wide ones at
-         quality 65, which lands at 1.10MB and 2.41MB. The headroom is for
-         a different film, not for a quieter creep back up the curve. */
-      const budget = tier === "tall" ? 1.35e6 : 2.9e6;
+      /* What a device downloads before the film is whole. The loader goes
+         coarse to fine, so the scrub works after the first ~26 files and
+         this total only decides how long the last passes take — but it is
+         still paid on cellular, so it is a loud number the moment somebody
+         re-bakes at a higher quality or a bigger size. The ceilings are the
+         October 2026 bake (q72: 8.82, 14.51 and 4.61MB) plus 8%. */
+      const budget = { tall: 9.5e6, plate: 15.7e6, "plate-low": 5.0e6 }[tier];
       if (bytes > budget)
         soft(`${tier} sequence is ${(bytes / 1e6).toFixed(2)}MB over ${n} frames — above the ${(budget / 1e6).toFixed(1)}MB this hero budgets`);
 
-      /* Frames nothing will ever ask for.
-
-         frameWant() caps how many frames a device takes by DECODED bitmap,
-         not by file size, and that cap is what the hero is really sized
-         against. Bake more frames than the most generous budget can hold
-         and the extra files are dead weight in the repo that no device
-         ever requests — the sequence silently runs at a coarser stride
-         than the count in the config implies, and the only symptom is that
-         the smoothness somebody just paid bytes for never arrives. */
-      const perFrame = (tier === "tall" ? 400 * 880 : 1080 * 675) * 4;
-      const ceiling  = tier === "tall" ? 130e6 : 280e6;
-      const holds    = Math.floor(ceiling / perFrame);
-      if (n > holds)
-        bad(`${tier} bakes ${n} frames but the most generous device budget holds ${holds} (${(perFrame * n / 1e6).toFixed(0)}MB of bitmap against a ${(ceiling / 1e6).toFixed(0)}MB ceiling) — the extra files would never be requested`);
+      /* The page holds every frame ENCODED and decodes only a window of
+         them (frameWindow: ±8..24 frames), so bitmap memory caps the
+         window, not the count — the old "too many frames to hold" failure
+         no longer describes anything. What can still go wrong is the
+         window outgrowing the most generous budget it is given. */
+      const [w, h] = size[tier], perFrame = w * h * 4;
+      if (49 * perFrame > 280e6)
+        bad(`${tier} frames are ${w}x${h}: a ±24 decoded window is ${(49 * perFrame / 1e6).toFixed(0)}MB, over the 280MB ceiling frameWindow() allows`);
 
       /* n-1 is the stride's denominator: an evenly spaced subset can only
          exist if it has whole divisors, and without one a weak device
@@ -168,6 +158,34 @@ if (cfg.filmSeq) {
       if (span % 2 && span % 3)
         bad(`${tier} has ${n} frames, so n-1 = ${span} divides by neither 2 nor 3 — a reduced device cannot take an evenly spaced subset`);
     }
+    /* The low plate is every second frame of the film, and the cut map
+       depends on that being exact. */
+    if (Number.isFinite(counts.plate) && Number.isFinite(counts["plate-low"]) &&
+        (counts.plate - 1) % (counts["plate-low"] - 1))
+      bad(`plate-low has ${counts["plate-low"]} frames, which is not an even subset of the plate's ${counts.plate} — the cut map would land between frames`);
+
+    /* The cuts. The painter never dissolves across one, so a cut index
+       outside the film, or out of order, silently re-enables a double
+       exposure of two different rooms. */
+    const cutsRaw = html.match(/filmCuts:\s*\[([^\]]*)\]/)?.[1];
+    if (cutsRaw === undefined) soft("filmCuts is not configured — the scrub will dissolve across the film's hard cuts");
+    else {
+      const cuts = cutsRaw.split(",").map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+      for (let i = 0; i < cuts.length; i++) {
+        if (cuts[i] < 1 || cuts[i] > counts.plate - 1) bad(`filmCuts has ${cuts[i]}, outside the film's 1..${counts.plate - 1}`);
+        if (i && cuts[i] <= cuts[i - 1]) bad("filmCuts must be in ascending order");
+      }
+    }
+
+    /* The poster is frame 000 of each tier, served by a <picture> and
+       preloaded by a media-matched <link>. If either names a file that is
+       not the tier's first frame, the canvas takes over from a different
+       picture and the handover jumps. */
+    for (const t of ["tall", "plate"]) {
+      const f = `${cfg.filmSeq}${t}/000.webp`;
+      if (!html.includes(`<link rel="preload" href="${f}"`)) bad(`no preload for the ${t} poster (${f})`);
+      if (!html.includes(`srcset="${f} `)) bad(`the hero <picture> does not serve ${f}`);
+    }
   }
 } else {
   soft("filmSeq is empty: the hero never loads the film and the still is the hero");
@@ -175,43 +193,20 @@ if (cfg.filmSeq) {
 if (cfg.filmFrames)
   bad("filmFrames is back in the config — the hero is served from filmSeq now and must not reach for another origin");
 
-/* ── 3d. The hero's depth planes, and the one number two files share.
+/* ── 3d. The hero camera, and the planes the script drives by id.
 
-      The film is scaled up so the parallax drift has margin to move
-      inside it. The stylesheet sets that scale on .stage canvas/.still
-      and the script derives the same number from KAAL.heroDrift. If the
-      stylesheet's is the smaller of the two, the ends of the scrub run
-      the picture out of itself and put a black band across the hero —
-      on a phone, in front of paid traffic, and only at the ends, which
-      is exactly the kind of thing that survives a desk review.
-
-      So the arithmetic is checked here rather than trusted to the two
-      comments that ask a reader to keep them in step. ─────────────── */
-const drift = parseFloat(html.match(/heroDrift:\s*([\d.]+)/)?.[1] ?? "NaN");
-const push  = parseFloat(html.match(/heroPush:\s*([\d.]+)/)?.[1] ?? "0");
-const cssLift = parseFloat(
-  html.match(/\.stage canvas,\.stage \.still\{[\s\S]*?transform:scale\(([\d.]+)\)/)?.[1] ?? "NaN");
-
-if (!Number.isFinite(drift)) {
-  bad("heroDrift is missing or not a number — the hero depth planes read it");
-} else if (drift > 0) {
-  if (!Number.isFinite(cssLift)) {
-    bad("could not read the base scale off .stage canvas/.still — the depth check cannot verify the drift has margin");
-  } else {
-    /* Mirrors FILM_LIFT in the script: ceil to 2dp of 1 + drift + 0.005. */
-    const jsLift = Math.ceil(+((1 / (1 - Math.min(drift, 0.12)) + 0.02) * 100).toFixed(4)) / 100;
-    if (Math.abs(cssLift - jsLift) > 0.0001)
-      bad(`heroDrift ${drift} needs a base scale of ${jsLift}, but the stylesheet sets scale(${cssLift}) — at the ends of the scrub the hero shows an edge`);
-  }
-  if (drift > 0.12) soft(`heroDrift is ${drift}; the script clamps it to 0.12, so the stylesheet and the script will disagree`);
-  if (push > 0.06)  soft(`heroPush is ${push}; the script clamps it to 0.06`);
-}
-
-/* The caption plane is driven by id, and a renamed id fails silently:
-   the transform is written to nothing and one of the three planes just
-   stops, which looks like taste rather than a bug. */
-if (drift > 0 && !/id="caps"/.test(html))
-  bad('#caps is missing — the hero caption depth plane is driven by that id and would silently stop');
+      The camera pushes in from 1 and never goes below it, so unlike the
+      old drift model it needs no overscale margin and there is no second
+      number in the stylesheet to keep in step. What can still break
+      silently is an id: every hero plane is driven by one, and a renamed
+      id writes its transform to nothing, which looks like taste rather
+      than a bug. ─────────────────────────────────────────────────── */
+const push = parseFloat(html.match(/heroPush:\s*([\d.]+)/)?.[1] ?? "NaN");
+if (!Number.isFinite(push)) bad("heroPush is missing or not a number — the hero camera reads it");
+else if (push > 0.25) soft(`heroPush is ${push}; the script clamps it to 0.25`);
+if (/heroDrift:/.test(html)) bad("heroDrift is back in the config — the drift model was replaced by the camera, and nothing reads it");
+for (const id of ["cam", "seq", "still", "caps", "heroDim", "stage", "hero"])
+  if (!new RegExp(`id="${id}"`).test(html)) bad(`#${id} is missing — a hero plane is driven by that id and would silently stop`);
 if (cfg.frames && !(cfg.frames.includes("{T}") && cfg.frames.includes("{W}")))
   bad("frames must carry {T} and {W}");
 if (cfg.frames && cfg.frames.includes("{H}"))

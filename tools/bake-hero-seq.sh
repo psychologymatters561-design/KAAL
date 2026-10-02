@@ -17,6 +17,7 @@
 #  turns that into a file read from the same origin as the page.
 #
 #  Usage:  tools/bake-hero-seq.sh path/to/film.mp4
+#          (the master lives at incoming/film/kaal_commercial.mp4)
 #
 #  Needs ffmpeg with libwebp, which every ffmpeg build since 4.x has.
 #  Nothing here is installed into the repo and nothing here ships.
@@ -32,75 +33,83 @@ fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/assets/img/hero-seq"
 
-# ── The tiers.
+# ── The tiers. (October 2026: the film was re-cut as the master
+#    incoming/film/kaal_commercial.mp4 — 1080x1920, 24fps, 409 frames,
+#    17.04s, two hard cuts. Probe it before trusting any number below.)
 #
-#    Two, not a continuum. The old code rounded the viewport to the
-#    nearest eighty pixels and asked for exactly that, which against a
-#    transcoding backend meant almost every device width was its own
-#    cold start. Against static files the trade is the opposite way
-#    round: a file that many devices share is a file already in the
-#    CDN's edge cache, and the canvas covers whatever is left over.
+#    `tall`        phones held upright. The film's OWN 9:16, uncropped,
+#                  at 608x1080. The old tier was a 400x880 crop to a
+#                  phone's ratio; the owner asked for the whole frame,
+#                  and a 390px phone covers a 9:16 frame by losing a
+#                  sixth of its width, which keeps the dial in every
+#                  shot of this film. 608 is the film's width scaled by
+#                  1080/1918 — two rows are trimmed so the scale is
+#                  exact rather than a sub-pixel stretch.
+#    `plate`       tablets and desktops. A 1080x1080 square at the film's
+#                  native resolution — no upscale, ever. The landscape
+#                  tier this replaces (1080x675) could not hold the dial:
+#                  in the close-up the bezel is 36% of the film's height
+#                  and a 1.6:1 crop of a 1080-wide film shows 35%, so on
+#                  any 16:9 screen the bezel was cut top and bottom. The
+#                  page now places this square as a plate beside the
+#                  words instead of stretching a crop across the screen.
+#    `plate-low`   the same square at 720x720, every second frame, for
+#                  a tablet or desktop on a slow link. Phones on a slow
+#                  link take every second frame of `tall` instead.
 #
-#    `tall`  portrait viewports. 400x880 is the phone canvas this page
-#            has always drawn, at the ratio 0.455 that sits between a
-#            360x740 Android and a 430x932 iPhone, so neither crops far.
-#    `wide`  landscape viewports. 1080 wide because the film IS 1080
-#            wide — asking for 1240 only ever bought an upscale, paid
-#            for in bytes. 675 puts it at 1.6:1, between a 16:10 laptop
-#            and a 16:9 monitor.
+#    The crop is FIXED, never per frame: one rectangle for the whole
+#    film, so the subject cannot drift between frames that the scrub
+#    puts next to each other. The square's window is rows 286..1365 of
+#    1920 — centred on y=0.43, the point that holds the close-up's
+#    bezel (0.24-0.60), the desk dial (0.41-0.59) and the line-up
+#    (0.40-0.59) all whole. Measured off frames 96, 150 and 300.
 #
 #    The counts are chosen for two properties, in this order.
 #
 #    n-1 must have whole divisors, because a fixed set of files can only
 #    be sampled EVENLY at a whole-number stride and a stride divides n-1,
-#    not n. 84 divides by 2, 3, 4, 6, 7 and 12; 90 by 2, 3, 5, 6, 9 and
-#    10. So every reduced sequence a weak device is handed is still
-#    evenly spaced in time. Uneven spacing is not a smaller film, it is a
-#    film that speeds up and slows down twice a second.
+#    not n. 408 = 2*2*2*3*17, so a weak device can be handed 409, 205,
+#    137, 103, 69 or 52 frames and every one of those is still evenly
+#    spaced in time. Uneven spacing is not a smaller film, it is a film
+#    that speeds up and slows down twice a second.
 #
-#    And then: as many as the memory will hold. 85 and 91 replace 43 and
-#    61 because frames are the one thing the scrub cannot fake — blending
-#    turns a stepped sequence into a continuous one, but a dissolve
-#    between two frames far apart in time is a double exposure rather
-#    than motion, and the only fix for that is neighbours that are closer
-#    together. 85 frames of a 17-second film is one every 200ms of it.
+#    And then: as many as the film has. 409 is every frame the camera
+#    recorded. Frames are the one thing the scrub cannot fake — a
+#    dissolve between two frames far apart in time is a double exposure
+#    rather than motion — and at native spacing there is nothing left to
+#    dissolve across: neighbours are 42ms apart. (The history: 43, then
+#    85 and 91, then the brief's 181 and 241, then all of them.)
 #
-#    The ceiling is decoded bitmap, not file size: a tall frame is
-#    400*880*4 = 1.41MB the moment it is painted and stays that way for
-#    the life of the page. 85 of them is 120MB, 91 wide ones is 265MB.
-#    Both are inside what frameWant() will hand out, and frameWant() is
-#    what decides how many of these a given device actually takes.
-TIERS="tall:400:880:85 wide:1080:675:91"
+#    The ceiling used to be decoded bitmap: every frame stayed decoded
+#    for the life of the page, so the count was capped by memory. It is
+#    not any more. The page holds ENCODED files for the whole film and
+#    decodes only a window around the playhead, closing bitmaps that
+#    leave it — see the sequence loader in index.html. Memory now caps
+#    the window, not the film.
+#
+#    name : width : height : frames : crop (ffmpeg filter, applied first)
+TIERS="tall:608:1080:409:crop=1080:1918:0:1 plate:1080:1080:409:crop=1080:1080:0:286 plate-low:720:720:205:crop=1080:1080:0:286"
 
 # Quality.
 #
-# 82 was the first number tried and it was the wrong one — not because the
-# pictures were bad but because of where it sat on the curve. Sweeping the
-# encoder against the lossless frame, the cost of the last seven points is
-# the whole story:
+# The 2026-10 sweep, 50 frames per tier against the lossless frame, PSNR
+# over the dial's box (the one thing on the screen that is for sale):
 #
-#     Q    tall 85f    PSNR, dial    PSNR, frame
-#     55     1.02MB       31.81         40.96
-#     65     1.15MB       32.54         41.75
-#     75     1.30MB       33.32         42.58
-#     82     1.71MB       35.17         44.52
+#     Q    tall KB/frame  dial dB    plate KB/frame  dial dB
+#     60        18.7       38.00          31.2        43.26
+#     65        19.7       38.38          32.8        43.60
+#     72        21.5       39.02          35.6        44.16
+#     78        24.8       40.15          40.8        45.11
 #
-# From 75 to 82 is 31% more bytes. Everywhere else ten points of quality
-# costs six. 82 is the one point on this curve you pay a premium for, and
-# the premium is paid on cellular, in the seconds before anything moves.
+# 72 is the last step on the cheap part of the curve: 65 to 72 costs 9%
+# more bytes for 0.6dB on the dial, 72 to 78 costs 15% for 1.1dB. The
+# plate is at native resolution, which is why its dial holds 44dB where
+# the scaled phone tier holds 39.
 #
-# The dial column is why this is not simply "go as low as it goes". The
-# error at low quality is not banding in the smoke, which is what you would
-# fear from a dark film — amplified 24x the gradients stay clean. It is
-# detail on the watch face, which is the one thing on the screen that is
-# actually for sale. At 55 the tachymeter numerals begin to soften. At 65
-# they hold, and 65 keeps two thirds of the byte saving.
-#
-# So: 65. A tall frame lands at ~13.5KB and a wide one at ~26KB, which is
-# 1.15MB for a phone against 1.71MB, and 2.35MB for a laptop against 3.50MB.
-# The frames are unchanged — 85 and 91, the same pictures at the same sizes,
-# arriving a third sooner.
-Q=65
+# (The first sweep, on the old 400x880 crop: 82 was the wrong point on
+# the curve — 31% more bytes than 75 for the last seven points — and 65
+# was where the tachymeter numerals still held. Kept for the record.)
+Q=72
 
 # ffmpeg with no output file reports the stream and exits non-zero, which is
 # the cheapest probe there is and also why this one line is allowed to fail.
@@ -109,62 +118,75 @@ DUR=$(printf '%s\n' "$PROBE" | sed -n 's/.*Duration: \([0-9:.]*\),.*/\1/p' \
       | awk -F: 'NR==1{printf "%.3f", $1*3600 + $2*60 + $3}')
 FPS=$(printf '%s\n' "$PROBE" | sed -n 's/.*, \([0-9.]*\) fps.*/\1/p' | awk 'NR==1')
 [ -z "${FPS:-}" ] && FPS=24
+# The banner rounds the duration to centiseconds — 17.04 for a film that is
+# 17.0417 — which moves the sampling rate by a hundredth of a percent. With
+# round=near that still lands on every frame of this film, but on another
+# it need not, so ffprobe's exact figure wins wherever ffprobe exists.
+if command -v ffprobe >/dev/null 2>&1; then
+  EXACT=$(ffprobe -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$SRC" 2>/dev/null | awk 'NR==1')
+  [ -n "${EXACT:-}" ] && [ "$EXACT" != "N/A" ] && DUR="$EXACT"
+fi
 [ -z "${DUR:-}" ] && { echo "could not read a duration from $SRC" >&2; exit 1; }
 
 # The last frame STARTS one frame-time before the duration ends, so asking
-# for 100% of the duration asks for a frame that is not there.
-LAST=$(awk -v d="$DUR" -v f="$FPS" 'BEGIN{printf "%.4f", d - 1/f}')
+# for 100% of the duration asks for a frame that is not there. SPAN is the
+# distance from the first frame's start to the last frame's start: the
+# stretch of film the sequence is spread evenly across.
+SPAN=$(awk -v d="$DUR" -v f="$FPS" 'BEGIN{printf "%.6f", d - 1/f}')
 
-echo "film: ${DUR}s at ${FPS}fps — sampling 0 to ${LAST}s"
+echo "film: ${DUR}s at ${FPS}fps — sampling 0 to ${SPAN}s"
 
 for T in $TIERS; do
-  IFS=: read -r NAME W H N <<EOF
+  IFS=: read -r NAME W H N CROP <<EOF
 $T
 EOF
   mkdir -p "$OUT/$NAME"
   rm -f "$OUT/$NAME"/*.webp
-  echo "── $NAME: $N frames at ${W}x${H}"
-
-  i=0
-  while [ "$i" -lt "$N" ]; do
-    TS=$(awk -v i="$i" -v n="$N" -v l="$LAST" 'BEGIN{printf "%.4f", (i/(n-1))*l}')
-    IDX=$(printf "%03d" "$i")
-    # crop to the tier's ratio from the centre — the same frame Cloudinary's
-    # c_fill,g_center was returning — then scale once, with a real filter.
-    ffmpeg -hide_banner -loglevel error -ss "$TS" -i "$SRC" -frames:v 1 \
-      -vf "crop='min(iw,ih*$W/$H)':'min(ih,iw*$H/$W)',scale=$W:$H:flags=lanczos" \
-      -c:v libwebp -quality "$Q" -preset picture -compression_level 6 \
-      -y "$OUT/$NAME/$IDX.webp"
-    i=$((i + 1))
-  done
+  # n frames evenly across the span is n-1 intervals, so the sampling rate
+  # is (n-1)/span. At 409 frames of a 24fps film that is exactly 24 — every
+  # frame — and at 205 it is exactly 12, every second one. -vsync 0 hands
+  # each sampled frame straight to its file, with no duplication or drop
+  # by the muxer; the fps filter alone decides which frames those are.
+  RATE=$(awk -v n="$N" -v s="$SPAN" 'BEGIN{printf "%.6f", (n-1)/s}')
+  echo "── $NAME: $N frames at ${W}x${H}, ${RATE} per second of film"
+  ffmpeg -hide_banner -loglevel error -i "$SRC" \
+    -vf "fps=${RATE}:round=near,${CROP},scale=${W}:${H}:flags=lanczos" \
+    -vsync 0 -frames:v "$N" -start_number 0 \
+    -c:v libwebp -quality "$Q" -preset picture -compression_level 6 \
+    -y "$OUT/$NAME/%03d.webp"
+  GOT=$(ls "$OUT/$NAME" | wc -l)
+  [ "$GOT" -eq "$N" ] || { echo "$NAME: wanted $N frames, got $GOT" >&2; exit 1; }
 done
 
-# ── The still.
+# ── The cuts.
 #
-#    The one frame the page shows when the film is not running: reduced
-#    motion, a viewport under 340px, a device too small to hold the
-#    sequence, or every frame failing. It was the last thing in the hero
-#    still reaching for Cloudinary, and it was reaching for it on every
-#    single load, because the file it names has never existed in the repo.
-#    It is the largest image above the fold, so that request was on the
-#    critical path to the largest paint.
+#    This film has hard cuts in it, and a dissolve across a cut is not a
+#    softer frame — it is two different rooms printed over each other. The
+#    page blends neighbouring frames while the scrub moves, so it has to
+#    know where the cuts are. They are found here, once, from the film
+#    itself, as the index of the first SOURCE frame after each cut; the
+#    page maps them onto whatever stride a tier or a device is using.
+CUTS=$(ffmpeg -hide_banner -i "$SRC" -vf "select='gt(scene,0.3)',showinfo" -f null - 2>&1 \
+  | sed -n 's/.*pts_time:\([0-9.]*\).*/\1/p' \
+  | awk -v f="$FPS" '{printf "%s%d", (NR>1?", ":""), int($1*f + 0.5)}')
+
+# ── The poster.
 #
-#    Portrait at the film's own size, because the still has to work under
-#    object-fit:cover in both orientations and only portrait keeps the
-#    whole subject.
-STILL_AT=$(awk -v l="$LAST" 'BEGIN{printf "%.3f", l*0.353}')
-ffmpeg -hide_banner -loglevel error -ss "$STILL_AT" -i "$SRC" -frames:v 1 \
-  -vf "scale=1080:1920:flags=lanczos" \
-  -c:v libwebp -quality 80 -preset picture -compression_level 6 \
-  -y "$ROOT/assets/img/hero-still.webp"
+#    There is no separate still any more. The poster IS frame 000 of each
+#    tier: the same file the canvas paints first, so the handover from the
+#    picture to the film cannot move by a pixel or a shade. The page serves
+#    it through a <picture> whose media queries are the same test the
+#    script uses to pick a tier.
+rm -f "$ROOT/assets/img/hero-still.webp"
 
 echo
 echo "── baked"
 for T in $TIERS; do
   NAME="${T%%:*}"
-  printf "%-6s %3d files  %6.2f MB\n" "$NAME" \
+  printf "%-10s %3d files  %6.2f MB\n" "$NAME" \
     "$(ls "$OUT/$NAME" | wc -l)" \
     "$(du -sb "$OUT/$NAME" | awk '{print $1/1e6}')"
 done
-printf "%-6s %3d file   %6.2f MB\n" "still" 1 \
-  "$(stat -c%s "$ROOT/assets/img/hero-still.webp" | awk '{print $1/1e6}')"
+echo
+echo "── paste into the KAAL config in index.html if these moved:"
+echo "  filmCuts: [${CUTS}],"

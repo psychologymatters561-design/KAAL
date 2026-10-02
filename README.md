@@ -43,15 +43,15 @@ var KAAL = {
   price:    "5,999",       // every price on the page reads from this
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
-  heroDrift: 0.09,         // how far the hero film travels, as a fraction
-                           // of the stage's height
-  heroPush:  0.035,        // how much it grows across the whole scrub
+  heroPush:  0.18,         // how far the hero camera pushes in while the
+                           // film plays (1 -> 1.18), then settles back
   sold:     [1, 2],        // the numbers already claimed
   film:     "https://res.cloudinary.com/...",   // where the master lives.
                            // No code reads it; the bake script is pointed at it
   frames:   ".../so_{T},w_{W},c_limit/...",     // photograph fallbacks
   filmSeq:  "assets/img/hero-seq/",             // the hero scrub, in this repo
-  frameCount: 91, frameCountSmall: 85,          // files in wide/ and tall/
+  frameCount: 409, frameCountSmall: 409,        // files in plate/ and tall/
+  frameCountLow: 205, filmCuts: [123, 261],     // plate-low/, and the hard cuts
   dials:    { 1:"bone", 2:"onyx", 3:"brass", ... }
 };
 ```
@@ -310,6 +310,19 @@ no second place to forget.
 ## How the page renders
 
 ### The film is the scroll, and it is not a video
+
+**October 2026 — the current model, in five lines.** The master is
+`incoming/film/kaal_commercial.mp4` (1080x1920, 24fps, 409 frames, 17.04s,
+hard cuts at frames 123 and 261). Every frame is baked: `tall/` is the
+film's own 9:16 at 608x1080 for phones, `plate/` a 1080 square at native
+resolution for tablets and desktops, `plate-low/` the square at 720 and every
+second frame for slow links. The page fetches coarse to fine (every 16th
+frame, then 8th, 4th, 2nd, all), nearest the playhead first, holds every
+frame as an encoded Blob and decodes only a window of ±8..24 around the
+playhead with `createImageBitmap`, closing bitmaps that leave it. The
+playhead is damped (`k = 1 - 0.86^(dt/16.67)`), the picture travels at most
+six frames a tick, and the painter never blends across a cut or between
+frames more than two apart. The history below is how it got here.
 
 The hero does not scrub a `<video>`, and that is the single most
 important decision in the page.
@@ -688,8 +701,10 @@ llms.txt                 the whole of the above in plain text, for the agents
                          checked against the workflow on every push
 assets/fonts/            Instrument Serif and Inter, latin subsets, self hosted
 assets/img/              the photographs (see incoming/DROP.md)
-assets/img/hero-seq/     the hero film, baked to stills: tall/ and wide/
-assets/img/hero-still.webp  the hero when the film does not run
+assets/img/hero-seq/     the hero film, baked to stills: tall/ (9:16 phones),
+                         plate/ (1080 square), plate-low/. Frame 000 of each
+                         is the poster: the hero when the film does not run
+incoming/film/           the master film the stills are cut from
 assets/video/box.mp4     the box film, act 08. H.264, fetched only on a tap
 assets/video/box-poster.webp  its first frame, the poster the tap replaces
 tools/bake-hero-seq.sh   cuts hero-seq/ out of the film. Run by hand, never

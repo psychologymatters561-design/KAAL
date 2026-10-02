@@ -56,6 +56,13 @@ reference. It never returns an email, a phone number or an address.
    tools/deploy-worker.sh
    ```
 
+   **Nothing in the page needs changing after this.** The page asks the
+   worker what it can do (`"v": 2` in `/state`). Until the new worker is
+   deployed it leaves out the Razorpay return address and the Series 02
+   forms, because the old worker answers those with "Signature mismatch.";
+   the moment the new one is live, both switch on by themselves on the next
+   visit.
+
 6. Test with a real ₹1 order (temporarily set `PRICE_PAISE = "100"` in
    `wrangler.toml` and redeploy, then put it back). Then watch the logs:
 

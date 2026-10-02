@@ -122,7 +122,7 @@ export default {
 async function getState(request, env) {
   if (!env.KAAL_STATE) {
     const placed = await readPlaced(env);
-    return json(request, env, placed ? { sold: null, held: [], placed } : { sold: null, held: [] });
+    return json(request, env, placed ? { v: 2, sold: null, held: [], placed } : { v: 2, sold: null, held: [] });
   }
 
   const sold = await readSold(env);
@@ -136,7 +136,9 @@ async function getState(request, env) {
     }
   } catch (e) { /* a listing that fails is a page with no holds, not an error */ }
 
-  const out = { sold, held, at: now };
+  /* v: 2 tells the page this worker has /callback, /receipt, /shipping and
+     /list. The page uses none of them until it sees it. */
+  const out = { v: 2, sold, held, at: now };
   const placed = await readPlaced(env);
   if (placed) out.placed = placed;
   return json(request, env, out, { "Cache-Control": "public, max-age=10" });

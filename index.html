@@ -1631,6 +1631,8 @@ a{color:inherit}
 .foot-list .list{margin:0;max-width:34rem}
 /* Without script there is nothing to send it with, so there is no form. */
 .nojs .list{display:none}
+/* And until the worker that takes the list is deployed (see API2). */
+html:not(.api2) form.list,html:not(.api2) .foot-list{display:none}
 
 /* ── THE FOUR, AND THE SOLO PIECE. The real product photographs are
       cut-outs, so they are set on a ground made here: slate for the four,
@@ -2736,6 +2738,11 @@ var qs = new URLSearchParams(location.search);
    Off means absent, not hidden: the element leaves the document, so no
    count, listener or observer further down ever finds it. */
 var OFF = {};
+/* What the deployed worker can do. The worker that ships with this page
+   says v:2 in /state; the one before it says nothing. Until it does, the
+   page uses nothing that worker lacks: no Razorpay return address and no
+   Series 02 form (both would reach an address the old worker refuses). */
+var API2 = false;
 function ownerReviews(){
   return (KAAL.reviews || []).filter(function(r){
     return r && r.consent === true && r.text && r.name && r.no >= 1 && r.no <= KAAL.edition;
@@ -4783,6 +4790,7 @@ function markSold(n){
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if(!d) return;
+        if(d.v >= 2 && !API2){ API2 = true; document.documentElement.classList.add("api2"); }
         /* Where and when a number went, if — and only if — its owner said
            it may be shown. Plain text, short, written into the cell with
            textContent so nothing in it can ever be markup. */
@@ -4967,7 +4975,7 @@ function heldLine(n, until){
 function openRzp(order, n, el, done, g){
   var heldUntil = order.held_for > 0 ? Date.now() + order.held_for * 1000 : 0;
   try{
-    var rzp = new window.Razorpay({
+    var opts = {
       key:         order.key_id,
       order_id:    order.order_id,
       amount:      order.amount,
@@ -4985,13 +4993,17 @@ function openRzp(order, n, el, done, g){
          to this page: in-app browsers, and payment methods that leave the
          page. The worker checks the signature and redirects to the
          thank-you page itself, so getting home never depends on this tab
-         having survived a trip to a UPI app. */
-      callback_url: KAAL.api.replace(/\/+$/, "") + "/callback",
+         having survived a trip to a UPI app.
+         Only once the worker has said it has a /callback (API2): the
+         worker before it answers that address with "Signature mismatch.",
+         which is the last thing a buyer who has just paid should read. */
       modal:       { ondismiss: function(){
         if(window.kaalWorld && kaalWorld.pause) kaalWorld.pause(false);
         done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
       } }
-    });
+    };
+    if(API2) opts.callback_url = KAAL.api.replace(/\/+$/, "") + "/callback";
+    var rzp = new window.Razorpay(opts);
 
     /* A card can be declined for a dozen reasons that are none of this
        page's business. Say the one thing that is: no money moved. */

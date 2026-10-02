@@ -24,6 +24,7 @@
      gift      "this is a gift" was ticked      GiftOrder*        add_gift
      checkout  the buy button, with checkout    InitiateCheckout  begin_checkout
      purchase  claimed.html, with a payment id  Purchase          purchase
+     list      Series 02 list, address added    Lead              generate_lead
    (* custom event in Meta; the rest are standard, so they can be
       optimised for.)
 
@@ -74,7 +75,8 @@ var MAP = {
   number:   ["AddToCart",        "add_to_cart",    1],
   gift:     ["GiftOrder",        "add_gift",       0],
   checkout: ["InitiateCheckout", "begin_checkout", 1],
-  purchase: ["Purchase",         "purchase",       1]
+  purchase: ["Purchase",         "purchase",       1],
+  list:     ["Lead",             "generate_lead",  1]
 };
 
 function send(name, d){
@@ -82,6 +84,14 @@ function send(name, d){
   if(!m) return;
   d = d || {};
   var item = d.no ? "KAAL-" + d.no : "KAAL-S01";
+
+  /* A name on a list is not a watch in a basket: it carries no product and
+     no price, so the ad account never learns to value it at ₹5,999. */
+  if(name === "list"){
+    if(TAGS.pixel && window.fbq) window.fbq("track", "Lead", { content_name:"KAAL Series 02 list" });
+    if(TAGS.ga4 && window.gtag) window.gtag("event", "generate_lead", { lead_source: d.source || "" });
+    return;
+  }
 
   if(TAGS.pixel && window.fbq){
     var p = { content_ids:[item], content_type:"product", value:PRICE, currency:CUR };

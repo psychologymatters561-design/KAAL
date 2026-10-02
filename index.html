@@ -1456,10 +1456,20 @@ a{color:inherit}
 .pick:not([disabled]):not([aria-pressed="true"]):hover{border-color:var(--gold);background:rgba(198,161,91,.09)}
 .pick[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--void)}
 .pick[aria-pressed="true"] .dot{box-shadow:inset 0 -1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(8,9,8,.35)}
-.pick[disabled]{cursor:default;color:var(--faint);border-color:#161412;opacity:.999}
-.pick[disabled]::after{content:"";position:absolute;left:14%;right:14%;top:50%;height:1px;
-  background:var(--faint);transform:rotate(-32deg)}
+/* ── THE REGISTER. A number that has gone is not crossed out: it belongs
+      to somebody now, and it reads as engraved — sunk into the cell, a
+      little darker than the metal around it — with the word under it. The
+      owner may add where and when it went, only with the buyer's consent,
+      and only then does that line appear. */
+.pick[disabled]{cursor:default;color:#3a3631;border-color:#161412;opacity:.999;
+  text-shadow:0 1px 0 rgba(237,232,223,.08),0 -1px 0 rgba(0,0,0,.6);
+  background-image:linear-gradient(165deg,rgba(237,232,223,.03),transparent 72%)}
 .pick[disabled] .dot{opacity:.25}
+.pick .placed{position:absolute;left:0;right:0;bottom:.38rem;font-family:var(--body);font-size:.5625rem;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--faint);text-shadow:none;line-height:1.2}
+.pick .where{display:block;margin-top:.12rem;font-size:.5rem;letter-spacing:.06em;text-transform:none;color:var(--ghost);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 .2rem}
+.pick[disabled] .dot{display:none}
 /* Dealt rather than pasted. A 24ms step across twenty cells is under half a
    second end to end, which reads as a hand laying them out and never as a
    queue the visitor has to wait through. The delay rides the reveal that
@@ -1492,6 +1502,107 @@ a{color:inherit}
 .gift-body textarea:focus{border-color:var(--gold)}
 .gift-meta{margin:0;font-size:.75rem;color:var(--mute)}
 
+/* ── WHICH ONE IS YOURS. One question, four answers, live counts. ── */
+.early{padding-block:calc(var(--air) * .85)}
+.early .statement{font-size:clamp(2rem,1rem + 4.2vw,4.6rem)}
+.early-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(.5rem,1.6vw,1rem);
+  margin:clamp(1.4rem,1rem + 1.6vw,2.2rem) 0 0;max-width:40rem}
+@media (max-width:430px){.early-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.early-pick{display:grid;justify-items:center;gap:.5rem;min-height:44px;padding:1.05rem .5rem .9rem;
+  background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--bone);font:inherit;cursor:pointer;
+  position:relative;overflow:hidden;isolation:isolate;
+  transition:border-color .35s var(--ease),background-color .35s var(--ease)}
+.early-pick .disc{width:2.6rem;height:2.6rem;margin:0;transition:box-shadow .45s var(--ease)}
+.early-pick:hover{border-color:var(--faint)}
+.early-pick[aria-pressed="true"]{border-color:var(--tint,var(--gold));background:rgba(237,232,223,.03)}
+.early-pick[aria-pressed="true"] .disc{box-shadow:inset 0 -7px 14px rgba(0,0,0,.5),0 0 0 2px var(--void),0 0 0 3px var(--tint,var(--gold))}
+.early-pick[disabled]{opacity:.5;cursor:default}
+.ep-name{font-family:var(--display);font-size:1.2rem;line-height:1}
+.ep-left{font-size:.6875rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-variant-numeric:tabular-nums}
+
+/* The dial a visitor chose early tints the page's accents — the rail, the
+   progress hairline, the rules under the act labels — so the choice is
+   carried all the way down. The buttons stay gold: the tint is a
+   reminder, never a second call to action. */
+html[data-tint="emerald"]{--tint:#5D8F6E}
+html[data-tint="midnight"]{--tint:#B8BABE}
+html[data-tint="champagne"]{--tint:#D9B977}
+html[data-tint="ivory"]{--tint:#EDE8DF}
+html[data-tint] .rail-fill,html[data-tint] .tick-top{background:var(--tint)}
+html[data-tint] .label::after{background:var(--tint)}
+.rail-fill,.tick-top,.label::after{transition:background-color .8s var(--ease-soft)}
+
+/* ── The quiet link at the foot of each dial's act. A sentence, not a
+      button: by this point the page has asked once already. ── */
+.ctx-wrap{margin-top:var(--beat)}
+.ctx{display:inline-flex;align-items:center;min-height:44px;font-size:.8125rem;letter-spacing:.04em;color:var(--mute);
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--ghost);font-variant-numeric:tabular-nums;
+  transition:color .3s var(--ease),text-decoration-color .3s var(--ease)}
+.ctx:hover,.ctx:focus-visible{color:var(--bone);text-decoration-color:var(--gold)}
+.ctx.placed{text-decoration:none;color:var(--faint);pointer-events:none}
+
+/* ── THE CASEBACK. Choosing a number turns the piece over, once, to show
+      what is engraved on its back: brushed steel, the number, nothing
+      else. 900ms on the house curve; a crossfade for anyone who asked for
+      less motion. The plate is drawn in CSS until a photograph of the real
+      caseback exists at assets/img/caseback.webp, when the words are set
+      over that instead. ── */
+.piece-stage{perspective:1400px}
+.ps-card{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .9s var(--ease)}
+.ps-card.turned{transform:rotateY(180deg)}
+.ps-front,.ps-back{position:absolute;inset:0;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.ps-back{transform:rotateY(180deg);display:grid;grid-template-rows:auto 1fr auto;justify-items:center;align-items:center;
+  padding:.4rem 0 .2rem;text-align:center}
+.cb-label{font-size:.625rem;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+.cb-plate{position:relative;width:86%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 58%,rgba(0,0,0,.28) 59%,rgba(255,255,255,.18) 60.5%,rgba(0,0,0,0) 62%),
+    repeating-radial-gradient(circle at 50% 50%,#a7a9ab 0 .6px,#c3c5c7 .9px 1.4px,#9fa1a3 1.7px 2.2px),
+    conic-gradient(from 210deg,#8f9294,#d6d8da 18%,#9a9c9e 34%,#cfd1d3 52%,#8c8e90 70%,#c9cbcd 86%,#8f9294);
+  background-blend-mode:normal,overlay,normal;
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -6px 14px rgba(0,0,0,.35),0 18px 40px -18px rgba(0,0,0,.9)}
+.cb-plate.photo{background:var(--cb-photo) center/cover no-repeat}
+.cb-engrave{max-width:62%;font-family:var(--display);font-size:clamp(.8rem,.55rem + 1.2vw,1.12rem);line-height:1.15;
+  letter-spacing:.14em;color:#3f4143;text-shadow:0 1px 0 rgba(255,255,255,.55),0 -1px 0 rgba(0,0,0,.35);text-wrap:balance}
+.cb-line{font-family:var(--display);font-style:italic;font-size:.875rem;line-height:1.3;color:var(--mute);max-width:22ch}
+@media (prefers-reduced-motion:reduce){
+  .ps-card,.ps-card.turned{transform:none!important;transition:none!important}
+  .ps-front,.ps-back{transition:opacity .6s ease!important;backface-visibility:visible}
+  .ps-back{transform:none;opacity:0}
+  .ps-card.turned .ps-back{opacity:1}
+  .ps-card.turned .ps-front{opacity:0}
+}
+
+/* ── The decision, and the one question still open at it. ── */
+.pay-row{display:flex;flex-wrap:wrap;align-items:center;gap:.9rem 1.4rem}
+.who{display:inline-flex;align-items:center;min-height:44px;font-size:.8125rem;color:var(--mute);
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--ghost)}
+.who:hover,.who:focus-visible{color:var(--bone);text-decoration-color:currentColor}
+
+/* ── SERIES 02, THE LIST. Inline and quiet: a sentence, a field and a
+      word. No pop-up, nothing that follows anybody down the page. ── */
+.list{margin:clamp(2.4rem,1.5rem + 3vw,4rem) auto 0;max-width:30rem;text-align:left}
+.still-act .list{text-align:center}
+.list-line{margin:0 0 .9rem;font-size:.9375rem;line-height:1.55;color:var(--mute)}
+.list-row{display:flex;gap:.5rem}
+.list-email{flex:1;min-width:0;min-height:44px;padding:.7rem .85rem;background:rgba(237,232,223,.035);
+  border:1px solid var(--line);border-radius:2px;color:var(--bone);font:inherit;font-size:1rem}
+.list-email:focus{border-color:var(--gold);outline:none}
+.list-email:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.list-add{flex:0 0 auto;min-height:44px;padding:.7rem 1.2rem;background:transparent;color:var(--gold-lit);
+  border:1px solid var(--gold);border-radius:999px;font:inherit;font-size:.75rem;font-weight:500;letter-spacing:.15em;
+  text-transform:uppercase;cursor:pointer;transition:background-color .35s var(--ease),color .35s var(--ease)}
+.list-add:hover,.list-add:focus-visible{background:var(--gold);color:var(--void)}
+.list-add[disabled]{opacity:.6;cursor:default}
+.list-consent{margin:.6rem 0 0;font-size:.75rem;color:var(--faint)}
+.list-state{margin:.5rem 0 0;min-height:1.3em;font-size:.8125rem;color:var(--bone)}
+.list .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.list.done .list-row{display:none}
+.foot-list{margin-top:clamp(2rem,1rem + 3svh,3.2rem);padding-top:1.6rem;border-top:1px solid var(--line)}
+.foot-list .list{margin:0;max-width:34rem}
+/* Without script there is nothing to send it with, so there is no form. */
+.nojs .list{display:none}
+
 /* ── Sticky call to action. It does not exist — not hidden, not in the
       document — until the visitor is inside the twenty, and it stays
       from there to the end of the page. A buy bar shown before a single
@@ -1509,6 +1620,10 @@ a{color:inherit}
 .dock .buy{margin-left:auto;flex:0 0 auto}
 #choose{scroll-margin-top:clamp(4.5rem,10svh,6.5rem)}
 @media (max-width:560px){.dock-txt{display:none}.dock .buy{margin:0;width:100%}}
+/* The dock's line carries the dial, the count or the number, and the
+   action. On a narrow phone it keeps to one line by giving up a little
+   tracking rather than a word. */
+@media (max-width:430px){.dock .buy{letter-spacing:.07em;padding-inline:.9rem;white-space:nowrap}}
 
 /* ── The rail. A hairline that draws itself down the page carrying the
       twenty, two of them struck. A numbered rail is generic almost
@@ -1742,6 +1857,26 @@ a{color:inherit}
   </div>
 </section>
 
+<!-- ════════ WHICH ONE IS YOURS. The first choice, made early.
+
+     A stranger who has just been told what is inside the watch and what
+     happens if they hate it is asked one easy question before any of the
+     argument: which face. Nothing is reserved and nothing is sold here — a
+     tap tints the page to that dial, carries it down to the twenty and
+     tells the dock. The counts are live, from the same set as the grid. ════════ -->
+<section class="act early" data-world="stone" id="early" aria-labelledby="earlyH">
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
+    <h2 class="statement rise" id="earlyH">Which one is yours?</h2>
+    <div class="early-row rise" id="earlyRow" role="group" aria-labelledby="earlyH">
+      <button type="button" class="early-pick" data-face="emerald" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="ep-name">Emerald</span><span class="ep-left" data-early-left="emerald">4 left</span></button>
+      <button type="button" class="early-pick" data-face="midnight" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="ep-name">Midnight</span><span class="ep-left" data-early-left="midnight">4 left</span></button>
+      <button type="button" class="early-pick" data-face="champagne" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span><span class="ep-name">Champagne</span><span class="ep-left" data-early-left="champagne">4 left</span></button>
+      <button type="button" class="early-pick" data-face="ivory" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><span class="ep-name">Ivory</span><span class="ep-left" data-early-left="ivory">6 left</span></button>
+    </div>
+  </div>
+</section>
+
 <!-- ════════ 01 THE RULE ════════ -->
 <section class="act act-tall" data-world="stone" data-tick="1">
   <div class="act-back" data-depth="back" aria-hidden="true"></div>
@@ -1796,6 +1931,7 @@ a{color:inherit}
       </div>
     </div>
   </div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="emerald">Emerald &middot; 4 of 6 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 04 MIDNIGHT, and the water ════════ -->
@@ -1812,6 +1948,7 @@ a{color:inherit}
            alt="Close view of the black dial with gold indices, gold hands and gold subdial print, on black stone under a streak of warm light.">
     </div>
   </div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="midnight">Midnight &middot; 4 of 4 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 05 CHAMPAGNE ════════ -->
@@ -1830,6 +1967,7 @@ a{color:inherit}
       </div>
     </div>
   </div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="champagne">Champagne &middot; 4 of 4 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 06 IVORY ════════ -->
@@ -1848,6 +1986,7 @@ a{color:inherit}
       </div>
     </div>
   </div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="ivory">Ivory &middot; 6 of 6 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 07 THE HANDS ════════ -->
@@ -1952,6 +2091,17 @@ a{color:inherit}
   <div class="hold" data-depth="front">
     <h2 class="statement">This is not for someone who needs a watch to speak for them.</h2>
     <h2 class="statement">It is for someone who has already been heard.</h2>
+    <form class="list" data-source="identity" novalidate>
+      <p class="list-line" id="listLineA">Series 02 is not drawn yet. Owners hear first. Then this list. Then no one.</p>
+      <div class="list-row">
+        <input class="list-email" type="email" name="email" required autocomplete="email" inputmode="email" maxlength="254"
+               aria-labelledby="listLineA" aria-describedby="listConsentA">
+        <button class="list-add" type="submit">Add me</button>
+      </div>
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <p class="list-consent" id="listConsentA">One email when Series 02 is drawn. Nothing else, ever.</p>
+      <p class="list-state" role="status" aria-live="polite"></p>
+    </form>
   </div>
 </section>
 
@@ -1978,9 +2128,9 @@ a{color:inherit}
            is the source of truth and this is only the fallback. Edit both if
            you change the config and care about the no-JavaScript view. -->
       <li><button type="button" class="pick" data-n="1" aria-pressed="false" disabled
-        style="--tint:rgba(93,143,110,.15)" aria-label="Number 01, Emerald dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 01, Emerald dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="2" aria-pressed="false" disabled
-        style="--tint:rgba(93,143,110,.15)" aria-label="Number 02, Emerald dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 02, Emerald dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="3" aria-pressed="false"
         style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 03, Emerald dial">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="4" aria-pressed="false"
@@ -2027,6 +2177,8 @@ a{color:inherit}
                reader does not need it a third and fourth time. The alt text
                stays real so image search still has something true to read. -->
           <div class="piece-stage" id="pieceStage" aria-hidden="true">
+           <div class="ps-card" id="psCard">
+            <div class="ps-front">
             <span class="piece-halo" id="pieceHalo"></span>
             <div class="piece-face">
               <span class="piece-bezel"></span>
@@ -2044,7 +2196,17 @@ a{color:inherit}
             <img class="piece-shot" data-dial="ivory" src="assets/img/watch-ivory.webp"
               alt="KAAL Series 01 wristwatch, Ivory dial, gold tone bezel and two tone steel bracelet"
               width="760" height="1197" loading="lazy" decoding="async">
+            </div>
+            <!-- The other side of the piece. Every number is engraved on the
+                 back; choosing one turns the watch over to show it. -->
+            <div class="ps-back">
+              <span class="cb-label">Your caseback reads</span>
+              <span class="cb-plate" id="cbPlate"><span class="cb-engrave" id="cbText">LIMITED EDITION NO. 03</span></span>
+              <span class="cb-line">This number has never belonged to anyone.</span>
+            </div>
+           </div>
           </div>
+          <p class="sr" id="engraveLive" aria-live="polite"></p>
           <p class="piece-cap">The dial this number carries. Every piece shares the same case.</p>
         </div>
         <dl>
@@ -2079,7 +2241,10 @@ a{color:inherit}
           <p class="gift-meta"><span id="giftCount">200</span> characters left &nbsp;·&nbsp; The price is not included in the box.</p>
         </div>
       </div>
-      <a class="buy inert" id="cta" role="button" aria-disabled="true">No. 03 &nbsp;·&nbsp; Emerald &nbsp;·&nbsp; &#8377;5,999</a>
+      <div class="pay-row">
+        <a class="buy inert" id="cta" role="button" aria-disabled="true">No. 03 &nbsp;·&nbsp; Emerald &nbsp;·&nbsp; &#8377;5,999</a>
+        <a class="who" id="whoLink" href="provenance.html">Who is selling this &rarr;</a>
+      </div>
       <ul class="assure">
         <li>Made in India, finished by hand</li>
         <li>Two years on that movement, from dispatch</li>
@@ -2133,6 +2298,19 @@ a{color:inherit}
         <p class="legal"><a href="movement.html">The movement inside every piece</a></p>
         <p class="legal"><a href="provenance.html">Who is selling this, and how to check before you buy</a></p>
       </div>
+    </div>
+    <div class="foot-list">
+    <form class="list" data-source="footer" novalidate>
+      <p class="list-line" id="listLineB">Series 02 is not drawn yet. Owners hear first. Then this list. Then no one.</p>
+      <div class="list-row">
+        <input class="list-email" type="email" name="email" required autocomplete="email" inputmode="email" maxlength="254"
+               aria-labelledby="listLineB" aria-describedby="listConsentB">
+        <button class="list-add" type="submit">Add me</button>
+      </div>
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <p class="list-consent" id="listConsentB">One email when Series 02 is drawn. Nothing else, ever.</p>
+      <p class="list-state" role="status" aria-live="polite"></p>
+    </form>
     </div>
     <div class="foot-end">
       <span>&copy; <span id="yr">2026</span> KAAL</span>
@@ -2390,7 +2568,7 @@ var S = { raw:0, y:0, v:0, max:1 };
    resize, a rotation, a lazy photograph arriving, a plate falling back to
    its panel. Each of those calls remeasure(), debounced. ────────────── */
 var M = { vw:0, vh:0, stageH:0, heroTop:0, heroSpan:1,
-          acts:[], twentyTop:0 };
+          acts:[], twentyTop:0, twentyBottom:0 };
 
 /* The loop rests. It wakes on input and sleeps when nothing has moved
    for a beat, so an idle page costs nothing. */
@@ -3066,7 +3244,7 @@ function driveCaps(p){
       middle crosses over, the layers swap colours at the one moment they
       look identical. ────────────────────────────────────────────────── */
 var worldEl = $("#world"), worldNext = $("#worldNext"), acts = $$(".act[data-world]");
-var curWorld = "", nextWorld = "", worldMix = "", deciding = false;
+var curWorld = "", nextWorld = "", worldMix = "";
 function driveWorld(){
   var mid = S.raw + M.vh * 0.5, a = M.acts, here = -1;
   for(var i=0;i<a.length;i++){
@@ -3084,11 +3262,6 @@ function driveWorld(){
   if(toward !== nextWorld){ nextWorld = toward; worldNext.style.backgroundColor = WORLD[toward] || WORLD.void; }
   var m = mix.toFixed(3);
   if(m !== worldMix){ worldMix = m; worldNext.style.opacity = m; }
-  /* The same line decides the one thing on this page that may only exist
-     at the decision: once the twenty owns the middle of the screen, and
-     from there to the foot of the page, the visitor is choosing. The dock
-     reads this rather than keeping a second idea of where the reader is. */
-  deciding = mid >= M.twentyTop;
 }
 
 /* ── Any photograph that fails to load becomes a designed panel rather
@@ -3335,6 +3508,27 @@ var grid = $("#grid"), chosen = 0;
 var soldSet = {}; KAAL.sold.forEach(function(n){ soldSet[n] = 1; });
 var remaining = KAAL.edition - KAAL.sold.length;
 
+/* ── THE REGISTER. A number that has gone reads "Placed", engraved into
+      its cell, never struck through: it belongs to somebody now. When the
+      worker knows where and when it went — which the owner adds only with
+      the buyer's consent — that line appears under it, and not otherwise. */
+var placedInfo = {};
+function placeCell(b, n){
+  if(!b) return;
+  var tag = $(".placed", b);
+  if(!tag){
+    tag = document.createElement("span");
+    tag.className = "placed";
+    tag.textContent = "Placed";
+    b.appendChild(tag);
+  }
+  var where = $(".where", tag), line = placedInfo[n];
+  if(line){
+    if(!where){ where = document.createElement("span"); where.className = "where"; tag.appendChild(where); }
+    where.textContent = line;
+  } else if(where){ tag.removeChild(where); }
+}
+
 (function buildGrid(){
   var frag = document.createDocumentFragment();
   for(var i=1;i<=KAAL.edition;i++){
@@ -3355,6 +3549,7 @@ var remaining = KAAL.edition - KAAL.sold.length;
     dot.className = "dot"; dot.style.background = f.css;
     b.appendChild(document.createTextNode(pad(i)));
     b.appendChild(dot);
+    if(soldSet[i]) placeCell(b, i);
     li.appendChild(b); frag.appendChild(li);
   }
   grid.innerHTML = ""; grid.appendChild(frag);
@@ -3392,6 +3587,15 @@ var cta = $("#cta"), dockCta = null, claimState = $("#claimState");
    names a number the visitor picked, and never offers to sell them one
    they did not. */
 var picked = false;
+
+/* Whether the visitor has shown a preference at all — a dial chosen early,
+   a quiet link followed, a number opened from a link. It is what lets the
+   dock appear before the twenty without being an offer to sell anybody
+   something they have not looked at. */
+var engaged = false;
+function setTint(key){
+  if(key && FACE[key]) document.documentElement.setAttribute("data-tint", key);
+}
 var claimDot = $("#claimDot"), claimText = $("#claimText");
 var pieceDial = $("#pieceDial"), pieceName = $("#pieceName");
 var PIECE_IDLE = "One of four";
@@ -3520,6 +3724,22 @@ function choose(n){
   paintCta();
 }
 
+/* A dial chosen from outside the twenty — the early question, a quiet
+   link, a number that has gone. The twenty opens on that dial at its first
+   open number, exactly as a tap on the dial row would, but nothing counts
+   as PICKED: the dock goes on asking for a number rather than offering to
+   sell the page's default. Nothing is held. */
+function preselect(key){
+  var open = openIn(key);
+  if(!open.length) return false;
+  picked = false; engaged = true;
+  choose(open[0]);
+  setTint(key);
+  turnBack();
+  paintDock();
+  return true;
+}
+
 /* Switching dials carries the choice to that dial's first open number, so
    the button is never left naming a piece from the dial just left. */
 function chooseFace(key){
@@ -3529,8 +3749,10 @@ function chooseFace(key){
     if(!picked){ picked = true; paintBuy(dockCta); }   /* tapping the dial already shown is a choice too */
     return;
   }
-  picked = true;
+  picked = true; engaged = true;
   choose(open[0]);
+  setTint(key);
+  turnBack();
   track("dial", { no:pad(open[0]), dial:FACE[key].name });
 }
 
@@ -3577,9 +3799,9 @@ function paintBuy(el){
   /* The dock, before the visitor has chosen anything of their own, is a
      way back to the choosing — never an offer to pay for the page's
      default. */
-  if(small && chosen && !picked){
+  if(small){
     el.className = "buy small";
-    el.textContent = "Choose your number";
+    el.textContent = dockLabel();
     el.removeAttribute("href"); el.removeAttribute("aria-disabled");
     el.setAttribute("role","button"); el.setAttribute("tabindex","0");
     return;
@@ -3621,12 +3843,31 @@ function paintBuy(el){
    keyboard lands where the choosing is rather than at the top of the
    document. Smooth only for those who have not asked for less motion. */
 function toChoice(){
+  if(chosen && picked && cta){
+    cta.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block:"center" });
+    cta.focus({ preventScroll:true });
+    return;
+  }
   var step = $("#choose");
   if(step) step.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block:"start" });
   var on = dialsEl && $('.dialpick[aria-checked="true"]', dialsEl);
   if(on) on.focus({ preventScroll:true });
 }
-function choosing(el){ return el === dockCta && !!chosen && !picked; }
+/* The dock is hidden while the twenty is on screen, so wherever it shows,
+   its one job is to bring the visitor back to it: to the number they
+   picked and its button, or to the dial row if they have not picked one. */
+function choosing(el){ return el === dockCta; }
+function dockLabel(){
+  if(chosen && picked){
+    var f = FACE[KAAL.dials[chosen]] || FACE.ivory;
+    return "No. " + pad(chosen) + "  \u00b7  " + f.name + "  \u00b7  \u20b9" + KAAL.price + "  \u00b7  Choose";
+  }
+  if(engaged && face && FACE[face]){
+    return FACE[face].name + "  \u00b7  " + openIn(face).length + " left  \u00b7  Choose your number";
+  }
+  return "Choose your number";
+}
+function paintDock(){ if(dockCta) paintBuy(dockCta); }
 
 /* Wired once per button. The dock does not exist at load, so it is wired
    when it is first put on the page rather than here. */
@@ -3661,11 +3902,143 @@ grid.addEventListener("click", function(e){
   var b = e.target.closest(".pick");
   if(!b || b.disabled) return;
   var n = parseInt(b.dataset.n, 10);
-  if(n === chosen && picked) return;
-  picked = true;
+  if(n === chosen && picked){ turnTo(n); return; }
+  picked = true; engaged = true;
   choose(n);
+  setTint(KAAL.dials[n]);
+  turnTo(n);
   track("number", { no:pad(n), dial:FACE[KAAL.dials[n]].name });
 });
+
+
+/* ── THE CASEBACK. Choosing a number turns the piece over, once, to the
+      engraving on its back. A different number on the same dial changes
+      the engraving in place; changing the dial turns it back to the face,
+      because the face is what changed. The stage itself is hidden from
+      screen readers (it repeats the list beside it), so the engraving is
+      announced through its own polite live region. ──────────────────── */
+var psCard = $("#psCard"), cbText = $("#cbText"), cbPlate = $("#cbPlate"), engraveLive = $("#engraveLive");
+var turned = false, cbProbed = false;
+function turnTo(n){
+  if(!psCard || !n) return;
+  if(cbText) cbText.textContent = "LIMITED EDITION NO. " + pad(n);
+  /* The plate is drawn in CSS until a photograph of the real caseback is
+     in the repo. Asked for once, on the first turn, and only used if it
+     actually arrives. */
+  if(!cbProbed && cbPlate){
+    cbProbed = true;
+    var im = new Image();
+    im.onload = function(){ cbPlate.style.setProperty("--cb-photo", "url(assets/img/caseback.webp)"); cbPlate.classList.add("photo"); };
+    im.src = "assets/img/caseback.webp";
+  }
+  if(engraveLive) engraveLive.textContent = "Your caseback reads: Limited edition No. " + pad(n) + ".";
+  if(!turned){
+    turned = true;
+    psCard.classList.add("turned");
+    track("caseback_view", { no:pad(n), dial:FACE[KAAL.dials[n]].name });
+  }
+}
+function turnBack(){
+  if(!turned || !psCard) return;
+  turned = false;
+  psCard.classList.remove("turned");
+}
+
+/* ── WHICH ONE IS YOURS, and the quiet links. Both read the same set as the
+      grid, so a sale anywhere moves every count on the page at once. ── */
+var earlyBtns = $$(".early-pick"), early = "";
+function dialTotal(key){
+  var t = 0;
+  for(var i = 1; i <= KAAL.edition; i++) if((KAAL.dials[i] || "ivory") === key) t++;
+  return t;
+}
+function paintEarly(){
+  for(var i = 0; i < earlyBtns.length; i++){
+    var b = earlyBtns[i], k = b.getAttribute("data-face"), n = openIn(k).length, f = FACE[k] || FACE.ivory;
+    var left = $(".ep-left", b);
+    if(left) left.textContent = n ? n + " left" : "Gone";
+    b.disabled = !n;
+    b.setAttribute("aria-pressed", k === early ? "true" : "false");
+    b.setAttribute("aria-label", f.name + " dial, " + (n ? n + " open" : "all gone"));
+  }
+}
+earlyBtns.forEach(function(b){
+  b.addEventListener("click", function(){
+    var k = b.getAttribute("data-face");
+    if(b.disabled || !preselect(k)) return;
+    early = k;
+    paintEarly();
+    track("dial", { dial:FACE[k].name, where:"early" });
+    track("early_dial", { dial:FACE[k].name });
+  });
+});
+
+var ctxLinks = $$(".ctx");
+function paintCtx(){
+  for(var i = 0; i < ctxLinks.length; i++){
+    var a = ctxLinks[i], k = a.getAttribute("data-ctx"), n = openIn(k).length, f = FACE[k] || FACE.ivory;
+    if(n){
+      a.textContent = f.name + " \u00b7 " + n + " of " + dialTotal(k) + " remain \u2192 Choose yours";
+      a.classList.remove("placed"); a.removeAttribute("aria-disabled"); a.removeAttribute("tabindex");
+    } else {
+      a.textContent = f.name + " \u00b7 placed";
+      a.classList.add("placed"); a.setAttribute("aria-disabled", "true"); a.setAttribute("tabindex", "-1");
+    }
+  }
+}
+ctxLinks.forEach(function(a){
+  a.addEventListener("click", function(e){
+    var k = a.getAttribute("data-ctx");
+    if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    if(!preselect(k)) return;
+    track("ctx_cta", { dial:FACE[k].name });
+    toChoice();
+  });
+});
+
+var whoLink = $("#whoLink");
+if(whoLink) whoLink.addEventListener("click", function(){
+  track("provenance_click", chosen ? { no:pad(chosen), dial:FACE[KAAL.dials[chosen]].name } : {});
+});
+
+/* ── SERIES 02. One field, one request, two possible sentences. The
+      browser's own validation speaks for a malformed address, in the
+      visitor's own language; this only ever says it worked, or that it
+      did not reach us. A hidden field catches the bots that fill every
+      field they find. ─────────────────────────────────────────────── */
+(function seriesList(){
+  var forms = $$("form.list");
+  if(!forms.length) return;
+  if(!KAAL.api || !window.fetch){ forms.forEach(function(f){ f.hidden = true; }); return; }
+  var base = KAAL.api.replace(/\/+$/, "");
+  forms.forEach(function(f){
+    var input = $(".list-email", f), btn = $(".list-add", f), state = $(".list-state", f), hp = $(".hp", f);
+    var busy = false;
+    f.addEventListener("submit", function(e){
+      e.preventDefault();
+      if(busy) return;
+      if(input.checkValidity && !input.checkValidity()){ if(input.reportValidity) input.reportValidity(); return; }
+      busy = true; btn.disabled = true; state.textContent = "";
+      var ctrl = ("AbortController" in window) ? new AbortController() : null;
+      var give = setTimeout(function(){ if(ctrl) ctrl.abort(); }, 8000);
+      function fail(){ state.textContent = "That did not reach us. Try again, or write to connect@thekaal.co."; }
+      fetch(base + "/list", {
+        method:"POST", mode:"cors", credentials:"omit", signal: ctrl && ctrl.signal,
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ email: input.value.trim(), source: f.getAttribute("data-source") || "", website: hp ? hp.value : "" })
+      }).then(function(r){ return r.json().catch(function(){ return null; }); })
+        .then(function(d){
+          if(d && d.ok){
+            state.textContent = "You are on the list.";
+            f.classList.add("done");
+            track("list", { source: f.getAttribute("data-source") || "" });
+          } else fail();
+        }, fail)
+        .then(function(){ clearTimeout(give); busy = false; btn.disabled = false; });
+    });
+  });
+})();
 
 /* ── GIFTING. A checkbox and a note, and nothing else to fill in. The note
       travels on the Razorpay order, is written by hand on a card, and the
@@ -3742,6 +4115,46 @@ function countsFromRemaining(){
 /* Something is always chosen on arrival: the first number still open,
    which today is No. 03 on Emerald. */
 choose(firstOpen());
+paintEarly();
+paintCtx();
+
+/* ── #nX. A link that names a number opens the twenty on it: the email
+      that says "it is here: thekaal.co/#n7" has to land on 07 and nowhere
+      else. A number that has gone since opens its dial instead. ────── */
+function fromHash(){
+  var m = /^#n(\d{1,2})$/.exec(location.hash || "");
+  if(!m) return;
+  var n = parseInt(m[1], 10);
+  if(!n || n < 1 || n > KAAL.edition) return;
+  if(soldSet[n]){ if(!preselect(KAAL.dials[n] || "ivory")) return; }
+  else {
+    picked = true; engaged = true;
+    choose(n);
+    setTint(KAAL.dials[n]);
+    turnTo(n);
+    paintDock();
+  }
+  track("deeplink", { no:pad(n) });
+  anchorTo($("#choose"));
+}
+addEventListener("hashchange", fromHash);
+
+/* A link that lands mid-page has to STAY landed. Photographs above the
+   twenty that have not been shot yet become panels after the jump, and a
+   panel is a different height, so the page grows under the anchor and the
+   number scrolls out of view. The anchor is held through every re-measure
+   until the visitor touches the page themselves, or five seconds pass. */
+var anchorEl = null, anchorTimer = 0;
+function anchorTo(el){
+  if(!el) return;
+  anchorEl = el;
+  el.scrollIntoView({ behavior:"auto", block:"start" });
+  clearTimeout(anchorTimer);
+  anchorTimer = setTimeout(function(){ anchorEl = null; }, 5000);
+}
+["wheel","touchstart","keydown","pointerdown"].forEach(function(ev){
+  addEventListener(ev, function(){ anchorEl = null; }, { passive:true });
+});
 
 /* ── THE EDITION, AS THE SERVER KNOWS IT.
 
@@ -3845,12 +4258,17 @@ function markSold(n){
     b.disabled = true;
     b.setAttribute("aria-pressed", "false");
     b.setAttribute("aria-label", "Number " + pad(n) + ", " + f.name + " dial, already gone");
+    placeCell(b, n);
   }
   var ticks = $$(".rail-t", rail);
   if(ticks[n-1]) ticks[n-1].classList.add("gone");
 
   countsFromRemaining();
   driveSchema();          /* same set, same moment, as the grid and the rail */
+  paintEarly();           /* and the early question, the quiet links, the dock */
+  paintCtx();
+  paintDock();
+  if(chosen === n) turnBack();
 
   if(chosen === n){
     /* The choice moves to the next open number on the same dial, or the
@@ -3879,7 +4297,19 @@ function markSold(n){
     fetch(base + "/state", { mode:"cors", credentials:"omit", signal: ctrl && ctrl.signal })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        if(!d || !d.sold || !d.sold.length) return;
+        if(!d) return;
+        /* Where and when a number went, if — and only if — its owner said
+           it may be shown. Plain text, short, written into the cell with
+           textContent so nothing in it can ever be markup. */
+        if(d.placed && typeof d.placed === "object"){
+          for(var k in d.placed){
+            var n = parseInt(k, 10), line = d.placed[k];
+            if(!n || n < 1 || n > KAAL.edition || typeof line !== "string") continue;
+            placedInfo[n] = line.replace(/[\u0000-\u001f]/g, " ").slice(0, 40);
+            if(soldSet[n]) placeCell($('.pick[data-n="' + n + '"]', grid), n);
+          }
+        }
+        if(!d.sold || !d.sold.length) return;
         for(var i=0;i<d.sold.length;i++) markSold(d.sold[i]);
       })
       .catch(function(){ /* the file's own array stands */ })
@@ -4203,7 +4633,15 @@ function driveChrome(){
   var past = S.y > M.vh * 0.8;
   if(past !== navShown){ navShown = past; nav.classList.toggle("show", past); }
 
-  if(deciding !== dockShown){ dockShown = deciding; placeDock(deciding); }
+  /* The dock has one job: to bring a visitor who has already shown a
+     preference back to the twenty. So it never shows during the film,
+     never while the twenty itself is on screen — the real button is right
+     there — and before the twenty only once something has been chosen.
+     Past the twenty, at the foot of the page, it is the way back up. */
+  var inHero = S.raw < M.heroTop + M.heroSpan;
+  var inTwenty = S.raw + M.vh > M.twentyTop && S.raw < M.twentyBottom;
+  var want = !inHero && !inTwenty && (engaged || S.raw >= M.twentyBottom);
+  if(want !== dockShown){ dockShown = want; placeDock(want); }
 
   if(cue){
     var hide = S.raw > 60;
@@ -4272,6 +4710,7 @@ function measure(){
     pinEls[pj].h   = pinEls[pj].el.offsetHeight;
   }
   M.twentyTop = docTop(twentyEl);
+  M.twentyBottom = M.twentyTop + twentyEl.offsetHeight;
 
   /* Each pinned plate is held centred on the stage, below the nav. Read
      every height first, write every position after, so measuring does not
@@ -4294,6 +4733,7 @@ function remeasure(){
     var vw = window.innerWidth, vh = window.innerHeight;
     var real = vw !== lastVW || Math.abs(vh - lastVH) > 120 || !lastVW;
     lastVW = vw; lastVH = vh;
+    if(anchorEl) anchorEl.scrollIntoView({ behavior:"auto", block:"start" });
     measure();
     if(real) sizeCanvas();
     wake();
@@ -4314,6 +4754,7 @@ $$("img").forEach(function(im){ im.addEventListener("load", remeasure, { once:tr
       load so it can never delay the first screen. ─────────────── */
 requestAnimationFrame(function(){ document.body.classList.add("drawn"); });
 measure();
+fromHash();
 lastVW = window.innerWidth; lastVH = window.innerHeight;
 wake();
 /* Not one frame is asked for before the poster has painted: the load

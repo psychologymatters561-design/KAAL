@@ -23,6 +23,16 @@ PRICE_PAISE   = "599900"          # ₹5,999
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
+# The one email after an unfinished checkout. Built and OFF. Read
+# docs/email.md before turning it on; "on" is the only value that sends.
+ABANDON_EMAIL = "off"
+# ABANDON_FROM  = "KAAL <connect@thekaal.co>"   # a sender your provider has verified
+
+# Where and when a number went, shown under it in the register ONLY with
+# the buyer's consent. JSON, number to one short line. The KV key `placed`
+# wins over this when both exist. Leave it out to show nothing.
+# PLACED = '{"1":"Delhi · Sep 2026"}'
+
 # Secrets are never written here. Set them once, each on its own:
 #   wrangler secret put RAZORPAY_KEY_ID        publishable; the worker
 #                                              hands it to the browser
@@ -42,6 +52,13 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 #   wrangler secret put META_CAPI_TOKEN        Events Manager → Settings →
 #                                              Conversions API → Generate
 #                                              access token
+# Optional — the abandoned-checkout email (docs/email.md). One of:
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put BREVO_API_KEY
+# Optional — a salt for the Series 02 list's rate limiter, so its hashed
+# IP keys cannot be reversed by trying every address:
+#   wrangler secret put LIST_SALT
+#
 # To test, set META_TEST_EVENT_CODE (Events Manager → Test events) and
 # remove it again afterwards. META_API_VERSION overrides the Graph API
 # version (default v23.0).
@@ -60,3 +77,13 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 # [[kv_namespaces]]
 # binding = "KAAL_STATE"
 # id      = "paste-the-id-here"
+#
+# The Series 02 list (POST /list) and the abandoned-checkout email both live
+# in this namespace too. Until it exists, /list answers "no-store" and the
+# page says "That did not reach us" — so create it before the list matters.
+
+# Every thirty minutes the worker looks for unfinished checkouts. With
+# ABANDON_EMAIL off it returns before doing anything, so this costs nothing
+# while the feature is off.
+[triggers]
+crons = ["*/30 * * * *"]

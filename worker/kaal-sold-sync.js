@@ -35,6 +35,13 @@
      POST /order {n}    the order for that number, priced by this file
      POST /verify {..}  the signature, checked before anything is believed
 
+   AND TWO THAT ARE NOT ABOUT MONEY (October 2026):
+
+     POST /list {email} the Series 02 list: one address, stored under the
+                        hash of itself, rate limited, nothing else kept
+     scheduled()        the abandoned-checkout email. Built, and OFF until
+                        ABANDON_EMAIL = "on" — see docs/email.md
+
    Two things about /order are the whole point of it existing. It reads
    the price from PRICE_PAISE and ignores whatever the browser said the
    watch costs — a page that can name its own price is a page that sells
@@ -81,9 +88,17 @@ export default {
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
+    if (request.method === "POST" && path === "/list") return postList(request, env);
     if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
+  },
+
+  /* The cron in wrangler.toml calls this. It does nothing at all unless
+     ABANDON_EMAIL is "on", so the trigger can stay configured while the
+     feature stays off. */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(abandonedCheckouts(env));
   }
 };
 
@@ -95,7 +110,10 @@ export default {
    that can only ever be more cautious than the static page is a backend
    that cannot take the site down. */
 async function getState(request, env) {
-  if (!env.KAAL_STATE) return json(request, env, { sold: null, held: [] });
+  if (!env.KAAL_STATE) {
+    const placed = await readPlaced(env);
+    return json(request, env, placed ? { sold: null, held: [], placed } : { sold: null, held: [] });
+  }
 
   const sold = await readSold(env);
   const held = [];
@@ -108,7 +126,10 @@ async function getState(request, env) {
     }
   } catch (e) { /* a listing that fails is a page with no holds, not an error */ }
 
-  return json(request, env, { sold, held, at: now }, { "Cache-Control": "public, max-age=10" });
+  const out = { sold, held, at: now };
+  const placed = await readPlaced(env);
+  if (placed) out.placed = placed;
+  return json(request, env, out, { "Cache-Control": "public, max-age=10" });
 }
 
 async function postHold(request, env) {
@@ -435,6 +456,219 @@ async function commitSold(env, chosen, paymentId) {
   return { status: "error" };
 }
 
+/* ══════════ 3c. THE SERIES 02 LIST ══════════
+
+   One field on the page and one key here. The address is stored under the
+   SHA-256 of itself, so adding the same person twice changes nothing, with
+   the moment it arrived and which form it came from — and nothing else:
+   no name, no IP, no cookie. The page promises "One email when Series 02
+   is drawn. Nothing else, ever." and this route keeps nothing that could
+   be used for anything else.
+
+   Read it out when Series 02 is drawn:
+     wrangler kv key list --binding KAAL_STATE --prefix list:
+
+   Rate limited per connection, by a salted hash of the IP that expires
+   with the window, so the limit itself stores no address. KV is eventually
+   consistent, which makes this a speed bump rather than a wall — enough to
+   stop a form being hammered, which is all a list of interested people
+   needs. A hidden field the page never fills catches the bots that fill
+   every field they find: they are told it worked and nothing is stored. */
+const LIST_PREFIX = "list:";
+const RL_PREFIX   = "rl:list:";
+const RL_MAX      = 5;
+const RL_SECONDS  = 3600;
+
+async function postList(request, env) {
+  if (!env.KAAL_STATE) return json(request, env, { ok: false, reason: "no-store" }, {}, 503);
+
+  let body;
+  try { body = await request.json(); }
+  catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
+
+  if (body && typeof body.website === "string" && body.website.trim()) {
+    return json(request, env, { ok: true });               /* the honeypot: pretend, keep nothing */
+  }
+
+  const email = typeof (body && body.email) === "string" ? body.email.trim().toLowerCase() : "";
+  if (!validEmail(email)) return json(request, env, { ok: false, reason: "invalid" }, {}, 400);
+  const source = String((body && body.source) || "").replace(/[^a-z0-9-]/gi, "").slice(0, 24);
+
+  const ip  = request.headers.get("cf-connecting-ip") || "unknown";
+  const rl  = RL_PREFIX + (await sha256hex(`${ip}|${env.LIST_SALT || "kaal-series-02"}`)).slice(0, 32);
+  const hits = parseInt((await env.KAAL_STATE.get(rl).catch(() => null)) || "0", 10) || 0;
+  if (hits >= RL_MAX) return json(request, env, { ok: false, reason: "rate" }, {}, 429);
+  await env.KAAL_STATE.put(rl, String(hits + 1), { expirationTtl: RL_SECONDS });
+
+  const key = LIST_PREFIX + (await sha256hex(email));
+  const existing = await env.KAAL_STATE.get(key).catch(() => null);
+  if (!existing) {
+    await env.KAAL_STATE.put(key, JSON.stringify({ email, at: new Date().toISOString(), source }));
+  }
+  return json(request, env, { ok: true });
+}
+
+/* Deliberately plain: something@something.tld, no spaces, no control
+   characters, inside the 254 the standard allows. The browser has already
+   asked the visitor to fix anything worse; this is the server not trusting
+   that it did. */
+function validEmail(v) {
+  if (typeof v !== "string" || v.length < 6 || v.length > 254) return false;
+  if (/[\u0000-\u001f\u007f\s]/.test(v)) return false;
+  return /^[^@]+@[^@.]+(\.[^@.]+)+$/.test(v) && !/\.\./.test(v);
+}
+
+/* ══════════ 3d. THE REGISTER ══════════
+
+   Where and when a number went — "Delhi · Sep 2026" — shown under it on
+   the page ONLY when the owner has added it, and the owner adds it only
+   with the buyer's consent. Nothing here ever writes it. It lives in KV
+   under `placed`, or as a PLACED variable in wrangler.toml:
+
+     wrangler kv key put --binding KAAL_STATE placed '{"1":"Delhi · Sep 2026"}'
+
+   Cleaned on the way out: numbers inside the edition, plain one-line
+   text, forty characters at most. */
+async function readPlaced(env) {
+  let raw = null;
+  if (env.KAAL_STATE) { try { raw = await env.KAAL_STATE.get("placed", "json"); } catch (e) { raw = null; } }
+  if (!raw && env.PLACED) { try { raw = JSON.parse(env.PLACED); } catch (e) { raw = null; } }
+  if (!raw || typeof raw !== "object") return null;
+  const edition = parseInt(env.EDITION || "20", 10), out = {};
+  for (const k of Object.keys(raw)) {
+    const n = parseInt(k, 10);
+    if (n >= 1 && n <= edition && typeof raw[k] === "string" && raw[k].trim()) out[n] = cleanNote(raw[k], 40);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/* ══════════ 3e. THE ONE EMAIL AFTER AN UNFINISHED CHECKOUT ══════════
+
+   OFF unless ABANDON_EMAIL = "on". Setup and the reasoning are in
+   docs/email.md; the rules this code keeps are these:
+
+   - Only a checkout this worker priced, three hours or more ago and within
+     the last day, that never became a payment.
+   - Only if Razorpay holds an email for it — which it does only when the
+     buyer reached the payment step and it failed or was abandoned there.
+     A modal opened and closed with nothing typed leaves no address, and
+     no address means no email. Nothing is guessed or collected for this.
+   - Only if the number is still open and nobody else is holding it: the
+     email says "it is here", and that has to be true when it arrives.
+   - Not to anybody who has since paid for any piece.
+   - Exactly once per person per number, ever (a KV key, kept a year).
+   - Only between noon and six in the evening in India, because the email
+     says "this afternoon".
+   - At most ten per run.
+
+   The words are the owner's and are sent exactly, as plain text. */
+const ABANDON_AFTER  = 3 * 3600;
+const ABANDON_WITHIN = 24 * 3600;
+const ABANDON_MAX    = 10;
+
+async function abandonedCheckouts(env) {
+  if (env.ABANDON_EMAIL !== "on") return;
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !env.KAAL_STATE) {
+    console.log("ABANDON_EMAIL is on, but the Razorpay keys or the KV namespace are missing.");
+    return;
+  }
+  if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) {
+    console.log("ABANDON_EMAIL is on, but neither RESEND_API_KEY nor BREVO_API_KEY is set.");
+    return;
+  }
+  const istHour = new Date(Date.now() + 5.5 * 3600 * 1000).getUTCHours();
+  if (istHour < 12 || istHour >= 18) return;
+
+  const now = Math.floor(Date.now() / 1000);
+  const payments = await listPayments(env, now - ABANDON_AFTER - ABANDON_WITHIN, now);
+  if (!payments) return;
+
+  const paid = new Set();
+  for (const p of payments) {
+    if ((p.status === "captured" || p.status === "authorized") && p.email) paid.add(String(p.email).toLowerCase());
+  }
+  const sold = (await knownSold(env)) || [];
+  let sent = 0;
+
+  for (const p of payments) {
+    if (sent >= ABANDON_MAX) break;
+    if (p.status !== "failed" || !p.order_id || !p.email) continue;
+    if (p.created_at > now - ABANDON_AFTER) continue;
+    const email = String(p.email).trim().toLowerCase();
+    if (!validEmail(email) || paid.has(email)) continue;
+
+    const order = await readOrder(env, p.order_id);
+    if (!order || order.status === "paid") continue;
+    const n = parseInt(order.notes && order.notes.kaal_no, 10);
+    if (!n || sold.indexOf(n) > -1) continue;
+
+    const hold = await env.KAAL_STATE.get(HOLD_PREFIX + n, "json").catch(() => null);
+    if (hold && hold.until > Date.now()) continue;
+
+    const once = "abandon:" + (await sha256hex(email)).slice(0, 32) + ":" + n;
+    if (await env.KAAL_STATE.get(once).catch(() => null)) continue;
+    /* Written BEFORE sending: if the send fails, the visitor gets nothing
+       rather than a second copy on the next run. Once means once. */
+    await env.KAAL_STATE.put(once, String(now), { expirationTtl: 365 * 24 * 3600 });
+
+    const subject = `No. ${pad2(n)}`;
+    const text = `No. ${pad2(n)} went back to the twenty this afternoon. If you still want it, it is here: thekaal.co/#n${n}. If someone else chooses it first, it is theirs.`;
+    if (await sendEmail(env, email, subject, text)) sent++;
+  }
+  if (sent) console.log(`Abandoned-checkout emails sent: ${sent}.`);
+}
+
+async function listPayments(env, from, to) {
+  const out = [];
+  try {
+    for (let skip = 0; skip < 500; skip += 100) {
+      const res = await fetch(`${RZP_API}/payments?from=${from}&to=${to}&count=100&skip=${skip}`, { headers: razorpayAuth(env) });
+      if (!res.ok) { console.log("Payment listing failed:", res.status); return null; }
+      const page = await res.json();
+      const items = (page && page.items) || [];
+      out.push(...items);
+      if (items.length < 100) break;
+    }
+  } catch (e) {
+    console.log("Payment listing threw:", String(e).slice(0, 120));
+    return null;
+  }
+  return out;
+}
+
+/* Resend if its key is set, Brevo if that one is. Plain text only, from
+   ABANDON_FROM, replies to connect@thekaal.co unless ABANDON_REPLY_TO says
+   otherwise. A refused send is logged and never retried. */
+async function sendEmail(env, to, subject, text) {
+  const from    = env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
+  const replyTo = env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  try {
+    let res;
+    if (env.RESEND_API_KEY) {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to: [to], subject, text, reply_to: replyTo })
+      });
+    } else {
+      const m = /^(.*?)\s*<([^>]+)>$/.exec(from);
+      res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          sender: m ? { name: m[1] || "KAAL", email: m[2] } : { name: "KAAL", email: from },
+          to: [{ email: to }], subject, textContent: text, replyTo: { email: replyTo }
+        })
+      });
+    }
+    if (!res.ok) { console.log("Email provider refused:", res.status, (await res.text()).slice(0, 200)); return false; }
+    return true;
+  } catch (e) {
+    console.log("Email send threw:", String(e).slice(0, 120));
+    return false;
+  }
+}
+
 /* ══════════ 4. PLUMBING ══════════ */
 
 const pad2 = (n) => (n < 10 ? "0" + n : String(n));
@@ -697,6 +931,11 @@ function json(request, env, body, extra, status) {
 
    6. Put the deployed URL into index.html as `api:` in the KAAL config.
       Leave it empty and the page behaves exactly as it does today.
+
+   6b. (October 2026) The Series 02 list needs the KV namespace from step
+      2; nothing else. The abandoned-checkout email needs it too, plus a
+      provider key and ABANDON_EMAIL = "on" — docs/email.md, and it is
+      off until then. The cron in wrangler.toml deploys with the worker.
 
    7. Send one real ₹1 test transaction before trusting this with a real
       ₹5,999 one. Watch `wrangler tail`, watch the commit land, watch the

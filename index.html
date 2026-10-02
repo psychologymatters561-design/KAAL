@@ -836,7 +836,7 @@ a{color:inherit}
 .nav.show{opacity:1;transform:none;pointer-events:auto;
   background:linear-gradient(to bottom,rgba(8,9,8,.97) 0%,rgba(8,9,8,.88) 55%,rgba(8,9,8,0) 100%);
   backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
-.nav-mark{width:74px;flex:0 0 auto}
+.nav-mark{width:74px;flex:0 0 auto;min-height:44px;display:flex;align-items:center}
 .nav-mark svg{width:100%;height:auto;fill:var(--bone)}
 .nav-rem{margin-left:auto;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
 @media (max-width:640px){.nav-rem{display:none}}
@@ -1603,6 +1603,73 @@ html[data-tint] .label::after{background:var(--tint)}
 /* Without script there is nothing to send it with, so there is no form. */
 .nojs .list{display:none}
 
+/* ── MICRO-INTERACTIONS ─────────────────────────────────────────── */
+
+/* "Green reads black until the light finds it." On the Emerald photograph
+   a soft light follows the pointer — or the phone's tilt, once asked — and
+   the dial reads dark everywhere it is not. Two custom properties, written
+   once a frame on this one element; nothing it does lays anything out. */
+.lightfind{position:absolute;inset:0;z-index:1;pointer-events:none;--lx:34%;--ly:30%;
+  background:radial-gradient(circle at var(--lx) var(--ly),rgba(0,0,0,0) 0,rgba(0,0,0,0) 16%,rgba(3,9,5,.62) 58%)}
+.lightfind::before{content:"";position:absolute;inset:0;mix-blend-mode:soft-light;
+  background:radial-gradient(circle at var(--lx) var(--ly),rgba(255,236,196,.7) 0,rgba(255,236,196,.2) 15%,rgba(255,236,196,0) 30%)}
+.light-still .lightfind{background:linear-gradient(135deg,rgba(255,236,196,.08) 0,rgba(0,0,0,0) 38%,rgba(3,9,5,.38) 100%)}
+.light-still .lightfind::before{background:linear-gradient(135deg,rgba(255,236,196,.42) 0,rgba(255,236,196,0) 34%)}
+.tilt-hint{position:absolute;left:.9rem;bottom:.9rem;z-index:2;min-height:44px;padding:.55rem 1rem;
+  background:rgba(8,9,8,.62);color:var(--bone);border:1px solid rgba(237,232,223,.22);border-radius:999px;
+  font:inherit;font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}
+.tilt-hint[hidden]{display:none}
+
+/* The dial switch in the twenty is one picture becoming another, so it is
+   a View Transition crossfade on the piece alone — the rest of the page
+   does not dissolve with it — and the halo's colour moves over 600ms. */
+@property --halo{syntax:"<color>";inherits:true;initial-value:rgba(0,0,0,0)}
+.piece-stage{view-transition-name:piece;transition:--halo .6s var(--ease-soft)}
+/* Only the piece is captured. Left as the default, the browser snapshots the
+   ENTIRE page as "root" before the crossfade can start — measured at 2.1s
+   on a software-rendered phone, during which the page takes no input. With
+   the root out of the capture the rest of the page stays live, and the
+   overlay lets every click through. */
+:root{view-transition-name:none}
+::view-transition{pointer-events:none}
+::view-transition-group(piece),::view-transition-old(piece),::view-transition-new(piece){animation-duration:.6s;animation-timing-function:cubic-bezier(.16,1,.3,1)}
+html.vt .piece-shot,html.vt .piece-halo{transition:none}
+
+/* The number just chosen draws a gold line under itself, left to right. */
+.pick::before{content:"";position:absolute;left:16%;right:16%;bottom:-7px;height:2px;background:var(--gold);
+  transform:scaleX(0);transform-origin:left;transition:transform .4s var(--ease);pointer-events:none}
+.pick[aria-pressed="true"]::before{transform:scaleX(1)}
+
+/* One diagonal sweep of light across gold, on hover or focus, once. The
+   sweep transitions only on the way in; leaving resets it instantly, so it
+   can never loop and never plays backwards. */
+.sheen::after,#cta::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(105deg,rgba(255,255,255,0) 35%,rgba(255,248,230,.5) 50%,rgba(255,255,255,0) 65%);
+  transform:translateX(-120%)}
+.sheen:hover::after,.sheen:focus-visible::after,#cta:not(.inert):hover::after,#cta:not(.inert):focus-visible::after{
+  transform:translateX(120%);transition:transform .9s var(--ease)}
+.dp-disc,.early-pick .disc{position:relative;overflow:hidden}
+.dp-disc::after,.early-pick .disc::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 70%);
+  transform:translateX(-130%)}
+.dialpick:hover .dp-disc::after,.dialpick:focus-visible .dp-disc::after,
+.early-pick:hover .disc::after,.early-pick:focus-visible .disc::after{transform:translateX(130%);transition:transform .8s var(--ease)}
+
+/* Every heading balances its lines. The four dial headings also arrive by
+   a mask drawn left to right, the way a light crosses a dial. */
+h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
+.statement.wipe{clip-path:inset(-25% 100% -25% -5%);
+  transition:opacity 1.05s var(--ease),transform 1.15s var(--ease),clip-path 1.35s var(--ease);
+  transition-delay:calc(var(--d,0) * 85ms)}
+.statement.wipe.in{clip-path:inset(-25% -5% -25% -5%)}
+.nojs .statement.wipe{clip-path:none}
+
+@media (prefers-reduced-motion:reduce){
+  .statement.wipe{clip-path:none!important}
+  .sheen::after,#cta::after,.dp-disc::after,.early-pick .disc::after{display:none}
+  .tilt-hint{display:none}
+}
+
 /* ── Sticky call to action. It does not exist — not hidden, not in the
       document — until the visitor is inside the twenty, and it stays
       from there to the end of the page. A buy bar shown before a single
@@ -1636,9 +1703,16 @@ html[data-tint] .label::after{background:var(--tint)}
 .rail-fill{position:absolute;left:0;top:14vh;width:1px;background:var(--gold);height:72vh;opacity:.55;
   transform:scaleY(0);transform-origin:top}
 .rail-t{position:absolute;left:-3px;width:7px;height:1px;background:var(--ghost)}
-.rail-t.gone{background:var(--ghost);opacity:.45}
-.rail-t.gone::after{content:"";position:absolute;left:-2px;top:-2px;width:11px;height:5px;
-  border-top:1px solid var(--faint);transform:rotate(-38deg);opacity:.7}
+/* A placed number's tick FILLS, left to right, rather than being struck:
+   the same rule as the register. They fill on load forty milliseconds
+   apart; a sale that lands while the page is open fills slowly, with one
+   pulse, and nothing else — no toast, no sound. */
+.rail-t::before{content:"";position:absolute;left:0;top:-1px;width:100%;height:3px;background:var(--gold);
+  transform:scaleX(0);transform-origin:left;transition:transform .5s var(--ease);transition-delay:calc(var(--k,0) * 40ms)}
+.rail-t.gone::before{transform:scaleX(1)}
+.rail-t.fresh::before{transition-duration:1.2s;transition-delay:0s}
+.rail-t.fresh{animation:tickPulse 1.2s var(--ease-soft) 1}
+@keyframes tickPulse{0%{box-shadow:0 0 0 0 rgba(198,161,91,.55)}100%{box-shadow:0 0 0 7px rgba(198,161,91,0)}}
 @media (max-width:1180px){.rail{display:none}}
 /* Below that width the same value draws a hairline across the top instead. */
 .tick-top{position:fixed;top:0;left:0;height:1px;background:var(--gold);z-index:8;width:100%;opacity:.6;
@@ -1668,7 +1742,9 @@ html[data-tint] .label::after{background:var(--tint)}
    asking to be found. It is still a real link in the flow: never hide it,
    clip it, or drop it below a tap target. */
 .foot-end a.legal-link{font-size:.6875rem;color:var(--faint);
-  text-decoration:none;transition:none}
+  text-decoration:none;transition:none;
+  /* the tap target is 44px; the word is not */
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px}
 .foot-end a.legal-link:hover,
 .foot-end a.legal-link:focus-visible{color:var(--faint);text-decoration:none}
 /* Socials: inline SVG in currentColor so the icons follow the footer's
@@ -1817,7 +1893,7 @@ html[data-tint] .label::after{background:var(--tint)}
         </h1>
         <p class="hero-line">Most people disappear into the crowd. <em>Twenty won&rsquo;t.</em></p>
         <p class="mark-sub"><span id="heroLeft">18</span> of 20 &nbsp;·&nbsp; <span class="hero-price">&#8377;5,999</span> &nbsp;·&nbsp; free delivery</p>
-        <a class="buy hero-cta" id="heroCta" href="#twenty">Choose your number</a>
+        <a class="buy hero-cta sheen" id="heroCta" href="#twenty">Choose your number</a>
       </div>
 
       <div class="caps" id="caps">
@@ -1921,13 +1997,15 @@ html[data-tint] .label::after{background:var(--tint)}
   <div class="hold split flip">
     <div class="col-a" data-depth="front">
       <p class="label rise">03 · Emerald</p>
-      <h2 class="statement rise">Green reads black until the light finds it.</h2>
+      <h2 class="statement rise wipe">Green reads black until the light finds it.</h2>
       <p class="sub rise">Sunray brushed, lacquered, then cut by the same gold bezel every piece carries. In a room it is a dark dial. Under a window it is not.</p>
     </div>
     <div class="pin">
       <div class="plate plate-tall rise" data-depth="mid">
         <img src="assets/img/jade-wide.webp" data-frame="45p" width="1280" height="1600" loading="lazy" decoding="async"
              alt="A KAAL watch with a deep green sunray dial, gold bezel and two tone bracelet, standing on dark green velvet.">
+        <span class="lightfind" aria-hidden="true"></span>
+        <button type="button" class="tilt-hint" hidden>Tilt to light it</button>
       </div>
     </div>
   </div>
@@ -1939,7 +2017,7 @@ html[data-tint] .label::after{background:var(--tint)}
   <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold" data-depth="front">
     <p class="label rise">04 · Midnight</p>
-    <h2 class="statement rise">Rain is not an event.</h2>
+    <h2 class="statement rise wipe">Rain is not an event.</h2>
     <p class="sub rise">Series 01 is water resistant. Caught in weather, washed at a basin, worn through a downpour on the way to somewhere better: none of that is a story, and none of it is your problem.</p>
   </div>
   <div class="pin">
@@ -1957,7 +2035,7 @@ html[data-tint] .label::after{background:var(--tint)}
   <div class="hold split">
     <div class="col-a" data-depth="front">
       <p class="label rise">05 · Champagne</p>
-      <h2 class="statement rise">The loudest of the four. Still quiet.</h2>
+      <h2 class="statement rise wipe">The loudest of the four. Still quiet.</h2>
       <p class="sub rise">A full champagne dial is a decision, not a default. It is the piece in the series that does not wait to be noticed, and the one most likely to go first.</p>
     </div>
     <div class="pin">
@@ -1976,7 +2054,7 @@ html[data-tint] .label::after{background:var(--tint)}
   <div class="hold split flip">
     <div class="col-a" data-depth="front">
       <p class="label rise">06 · Ivory</p>
-      <h2 class="statement rise">Nothing to hide behind.</h2>
+      <h2 class="statement rise wipe">Nothing to hide behind.</h2>
       <p class="sub rise">A pale dial shows every flaw in a finish, which is exactly why it is in the series. Day ring, twenty four hour counter and pointer date, all legible at arm's length in daylight.</p>
     </div>
     <div class="pin">
@@ -3298,6 +3376,66 @@ function driveWorld(){
   });
 })();
 
+/* ── GREEN READS BLACK UNTIL THE LIGHT FINDS IT.
+
+      A light on the Emerald photograph follows the pointer. On a phone a
+      small "Tilt to light it" asks first — iOS will not hand over the
+      gyroscope without a tap and a permission prompt, and asking for it
+      unprompted would be exactly the kind of nag this page does not do —
+      and then the light follows the phone's tilt. Eased, written once a
+      frame to two custom properties on the light alone, and only while the
+      photograph is on screen. Without motion the light is a still diagonal. */
+(function lightFinds(){
+  var plate = null, img = $('img[src$="jade-wide.webp"]');
+  if(img) plate = img.closest(".plate");
+  var light = plate && $(".lightfind", plate), hint = plate && $(".tilt-hint", plate);
+  if(!plate || !light) return;
+  if(reduced){ plate.classList.add("light-still"); return; }
+
+  var tx = 34, ty = 30, x = 34, y = 30, raf = 0, rect = null, seen = false;
+  function frame(){
+    raf = 0;
+    x += (tx - x) * 0.16; y += (ty - y) * 0.16;
+    light.style.setProperty("--lx", x.toFixed(1) + "%");
+    light.style.setProperty("--ly", y.toFixed(1) + "%");
+    if(Math.abs(tx - x) + Math.abs(ty - y) > 0.15) raf = requestAnimationFrame(frame);
+  }
+  function aim(px, py){
+    if(!seen) return;
+    tx = clamp(px, 4, 96); ty = clamp(py, 4, 96);
+    if(!raf) raf = requestAnimationFrame(frame);
+  }
+  if("IntersectionObserver" in window){
+    new IntersectionObserver(function(es){ seen = es[0].isIntersecting; }).observe(plate);
+  } else seen = true;
+
+  /* One position read per pointer move, on a page whose layout is already
+     clean between frames — no scroll listener needed to keep it fresh. */
+  plate.addEventListener("pointermove", function(e){
+    if(e.pointerType === "touch") return;
+    rect = plate.getBoundingClientRect();
+    aim((e.clientX - rect.left) / rect.width * 100, (e.clientY - rect.top) / rect.height * 100);
+  });
+  plate.addEventListener("pointerleave", function(){ aim(34, 30); });
+
+  var D = window.DeviceOrientationEvent;
+  if(hint && D && window.matchMedia("(pointer: coarse)").matches){
+    hint.hidden = false;
+    hint.addEventListener("click", function(){
+      function go(){
+        hint.hidden = true;
+        addEventListener("deviceorientation", function(e){
+          if(e.gamma == null) return;
+          aim(50 + clamp(e.gamma, -30, 30) / 30 * 42, 50 + clamp((e.beta || 45) - 45, -30, 30) / 30 * 42);
+        }, { passive:true });
+      }
+      if(typeof D.requestPermission === "function"){
+        D.requestPermission().then(function(state){ if(state === "granted") go(); }, function(){});
+      } else go();
+    });
+  }
+})();
+
 /* ── The box. The film is fetched on the tap and not one moment earlier.
       The <video> does not exist until then, so there is nothing for a
       browser to preload, and it is created inside the tap so that playing
@@ -3401,13 +3539,19 @@ var rail = $("#rail"), railFill = $("#railFill"), tickTop = $("#tickTop"), railL
 (function buildRail(){
   var soldSet = {}; KAAL.sold.forEach(function(n){ soldSet[n] = 1; });
   var frag = document.createDocumentFragment();
+  var k = 0, gone = [];
   for(var i=1;i<=KAAL.edition;i++){
     var t = document.createElement("i");
-    t.className = "rail-t" + (soldSet[i] ? " gone" : "");
+    t.className = "rail-t";
     t.style.top = "calc(14vh + " + (((i-1)/(KAAL.edition-1))*72) + "vh)";
+    if(soldSet[i]){ t.style.setProperty("--k", k++); gone.push(t); }
     frag.appendChild(t);
   }
   rail.appendChild(frag);
+  /* Filled after the first paint, so the fill is seen rather than arrived at. */
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    for(var j = 0; j < gone.length; j++) gone[j].classList.add("gone");
+  }); });
 })();
 var railShown = false;
 function driveRail(){
@@ -3750,10 +3894,26 @@ function chooseFace(key){
     return;
   }
   picked = true; engaged = true;
-  choose(open[0]);
-  setTint(key);
-  turnBack();
+  withPieceTransition(function(){
+    choose(open[0]);
+    setTint(key);
+    turnBack();
+  });
   track("dial", { no:pad(open[0]), dial:FACE[key].name });
+}
+
+/* The dial switch as one picture becoming another: a View Transition on the
+   piece where the browser has them, the existing crossfade where it does
+   not, and an instant swap for anyone who asked for less motion. */
+function withPieceTransition(fn){
+  if(reduced || !document.startViewTransition){ fn(); return; }
+  var root = document.documentElement;
+  root.classList.add("vt");
+  var done = function(){ root.classList.remove("vt"); };
+  try{
+    var t = document.startViewTransition(fn);
+    t.finished.then(done, done);
+  }catch(e){ done(); fn(); }
 }
 
 if(dialsEl){
@@ -4261,7 +4421,7 @@ function markSold(n){
     placeCell(b, n);
   }
   var ticks = $$(".rail-t", rail);
-  if(ticks[n-1]) ticks[n-1].classList.add("gone");
+  if(ticks[n-1]){ ticks[n-1].style.setProperty("--k", 0); ticks[n-1].classList.add("fresh", "gone"); }
 
   countsFromRemaining();
   driveSchema();          /* same set, same moment, as the grid and the rail */

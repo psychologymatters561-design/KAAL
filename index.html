@@ -1644,6 +1644,18 @@ a{color:inherit}
   background:
     radial-gradient(56% 46% at 50% 92%,rgba(198,161,91,.10),rgba(0,0,0,0) 72%),
     radial-gradient(60% 60% at 50% 40%,rgba(237,232,223,.035),rgba(0,0,0,0) 70%)}
+/* ── THE OWNERS. A quotation, a face in a circle, a number. ── */
+.owner-list{display:grid;gap:clamp(1.6rem,3.5vw,2.8rem);margin-top:var(--beat);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,21rem),1fr))}
+.owner{margin:0}
+.owner blockquote{margin:0;font-family:var(--display);font-size:clamp(1.3rem,1rem + 1.1vw,1.7rem);line-height:1.32;color:var(--bone);text-wrap:pretty}
+.owner figcaption{display:flex;align-items:center;gap:.9rem;margin-top:1.15rem}
+.owner .av{width:52px;height:52px;border-radius:50%;flex:0 0 auto;object-fit:cover;background:var(--void-2);
+  box-shadow:0 0 0 1px rgba(198,161,91,.35),0 0 0 4px rgba(8,9,8,.6)}
+.owner .av-init{display:grid;place-items:center;font-size:.8125rem;letter-spacing:.06em;color:var(--gold-lit)}
+.owner .ow-name{display:block;font-size:.9375rem;color:var(--bone)}
+.owner .ow-what{display:block;margin-top:.2rem;font-size:.6875rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.owners-consent{margin:var(--beat) 0 0;font-size:.8125rem;color:var(--faint)}
 .four-shot img{width:100%;height:auto;filter:drop-shadow(0 22px 26px rgba(0,0,0,.7))}
 .plate img.solo{display:block;width:auto;height:88%;max-height:88%;margin:6% auto;filter:drop-shadow(0 30px 34px rgba(40,34,26,.45))}
 .plate:has(img.solo){aspect-ratio:4/5;background:
@@ -2216,6 +2228,18 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
   </div>
 </section>
 
+<!-- ════════ THE OWNERS. Rendered from KAAL.reviews; absent until it holds
+     real words. Proof placed at the last step before the twenty. ════════ -->
+<section class="act owners" data-world="stone" id="owners" aria-labelledby="ownersH" hidden>
+  <div class="act-back" data-depth="back" aria-hidden="true"></div>
+  <div class="hold" data-depth="front">
+    <p class="label rise">The owners</p>
+    <h2 class="statement rise" id="ownersH">In their own words.</h2>
+    <div class="owner-list" id="ownerList"></div>
+    <p class="owners-consent rise">Published with each owner's permission, in their own words.</p>
+  </div>
+</section>
+
 <!-- ════════ STILLNESS. No entrance. That is the entrance. ════════ -->
 <section class="act act-tall still-act" data-world="void">
   <div class="act-back" data-depth="back" aria-hidden="true"></div>
@@ -2536,6 +2560,21 @@ var KAAL = {
     reviews:  true    // owners' reviews, shown only once KAAL.reviews holds real ones
   },
 
+  /* ── OWNERS, IN THEIR OWN WORDS. Empty, and the section does not exist.
+     Only a real buyer's own words go here, only with their written yes to
+     publishing them, never edited for meaning, never paid for: India's
+     IS 19000:2022 on online reviews, and the reason the section is worth
+     reading at all. docs/reviews-request.md is the message to send them
+     and the exact shape of an entry:
+
+       { no: 1, name: "First name, initial", city: "City",
+         text: "Their words, as they wrote them.",
+         photo: "assets/img/owners/01.webp",   // optional; 240x240, a circle
+         month: "September 2026", consent: true }
+
+     An entry without consent: true is never shown. */
+  reviews: [],
+
   /* ── THE HERO CAMERA.
 
      The stage is pinned while the film scrubs inside it. The camera is the
@@ -2697,6 +2736,11 @@ var qs = new URLSearchParams(location.search);
    Off means absent, not hidden: the element leaves the document, so no
    count, listener or observer further down ever finds it. */
 var OFF = {};
+function ownerReviews(){
+  return (KAAL.reviews || []).filter(function(r){
+    return r && r.consent === true && r.text && r.name && r.no >= 1 && r.no <= KAAL.edition;
+  });
+}
 (function switches(){
   var f = KAAL.features || {}, k;
   for(k in f) if(f.hasOwnProperty(k) && f[k] === false) OFF[k] = 1;
@@ -2705,6 +2749,9 @@ var OFF = {};
   function rm(el){ if(el.parentNode) el.parentNode.removeChild(el); }
   function un(sel, cls){ $$(sel).forEach(function(el){ el.classList.remove(cls); }); }
   if(OFF.early) $$("#early").forEach(rm);
+  /* The owners' section leaves the document before anything measures the
+     acts, unless there is at least one real, consented review to show. */
+  if(OFF.reviews || !ownerReviews().length) $$("#owners").forEach(rm);
   if(OFF.ctx)   $$(".ctx-wrap").forEach(rm);
   if(OFF.list)  $$("form.list").forEach(rm);
   if(OFF.light) $$(".lightfind,.tilt-hint").forEach(rm);
@@ -4365,6 +4412,49 @@ var whoLink = $("#whoLink");
 if(whoLink) whoLink.addEventListener("click", function(){
   track("provenance_click", chosen ? { no:pad(chosen), dial:FACE[KAAL.dials[chosen]].name } : {});
 });
+
+/* ── THE OWNERS. Built from KAAL.reviews, and only from entries a buyer
+      said yes to. With none, the section leaves the document entirely, so
+      there is no empty heading and nothing for a screen reader to find.
+      Text goes in as text, never as markup. A photograph that fails to
+      load becomes the owner's initials in the same circle. ─────────── */
+(function owners(){
+  var sec = $("#owners"), list = $("#ownerList");
+  if(!sec || !list) return;
+  var real = ownerReviews();
+  if(!real.length) return;
+  function initials(name){
+    return name.split(/\s+/).map(function(w){ return w.charAt(0); }).join("").slice(0, 2).toUpperCase();
+  }
+  real.forEach(function(r){
+    var fig = document.createElement("figure"), q = document.createElement("blockquote"),
+        cap = document.createElement("figcaption"), who = document.createElement("span"),
+        what = document.createElement("span"), txt = document.createElement("span");
+    fig.className = "owner rise";
+    q.textContent = "\u201C" + String(r.text).replace(/^\s*["\u201C]|["\u201D]\s*$/g, "") + "\u201D";
+    var av;
+    function monogram(){
+      var m = document.createElement("span");
+      m.className = "av av-init"; m.setAttribute("aria-hidden", "true");
+      m.textContent = initials(r.name);
+      return m;
+    }
+    if(r.photo){
+      av = document.createElement("img");
+      av.className = "av"; av.alt = ""; av.width = 52; av.height = 52;
+      av.loading = "lazy"; av.decoding = "async"; av.src = r.photo;
+      av.onerror = function(){ if(av.parentNode) av.parentNode.replaceChild(monogram(), av); };
+    } else av = monogram();
+    who.className = "ow-name"; who.textContent = r.name + (r.city ? ", " + r.city : "");
+    var dial = FACE[KAAL.dials[r.no]] || FACE.ivory;
+    what.className = "ow-what"; what.textContent = "Owner of No. " + pad(r.no) + " \u00b7 " + dial.name + (r.month ? " \u00b7 " + r.month : "");
+    txt.appendChild(who); txt.appendChild(what);
+    cap.appendChild(av); cap.appendChild(txt);
+    fig.appendChild(q); fig.appendChild(cap);
+    list.appendChild(fig);
+  });
+  sec.hidden = false;
+})();
 
 /* ── SERIES 02. One field, one request, two possible sentences. The
       browser's own validation speaks for a malformed address, in the

@@ -24,6 +24,17 @@
      gift      "this is a gift" was ticked      GiftOrder*        add_gift
      checkout  the buy button, with checkout    InitiateCheckout  begin_checkout
      purchase  claimed.html, with a payment id  Purchase          purchase
+     list      Series 02 list, address added    Lead              generate_lead
+
+   Funnel events (October 2026). Custom in Meta, so they can be counted
+   and audienced but are never mistaken for a sale; none carries a price.
+     hero_complete     the film scrubbed to its end     HeroComplete*     hero_complete
+     early_dial        a dial chosen in "Which one…"    EarlyDial*        early_dial
+     ctx_cta           a dial act's quiet link          ContextCta*       ctx_cta
+     caseback_view     the piece turned to its back     CasebackView*     caseback_view
+     provenance_click  "Who is selling this →"          ProvenanceClick*  provenance_click
+     deeplink          landed on a #nX link             DeepLink*         deep_link
+   docs/funnel-metrics.md maps each stage of the funnel to its event.
    (* custom event in Meta; the rest are standard, so they can be
       optimised for.)
 
@@ -74,7 +85,14 @@ var MAP = {
   number:   ["AddToCart",        "add_to_cart",    1],
   gift:     ["GiftOrder",        "add_gift",       0],
   checkout: ["InitiateCheckout", "begin_checkout", 1],
-  purchase: ["Purchase",         "purchase",       1]
+  purchase: ["Purchase",         "purchase",       1],
+  list:     ["Lead",             "generate_lead",  1],
+  hero_complete:    ["HeroComplete",    "hero_complete",    0, 1],
+  early_dial:       ["EarlyDial",       "early_dial",       0, 1],
+  ctx_cta:          ["ContextCta",      "ctx_cta",          0, 1],
+  caseback_view:    ["CasebackView",    "caseback_view",    0, 1],
+  provenance_click: ["ProvenanceClick", "provenance_click", 0, 1],
+  deeplink:         ["DeepLink",        "deep_link",        0, 1]
 };
 
 function send(name, d){
@@ -82,6 +100,28 @@ function send(name, d){
   if(!m) return;
   d = d || {};
   var item = d.no ? "KAAL-" + d.no : "KAAL-S01";
+
+  /* A name on a list is not a watch in a basket: it carries no product and
+     no price, so the ad account never learns to value it at ₹5,999. */
+  if(name === "list"){
+    if(TAGS.pixel && window.fbq) window.fbq("track", "Lead", { content_name:"KAAL Series 02 list" });
+    if(TAGS.ga4 && window.gtag) window.gtag("event", "generate_lead", { lead_source: d.source || "" });
+    return;
+  }
+
+  /* The fourth flag marks a step in the funnel rather than a product
+     moment: it is counted, with the dial or number when there is one, and
+     it never carries a value — a scroll to the end of the film is not
+     ₹5,999 of anything. */
+  if(m[3]){
+    var c = {};
+    if(d.dial) c.dial = d.dial;
+    if(d.no) c.number = d.no;
+    if(d.where) c.where = d.where;
+    if(TAGS.pixel && window.fbq) window.fbq("trackCustom", m[0], c);
+    if(TAGS.ga4 && window.gtag) window.gtag("event", m[1], c);
+    return;
+  }
 
   if(TAGS.pixel && window.fbq){
     var p = { content_ids:[item], content_type:"product", value:PRICE, currency:CUR };

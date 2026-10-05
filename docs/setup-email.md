@@ -34,7 +34,13 @@ pull request.
    domain with it; "Sending access" cannot).
 4. Copy the key (it starts `re_`). It is shown once.
 
-Do not add the domain yourself; the setup does it and prints the records.
+Then, to save waiting later, add the domain now (the setup finds it and
+carries on; if you skip this, the setup adds it and prints the same records):
+
+5. Left menu, **Domains** → **Add Domain** → type `thekaal.co` → keep the
+   suggested region → **Add**.
+6. Resend shows three or four records. Leave that tab open and do step 5
+   of this page (GoDaddy) now, then come back.
 
 ## Step 2. Make a Cloudflare token (deploys the worker)
 
@@ -105,7 +111,12 @@ the same command. It needs Node 22.)
    | TXT | `resend._domainkey` | | `p=MIGf…` (long) |
    | TXT | `_dmarc` | | `v=DMARC1; p=none;` |
 
-3. Wait 15 to 60 minutes, then in a session: "Run
+   GoDaddy often creates a `_dmarc` record by itself. If the list already
+   has a TXT record named `_dmarc`, keep it and do not add a second one.
+
+3. If you added the domain in Resend's dashboard (step 1), go back to that
+   tab and click **Verify DNS Records**.
+4. Wait 15 to 60 minutes, then in a session: "Run
    `node tools/setup-email.mjs --check`". When it says **verified**, run it
    once more without `--check` and the four sample emails arrive in your
    inbox, marked [Sample].

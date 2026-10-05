@@ -23,10 +23,12 @@ PRICE_PAISE   = "599900"          # ₹5,999
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
-# Every sale emails the owner and the buyer (docs/payments.md). The owner's
-# inbox, the verified sender, and the site the buyer is sent back to.
-OWNER_EMAIL   = "connect@thekaal.co"
+# Every sale emails the owner and the buyer (docs/setup-email.md). The
+# verified sender, where buyers' replies go, and the site the buyer is sent
+# back to. The owner's own inbox is a SECRET (OWNER_EMAIL, below), so a
+# personal address never appears in this public file.
 MAIL_FROM     = "KAAL <connect@thekaal.co>"
+MAIL_REPLY_TO = "connect@thekaal.co"
 SITE_URL      = "https://thekaal.co"
 
 # Which dial each number carries, for the sale emails. A mirror of
@@ -62,9 +64,13 @@ ABANDON_EMAIL = "off"
 #   wrangler secret put META_CAPI_TOKEN        Events Manager → Settings →
 #                                              Conversions API → Generate
 #                                              access token
-# Optional — the abandoned-checkout email (docs/email.md). One of:
-#   wrangler secret put RESEND_API_KEY
-#   wrangler secret put BREVO_API_KEY
+# The order emails (docs/setup-email.md). tools/setup-email.sh sets both:
+#   wrangler secret put RESEND_API_KEY         sends every email the shop sends
+#   wrangler secret put OWNER_EMAIL            where new orders and addresses
+#                                              go; several allowed, comma
+#                                              separated. Without it, they go
+#                                              to connect@thekaal.co
+# (BREVO_API_KEY works instead of Resend; Resend wins if both are set.)
 # Optional — a salt for the Series 02 list's rate limiter, so its hashed
 # IP keys cannot be reversed by trying every address:
 #   wrangler secret put LIST_SALT

@@ -78,6 +78,8 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, arriveBy, indiaTime } from "./mail.js";
+
 const HOLD_SECONDS = 12 * 60;
 const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
@@ -85,7 +87,7 @@ const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
@@ -98,8 +100,8 @@ export default {
     if (request.method === "POST" && path === "/list") return postList(request, env);
     if (request.method === "POST" && path === "/callback") return postCallback(request, env);
     if (request.method === "GET" && path === "/receipt") return getReceipt(request, env, url);
-    if (request.method === "POST" && path === "/shipping") return postShipping(request, env);
-    if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
+    if (request.method === "POST" && path === "/shipping") return postShipping(request, env, ctx);
+    if (request.method === "POST") return webhook(request, env, ctx);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
   },
@@ -433,13 +435,25 @@ async function getReceipt(request, env, url) {
     payment_id: good ? good.id : null,
     created_at: order.created_at,
     gift: !!(order.notes && order.notes.gift === "yes"),
-    shipping
+    shipping,
+    /* Only what the receipt page needs to say "a confirmation is on its
+       way to ra•••@gmail.com", and only when an email is actually sent. */
+    mail: !!(env.RESEND_API_KEY || env.BREVO_API_KEY) && !!(good && good.email),
+    email_hint: good && good.email ? maskEmail(good.email) : ""
   }, { "Cache-Control": "no-store" });
 }
 
 function cleanField(v, max) { return cleanNote(v, max); }
 
-async function postShipping(request, env) {
+/* "rahul.sharma@gmail.com" → "ra•••@gmail.com": enough for a buyer to
+   recognise their own address, not enough to read someone else's. */
+function maskEmail(e) {
+  const m = /^([^@]+)@(.+)$/.exec(String(e || "").trim());
+  if (!m) return "";
+  return m[1].slice(0, Math.min(2, m[1].length)) + "\u2022\u2022\u2022@" + m[2];
+}
+
+async function postShipping(request, env, ctx) {
   let body;
   try { body = await request.json(); }
   catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
@@ -474,22 +488,26 @@ async function postShipping(request, env) {
     } catch (e) { console.log("Shipping KV write failed:", String(e).slice(0, 120)); }
   }
 
-  const addr = [a.name, a.line1, a.line2, `${a.city}, ${a.state} ${a.pin}`, `Phone ${a.phone}`].filter(Boolean).join("\n");
-  const owner = env.OWNER_EMAIL || "connect@thekaal.co";
-  await sendEmail(env, owner,
-    `${updated ? "Address updated" : "Ship to"} · No. ${pad2(n)}`,
-    `No. ${pad2(n)} ${updated ? "has a new delivery address" : "goes here"}:\n\n${addr}\n\nOrder ${orderId}${good ? `, payment ${good.id}` : ""}.${order.notes && order.notes.gift === "yes" ? `\nGift: yes${order.notes.gift_note ? `. Card: "${order.notes.gift_note}"` : ""}. No price in the box.` : ""}`);
-  const buyerEmail = good && good.email;
-  if (buyerEmail && validEmail(String(buyerEmail).toLowerCase())) {
-    await sendEmail(env, buyerEmail, `No. ${pad2(n)} will come to you here`,
-      `We have your address for No. ${pad2(n)}:\n\n${addr}\n\nIf anything in it is wrong, reply to this email before it is dispatched and we will correct it.\n\nKAAL`);
-  }
+  const buyerEmail = good && good.email && validEmail(String(good.email).toLowerCase()) ? String(good.email) : "";
+  const paidAt = good && good.created_at ? new Date(good.created_at * 1000) : new Date();
+  const d = {
+    site: siteUrl(env), n, dial: DIAL_OF(env, n), address: a, updated, orderId,
+    paymentId: good ? good.id : "", buyerEmail, arriveBy: arriveBy(paidAt),
+    gift: !!(order.notes && order.notes.gift === "yes"), giftNote: (order.notes && order.notes.gift_note) || ""
+  };
+  const toOwner = ownerShip(d), toBuyer = buyerShip(d);
+  const mail = Promise.all([
+    sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html, buyerEmail || undefined),
+    buyerEmail ? sendEmail(env, buyerEmail, toBuyer.subject, toBuyer.text, toBuyer.html) : null
+  ]).catch(e => console.log("Shipping emails threw:", String(e).slice(0, 160)));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(mail); else await mail;
   return json(request, env, { ok: true, updated });
 }
 
 /* One email to the owner and one to the buyer, for every captured payment,
    once. Sent through the same provider as the rest (Resend or Brevo). With
-   no provider key it logs and returns: a sale is never held up by mail. */
+   no provider key it logs and returns: a sale is never held up by mail.
+   The words and the look live in worker/mail.js. */
 async function notifySale(env, entity, chosen) {
   try {
     if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) { console.log("Sale emails skipped: no RESEND_API_KEY or BREVO_API_KEY."); return; }
@@ -499,37 +517,48 @@ async function notifySale(env, entity, chosen) {
       if (await env.KAAL_STATE.get(key).catch(() => null)) return;
       await env.KAAL_STATE.put(key, "1", { expirationTtl: 90 * 24 * 3600 });
     }
-    const n = pad2(chosen), site = siteUrl(env);
+    const edition = parseInt(env.EDITION || "20", 10);
+    const known = Number.isInteger(chosen) && chosen >= 1 && chosen <= edition;
+    const site = siteUrl(env);
     const order = entity.order_id ? await readOrder(env, entity.order_id) : null;
     const notes = (order && order.notes) || entity.notes || {};
-    const dial = DIAL_OF(env, chosen);
-    const amount = `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`;
-    const sold = (await knownSold(env)) || [];
-    const edition = parseInt(env.EDITION || "20", 10);
-    const left = Math.max(0, edition - Math.max(sold.length, 1));
-
-    const owner = env.OWNER_EMAIL || "connect@thekaal.co";
-    await sendEmail(env, owner, `Sold · No. ${n}${dial ? " · " + dial : ""} · ${amount}`,
-      [`No. ${n}${dial ? ` (${dial})` : ""} has sold.`, "",
-       `Amount: ${amount}`, `Payment: ${paymentId}`, entity.order_id ? `Order: ${entity.order_id}` : "",
-       `Buyer email: ${entity.email || "not given"}`, `Buyer phone: ${entity.contact || "not given"}`,
-       notes.gift === "yes" ? `Gift: yes${notes.gift_note ? `. Card: "${notes.gift_note}"` : ""}. No price in the box.` : "Gift: no",
-       "", "Delivery address: the buyer was asked for it on the confirmation page. A second email comes the moment they give it.",
-       `${left} of ${edition} remain.`, "", `Razorpay: https://dashboard.razorpay.com/app/payments/${paymentId}`
-      ].filter(x => x !== "").join("\n"));
-
-    const buyer = String(entity.email || "").trim();
-    if (buyer && validEmail(buyer.toLowerCase())) {
-      const ship = entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}#ship` : `${site}/claimed.html`;
-      await sendEmail(env, buyer, `No. ${n} is yours`,
-        [`No. ${n} is yours.`, "",
-         `Series 01${dial ? `, ${dial} dial` : ""}. ${amount} received. Payment reference ${paymentId}.`, "",
-         "What happens next: we inspect it, box it and dispatch it within five working days, anywhere in India. Tracking comes to this address the day it leaves.", "",
-         `Where should it go? If you have not told us yet: ${ship}`, "",
-         "Questions: reply to this email, or call +91 93114 16678. A person answers.", "",
-         "KAAL"].join("\n"));
+    const sold = new Set((await knownSold(env)) || []);
+    if (known) sold.add(chosen);
+    let address = null;
+    if (env.KAAL_STATE && entity.order_id) {
+      try { address = JSON.parse((await env.KAAL_STATE.get("ship:" + entity.order_id)) || "null"); } catch (e) { address = null; }
     }
+    const paidAt = entity.created_at ? new Date(entity.created_at * 1000) : new Date();
+    const buyer = String(entity.email || "").trim();
+    const buyerOk = buyer && validEmail(buyer.toLowerCase());
+    const d = {
+      site, n: known ? chosen : 0, dial: known ? DIAL_OF(env, chosen) : "",
+      amount: `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`,
+      paymentId, orderId: entity.order_id || "",
+      email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
+      gift: notes.gift === "yes", giftNote: notes.gift_note || "",
+      when: indiaTime(paidAt), arriveBy: arriveBy(paidAt),
+      left: Math.max(0, edition - sold.size), edition,
+      address, hasAddress: !!address,
+      shipUrl: entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}&n=${known ? pad2(chosen) : ""}#ship` : `${site}/claimed.html`
+    };
+
+    const owner = ownerSale(d);
+    const sends = [sendEmail(env, ownerInbox(env), owner.subject, owner.text, owner.html, buyerOk ? buyer : undefined)];
+    if (buyerOk && known) {
+      const mine = buyerConfirmation(d);
+      sends.push(sendEmail(env, buyer, mine.subject, mine.text, mine.html));
+    }
+    await Promise.all(sends);
   } catch (e) { console.log("Sale emails threw:", String(e).slice(0, 160)); }
+}
+
+/* Where the owner's emails go. A secret, not a var, so a personal inbox
+   never appears in the public repository; several may be given, separated
+   by commas. Without it, the shop's own address. */
+function ownerInbox(env) {
+  const list = String(env.OWNER_EMAIL || "connect@thekaal.co").split(",").map(x => x.trim()).filter(x => validEmail(x.toLowerCase()));
+  return list.length ? list : ["connect@thekaal.co"];
 }
 
 /* The dial a number carries. The page's config is the source of truth;
@@ -544,7 +573,7 @@ function DIAL_OF(env, n) {
 
 /* ══════════ 3. WHAT RAZORPAY SAYS ══════════ */
 
-async function webhook(request, env) {
+async function webhook(request, env, ctx) {
   const rawBody   = await request.text();
   const signature = request.headers.get("x-razorpay-signature") || "";
 
@@ -580,6 +609,14 @@ async function webhook(request, env) {
      here. The old `chosen > 20` was a second copy of `edition`, and the
      day the edition changes is exactly the day nobody would think to
      look in a worker for the reason a real sale went unrecorded. */
+  /* The emails go now, beside the commit rather than after it. Writing
+     the sale to GitHub takes seconds, and a buyer refreshing their inbox
+     should not wait on it; nor should a retry that finds the sale already
+     recorded skip them. notifySale sends each payment's pair once (KV),
+     and a payment with no usable number still reaches the owner. */
+  const mail = notifySale(env, entity, chosen);
+  if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
+
   const commit = await commitSold(env, chosen, paymentId);
 
   if (commit.status === "bad-number") {
@@ -603,7 +640,7 @@ async function webhook(request, env) {
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
   await sendPurchaseToMeta(env, entity, chosen);
-  await notifySale(env, entity, chosen);
+  if (!(ctx && ctx.waitUntil)) await mail;
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
 
@@ -849,26 +886,32 @@ async function listPayments(env, from, to) {
 /* Resend if its key is set, Brevo if that one is. Plain text only, from
    ABANDON_FROM, replies to connect@thekaal.co unless ABANDON_REPLY_TO says
    otherwise. A refused send is logged and never retried. */
-async function sendEmail(env, to, subject, text) {
+async function sendEmail(env, to, subject, text, html, replyToOverride) {
   const from    = env.MAIL_FROM || env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
-  const replyTo = env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  const replyTo = replyToOverride || env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  const list    = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!list.length) return false;
   try {
     let res;
     if (env.RESEND_API_KEY) {
+      const msg = { from, to: list, subject, text, reply_to: replyTo };
+      if (html) msg.html = html;
       res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, text, reply_to: replyTo })
+        body: JSON.stringify(msg)
       });
     } else {
       const m = /^(.*?)\s*<([^>]+)>$/.exec(from);
+      const msg = {
+        sender: m ? { name: m[1] || "KAAL", email: m[2] } : { name: "KAAL", email: from },
+        to: list.map(email => ({ email })), subject, textContent: text, replyTo: { email: replyTo }
+      };
+      if (html) msg.htmlContent = html;
       res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          sender: m ? { name: m[1] || "KAAL", email: m[2] } : { name: "KAAL", email: from },
-          to: [{ email: to }], subject, textContent: text, replyTo: { email: replyTo }
-        })
+        body: JSON.stringify(msg)
       });
     }
     if (!res.ok) { console.log("Email provider refused:", res.status, (await res.text()).slice(0, 200)); return false; }

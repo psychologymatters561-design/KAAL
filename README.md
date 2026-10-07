@@ -730,8 +730,9 @@ assets/video/box-poster.webp  its first frame, the poster the tap replaces
 assets/world.js          the WebGL room behind the acts (a module; loaded late)
 assets/vendor/           three.js 0.170 (MIT) and GSAP 3.12.5 with ScrollTrigger,
                          copied as published. Nothing is installed or built
-worker/mail.js           the four emails (buyer and owner, at payment and at
-                         address), as HTML with plain-text twins
+worker/mail.js           every email the site sends (buyer and owner at payment
+                         and at address, and the owner's daily report), as HTML
+                         with plain-text twins
 assets/email/            the engraved casebacks and dial pictures those emails show
 tools/setup-email.mjs    switches the emails and the payment return on, in one
                          command (docs/setup-email.md)

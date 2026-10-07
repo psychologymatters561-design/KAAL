@@ -38,6 +38,19 @@ DIALS = '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald",
 # The one email after an unfinished checkout. Built and OFF. Read
 # docs/email.md before turning it on; "on" is the only value that sends.
 ABANDON_EMAIL = "off"
+
+# The owner's end-of-day report (worker section 5): the day's visitors,
+# add-to-carts, checkouts, orders, unfinished checkouts and Series 02 leads,
+# emailed to OWNER_EMAIL (connect@thekaal.co unless set). It goes in the
+# first half hour of DIGEST_HOUR_IST, India time, about the day before:
+# "0" is just after midnight, the full day; "9" would be the next morning.
+# "off" stops it.
+DIGEST          = "on"
+DIGEST_HOUR_IST = "0"
+
+# The instant "New order" email to the owner, the moment a payment lands.
+# The buyer's own confirmation always goes. "off" leaves only the daily report.
+ORDER_ALERT     = "on"
 # ABANDON_FROM  = "KAAL <connect@thekaal.co>"   # a sender your provider has verified
 
 # Where and when a number went, shown under it in the register ONLY with
@@ -97,6 +110,18 @@ ABANDON_EMAIL = "off"
 # The Series 02 list (POST /list) and the abandoned-checkout email both live
 # in this namespace too. Until it exists, /list answers "no-store" and the
 # page says "That did not reach us" — so create it before the list matters.
+
+# The daily count behind the morning report: one Durable Object holding a
+# tally per day. SQLite-backed, so it runs on Cloudflare's free plan, whose
+# allowance (100,000 writes a day) is far above this shop's traffic; KV's free
+# allowance (1,000 writes a day) is not. Created on the first deploy.
+[[durable_objects.bindings]]
+name = "STATS"
+class_name = "Stats"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Stats"]
 
 # Every thirty minutes the worker looks for unfinished checkouts. With
 # ABANDON_EMAIL off it returns before doing anything, so this costs nothing

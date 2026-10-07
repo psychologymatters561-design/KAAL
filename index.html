@@ -2559,7 +2559,8 @@ var KAAL = {
     morph:    true,   // one dial picture turning into the next
     sharp:    true,   // phones swap in a full-resolution frame when the film rests
     world3d:  true,   // the live light-and-dust world behind the page
-    reviews:  true    // owners' reviews, shown only once KAAL.reviews holds real ones
+    reviews:  true,   // owners' reviews, shown only once KAAL.reviews holds real ones
+    count:    true    // the private daily count behind the owner's morning report
   },
 
   /* ── OWNERS, IN THEIR OWN WORDS. Empty, and the section does not exist.
@@ -2720,8 +2721,22 @@ function track(name, data){
   try{
     (window.kaalQ = window.kaalQ || []).push([name, data || {}]);
     if(window.kaalFlush) window.kaalFlush();
+    if(COUNTED[name]) COUNT[name] = (COUNT[name] || 0) + 1;
   }catch(e){}
 }
+
+/* ── THE DAILY COUNT. The same moments, tallied here and sent to the shop's
+      own worker once, when the page is hidden, as plain numbers: no cookie,
+      no identifier, nothing about who. "visitor" is this browser saying it
+      is the first visit today; the date stays on the device. The owner's
+      morning report is built from these. KAAL.features.count turns it off. */
+var COUNTED = { hero:1, hero_complete:1, early_dial:1, ctx_cta:1, view:1, dial:1, number:1,
+                caseback_view:1, gift:1, checkout:1, list:1, film:1, provenance_click:1, deeplink:1 };
+var COUNT = { visit:1 };
+try{
+  var today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  if(localStorage.getItem("kaal_seen") !== today){ localStorage.setItem("kaal_seen", today); COUNT.visitor = 1; }
+}catch(e){}
 
 var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -2771,6 +2786,20 @@ function ownerReviews(){
   for(k in OFF) root.classList.add("no-" + k);
 })();
 function on(k){ return !OFF[k]; }
+
+/* Sent only to a worker that says it keeps counts (v2), never by a robot
+   browser, and as text/plain so no preflight request is ever made. */
+function flushCount(){
+  if(!API2 || OFF.count || !KAAL.api || !navigator.sendBeacon || navigator.webdriver) return;
+  var any = false, k;
+  for(k in COUNT) if(COUNT.hasOwnProperty(k)) any = true;
+  if(!any) return;
+  var body = JSON.stringify({ c: COUNT });
+  COUNT = {};
+  try{ navigator.sendBeacon(KAAL.api.replace(/\/+$/, "") + "/e", new Blob([body], { type:"text/plain" })); }catch(e){}
+}
+document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden") flushCount(); });
+addEventListener("pagehide", flushCount);
 
 /* ── One scroll value, eased, and everything on the page derives from
       it. The page itself never scrolls anything but natively: nothing

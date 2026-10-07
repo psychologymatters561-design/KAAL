@@ -319,4 +319,110 @@ export function buyerShip(d) {
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
 
+/* ══════════ 5. TO THE OWNER, AT THE END OF EVERY DAY ══════════
+   The day in one email: how many came, how far they got, who paid, who
+   nearly did, who asked to hear about Series 02, what is left. */
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function dayLabel(day, short) {
+  const d = new Date(day + "T12:00:00Z");
+  return short ? `${DAYS[d.getUTCDay()].slice(0, 3)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`
+               : `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+const pct = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : "");
+
+export function ownerDigest(d) {
+  const c = d.c || {}, site = d.site;
+  const visitors = c.visitor || 0, numbers = c.number || 0, checkouts = c.checkout || 0;
+  const orders = d.orders.length, leads = d.leads.length;
+  const subject = `KAAL daily · ${dayLabel(d.day, true)} · ${plural(orders, "order")} · ${plural(visitors, "visitor")} · ${plural(leads, "lead")}`;
+  const preheader = `${plural(numbers, "number")} chosen, ${plural(checkouts, "checkout")} opened, ${d.left} of ${d.edition} remain.`;
+  const money = `₹${(d.revenue / 100).toLocaleString("en-IN")}`;
+
+  const stat = (n, label) => `<td align="center" valign="top" width="50%" style="padding:16px 6px;border:1px solid ${C.line};background:${C.card};">
+<div style="font-family:${SERIF};font-size:30px;line-height:34px;color:${C.goldLit};">${esc(n)}</div>
+<div style="margin-top:6px;font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${C.faint};">${esc(label)}</div></td>`;
+  const stats = `<tr><td class="px" style="padding:6px 32px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+${stat(visitors, "Visitors")}${stat(numbers, "Add to cart")}</tr><tr>${stat(orders, "Orders")}${stat(leads, "Leads")}</tr></table></td></tr>`;
+
+  const muted = (t) => t ? ` <span style="color:${C.faint};font-size:13px;">${esc(t)}</span>` : "";
+  const funnel = card("How far they got", [
+    ["Visitors", `${visitors}`],
+    ["Page visits", `${c.visit || 0}`],
+    ["Scrolled through the film", `${c.hero_complete || 0}${muted(pct(c.hero_complete || 0, visitors))}`],
+    ["Reached the twenty", `${c.view || 0}${muted(pct(c.view || 0, visitors))}`],
+    ["Chose a dial", `${(c.dial || 0) + (c.early_dial || 0)}`],
+    ["Chose a number", `${numbers}${muted(pct(numbers, visitors))}`],
+    ["Opened checkout", `${checkouts}${muted(pct(checkouts, visitors))}`],
+    ["Paid", `${orders}${muted(pct(orders, visitors))}${orders ? `<br><span style="color:${C.mute};">${esc(money)}</span>` : ""}`]
+  ]);
+
+  const orderRows = d.orders.map(o => [
+    `No. ${o.n ? pad2(o.n) : "??"}${o.dial ? " · " + o.dial : ""}`,
+    `${esc(o.amount)} · ${esc(o.at)}<br>${o.email ? `<a href="mailto:${esc(o.email)}" style="color:${C.goldLit};">${esc(o.email)}</a>` : ""}${o.contact ? `<br><a href="tel:${esc(o.contact)}" style="color:${C.goldLit};">${esc(o.contact)}</a>` : ""}
+<br><a href="https://dashboard.razorpay.com/app/payments/${encodeURIComponent(o.id)}" style="color:${C.faint};font-size:13px;">Open in Razorpay</a>`
+  ]);
+  const nearlyRows = d.unfinished.map(u => {
+    const wa = waNumber(u.contact);
+    return [`No. ${u.n ? pad2(u.n) : "??"}${u.dial ? " · " + u.dial : ""}`,
+      `${esc(u.stage)}<br><span style="color:${C.faint};font-size:13px;">${esc(u.at)}</span>${u.email ? `<br><a href="mailto:${esc(u.email)}" style="color:${C.goldLit};">${esc(u.email)}</a>` : ""}${u.contact ? `<br><a href="tel:${esc(u.contact)}" style="color:${C.goldLit};">${esc(u.contact)}</a>` : ""}${wa ? ` · <a href="https://wa.me/${wa}" style="color:${C.goldLit};">WhatsApp</a>` : ""}`];
+  });
+  const leadRows = d.leads.map(l => [esc(l.source || "Series 02"), `<a href="mailto:${esc(l.email)}" style="color:${C.goldLit};">${esc(l.email)}</a><br><span style="color:${C.faint};font-size:13px;">${esc(l.at)}</span>`]);
+  const others = [
+    ["Pressed Choose your number", c.hero || 0], ["Picked a dial early", c.early_dial || 0], ["Followed a dial link", c.ctx_cta || 0],
+    ["Saw their caseback", c.caseback_view || 0], ["Added the gift card", c.gift || 0], ["Played the box film", c.film || 0],
+    ["Checked who is selling", c.provenance_click || 0], ["Opened a shared number", c.deeplink || 0]
+  ].filter(([, n]) => n).map(([k, n]) => [k, String(n)]);
+
+  const th = (t, al) => `<td align="${al || "right"}" style="padding:10px 8px;border-bottom:1px solid ${C.line};font-family:${SANS};font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${C.faint};">${t}</td>`;
+  const td = (t, al, hi) => `<td align="${al || "right"}" style="white-space:nowrap;padding:9px 8px;border-bottom:1px solid ${C.line};font-family:${SANS};font-size:14px;color:${hi ? C.bone : C.mute};">${t}</td>`;
+  const trend = `<tr><td class="px" style="padding:6px 32px 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:4px;">
+<tr><td colspan="5" style="padding:20px 16px 8px;font-family:${SERIF};font-size:21px;color:${C.bone};">The last seven days</td></tr>
+<tr>${th("Day", "left")}${th("Visitors")}${th("Cart")}${th("Checkout")}${th("Orders")}</tr>
+${d.trend.map(t => `<tr>${td(esc(dayLabel(t.day, true).replace(/ [A-Z][a-z]{2}$/, "")), "left", t.day === d.day)}${td(t.visitors, "right", t.day === d.day)}${td(t.numbers, "right", t.day === d.day)}${td(t.checkouts, "right", t.day === d.day)}${td(t.orders, "right", t.day === d.day)}</tr>`).join("")}
+<tr><td colspan="5" style="padding:0 0 10px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>`;
+
+  const notes = [
+    !d.counting ? "Visitor counts begin the day after the counter is switched on." : "",
+    !d.razorpay ? "Orders and checkouts need the Razorpay keys on the worker." : ""
+  ].filter(Boolean);
+
+  const body = [
+    eyebrow("Daily report"),
+    h1(esc(dayLabel(d.day))),
+    para(`${d.left} of ${d.edition} remain${d.sold.length ? ` · sold: ${d.sold.map(pad2).join(", ")}` : ""}`, { color: C.bone, pad: "0 32px 18px" }),
+    stats,
+    funnel,
+    d.orders.length ? card(plural(orders, "order"), orderRows) : "",
+    d.unfinished.length ? card("Nearly bought", nearlyRows) : "",
+    d.leads.length ? card(`${plural(leads, "new lead")} for Series 02`, leadRows) : "",
+    others.length ? card("Other moments", others) : "",
+    trend,
+    buttons([button(`https://dashboard.razorpay.com/app/payments`, "Open Razorpay", { ghost: true })]),
+    para(["Visitors are counted once per browser per day, without cookies; orders and checkouts come from Razorpay."].concat(notes).map(esc).join("<br>"), { size: 12, lh: 19, color: C.faint, pad: "0 32px 0" })
+  ].join("\n");
+
+  const text = [
+    `KAAL DAILY · ${dayLabel(d.day)}`,
+    `${d.left} of ${d.edition} remain${d.sold.length ? ` · sold: ${d.sold.map(pad2).join(", ")}` : ""}`, "",
+    `Visitors: ${visitors} · Page visits: ${c.visit || 0}`,
+    `Scrolled through the film: ${c.hero_complete || 0}`,
+    `Reached the twenty: ${c.view || 0}`,
+    `Chose a dial: ${(c.dial || 0) + (c.early_dial || 0)}`,
+    `Chose a number (add to cart): ${numbers}`,
+    `Opened checkout: ${checkouts}`,
+    `Paid: ${orders}${orders ? ` (${money})` : ""}`, "",
+    d.orders.length ? "ORDERS\n" + d.orders.map(o => `No. ${o.n ? pad2(o.n) : "??"}${o.dial ? " " + o.dial : ""} · ${o.amount} · ${o.at} · ${o.email || "no email"} · ${o.contact || "no phone"} · ${o.id}`).join("\n") + "\n" : "",
+    d.unfinished.length ? "NEARLY BOUGHT\n" + d.unfinished.map(u => `No. ${u.n ? pad2(u.n) : "??"} · ${u.stage} · ${u.at} · ${u.email || "no email"} · ${u.contact || "no phone"}`).join("\n") + "\n" : "",
+    d.leads.length ? "NEW LEADS (SERIES 02)\n" + d.leads.map(l => `${l.email} · ${l.source || "Series 02"} · ${l.at}`).join("\n") + "\n" : "",
+    "LAST SEVEN DAYS (visitors / cart / checkout / orders)",
+    ...d.trend.map(t => `${dayLabel(t.day, true)}: ${t.visitors} / ${t.numbers} / ${t.checkouts} / ${t.orders}`), "",
+    ...notes
+  ].filter(x => x !== "").join("\n");
+
+  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+}
+
 export const SUPPORT = { PHONE, PHONE_TEL, PHONE_WA };

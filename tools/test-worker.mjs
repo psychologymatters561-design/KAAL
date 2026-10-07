@@ -136,5 +136,73 @@ ok(r.status === 200 && (await r.json()).ok, "/list accepts a valid address");
 r = await post("/list", { email: "not-an-email" });
 ok(r.status === 400, "/list refuses an invalid address");
 
+/* ── 6. The daily count ── */
+const { Stats } = await import("../worker/kaal-sold-sync.js");
+const dobox = new Map();
+const statsObj = new Stats({ storage: { async get(k) { return dobox.get(k); }, async put(k, v) { dobox.set(k, JSON.parse(JSON.stringify(v))); } } });
+const STATS = { idFromName: () => "kaal", get: () => ({ fetch: (u, i) => statsObj.fetch(new Request(u, i)) }) };
+const envC = Object.assign({}, env, { STATS });
+const beacon = (body, origin = "https://thekaal.co", ua = "Mozilla/5.0 (iPhone)") => {
+  const k = ctx();
+  return w.fetch(new Request("https://w/e", { method: "POST", headers: { Origin: origin, "User-Agent": ua, "Content-Type": "text/plain" }, body: JSON.stringify(body) }), envC, k).then(async res => { await k.done(); return res; });
+};
+const realNow = Date.now;
+Date.now = () => Date.parse("2026-10-06T08:00:00Z");                         /* 13:30 in India, 6 Oct */
+r = await beacon({ c: { visit: 1, visitor: 1, view: 1, number: 2, checkout: 1, hero_complete: 1 } });
+await beacon({ c: { visit: 1, number: 999, evil: 5, "__proto__": 3 } });       /* capped, unknown names dropped */
+await beacon({ c: { visit: 1, visitor: 1 } }, "https://evil.example");          /* wrong origin: ignored */
+await beacon({ c: { visit: 1, visitor: 1 } }, "https://thekaal.co", "Googlebot/2.1");
+let day6 = dobox.get("d:2026-10-06") || {};
+ok(r.status === 204 && day6.visit === 2 && day6.visitor === 1 && day6.number === 12 && day6.checkout === 1 && !day6.evil, "count: tallied per India day, capped at 10 a beacon, unknown names, other sites and robots ignored");
+r = await w.fetch(new Request("https://w/e", { method: "POST", headers: { Origin: "https://thekaal.co" }, body: "{" }), env, ctx());
+ok(r.status === 204, "count: without the store, or with a broken body, it answers 204 and keeps nothing");
+
+/* ── 7. The morning report ── */
+mails.length = 0;
+dobox.set("d:2026-10-05", { visit: 40, visitor: 31, number: 3, checkout: 1 });
+KV.store.set("list:aaa", JSON.stringify({ email: "lead.one@example.com", at: "2026-10-06T06:30:00Z", source: "footer" }));
+KV.store.set("list:bbb", JSON.stringify({ email: "old.lead@example.com", at: "2026-09-20T06:30:00Z", source: "identity" }));
+KV.store.set("sold", "[1,2,3,9]");
+const at6 = (h, m) => Math.floor(Date.parse(`2026-10-06T${h}:${m}:00Z`) / 1000);
+const digestFetch = globalThis.fetch;
+globalThis.fetch = async (url, init) => {
+  url = String(url);
+  if (/\/v1\/payments\?/.test(url)) return new Response(JSON.stringify({ items: [
+    { id: "pay_D1", status: "captured", order_id: "order_D1", amount: 599900, email: "buyer.d1@example.com", contact: "+919876500001", created_at: at6("09", "15"), notes: { kaal_no: "03" } },
+    { id: "pay_F1", status: "failed", order_id: "order_F1", amount: 599900, email: "nearly@example.com", contact: "+919876500002", created_at: at6("10", "05"), error_description: "Bank declined", notes: {} },
+    { id: "pay_OLD", status: "captured", order_id: "order_OLD", amount: 599900, created_at: Math.floor(Date.parse("2026-10-02T09:00:00Z") / 1000), notes: { kaal_no: "09" } }
+  ] }));
+  if (/\/v1\/orders\?/.test(url)) return new Response(JSON.stringify({ items: [
+    { id: "order_D1", status: "paid", created_at: at6("09", "10"), notes: { kaal_no: "03" } },
+    { id: "order_F1", status: "attempted", created_at: at6("10", "00"), notes: { kaal_no: "11" } },
+    { id: "order_C1", status: "created", created_at: at6("11", "00"), notes: { kaal_no: "15" } }
+  ] }));
+  return digestFetch(url, init);
+};
+const tick = async (iso, e = envC) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, e, k); await k.done(); };
+await tick("2026-10-06T18:10:00Z");                                            /* 23:40 on 6 Oct in India: the day is not over */
+ok(mails.length === 0, "report: nothing before the day has ended, India time");
+await tick("2026-10-06T18:35:00Z");                                            /* 00:05 on 7 Oct in India */
+const rep = mails[0];
+ok(mails.length === 1 && rep.to.join() === "owner@thekaal.co,me@example.org" && /^KAAL daily · Tue 6 Oct · 1 order · 1 visitor · 1 lead$/.test(rep.subject), "report: one email just after midnight, to the owner, about the day that ended (" + (rep && rep.subject) + ")");
+ok(rep && /Chose a number \(add to cart\): 12/.test(rep.text) && /Opened checkout: 1/.test(rep.text) && /Paid: 1 \(₹5,999\)/.test(rep.text), "report: the day's funnel, with Razorpay's paid count and revenue");
+ok(rep && /No\. 03 Emerald · ₹5,999 .* buyer\.d1@example\.com/.test(rep.text) && !/pay_OLD/.test(rep.text), "report: yesterday's order with the buyer's contact, and only yesterday's");
+ok(rep && /No\. 11 · Payment failed: Bank declined .* nearly@example\.com/.test(rep.text) && /No\. 15 · Closed checkout before paying/.test(rep.text), "report: unfinished checkouts, with why and how to reach them");
+ok(rep && /lead\.one@example\.com · footer/.test(rep.text) && !/old\.lead/.test(rep.text), "report: yesterday's Series 02 leads only");
+ok(rep && /16 of 20 remain · sold: 01, 02, 03, 09/.test(rep.text) && /Mon 5 Oct: 31 \/ 3 \/ 1 \/ 0/.test(rep.text) && /Fri 2 Oct: 0 \/ 0 \/ 0 \/ 1/.test(rep.text), "report: what is left, and seven days of trend");
+ok(rep && /<html/.test(rep.html) && /wa\.me\/919876500002/.test(rep.html) && !/\u2014/.test(rep.text + rep.html + rep.subject), "report: branded HTML with a WhatsApp link, no em dashes");
+await tick("2026-10-06T19:05:00Z");                                            /* 00:35: the cron's second run that hour */
+ok(mails.length === 1, "report: once a day, not once a run");
+await tick("2026-10-07T18:35:00Z", Object.assign({}, envC, { DIGEST: "off" }));
+ok(mails.length === 1, "report: DIGEST off sends nothing");
+Date.now = realNow; globalThis.fetch = digestFetch;
+
+/* ── 8. Only the daily email, if the owner wants only that ── */
+mails.length = 0;
+const e9 = Object.assign({}, entity, { id: "pay_ALERTOFF", notes: { kaal_no: "05" } });
+const b9 = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: e9 } } });
+await hook(b9, Object.assign({}, env, { ORDER_ALERT: "off" }));
+ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[0].subject === "No. 05 is yours", "ORDER_ALERT off: the buyer still gets their confirmation, the owner waits for the daily report");
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

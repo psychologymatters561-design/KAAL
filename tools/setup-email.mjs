@@ -11,7 +11,8 @@
 
      CLOUDFLARE_API_TOKEN   "Edit Cloudflare Workers" token
      RESEND_API_KEY         Resend key with Full access (it adds the domain)
-     OWNER_EMAIL            where new orders go; several allowed, comma separated
+     OWNER_EMAIL            optional: where new orders and the morning report go;
+                            connect@thekaal.co when not set; several allowed, comma separated
      CLOUDFLARE_ACCOUNT_ID  optional; only if the token reaches several accounts
 
    In order, skipping whatever is already done:
@@ -58,10 +59,10 @@ const todo = (s) => console.log(`  • ${s}`);
 const stop = (s) => { console.log(`\n  ✗ ${s}\n`); process.exit(1); };
 
 const env = process.env;
-const missing = ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY", "OWNER_EMAIL"].filter(k => !env[k]);
+const missing = ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"].filter(k => !env[k]);
 if (missing.length && mode !== "test") stop(`Missing ${missing.join(", ")}. docs/setup-email.md, steps 1 to 3, says where each comes from and where it goes.`);
-if (mode === "test" && (!env.RESEND_API_KEY || !env.OWNER_EMAIL)) stop("Missing RESEND_API_KEY or OWNER_EMAIL.");
-const owners = String(env.OWNER_EMAIL || "").split(",").map(s => s.trim()).filter(Boolean);
+if (mode === "test" && !env.RESEND_API_KEY) stop("Missing RESEND_API_KEY.");
+const owners = String(env.OWNER_EMAIL || "connect@thekaal.co").split(",").map(s => s.trim()).filter(Boolean);
 if (owners.some(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) stop("OWNER_EMAIL does not look like an email address (or a comma-separated list of them).");
 
 async function api(base, path, { method = "GET", body, key } = {}) {
@@ -157,10 +158,11 @@ async function ensureSecrets() {
     else todo(`${k} is NOT set. Payments need it: run tools/deploy-worker.sh, which asks for it.`);
   }
   if (mode === "check") {
-    for (const k of ["RESEND_API_KEY", "OWNER_EMAIL"]) have.has(k) ? good(`${k} is set`) : todo(`${k} not set yet`);
+    have.has("RESEND_API_KEY") ? good("RESEND_API_KEY is set") : todo("RESEND_API_KEY not set yet");
+    have.has("OWNER_EMAIL") ? good("OWNER_EMAIL is set") : good("OWNER_EMAIL not set: orders and the morning report go to connect@thekaal.co");
     return;
   }
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL"]) {
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL"].filter(k => env[k])) {
     const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: k, text: env[k], type: "secret_text" } });
     if (!r.ok) stop(`Could not set ${k}: ${r.text.slice(0, 200)}`);
     good(`${k} ${have.has(k) ? "updated" : "set"}`);
@@ -229,10 +231,25 @@ async function domain() {
   return d;
 }
 
-/* ── 6. The four emails, to the owner ── */
+/* Made-up numbers, only so the morning report can be seen before a real one. */
+function sampleDigest() {
+  const day = new Date(Date.now() - 86400000 + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+  const trend = [];
+  for (let i = 6; i >= 0; i--) {
+    const dd = new Date(Date.parse(day + "T12:00:00Z") - i * 86400000).toISOString().slice(0, 10);
+    trend.push({ day: dd, visitors: 180 + i * 7, visits: 230 + i * 9, numbers: 6 + (i % 3), checkouts: 2 + (i % 2), orders: i === 3 ? 1 : 0 });
+  }
+  return { site: "https://thekaal.co", day, edition: 20, left: 16, sold: [1, 2, 3, 9], revenue: 599900, counting: true, razorpay: true,
+    c: { visit: 241, visitor: 187, hero_complete: 120, view: 66, dial: 21, early_dial: 9, number: 8, checkout: 3, caseback_view: 8, gift: 1, provenance_click: 4 },
+    orders: [{ n: 7, dial: "Midnight", amount: "₹5,999", paise: 599900, email: owners[0], contact: "+919311416678", id: "pay_SAMPLE0000001", at: "6 Oct 2026, 7:15 pm" }],
+    unfinished: [{ n: 11, dial: "Champagne", stage: "Payment failed: Bank declined", at: "6 Oct 2026, 3:20 pm", email: "sample@example.com", contact: "+919311416678" }],
+    leads: [{ email: "sample.lead@example.com", source: "footer", at: "6 Oct 2026, 11:02 am" }], trend };
+}
+
+/* ── 6. The emails, to the owner ── */
 async function testEmails() {
-  step("6. The four emails, sent to you");
-  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, arriveBy, indiaTime } = await import("../worker/mail.js");
+  step("6. The emails, sent to you as samples");
+  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, ownerDigest, arriveBy, indiaTime } = await import("../worker/mail.js");
   const at = new Date();
   const base = { site: "https://thekaal.co", n: 7, dial: "Midnight", amount: "₹5,999", paymentId: "pay_SAMPLE0000001", orderId: "order_SAMPLE00000001",
     email: owners[0], contact: "+919311416678", gift: true, giftNote: "A sample card, written by hand.", when: indiaTime(at), arriveBy: arriveBy(at),
@@ -242,7 +259,8 @@ async function testEmails() {
     ["What the buyer gets when they pay", buyerConfirmation(base)],
     ["What you get when they pay", ownerSale(base)],
     ["What you get when they give an address", ownerShip({ ...base, address: addr, buyerEmail: owners[0] })],
-    ["What the buyer gets when they give an address", buyerShip({ ...base, address: addr })]
+    ["What the buyer gets when they give an address", buyerShip({ ...base, address: addr })],
+    ["What you get at the end of every day (sample numbers)", ownerDigest(sampleDigest())]
   ];
   const from = "KAAL <connect@thekaal.co>";
   for (const [label, m] of mails) {

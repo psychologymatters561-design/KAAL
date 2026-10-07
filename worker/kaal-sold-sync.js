@@ -78,7 +78,7 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
-import { buyerConfirmation, ownerSale, ownerShip, buyerShip, arriveBy, indiaTime } from "./mail.js";
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, ownerDigest, arriveBy, indiaTime } from "./mail.js";
 
 const HOLD_SECONDS = 12 * 60;
 const KEY_SOLD = "sold";
@@ -101,6 +101,7 @@ export default {
     if (request.method === "POST" && path === "/callback") return postCallback(request, env);
     if (request.method === "GET" && path === "/receipt") return getReceipt(request, env, url);
     if (request.method === "POST" && path === "/shipping") return postShipping(request, env, ctx);
+    if (request.method === "POST" && path === "/e") return postCount(request, env, ctx);
     if (request.method === "POST") return webhook(request, env, ctx);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
@@ -111,6 +112,7 @@ export default {
      feature stays off. */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(abandonedCheckouts(env));
+    ctx.waitUntil(dailyDigest(env));
   }
 };
 
@@ -543,8 +545,13 @@ async function notifySale(env, entity, chosen) {
       shipUrl: entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}&n=${known ? pad2(chosen) : ""}#ship` : `${site}/claimed.html`
     };
 
-    const owner = ownerSale(d);
-    const sends = [sendEmail(env, ownerInbox(env), owner.subject, owner.text, owner.html, buyerOk ? buyer : undefined)];
+    const sends = [];
+    /* ORDER_ALERT = "off" leaves the owner only the daily report; a payment
+       whose number cannot be read is told to the owner regardless. */
+    if (env.ORDER_ALERT !== "off" || !known) {
+      const owner = ownerSale(d);
+      sends.push(sendEmail(env, ownerInbox(env), owner.subject, owner.text, owner.html, buyerOk ? buyer : undefined));
+    }
     if (buyerOk && known) {
       const mine = buyerConfirmation(d);
       sends.push(sendEmail(env, buyer, mine.subject, mine.text, mine.html));
@@ -920,6 +927,187 @@ async function sendEmail(env, to, subject, text, html, replyToOverride) {
     console.log("Email send threw:", String(e).slice(0, 120));
     return false;
   }
+}
+
+/* ══════════ 5. THE DAILY COUNT, AND THE MORNING REPORT ══════════
+
+   The page counts what visitors do in memory and sends the totals once,
+   when the page is hidden: one small request per visit, carrying numbers
+   and nothing else. No cookie, no identifier, no IP is kept; "visitor" is
+   the browser saying "first visit today", decided on the device. The
+   totals live in one Durable Object, keyed by the day in India, because
+   KV's free allowance (1,000 writes a day) is a busy morning of ads.
+
+   Once a day, in the hour DIGEST_HOUR_IST (just after midnight by default),
+   the cron sends the owner the day that has just ended, in one email: the counts, Razorpay's orders and
+   unfinished checkouts, new Series 02 leads, what is left of the edition,
+   and the last seven days. DIGEST = "off" stops it. ─────────────────── */
+
+const IST_MS = 5.5 * 3600 * 1000;
+const COUNTED = new Set(["visit", "visitor", "hero", "hero_complete", "early_dial", "ctx_cta", "view", "dial",
+  "number", "caseback_view", "gift", "checkout", "list", "film", "provenance_click", "deeplink"]);
+
+/* "2026-10-06": the calendar day in India for a moment in time. */
+function istDay(ms) { return new Date(ms + IST_MS).toISOString().slice(0, 10); }
+/* [from, to) in unix seconds for one day in India. */
+function istWindow(day) {
+  const start = Date.parse(day + "T00:00:00Z") - IST_MS;
+  return [Math.floor(start / 1000), Math.floor(start / 1000) + 86400];
+}
+
+async function postCount(request, env, ctx) {
+  const done = new Response(null, { status: 204, headers: cors(request, env) });
+  const origin = request.headers.get("Origin") || "";
+  const allowed = (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(x => x.trim());
+  if (allowed.indexOf(origin) < 0 || !env.STATS) return done;
+  if (/bot|crawl|spider|headless|lighthouse|preview/i.test(request.headers.get("User-Agent") || "")) return done;
+  let body;
+  try { body = JSON.parse((await request.text()).slice(0, 2000)); } catch (e) { return done; }
+  const add = {};
+  for (const k of Object.keys((body && body.c) || {}).slice(0, 32)) {
+    if (!COUNTED.has(k)) continue;
+    const n = Math.min(10, Math.max(0, parseInt(body.c[k], 10) || 0));
+    if (n) add[k] = n;
+  }
+  if (!Object.keys(add).length) return done;
+  const stub = env.STATS.get(env.STATS.idFromName("kaal"));
+  const write = stub.fetch("https://stats/add", { method: "POST", body: JSON.stringify({ day: istDay(Date.now()), add }) })
+    .catch(e => console.log("Count write failed:", String(e).slice(0, 120)));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(write); else await write;
+  return done;
+}
+
+/* The one place the counts are kept. Single-threaded by construction, so
+   two visits ending at once cannot lose each other's numbers. */
+export class Stats {
+  constructor(state) { this.state = state; }
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/add" && request.method === "POST") {
+      const { day, add } = await request.json();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "")) return new Response("bad day", { status: 400 });
+      const cur = (await this.state.storage.get("d:" + day)) || {};
+      for (const k of Object.keys(add || {})) cur[k] = (cur[k] || 0) + (parseInt(add[k], 10) || 0);
+      await this.state.storage.put("d:" + day, cur);
+      return new Response("ok");
+    }
+    if (url.pathname === "/get") {
+      const days = (url.searchParams.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 31);
+      const out = {};
+      for (const d of days) out[d] = (await this.state.storage.get("d:" + d)) || {};
+      return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  }
+}
+
+async function statsFor(env, days) {
+  if (!env.STATS) return {};
+  try {
+    const r = await env.STATS.get(env.STATS.idFromName("kaal")).fetch("https://stats/get?days=" + days.join(","));
+    return r.ok ? await r.json() : {};
+  } catch (e) { console.log("Count read failed:", String(e).slice(0, 120)); return {}; }
+}
+
+async function listOrders(env, from, to) {
+  const out = [];
+  try {
+    for (let skip = 0; skip < 500; skip += 100) {
+      const res = await fetch(`${RZP_API}/orders?from=${from}&to=${to}&count=100&skip=${skip}`, { headers: razorpayAuth(env) });
+      if (!res.ok) { console.log("Order listing failed:", res.status); return out; }
+      const items = ((await res.json()) || {}).items || [];
+      out.push(...items);
+      if (items.length < 100) break;
+    }
+  } catch (e) { console.log("Order listing threw:", String(e).slice(0, 120)); }
+  return out;
+}
+
+/* Series 02 sign-ups that arrived in the window, newest last. */
+async function leadsBetween(env, from, to) {
+  if (!env.KAAL_STATE) return [];
+  const out = [];
+  try {
+    let cursor;
+    do {
+      const page = await env.KAAL_STATE.list({ prefix: LIST_PREFIX, cursor });
+      for (const k of page.keys || []) {
+        const v = await env.KAAL_STATE.get(k.name, "json").catch(() => null);
+        const at = v && Date.parse(v.at) / 1000;
+        if (v && at >= from && at < to) out.push({ email: v.email, source: v.source || "", at: indiaTime(new Date(at * 1000)) });
+      }
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  } catch (e) { console.log("Lead listing failed:", String(e).slice(0, 120)); }
+  return out.sort((a, b) => (a.at < b.at ? -1 : 1));
+}
+
+async function digestData(env, day) {
+  const site = siteUrl(env);
+  const edition = parseInt(env.EDITION || "20", 10);
+  const days = [];
+  for (let i = 6; i >= 0; i--) days.push(istDay(Date.parse(day + "T12:00:00Z") - IST_MS - i * 86400000));
+  const counts = await statsFor(env, days);
+  const [from, to] = istWindow(day), from7 = istWindow(days[0])[0];
+
+  const rzp = !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
+  const pays = rzp ? ((await listPayments(env, from7, to)) || []) : [];
+  const captured = pays.filter(p => p.status === "captured" || p.status === "authorized");
+  const ordersOn = {};
+  for (const p of captured) { const dd = istDay(p.created_at * 1000); ordersOn[dd] = (ordersOn[dd] || 0) + 1; }
+
+  const orders = [];
+  for (const p of captured.filter(p => p.created_at >= from && p.created_at < to)) {
+    let n = parseInt((p.notes || {}).kaal_no, 10);
+    if (!n && p.order_id) n = await numberFromOrder(env, p.order_id);
+    orders.push({ n: n || 0, dial: n ? DIAL_OF(env, n) : "", amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`,
+      paise: p.amount || 0, email: p.email || "", contact: p.contact || "", id: p.id, at: indiaTime(new Date(p.created_at * 1000)) });
+  }
+
+  const paidOrders = new Set(captured.map(p => p.order_id).filter(Boolean));
+  const unfinished = [];
+  for (const o of rzp ? await listOrders(env, from, to) : []) {
+    if (o.status === "paid" || paidOrders.has(o.id)) continue;
+    const tries = pays.filter(p => p.order_id === o.id).sort((a, b) => b.created_at - a.created_at);
+    const t = tries[0];
+    const n = parseInt((o.notes || {}).kaal_no, 10) || 0;
+    unfinished.push({ n, dial: n ? DIAL_OF(env, n) : "", at: indiaTime(new Date(o.created_at * 1000)),
+      email: (t && t.email) || "", contact: (t && t.contact) || "",
+      stage: t ? (t.status === "failed" ? "Payment failed" + (t.error_description ? `: ${String(t.error_description).slice(0, 80)}` : "") : `Payment ${t.status}`)
+               : "Closed checkout before paying" });
+  }
+
+  const sold = (await knownSold(env)) || [];
+  const c = counts[day] || {};
+  return {
+    site, day, edition, c, orders, unfinished,
+    leads: await leadsBetween(env, from, to),
+    sold: sold.slice().sort((a, b) => a - b), left: Math.max(0, edition - sold.length),
+    revenue: orders.reduce((t, o) => t + o.paise, 0),
+    trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, visits: (counts[dd] || {}).visit || 0,
+      numbers: (counts[dd] || {}).number || 0, checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
+    counting: !!env.STATS, razorpay: rzp
+  };
+}
+
+/* Once a day, in the hour the owner chose. The cron runs every thirty
+   minutes; the store remembers which mornings were sent, and without a
+   store only the first half of the hour sends. */
+async function dailyDigest(env) {
+  try {
+    if (env.DIGEST === "off") return;
+    if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) return;
+    const now = Date.now(), ist = new Date(now + IST_MS);
+    if (ist.getUTCHours() !== parseInt(env.DIGEST_HOUR_IST || "0", 10)) return;
+    const day = istDay(now - 86400000);
+    if (env.KAAL_STATE) {
+      const key = "digest:" + day;
+      if (await env.KAAL_STATE.get(key).catch(() => null)) return;
+      await env.KAAL_STATE.put(key, "1", { expirationTtl: 40 * 24 * 3600 });
+    } else if (ist.getUTCMinutes() >= 30) return;
+    const m = ownerDigest(await digestData(env, day));
+    await sendEmail(env, ownerInbox(env), m.subject, m.text, m.html);
+  } catch (e) { console.log("Daily report threw:", String(e).slice(0, 160)); }
 }
 
 /* ══════════ 4. PLUMBING ══════════ */

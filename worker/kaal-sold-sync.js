@@ -44,6 +44,9 @@
      POST /shipping     where the watch goes, given after paying, once the
                         payment is proved; tells the owner at once
 
+     GET  /desk         the owner's private desk (section 6): passcode only,
+                        never linked from the site, invisible to robots
+
      POST /list {email} the Series 02 list: one address, stored under the
                         hash of itself, rate limited, nothing else kept
      scheduled()        the abandoned-checkout email. Built, and OFF until
@@ -78,6 +81,9 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, ownerDigest, arriveBy, arriveByDay, indiaTime } from "./mail.js";
+import { deskPage } from "./desk.js";
+
 const HOLD_SECONDS = 12 * 60;
 const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
@@ -85,9 +91,14 @@ const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
+
+    /* The owner's desk answers for itself, before anything that would
+       hand thekaal.co a CORS header: no other site may read it. */
+    if (path === "/desk" || path.startsWith("/desk/")) return desk(request, env, ctx, path);
+    if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
 
     if (request.method === "OPTIONS") return preflight(request, env);
 
@@ -98,8 +109,9 @@ export default {
     if (request.method === "POST" && path === "/list") return postList(request, env);
     if (request.method === "POST" && path === "/callback") return postCallback(request, env);
     if (request.method === "GET" && path === "/receipt") return getReceipt(request, env, url);
-    if (request.method === "POST" && path === "/shipping") return postShipping(request, env);
-    if (request.method === "POST") return webhook(request, env);   /* Razorpay posts to the root */
+    if (request.method === "POST" && path === "/shipping") return postShipping(request, env, ctx);
+    if (request.method === "POST" && path === "/e") return postCount(request, env, ctx);
+    if (request.method === "POST") return webhook(request, env, ctx);   /* Razorpay posts to the root */
 
     return new Response("KAAL edition worker is alive.", { status: 200 });
   },
@@ -109,6 +121,7 @@ export default {
      feature stays off. */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(abandonedCheckouts(env));
+    ctx.waitUntil(dailyDigest(env));
   }
 };
 
@@ -433,13 +446,25 @@ async function getReceipt(request, env, url) {
     payment_id: good ? good.id : null,
     created_at: order.created_at,
     gift: !!(order.notes && order.notes.gift === "yes"),
-    shipping
+    shipping,
+    /* Only what the receipt page needs to say "a confirmation is on its
+       way to ra•••@gmail.com", and only when an email is actually sent. */
+    mail: !!(env.RESEND_API_KEY || env.BREVO_API_KEY) && !!(good && good.email),
+    email_hint: good && good.email ? maskEmail(good.email) : ""
   }, { "Cache-Control": "no-store" });
 }
 
 function cleanField(v, max) { return cleanNote(v, max); }
 
-async function postShipping(request, env) {
+/* "rahul.sharma@gmail.com" → "ra•••@gmail.com": enough for a buyer to
+   recognise their own address, not enough to read someone else's. */
+function maskEmail(e) {
+  const m = /^([^@]+)@(.+)$/.exec(String(e || "").trim());
+  if (!m) return "";
+  return m[1].slice(0, Math.min(2, m[1].length)) + "\u2022\u2022\u2022@" + m[2];
+}
+
+async function postShipping(request, env, ctx) {
   let body;
   try { body = await request.json(); }
   catch (e) { return json(request, env, { ok: false, reason: "bad-request" }, {}, 400); }
@@ -474,22 +499,26 @@ async function postShipping(request, env) {
     } catch (e) { console.log("Shipping KV write failed:", String(e).slice(0, 120)); }
   }
 
-  const addr = [a.name, a.line1, a.line2, `${a.city}, ${a.state} ${a.pin}`, `Phone ${a.phone}`].filter(Boolean).join("\n");
-  const owner = env.OWNER_EMAIL || "connect@thekaal.co";
-  await sendEmail(env, owner,
-    `${updated ? "Address updated" : "Ship to"} · No. ${pad2(n)}`,
-    `No. ${pad2(n)} ${updated ? "has a new delivery address" : "goes here"}:\n\n${addr}\n\nOrder ${orderId}${good ? `, payment ${good.id}` : ""}.${order.notes && order.notes.gift === "yes" ? `\nGift: yes${order.notes.gift_note ? `. Card: "${order.notes.gift_note}"` : ""}. No price in the box.` : ""}`);
-  const buyerEmail = good && good.email;
-  if (buyerEmail && validEmail(String(buyerEmail).toLowerCase())) {
-    await sendEmail(env, buyerEmail, `No. ${pad2(n)} will come to you here`,
-      `We have your address for No. ${pad2(n)}:\n\n${addr}\n\nIf anything in it is wrong, reply to this email before it is dispatched and we will correct it.\n\nKAAL`);
-  }
+  const buyerEmail = good && good.email && validEmail(String(good.email).toLowerCase()) ? String(good.email) : "";
+  const paidAt = good && good.created_at ? new Date(good.created_at * 1000) : new Date();
+  const d = {
+    site: siteUrl(env), n, dial: DIAL_OF(env, n), address: a, updated, orderId,
+    paymentId: good ? good.id : "", buyerEmail, arriveBy: arriveBy(paidAt),
+    gift: !!(order.notes && order.notes.gift === "yes"), giftNote: (order.notes && order.notes.gift_note) || ""
+  };
+  const toOwner = ownerShip(d), toBuyer = buyerShip(d);
+  const mail = Promise.all([
+    sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html, buyerEmail || undefined),
+    buyerEmail ? sendEmail(env, buyerEmail, toBuyer.subject, toBuyer.text, toBuyer.html) : null
+  ]).catch(e => console.log("Shipping emails threw:", String(e).slice(0, 160)));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(mail); else await mail;
   return json(request, env, { ok: true, updated });
 }
 
 /* One email to the owner and one to the buyer, for every captured payment,
    once. Sent through the same provider as the rest (Resend or Brevo). With
-   no provider key it logs and returns: a sale is never held up by mail. */
+   no provider key it logs and returns: a sale is never held up by mail.
+   The words and the look live in worker/mail.js. */
 async function notifySale(env, entity, chosen) {
   try {
     if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) { console.log("Sale emails skipped: no RESEND_API_KEY or BREVO_API_KEY."); return; }
@@ -499,37 +528,53 @@ async function notifySale(env, entity, chosen) {
       if (await env.KAAL_STATE.get(key).catch(() => null)) return;
       await env.KAAL_STATE.put(key, "1", { expirationTtl: 90 * 24 * 3600 });
     }
-    const n = pad2(chosen), site = siteUrl(env);
+    const edition = parseInt(env.EDITION || "20", 10);
+    const known = Number.isInteger(chosen) && chosen >= 1 && chosen <= edition;
+    const site = siteUrl(env);
     const order = entity.order_id ? await readOrder(env, entity.order_id) : null;
     const notes = (order && order.notes) || entity.notes || {};
-    const dial = DIAL_OF(env, chosen);
-    const amount = `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`;
-    const sold = (await knownSold(env)) || [];
-    const edition = parseInt(env.EDITION || "20", 10);
-    const left = Math.max(0, edition - Math.max(sold.length, 1));
-
-    const owner = env.OWNER_EMAIL || "connect@thekaal.co";
-    await sendEmail(env, owner, `Sold · No. ${n}${dial ? " · " + dial : ""} · ${amount}`,
-      [`No. ${n}${dial ? ` (${dial})` : ""} has sold.`, "",
-       `Amount: ${amount}`, `Payment: ${paymentId}`, entity.order_id ? `Order: ${entity.order_id}` : "",
-       `Buyer email: ${entity.email || "not given"}`, `Buyer phone: ${entity.contact || "not given"}`,
-       notes.gift === "yes" ? `Gift: yes${notes.gift_note ? `. Card: "${notes.gift_note}"` : ""}. No price in the box.` : "Gift: no",
-       "", "Delivery address: the buyer was asked for it on the confirmation page. A second email comes the moment they give it.",
-       `${left} of ${edition} remain.`, "", `Razorpay: https://dashboard.razorpay.com/app/payments/${paymentId}`
-      ].filter(x => x !== "").join("\n"));
-
-    const buyer = String(entity.email || "").trim();
-    if (buyer && validEmail(buyer.toLowerCase())) {
-      const ship = entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}#ship` : `${site}/claimed.html`;
-      await sendEmail(env, buyer, `No. ${n} is yours`,
-        [`No. ${n} is yours.`, "",
-         `Series 01${dial ? `, ${dial} dial` : ""}. ${amount} received. Payment reference ${paymentId}.`, "",
-         "What happens next: we inspect it, box it and dispatch it within five working days, anywhere in India. Tracking comes to this address the day it leaves.", "",
-         `Where should it go? If you have not told us yet: ${ship}`, "",
-         "Questions: reply to this email, or call +91 93114 16678. A person answers.", "",
-         "KAAL"].join("\n"));
+    const sold = new Set((await knownSold(env)) || []);
+    if (known) sold.add(chosen);
+    let address = null;
+    if (env.KAAL_STATE && entity.order_id) {
+      try { address = JSON.parse((await env.KAAL_STATE.get("ship:" + entity.order_id)) || "null"); } catch (e) { address = null; }
     }
+    const paidAt = entity.created_at ? new Date(entity.created_at * 1000) : new Date();
+    const buyer = String(entity.email || "").trim();
+    const buyerOk = buyer && validEmail(buyer.toLowerCase());
+    const d = {
+      site, n: known ? chosen : 0, dial: known ? DIAL_OF(env, chosen) : "",
+      amount: `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`,
+      paymentId, orderId: entity.order_id || "",
+      email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
+      gift: notes.gift === "yes", giftNote: notes.gift_note || "",
+      when: indiaTime(paidAt), arriveBy: arriveBy(paidAt),
+      left: Math.max(0, edition - sold.size), edition,
+      address, hasAddress: !!address,
+      shipUrl: entity.order_id ? `${site}/claimed.html?o=${encodeURIComponent(entity.order_id)}&n=${known ? pad2(chosen) : ""}#ship` : `${site}/claimed.html`
+    };
+
+    const sends = [];
+    /* ORDER_ALERT = "off" leaves the owner only the daily report; a payment
+       whose number cannot be read is told to the owner regardless. */
+    if (env.ORDER_ALERT !== "off" || !known) {
+      const owner = ownerSale(d);
+      sends.push(sendEmail(env, ownerInbox(env), owner.subject, owner.text, owner.html, buyerOk ? buyer : undefined));
+    }
+    if (buyerOk && known) {
+      const mine = buyerConfirmation(d);
+      sends.push(sendEmail(env, buyer, mine.subject, mine.text, mine.html));
+    }
+    await Promise.all(sends);
   } catch (e) { console.log("Sale emails threw:", String(e).slice(0, 160)); }
+}
+
+/* Where the owner's emails go. A secret, not a var, so a personal inbox
+   never appears in the public repository; several may be given, separated
+   by commas. Without it, the shop's own address. */
+function ownerInbox(env) {
+  const list = String(env.OWNER_EMAIL || "connect@thekaal.co").split(",").map(x => x.trim()).filter(x => validEmail(x.toLowerCase()));
+  return list.length ? list : ["connect@thekaal.co"];
 }
 
 /* The dial a number carries. The page's config is the source of truth;
@@ -544,12 +589,17 @@ function DIAL_OF(env, n) {
 
 /* ══════════ 3. WHAT RAZORPAY SAYS ══════════ */
 
-async function webhook(request, env) {
+async function webhook(request, env, ctx) {
   const rawBody   = await request.text();
   const signature = request.headers.get("x-razorpay-signature") || "";
 
   const valid = await verifySignature(rawBody, signature, env.RAZORPAY_WEBHOOK_SECRET);
   if (!valid) return new Response("Signature mismatch.", { status: 400 });
+  /* For the desk's health list: when Razorpay last reached this worker. */
+  if (env.KAAL_STATE) {
+    const seen = env.KAAL_STATE.put("seen:webhook", new Date().toISOString()).catch(() => null);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(seen); else await seen;
+  }
 
   let event;
   try { event = JSON.parse(rawBody); }
@@ -580,6 +630,14 @@ async function webhook(request, env) {
      here. The old `chosen > 20` was a second copy of `edition`, and the
      day the edition changes is exactly the day nobody would think to
      look in a worker for the reason a real sale went unrecorded. */
+  /* The emails go now, beside the commit rather than after it. Writing
+     the sale to GitHub takes seconds, and a buyer refreshing their inbox
+     should not wait on it; nor should a retry that finds the sale already
+     recorded skip them. notifySale sends each payment's pair once (KV),
+     and a payment with no usable number still reaches the owner. */
+  const mail = notifySale(env, entity, chosen);
+  if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
+
   const commit = await commitSold(env, chosen, paymentId);
 
   if (commit.status === "bad-number") {
@@ -603,7 +661,7 @@ async function webhook(request, env) {
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
   await sendPurchaseToMeta(env, entity, chosen);
-  await notifySale(env, entity, chosen);
+  if (!(ctx && ctx.waitUntil)) await mail;
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
 
@@ -849,26 +907,32 @@ async function listPayments(env, from, to) {
 /* Resend if its key is set, Brevo if that one is. Plain text only, from
    ABANDON_FROM, replies to connect@thekaal.co unless ABANDON_REPLY_TO says
    otherwise. A refused send is logged and never retried. */
-async function sendEmail(env, to, subject, text) {
+async function sendEmail(env, to, subject, text, html, replyToOverride) {
   const from    = env.MAIL_FROM || env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
-  const replyTo = env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  const replyTo = replyToOverride || env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
+  const list    = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!list.length) return false;
   try {
     let res;
     if (env.RESEND_API_KEY) {
+      const msg = { from, to: list, subject, text, reply_to: replyTo };
+      if (html) msg.html = html;
       res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, text, reply_to: replyTo })
+        body: JSON.stringify(msg)
       });
     } else {
       const m = /^(.*?)\s*<([^>]+)>$/.exec(from);
+      const msg = {
+        sender: m ? { name: m[1] || "KAAL", email: m[2] } : { name: "KAAL", email: from },
+        to: list.map(email => ({ email })), subject, textContent: text, replyTo: { email: replyTo }
+      };
+      if (html) msg.htmlContent = html;
       res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          sender: m ? { name: m[1] || "KAAL", email: m[2] } : { name: "KAAL", email: from },
-          to: [{ email: to }], subject, textContent: text, replyTo: { email: replyTo }
-        })
+        body: JSON.stringify(msg)
       });
     }
     if (!res.ok) { console.log("Email provider refused:", res.status, (await res.text()).slice(0, 200)); return false; }
@@ -877,6 +941,507 @@ async function sendEmail(env, to, subject, text) {
     console.log("Email send threw:", String(e).slice(0, 120));
     return false;
   }
+}
+
+/* ══════════ 5. THE DAILY COUNT, AND THE MORNING REPORT ══════════
+
+   The page counts what visitors do in memory and sends the totals once,
+   when the page is hidden: one small request per visit, carrying numbers
+   and nothing else. No cookie, no identifier, no IP is kept; "visitor" is
+   the browser saying "first visit today", decided on the device. The
+   totals live in one Durable Object, keyed by the day in India, because
+   KV's free allowance (1,000 writes a day) is a busy morning of ads.
+
+   Once a day, in the hour DIGEST_HOUR_IST (just after midnight by default),
+   the cron sends the owner the day that has just ended, in one email: the counts, Razorpay's orders and
+   unfinished checkouts, new Series 02 leads, what is left of the edition,
+   and the last seven days. DIGEST = "off" stops it. ─────────────────── */
+
+const IST_MS = 5.5 * 3600 * 1000;
+const COUNTED = new Set(["visit", "visitor", "hero", "hero_complete", "early_dial", "ctx_cta", "view", "dial",
+  "number", "caseback_view", "gift", "checkout", "list", "film", "provenance_click", "deeplink"]);
+
+/* "2026-10-06": the calendar day in India for a moment in time. */
+function istDay(ms) { return new Date(ms + IST_MS).toISOString().slice(0, 10); }
+/* [from, to) in unix seconds for one day in India. */
+function istWindow(day) {
+  const start = Date.parse(day + "T00:00:00Z") - IST_MS;
+  return [Math.floor(start / 1000), Math.floor(start / 1000) + 86400];
+}
+
+async function postCount(request, env, ctx) {
+  const done = new Response(null, { status: 204, headers: cors(request, env) });
+  const origin = request.headers.get("Origin") || "";
+  const allowed = (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(x => x.trim());
+  if (allowed.indexOf(origin) < 0 || !env.STATS) return done;
+  if (/bot|crawl|spider|headless|lighthouse|preview/i.test(request.headers.get("User-Agent") || "")) return done;
+  let body;
+  try { body = JSON.parse((await request.text()).slice(0, 2000)); } catch (e) { return done; }
+  const add = {};
+  for (const k of Object.keys((body && body.c) || {}).slice(0, 32)) {
+    if (!COUNTED.has(k)) continue;
+    const n = Math.min(10, Math.max(0, parseInt(body.c[k], 10) || 0));
+    if (n) add[k] = n;
+  }
+  if (!Object.keys(add).length) return done;
+  const stub = env.STATS.get(env.STATS.idFromName("kaal"));
+  const write = stub.fetch("https://stats/add", { method: "POST", body: JSON.stringify({ day: istDay(Date.now()), add }) })
+    .catch(e => console.log("Count write failed:", String(e).slice(0, 120)));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(write); else await write;
+  return done;
+}
+
+/* The one place the counts are kept. Single-threaded by construction, so
+   two visits ending at once cannot lose each other's numbers. */
+export class Stats {
+  constructor(state) { this.state = state; }
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/add" && request.method === "POST") {
+      const { day, add } = await request.json();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "")) return new Response("bad day", { status: 400 });
+      const cur = (await this.state.storage.get("d:" + day)) || {};
+      for (const k of Object.keys(add || {})) cur[k] = (cur[k] || 0) + (parseInt(add[k], 10) || 0);
+      await this.state.storage.put("d:" + day, cur);
+      return new Response("ok");
+    }
+    if (url.pathname === "/get") {
+      const days = (url.searchParams.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 31);
+      const out = {};
+      for (const d of days) out[d] = (await this.state.storage.get("d:" + d)) || {};
+      return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  }
+}
+
+async function statsFor(env, days) {
+  if (!env.STATS) return {};
+  try {
+    const r = await env.STATS.get(env.STATS.idFromName("kaal")).fetch("https://stats/get?days=" + days.join(","));
+    return r.ok ? await r.json() : {};
+  } catch (e) { console.log("Count read failed:", String(e).slice(0, 120)); return {}; }
+}
+
+async function listOrders(env, from, to) {
+  const out = [];
+  try {
+    for (let skip = 0; skip < 500; skip += 100) {
+      const res = await fetch(`${RZP_API}/orders?from=${from}&to=${to}&count=100&skip=${skip}`, { headers: razorpayAuth(env) });
+      if (!res.ok) { console.log("Order listing failed:", res.status); return out; }
+      const items = ((await res.json()) || {}).items || [];
+      out.push(...items);
+      if (items.length < 100) break;
+    }
+  } catch (e) { console.log("Order listing threw:", String(e).slice(0, 120)); }
+  return out;
+}
+
+/* Series 02 sign-ups that arrived in the window, newest last. */
+async function leadsBetween(env, from, to) {
+  if (!env.KAAL_STATE) return [];
+  const out = [];
+  try {
+    let cursor;
+    do {
+      const page = await env.KAAL_STATE.list({ prefix: LIST_PREFIX, cursor });
+      for (const k of page.keys || []) {
+        const v = await env.KAAL_STATE.get(k.name, "json").catch(() => null);
+        const at = v && Date.parse(v.at) / 1000;
+        if (v && at >= from && at < to) out.push({ email: v.email, source: v.source || "", ts: at, at: indiaTime(new Date(at * 1000)) });
+      }
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  } catch (e) { console.log("Lead listing failed:", String(e).slice(0, 120)); }
+  return out.sort((a, b) => a.ts - b.ts);
+}
+
+/* Every paid order of the last SALES_DAYS days, newest first, with where
+   each one stands: the address, the dispatch, the day it is due. The desk
+   and the morning report both read this, so the two can never disagree. */
+const SALES_DAYS = 120;
+async function ledger(env, nowMs) {
+  const now = Math.floor(nowMs / 1000);
+  const rzp = !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
+  const pays = rzp ? await listPayments(env, now - SALES_DAYS * 86400, now) : null;
+  const orders = [];
+  let lookups = 0;
+  const paid = (pays || []).filter(p => p.status === "captured" || p.status === "authorized" || p.status === "refunded")
+    .sort((a, b) => b.created_at - a.created_at);
+  for (const p of paid) {
+    const notes = p.notes || {};
+    let n = parseInt(notes.kaal_no, 10);
+    if (!n && p.order_id && lookups < 25) { lookups++; n = await numberFromOrder(env, p.order_id); }
+    n = n || 0;
+    let address = null, sent = null;
+    if (env.KAAL_STATE && p.order_id) {
+      address = await env.KAAL_STATE.get("ship:" + p.order_id, "json").catch(() => null);
+      sent = await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null);
+    }
+    const at = new Date(p.created_at * 1000), back = p.amount_refunded || 0;
+    orders.push({
+      n, dial: n ? DIAL_OF(env, n) : "", id: p.id, orderId: p.order_id || "",
+      amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`, paise: p.amount || 0,
+      email: p.email || "", contact: p.contact || "", ts: p.created_at, day: istDay(p.created_at * 1000), at: indiaTime(at),
+      gift: notes.gift === "yes", giftNote: notes.gift_note || "",
+      due: arriveBy(at), dueDay: arriveByDay(at), address, sent,
+      refund: p.status === "refunded" || (back && back >= (p.amount || 0)) ? "full" : back ? "part" : ""
+    });
+  }
+  return { rzp, pays, orders };
+}
+
+/* Checkouts opened in the window that never became a payment, with how far
+   each got and how to reach the person, when Razorpay knows. */
+async function unfinishedBetween(env, pays, from, to) {
+  const paidOrders = new Set(pays.filter(p => p.status === "captured" || p.status === "authorized" || p.status === "refunded").map(p => p.order_id).filter(Boolean));
+  const out = [];
+  for (const o of await listOrders(env, from, to)) {
+    if (o.status === "paid" || paidOrders.has(o.id)) continue;
+    /* The latest try says how far they got; a person often tries twice,
+       and only one of the tries may carry their email, phone or the bank's
+       reason, so those come from whichever try has them. */
+    const tries = pays.filter(p => p.order_id === o.id).sort((a, b) => b.created_at - a.created_at);
+    const t = tries[0], has = (k) => (tries.find(p => p[k]) || {})[k] || "";
+    const why = (tries.find(p => p.status === "failed" && p.error_description) || {}).error_description;
+    const n = parseInt((o.notes || {}).kaal_no, 10) || 0;
+    out.push({ n, dial: n ? DIAL_OF(env, n) : "", ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
+      email: has("email"), contact: has("contact"),
+      stage: t ? (t.status === "failed" ? "Payment failed" + (why ? `: ${String(why).slice(0, 80)}` : "") + (tries.length > 1 ? ` (${tries.length} tries)` : "") : `Payment ${t.status}`)
+               : "Closed checkout before paying" });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+async function digestData(env, day) {
+  const site = siteUrl(env);
+  const edition = parseInt(env.EDITION || "20", 10);
+  const days = [];
+  for (let i = 6; i >= 0; i--) days.push(istDay(Date.parse(day + "T12:00:00Z") - IST_MS - i * 86400000));
+  const nowMs = Date.now();
+  const [counts, L, soldRaw] = await Promise.all([statsFor(env, days), ledger(env, nowMs), knownSold(env)]);
+  const [from, to] = istWindow(day);
+
+  const live = L.orders.filter(o => o.refund !== "full");
+  const ordersOn = {};
+  for (const o of live) ordersOn[o.day] = (ordersOn[o.day] || 0) + 1;
+  const orders = L.orders.filter(o => o.ts >= from && o.ts < to);
+  const unfinished = L.rzp ? await unfinishedBetween(env, L.pays || [], from, to) : [];
+
+  const sold = soldRaw || [];
+  const c = counts[day] || {};
+  return {
+    site, day, edition, c, orders, unfinished,
+    leads: await leadsBetween(env, from, to),
+    sold: sold.slice().sort((a, b) => a - b), left: Math.max(0, edition - sold.length),
+    revenue: orders.filter(o => o.refund !== "full").reduce((t, o) => t + o.paise, 0),
+    trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, visits: (counts[dd] || {}).visit || 0,
+      numbers: (counts[dd] || {}).number || 0, checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
+    alerts: alertsFor(env, L, soldRaw, nowMs),
+    deskUrl: env.DESK_PASSCODE ? workerUrl(env) + "/desk" : "",
+    counting: !!env.STATS, razorpay: L.rzp
+  };
+}
+
+/* Once a day, in the hour the owner chose. The cron runs every thirty
+   minutes; the store remembers which mornings were sent, and without a
+   store only the first half of the hour sends. */
+async function dailyDigest(env) {
+  try {
+    if (env.DIGEST === "off") return;
+    if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) return;
+    const now = Date.now(), ist = new Date(now + IST_MS);
+    if (ist.getUTCHours() !== parseInt(env.DIGEST_HOUR_IST || "0", 10)) return;
+    const day = istDay(now - 86400000);
+    if (env.KAAL_STATE) {
+      const key = "digest:" + day;
+      if (await env.KAAL_STATE.get(key).catch(() => null)) return;
+      await env.KAAL_STATE.put(key, "1", { expirationTtl: 40 * 24 * 3600 });
+    } else if (ist.getUTCMinutes() >= 30) return;
+    const m = ownerDigest(await digestData(env, day));
+    await sendEmail(env, ownerInbox(env), m.subject, m.text, m.html);
+  } catch (e) { console.log("Daily report threw:", String(e).slice(0, 160)); }
+}
+
+/* ══════════ 6. THE DESK ══════════
+
+   One private page for the owner, at <worker>/desk: today so far, every
+   order and where it stands, who nearly bought, the Series 02 list, the
+   twenty, and whatever needs doing. Nothing on thekaal.co links to it,
+   robots are told to stay out, and it opens only with the passcode in
+   DESK_PASSCODE, a worker secret. Without that secret it stays shut.
+
+   A right passcode earns a cookie that lasts thirty days on that device:
+   the expiry, signed with a key made from the passcode, so changing the
+   passcode signs every device out. Wrong passcodes are counted per
+   connection (a salted hash, like the list's limiter), and the ninth in
+   fifteen minutes is refused unread. The page loads nothing from any
+   other site, and no other site can read anything from it.
+
+     GET  /desk              the page (it asks for the passcode itself)
+     POST /desk/login        {passcode}
+     POST /desk/logout
+     GET  /desk/data         everything the page shows, as JSON
+     GET  /desk/orders.csv   every order, with addresses, for the books
+     GET  /desk/leads.csv    the whole Series 02 list
+     POST /desk/dispatch     {o, courier, tracking, url, notify} marks an
+                             order sent and, if asked, emails the buyer
+                             their tracking; {o, undo:true} takes it back
+   ─────────────────── */
+
+const DESK_COOKIE = "kaal_desk";
+const DESK_DAYS = 30;
+const DESK_TRIES = 8, DESK_TRIES_SECONDS = 15 * 60;
+const ADDRESS_AFTER = 6 * 3600;   /* paid this long ago with no address: ask them */
+
+function workerUrl(env) { return String(env.WORKER_URL || "https://kaal-edition.kaal-edition-hq.workers.dev").replace(/\/+$/, ""); }
+
+function deskHeaders(extra) {
+  return Object.assign({
+    "Cache-Control": "no-store",
+    "X-Robots-Tag": "noindex, nofollow, noarchive",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
+  }, extra || {});
+}
+function deskJson(body, status, extra) {
+  return new Response(JSON.stringify(body), { status: status || 200, headers: deskHeaders(Object.assign({ "Content-Type": "application/json" }, extra || {})) });
+}
+
+/* The signing key mixes the passcode with a secret that never leaves the
+   worker, so a stolen cookie cannot be used to guess the passcode offline. */
+const deskKey = (env) => `kaal-desk|${env.DESK_PASSCODE}|${env.RAZORPAY_KEY_SECRET || env.GITHUB_TOKEN || ""}`;
+async function deskSession(request, env) {
+  if (!env.DESK_PASSCODE) return false;
+  const m = new RegExp(`(?:^|;\\s*)${DESK_COOKIE}=(\\d{10,15})\\.([0-9a-f]{64})`).exec(request.headers.get("Cookie") || "");
+  if (!m || !(parseInt(m[1], 10) > Date.now())) return false;
+  return timingSafeEqual(await hmacHex("desk|" + m[1], deskKey(env)), m[2]);
+}
+
+/* Every write the desk makes carries X-Desk and comes from the desk's own
+   address. A form on another site can do neither, and SameSite=Strict
+   keeps the cookie off its requests anyway. */
+function deskWrite(request) {
+  if (request.headers.get("X-Desk") !== "1") return false;
+  const origin = request.headers.get("Origin");
+  return !origin || origin === new URL(request.url).origin;
+}
+
+async function desk(request, env, ctx, path) {
+  const method = request.method;
+  if (path === "/desk" && method === "GET") {
+    const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+    return new Response(deskPage(nonce), { headers: deskHeaders({
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+    }) });
+  }
+  if (path === "/desk/login" && method === "POST") return deskLogin(request, env);
+  if (path === "/desk/logout" && method === "POST") {
+    if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+    return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=; Path=/desk; Max-Age=0; HttpOnly; Secure; SameSite=Strict` });
+  }
+  if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
+  if (!(await deskSession(request, env))) return deskJson({ ok: false, reason: "signed-out" }, 401);
+  if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
+  if (path === "/desk/orders.csv" && method === "GET") return deskOrdersCsv(env);
+  if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
+  if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
+  return deskJson({ ok: false, reason: "not-found" }, 404);
+}
+
+async function deskLogin(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  const rl = "rl:desk:" + (await sha256hex(`${ip}|${env.LIST_SALT || "kaal-desk"}`)).slice(0, 32);
+  const tries = env.KAAL_STATE ? parseInt((await env.KAAL_STATE.get(rl).catch(() => null)) || "0", 10) || 0 : 0;
+  if (tries >= DESK_TRIES) return deskJson({ ok: false, reason: "rate" }, 429);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const given = String((body && body.passcode) || "").trim().slice(0, 200);
+  /* Compared as hashes, so the comparison takes the same time whatever
+     the lengths. */
+  const right = given && timingSafeEqual(await sha256hex("desk|" + given), await sha256hex("desk|" + String(env.DESK_PASSCODE).trim()));
+  if (!right) {
+    if (env.KAAL_STATE) await env.KAAL_STATE.put(rl, String(tries + 1), { expirationTtl: DESK_TRIES_SECONDS }).catch(() => null);
+    return deskJson({ ok: false, reason: "wrong" }, 401);
+  }
+  const exp = String(Date.now() + DESK_DAYS * 86400000);
+  const token = exp + "." + (await hmacHex("desk|" + exp, deskKey(env)));
+  return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=${token}; Path=/desk; Max-Age=${DESK_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict` });
+}
+
+/* What needs the owner, most urgent kind first. "act" is a job; "note" is
+   worth knowing. The morning report carries the acts; the desk shows both. */
+function alertsFor(env, L, sold, nowMs) {
+  const out = [], now = Math.floor(nowMs / 1000), today = istDay(nowMs);
+  const byN = {};
+  for (const o of L.orders) {
+    if (o.refund === "full") continue;
+    const no = `No. ${pad2(o.n)}`;
+    if (!o.n) {
+      out.push({ level: "act", kind: "unknown", id: o.id, title: `A payment of ${o.amount} has no watch number`, detail: `${o.at}. Open it in Razorpay, read the notes, and mark the number sold by hand.` });
+      continue;
+    }
+    (byN[o.n] = byN[o.n] || []).push(o);
+    if (sold && sold.indexOf(o.n) < 0) {
+      out.push({ level: "act", kind: "unsold", n: o.n, title: `${no} is paid for, but the site still offers it`, detail: "Add it to sold in index.html, and check the worker's GitHub token." });
+    }
+    if (o.sent) continue;
+    if (!o.address && now - o.ts >= ADDRESS_AFTER) {
+      out.push({ level: "act", kind: "address", n: o.n, orderId: o.orderId, title: `${no}: no delivery address yet`, detail: `Paid ${o.at}. Send them the address link, or mark it dispatched if it has already gone.` });
+    }
+    if (today > o.dueDay) out.push({ level: "act", kind: "late", n: o.n, orderId: o.orderId, title: `${no}: dispatch is late`, detail: `It was promised by ${o.due}. If it has already gone, mark it dispatched.` });
+    else if (today === o.dueDay) out.push({ level: "act", kind: "due", n: o.n, orderId: o.orderId, title: `${no}: dispatch today`, detail: `It was promised by ${o.due}.` });
+  }
+  for (const n of Object.keys(byN)) {
+    if (byN[n].length > 1) out.push({ level: "act", kind: "double", n: +n, title: `No. ${pad2(+n)} was paid for ${byN[n].length} times`, detail: "One watch, more than one buyer: refund the later payment in Razorpay and write to them." });
+  }
+  if (L.rzp && L.pays === null) out.push({ level: "act", kind: "razorpay", title: "Razorpay refused to list payments", detail: "Orders cannot be read. Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the worker." });
+  if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) out.push({ level: "act", kind: "mail", title: "Nothing is being emailed", detail: "Buyers get no confirmation and you get no report until RESEND_API_KEY is set (docs/setup-email.md)." });
+  const failedToday = (L.pays || []).filter(p => p.status === "failed" && istDay(p.created_at * 1000) === today).length;
+  if (failedToday >= 3) out.push({ level: "note", kind: "failures", title: `${failedToday} payments failed today`, detail: "If they share one reason in Razorpay, a payment method may be refusing." });
+  if (sold) {
+    const left = Math.max(0, parseInt(env.EDITION || "20", 10) - sold.length);
+    if (left === 0) out.push({ level: "note", kind: "complete", title: "The edition is complete", detail: "All twenty have gone." });
+    else if (left <= 3) out.push({ level: "note", kind: "few", title: `${left} of ${env.EDITION || 20} remain`, detail: "" });
+  }
+  const order = ["unknown", "double", "unsold", "late", "due", "address", "razorpay", "mail"];
+  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === "act" ? -1 : 1) || (order.indexOf(a.kind) - order.indexOf(b.kind)));
+}
+
+async function deskData(env) {
+  const nowMs = Date.now(), now = Math.floor(nowMs / 1000);
+  const today = istDay(nowMs), yesterday = istDay(nowMs - 86400000);
+  const days = [];
+  for (let i = 6; i >= 0; i--) days.push(istDay(nowMs - i * 86400000));
+  const site = siteUrl(env), edition = parseInt(env.EDITION || "20", 10);
+  const [counts, L, soldRaw] = await Promise.all([statsFor(env, days), ledger(env, nowMs), knownSold(env)]);
+  const pays = L.pays || [];
+  const unfinished = L.rzp ? await unfinishedBetween(env, pays, istWindow(yesterday)[0], now + 60) : [];
+  const leads = await leadsBetween(env, 0, now + 60);
+
+  const held = [];
+  let lastHook = null, lastDigest = null;
+  if (env.KAAL_STATE) {
+    try {
+      for (const k of (await env.KAAL_STATE.list({ prefix: HOLD_PREFIX })).keys) {
+        const n = parseInt(k.name.slice(HOLD_PREFIX.length), 10);
+        if (n) held.push(n);
+      }
+    } catch (e) { /* no holds shown */ }
+    lastHook = await env.KAAL_STATE.get("seen:webhook").catch(() => null);
+    try {
+      const keys = (await env.KAAL_STATE.list({ prefix: "digest:" })).keys.map(k => k.name.slice(7)).sort();
+      lastDigest = keys.length ? keys[keys.length - 1] : null;
+    } catch (e) { lastDigest = null; }
+  }
+
+  const live = L.orders.filter(o => o.refund !== "full");
+  const ordersOn = {}, revenueOn = {};
+  for (const o of live) { ordersOn[o.day] = (ordersOn[o.day] || 0) + 1; revenueOn[o.day] = (revenueOn[o.day] || 0) + o.paise; }
+  const sold = soldRaw ? soldRaw.slice().sort((a, b) => a - b) : null;
+  const dials = {};
+  for (let n = 1; n <= edition; n++) dials[n] = DIAL_OF(env, n);
+  const mail = !!(env.RESEND_API_KEY || env.BREVO_API_KEY);
+  const hour = parseInt(env.DIGEST_HOUR_IST || "0", 10);
+
+  return {
+    ok: true, now: indiaTime(new Date(nowMs)), today, yesterday, site, edition,
+    c: { today: counts[today] || {}, yesterday: counts[yesterday] || {} },
+    paid: { today: ordersOn[today] || 0, yesterday: ordersOn[yesterday] || 0, todayPaise: revenueOn[today] || 0, yesterdayPaise: revenueOn[yesterday] || 0 },
+    trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, numbers: (counts[dd] || {}).number || 0,
+      checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
+    sold, held, dials, left: sold ? Math.max(0, edition - sold.length) : null,
+    orders: L.orders.map(o => Object.assign({}, o, {
+      shipUrl: o.orderId ? `${site}/claimed.html?o=${encodeURIComponent(o.orderId)}&n=${o.n ? pad2(o.n) : ""}#ship` : ""
+    })),
+    revenue: live.reduce((t, o) => t + o.paise, 0),
+    unfinished,
+    leads: { total: leads.length, today: leads.filter(l => istDay(l.ts * 1000) === today).length, recent: leads.slice(-50).reverse() },
+    alerts: alertsFor(env, L, soldRaw, nowMs),
+    health: [
+      { ok: mail, label: "Emails", detail: mail ? `Order emails go to buyers, and alerts and the daily report to ${ownerInbox(env).join(", ")}.` : "Not sending: RESEND_API_KEY is not set on the worker." },
+      { ok: L.rzp && L.pays !== null, label: "Razorpay", detail: !L.rzp ? "No keys on the worker: orders cannot be read." : L.pays === null ? "The keys are set, but Razorpay refused the listing." : `Reading payments from the last ${SALES_DAYS} days.` },
+      { ok: !!lastHook || !live.length, label: "Payment webhook", detail: lastHook ? `Last heard from Razorpay ${indiaTime(new Date(lastHook))}.` : "Not heard from since this desk was switched on. It is heard at the next payment." },
+      { ok: !!env.KAAL_STATE, label: "Store", detail: env.KAAL_STATE ? "Holds, addresses, dispatches and the Series 02 list are kept." : "Not connected: addresses, holds and the Series 02 list are not kept." },
+      { ok: !!env.STATS, label: "Visitor count", detail: env.STATS ? `${(counts[today] || {}).visit || 0} page visits counted today, without cookies.` : "Not connected: the daily report has no visitor numbers." },
+      { ok: !!(env.GITHUB_TOKEN && env.GITHUB_OWNER), label: "Sold list", detail: env.GITHUB_TOKEN ? "Each sale is written to the site within a minute." : "No GITHUB_TOKEN: sales are not written to the site." },
+      { ok: env.DIGEST !== "off" && mail, label: "Daily report", detail: env.DIGEST === "off" ? "Switched off (DIGEST in wrangler.toml)." : `Every day at ${hour === 0 ? "midnight" : hour + ":00"}, India time${lastDigest ? `; last one covered ${lastDigest}` : ""}.` }
+    ],
+    counting: !!env.STATS, razorpay: L.rzp
+  };
+}
+
+/* The buyer's confirmation promised tracking "the day it leaves". This is
+   how that promise is kept: one tap on the desk, the courier and number,
+   and (when ticked) the email. The record is kept even when the email is
+   not wanted, so an order sent before the desk existed stops being flagged. */
+async function deskDispatch(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.KAAL_STATE) return deskJson({ ok: false, reason: "no-store" }, 503);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const orderId = String((body && body.o) || "");
+  if (!ORDER_ID.test(orderId)) return deskJson({ ok: false, reason: "bad-order" }, 400);
+  const key = "sent:" + orderId;
+  if (body.undo === true) { await env.KAAL_STATE.delete(key); return deskJson({ ok: true, undone: true }); }
+
+  const courier = cleanField(body.courier, 40), tracking = cleanField(body.tracking, 60);
+  let url = cleanField(body.url, 300);
+  if (url && !/^https:\/\/[^\s"'<>]+$/i.test(url)) url = "";
+
+  const order = await readOrder(env, orderId);
+  const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
+  if (!order || !n) return deskJson({ ok: false, reason: "unknown-order" }, 404);
+  const pays = await paymentsOf(env, orderId);
+  const good = pays.find(p => p.status === "captured" || p.status === "authorized");
+  if (order.status !== "paid" && !good) return deskJson({ ok: false, reason: "not-paid" }, 409);
+
+  const before = await env.KAAL_STATE.get(key, "json").catch(() => null);
+  const rec = { at: new Date().toISOString(), courier, tracking, url, mailed: (before && before.mailed) || "" };
+  const buyer = good && good.email && validEmail(String(good.email).toLowerCase()) ? String(good.email) : "";
+  let mailed = false;
+  if (body.notify === true && buyer) {
+    const address = await env.KAAL_STATE.get("ship:" + orderId, "json").catch(() => null);
+    const paidAt = good.created_at ? new Date(good.created_at * 1000) : new Date();
+    /* The arrival date is only repeated while it is still ahead. */
+    const promise = arriveByDay(paidAt) > istDay(Date.now()) ? arriveBy(paidAt) : "";
+    const m = buyerDispatched({ site: siteUrl(env), n, courier, tracking, url, arriveBy: promise, address });
+    mailed = await sendEmail(env, buyer, m.subject, m.text, m.html);
+    if (mailed) rec.mailed = rec.at;
+  }
+  await env.KAAL_STATE.put(key, JSON.stringify(rec));
+  return deskJson({ ok: true, mailed, to: mailed ? maskEmail(buyer) : "", sent: rec });
+}
+
+/* A spreadsheet opens these. A cell that starts like a formula is made
+   plain text, so a name typed as "=HYPERLINK(...)" stays a name. */
+function csvCell(v) {
+  let s = String(v == null ? "" : v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function csv(rows, name) {
+  const text = "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return new Response(text, { headers: deskHeaders({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}-${istDay(Date.now())}.csv"` }) });
+}
+async function deskOrdersCsv(env) {
+  const L = await ledger(env, Date.now());
+  const rows = [["Number", "Dial", "Paid (India time)", "Amount (INR)", "Payment", "Order", "Email", "Phone", "Gift", "Gift card",
+    "Name", "Address line 1", "Address line 2", "City", "State", "PIN", "Delivery phone", "Dispatched", "Courier", "Tracking", "Refund"]];
+  for (const o of L.orders.slice().reverse()) {
+    const a = o.address || {}, s = o.sent || {};
+    rows.push([o.n ? pad2(o.n) : "", o.dial, o.at, (o.paise / 100).toFixed(2), o.id, o.orderId, o.email, o.contact, o.gift ? "yes" : "", o.giftNote,
+      a.name, a.line1, a.line2, a.city, a.state, a.pin, a.phone, s.at ? indiaTime(new Date(s.at)) : "", s.courier, s.tracking, o.refund]);
+  }
+  return csv(rows, "kaal-orders");
+}
+async function deskLeadsCsv(env) {
+  const leads = await leadsBetween(env, 0, Math.floor(Date.now() / 1000) + 60);
+  return csv([["Email", "Form", "Joined (India time)"]].concat(leads.map(l => [l.email, l.source, l.at])), "kaal-series-02");
 }
 
 /* ══════════ 4. PLUMBING ══════════ */

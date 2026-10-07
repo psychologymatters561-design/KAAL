@@ -40,8 +40,9 @@ reference. It never returns an email, a phone number or an address.
    npx wrangler secret put RESEND_API_KEY
    ```
 
-3. Check `wrangler.toml`: `OWNER_EMAIL` is where your sale emails go,
-   `MAIL_FROM` is the sender Resend verified.
+3. Where your sale emails go is the `OWNER_EMAIL` secret, not a line in
+   `wrangler.toml`. `docs/setup-email.md` sets it, with the Resend key and
+   the domain, in one command (`node tools/setup-email.mjs`).
 4. If you have not yet, create the KV namespace. Its id goes into
    `wrangler.toml`. It makes `/callback`, the address store and the
    no-duplicate-emails guard work:

@@ -191,6 +191,8 @@ ok(rep && /No\. 11 · Payment failed: Bank declined .* nearly@example\.com/.test
 ok(rep && /lead\.one@example\.com · footer/.test(rep.text) && !/old\.lead/.test(rep.text), "report: yesterday's Series 02 leads only");
 ok(rep && /16 of 20 remain · sold: 01, 02, 03, 09/.test(rep.text) && /Mon 5 Oct: 31 \/ 3 \/ 1 \/ 0/.test(rep.text) && /Fri 2 Oct: 0 \/ 0 \/ 0 \/ 1/.test(rep.text), "report: what is left, and seven days of trend");
 ok(rep && /<html/.test(rep.html) && /wa\.me\/919876500002/.test(rep.html) && !/\u2014/.test(rep.text + rep.html + rep.subject), "report: branded HTML with a WhatsApp link, no em dashes");
+ok(rep && /NEEDS YOU\nNo\. 03: no delivery address yet/.test(rep.text) && /No\. 09: no delivery address yet/.test(rep.text) && /Needs you/.test(rep.html), "report: opens with what needs doing (orders still without an address)");
+ok(rep && !/Open the desk/.test(rep.html), "report: no desk button while the desk is switched off");
 await tick("2026-10-06T19:05:00Z");                                            /* 00:35: the cron's second run that hour */
 ok(mails.length === 1, "report: once a day, not once a run");
 await tick("2026-10-07T18:35:00Z", Object.assign({}, envC, { DIGEST: "off" }));
@@ -203,6 +205,134 @@ const e9 = Object.assign({}, entity, { id: "pay_ALERTOFF", notes: { kaal_no: "05
 const b9 = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: e9 } } });
 await hook(b9, Object.assign({}, env, { ORDER_ALERT: "off" }));
 ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[0].subject === "No. 05 is yours", "ORDER_ALERT off: the buyer still gets their confirmation, the owner waits for the daily report");
+
+
+/* ── 9. The owner's desk ── */
+{
+  const deskEnv = Object.assign({}, envC, { DESK_PASSCODE: "brass-quiet-lantern-42" });
+  const D = (path, init = {}, e = deskEnv) => w.fetch(new Request("https://kaal-edition.example.workers.dev" + path, init), e, ctx());
+  const W = (path, body, extra = {}, e = deskEnv) => D(path, { method: "POST", headers: Object.assign({ "Content-Type": "application/json", "X-Desk": "1", "cf-connecting-ip": "5.5.5.5" }, extra), body: JSON.stringify(body) }, e);
+
+  r = await D("/desk", {}, envC);
+  const page = await r.text();
+  const nonce = (/script-src 'nonce-([^']+)'/.exec(r.headers.get("Content-Security-Policy") || "") || [])[1];
+  ok(r.status === 200 && /noindex/.test(r.headers.get("X-Robots-Tag")) && /<meta name="robots" content="noindex/.test(page) && r.headers.get("Cache-Control") === "no-store", "desk: the page is served, told to robots as private, never cached");
+  ok(nonce && page.includes(`<script nonce="${nonce}">`) && /frame-ancestors 'none'/.test(r.headers.get("Content-Security-Policy")) && !/https?:\/\/(?!dashboard\.razorpay\.com|wa\.me)[a-z]/i.test(page.replace(/href="https:\/\/(wa\.me|dashboard\.razorpay\.com)[^"]*"/g, "")), "desk: only its own script runs, it cannot be framed, and it loads nothing from elsewhere");
+  r = await D("/desk/data", {}, envC);
+  ok(r.status === 503 && (await r.json()).reason === "off", "desk: shut while DESK_PASSCODE is not set");
+  r = await D("/robots.txt");
+  ok(/Disallow: \//.test(await r.text()), "robots.txt: the whole worker is off limits to crawlers");
+
+  r = await D("/desk/data");
+  ok(r.status === 401, "desk: no data without signing in");
+  r = await D("/desk/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode: "brass-quiet-lantern-42" }) });
+  ok(r.status === 403, "desk: a sign-in from anywhere but the desk itself is refused");
+  r = await W("/desk/login", { passcode: "brass-quiet-lantern-4" });
+  ok(r.status === 401 && !r.headers.get("Set-Cookie"), "desk: a wrong passcode gets nothing");
+  r = await W("/desk/login", { passcode: " brass-quiet-lantern-42 " }, { Origin: "https://evil.example" });
+  ok(r.status === 403, "desk: a sign-in posted from another site is refused");
+  r = await W("/desk/login", { passcode: " brass-quiet-lantern-42 " });
+  const cookie = (r.headers.get("Set-Cookie") || "");
+  ok(r.status === 200 && /^kaal_desk=\d+\.[0-9a-f]{64};/.test(cookie) && /HttpOnly/.test(cookie) && /Secure/.test(cookie) && /SameSite=Strict/.test(cookie) && /Path=\/desk/.test(cookie), "desk: the right passcode gets a signed, HttpOnly, SameSite=Strict cookie for /desk only");
+  const jar = { Cookie: cookie.split(";")[0] };
+
+  /* A shop with some history, 7 Oct 2026, 1:30 pm in India. */
+  const T = (iso) => Math.floor(Date.parse(iso) / 1000);
+  Date.now = () => Date.parse("2026-10-07T08:00:00Z");
+  KV.store.set("sold", "[1,2,3,12]");
+  KV.store.set("ship:order_B", JSON.stringify({ at: "2026-10-07T07:00:00Z", name: "Meera <Iyer>", phone: "+919800000001", line1: "4 Lake Road", line2: "", city: "Pune", state: "Maharashtra", pin: "411001" }));
+  KV.store.set("sent:order_D", JSON.stringify({ at: "2026-10-03T10:00:00Z", courier: "Delhivery", tracking: "DL123", url: "", mailed: "" }));
+  KV.store.set("hold:15", JSON.stringify({ until: Date.now() + 600000 }));
+  KV.store.set("list:ccc", JSON.stringify({ email: "today.lead@example.com", at: "2026-10-07T05:00:00Z", source: "stillness" }));
+  dobox.set("d:2026-10-07", { visit: 12, visitor: 9, number: 2, checkout: 1, view: 5 });
+  const deskFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/payments\?/.test(url)) return new Response(JSON.stringify({ items: [
+      { id: "pay_A", status: "captured", order_id: "order_A", amount: 599900, email: "late.buyer@example.com", contact: "+919800000002", created_at: T("2026-09-28T09:00:00Z"), notes: { kaal_no: "03", gift: "yes", gift_note: "=HYPERLINK(\"x\")" } },
+      { id: "pay_B", status: "captured", order_id: "order_B", amount: 599900, email: "meera@example.com", contact: "+919800000001", created_at: T("2026-10-07T06:00:00Z"), notes: { kaal_no: "07" } },
+      { id: "pay_C", status: "refunded", order_id: "order_C", amount: 599900, amount_refunded: 599900, email: "gone@example.com", created_at: T("2026-10-01T06:00:00Z"), notes: { kaal_no: "05" } },
+      { id: "pay_D", status: "captured", order_id: "order_D", amount: 599900, email: "sent@example.com", created_at: T("2026-10-01T06:00:00Z"), notes: {} },
+      { id: "pay_F1", status: "failed", order_id: "order_X", amount: 599900, email: "try@example.com", contact: "+919800000009", created_at: T("2026-10-07T04:00:00Z"), error_description: "Card declined", notes: {} },
+      { id: "pay_F2", status: "failed", order_id: "order_X", amount: 599900, created_at: T("2026-10-07T04:01:00Z"), notes: {} },
+      { id: "pay_F3", status: "failed", order_id: "order_X", amount: 599900, created_at: T("2026-10-07T04:02:00Z"), notes: {} }
+    ] }));
+    if (/\/v1\/orders\?/.test(url)) return new Response(JSON.stringify({ items: [
+      { id: "order_X", status: "attempted", created_at: T("2026-10-07T03:59:00Z"), notes: { kaal_no: "11" } },
+      { id: "order_B", status: "paid", created_at: T("2026-10-07T05:59:00Z"), notes: { kaal_no: "07" } }
+    ] }));
+    if (/\/orders\/order_D$/.test(url)) return new Response(JSON.stringify({ id: "order_D", status: "paid", notes: { kaal_no: "12" } }));
+    return deskFetch(url, init);
+  };
+
+  r = await D("/desk/data", { headers: jar });
+  d = await r.json();
+  ok(r.status === 200 && !r.headers.get("Access-Control-Allow-Origin"), "desk data: signed in, and no other site may read it (no CORS)");
+  const kinds = d.alerts.map(a => a.kind + ":" + (a.n || ""));
+  ok(kinds.includes("late:3") && kinds.includes("address:3") && kinds.includes("unsold:7") && kinds.includes("failures:") && kinds.indexOf("unsold:7") < kinds.indexOf("late:3"), "desk alerts: late dispatch, missing address, a paid number the site still offers, a run of failed payments (" + kinds.join(", ") + ")");
+  ok(!kinds.some(k => /:5$|:12$/.test(k)) && !kinds.includes("address:7"), "desk alerts: nothing for a refunded order, a dispatched one, or one paid an hour ago");
+  const byId = Object.fromEntries(d.orders.map(o => [o.id, o]));
+  ok(byId.pay_D.n === 12 && byId.pay_D.sent.tracking === "DL123" && byId.pay_C.refund === "full" && byId.pay_B.address.city === "Pune", "desk orders: number read from the order when the payment lacks it, dispatches, refunds and addresses attached");
+  ok(d.revenue === 3 * 599900 && d.paid.today === 1 && d.left === 16 && d.held.includes(15), "desk: money taken leaves out the refund; today's orders, what remains, what is held");
+  ok(d.c.today.visitor === 9 && d.unfinished.length === 1 && d.unfinished[0].n === 11 && /Payment failed: Card declined \(3 tries\)/.test(d.unfinished[0].stage) && d.unfinished[0].contact === "+919800000009" && d.unfinished[0].email === "try@example.com", "desk: today's count, and the checkout that nearly happened, with the reason and contact from whichever try had them");
+  ok(d.leads.total === 4 && d.leads.today >= 1 && d.leads.recent.every((l, i, a) => !i || a[i - 1].ts >= l.ts) && d.leads.recent.some(l => l.email === "today.lead@example.com"), "desk: the whole Series 02 list, newest first");
+  ok(d.health.length >= 6 && d.health.every(h => typeof h.ok === "boolean" && h.label && h.detail), "desk: a health line for each moving part");
+
+  /* Read as bytes: Response.text() quietly drops the byte-order mark being checked for. */
+  const csvOf = async (res) => { const b = new Uint8Array(await res.arrayBuffer()); return { bom: b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf, text: new TextDecoder("utf-8", { ignoreBOM: true }).decode(b).replace(/^﻿/, "") }; };
+  r = await D("/desk/orders.csv", { headers: jar });
+  let csvOut = await csvOf(r), csvText = csvOut.text;
+  ok(/attachment; filename="kaal-orders-2026-10-07\.csv"/.test(r.headers.get("Content-Disposition")) && csvOut.bom && /^Number,Dial,/.test(csvText), "orders.csv: downloads, opens cleanly in Excel");
+  ok(/"'=HYPERLINK\(""x""\)"/.test(csvText) && /\n07,,.*Meera <Iyer>,4 Lake Road/.test(csvText), "orders.csv: a gift note that looks like a formula stays text; addresses included");
+  r = await D("/desk/leads.csv", { headers: jar });
+  csvOut = await csvOf(r); csvText = csvOut.text;
+  ok(csvOut.bom && /^Email,Form,Joined/.test(csvText) && /today\.lead@example\.com,stillness/.test(csvText) && /asha@example\.com/.test(csvText), "leads.csv: the whole list");
+
+  /* Forged, stale and old-passcode cookies. */
+  const forged = jar.Cookie.replace(/.$/, c => (c === "0" ? "1" : "0"));
+  r = await D("/desk/data", { headers: { Cookie: forged } });
+  ok(r.status === 401, "desk: a cookie with a forged signature is refused");
+  const stale = String(Date.now() - 1000);
+  const staleSig = createHmac("sha256", "kaal-desk|brass-quiet-lantern-42|sek").update("desk|" + stale).digest("hex");
+  r = await D("/desk/data", { headers: { Cookie: `kaal_desk=${stale}.${staleSig}` } });
+  ok(r.status === 401, "desk: a correctly signed cookie past its thirty days is refused");
+  r = await D("/desk/data", { headers: jar }, Object.assign({}, deskEnv, { DESK_PASSCODE: "a-new-passcode-99" }));
+  ok(r.status === 401, "desk: changing the passcode signs every device out");
+
+  /* Dispatch, and the tracking email the confirmation promised. */
+  mails.length = 0;
+  r = await D("/desk/dispatch", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ o: "order_TESTORDER1" }) });
+  ok(r.status === 403, "dispatch: refused without the desk's own header");
+  r = await W("/desk/dispatch", { o: "order_TESTORDER1", courier: "Blue Dart", tracking: "BD 7788", url: "javascript:alert(1)", notify: true }, jar);
+  d = await r.json();
+  const sentRec = JSON.parse(KV.store.get("sent:order_TESTORDER1") || "{}");
+  const tr = mails.find(m => m.to[0] === "rahul.sharma@example.com");
+  ok(d.ok && d.mailed && d.to === "ra•••@example.com" && sentRec.courier === "Blue Dart" && sentRec.url === "" && sentRec.mailed, "dispatch: recorded, a non-https tracking link dropped, the buyer emailed");
+  ok(tr && tr.subject === "No. 09 is on its way" && /Courier: Blue Dart/.test(tr.text) && /Tracking number: BD 7788/.test(tr.text) && /caseback-09\.png/.test(tr.html) && /Kolkata/.test(tr.text) && !/javascript:/.test(tr.html), "dispatch email: courier, tracking, where it is going, their engraved number");
+  ok(mails.length === 1, "dispatch: the owner is not emailed about their own tap");
+  mails.length = 0;
+  r = await W("/desk/dispatch", { o: "order_TESTORDER1", courier: "Blue Dart", tracking: "BD 7788", notify: false }, jar);
+  ok((await r.json()).ok && mails.length === 0 && JSON.parse(KV.store.get("sent:order_TESTORDER1")).mailed, "dispatch: correcting a record without the email sends nothing, and remembers the earlier email");
+  r = await W("/desk/dispatch", { o: "order_TESTORDER1", undo: true }, jar);
+  ok((await r.json()).undone && !KV.store.has("sent:order_TESTORDER1"), "dispatch: undo takes the mark back");
+  orderStatus = "created"; payStatus = "failed";
+  r = await W("/desk/dispatch", { o: "order_UNPAID001", courier: "x", notify: true }, jar);
+  ok(r.status === 409, "dispatch: refused for an order that was never paid");
+  orderStatus = "paid"; payStatus = "captured";
+  r = await W("/desk/dispatch", { o: "../../etc" }, jar);
+  ok(r.status === 400, "dispatch: a malformed order id is refused");
+
+  /* The digest, with the desk on, links to it. */
+  r = await W("/desk/logout", {}, jar);
+  ok(/kaal_desk=;.*Max-Age=0/.test(r.headers.get("Set-Cookie") || ""), "desk: sign out clears the cookie");
+
+  /* Nine wrong passcodes from one connection: the ninth try is not even read. */
+  for (let i = 0; i < 8; i++) await W("/desk/login", { passcode: "guess-" + i }, { "cf-connecting-ip": "9.9.9.9" });
+  r = await W("/desk/login", { passcode: "brass-quiet-lantern-42" }, { "cf-connecting-ip": "9.9.9.9" });
+  ok(r.status === 429, "desk: eight wrong passcodes in fifteen minutes and that connection is refused, even with the right one");
+
+  globalThis.fetch = deskFetch; Date.now = realNow;
+}
 
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

@@ -4,32 +4,39 @@
 
      node tools/setup-email.mjs            do everything below that is not done yet
      node tools/setup-email.mjs --check    only report where things stand
-     node tools/setup-email.mjs --test     send the four sample emails to the owner
+     node tools/setup-email.mjs --test     send the sample emails to the owner
 
-   Reads three values from the environment, never from the command line,
-   never prints them, never writes them to disk:
+   Reads these from the environment, never from the command line, never
+   prints them, never writes them to disk:
 
      CLOUDFLARE_API_TOKEN   "Edit Cloudflare Workers" token
      RESEND_API_KEY         Resend key with Full access (it adds the domain)
      OWNER_EMAIL            optional: where new orders and the morning report go;
                             connect@thekaal.co when not set; several allowed, comma separated
      CLOUDFLARE_ACCOUNT_ID  optional; only if the token reaches several accounts
+     DESK_PASSCODE          optional: the passcode for the owner's desk (/desk),
+                            at least 10 characters. Without it, and with no
+                            passcode on the worker yet, one is made and emailed
+                            to the owner; it is never printed
 
    In order, skipping whatever is already done:
      1. the KAAL_STATE store the worker keeps holds, receipts and the
         no-duplicate-email guard in (created, and bound in wrangler.toml)
      2. deploy worker/ (the payment return, the receipt, the emails)
-     3. the RESEND_API_KEY and OWNER_EMAIL secrets on the worker
+     3. the RESEND_API_KEY, OWNER_EMAIL and DESK_PASSCODE secrets on the worker
      4. confirm the live worker answers v2, which switches the page's
         return address and Series 02 forms on by themselves
      5. register thekaal.co with Resend and print the DNS records to add
         at GoDaddy, then check whether they have been added
-     6. once the domain is verified, send the four emails to the owner
+     6. once the domain is verified, send the sample emails to the owner
+     7. the desk: when no passcode was given and none exists, make one, set
+        it, and email it to the owner (only once sending works)
 
    Nothing here touches index.html, Razorpay, or the existing Razorpay and
    GitHub secrets on the worker. docs/setup-email.md is the human version.
    ══════════════════════════════════════════════════════════════════ */
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -64,6 +71,7 @@ if (missing.length && mode !== "test") stop(`Missing ${missing.join(", ")}. docs
 if (mode === "test" && !env.RESEND_API_KEY) stop("Missing RESEND_API_KEY.");
 const owners = String(env.OWNER_EMAIL || "connect@thekaal.co").split(",").map(s => s.trim()).filter(Boolean);
 if (owners.some(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) stop("OWNER_EMAIL does not look like an email address (or a comma-separated list of them).");
+if (env.DESK_PASSCODE && String(env.DESK_PASSCODE).trim().length < 10) stop("DESK_PASSCODE is shorter than 10 characters. Choose a longer one: four unrelated words work well.");
 
 async function api(base, path, { method = "GET", body, key } = {}) {
   let res;
@@ -160,9 +168,11 @@ async function ensureSecrets() {
   if (mode === "check") {
     have.has("RESEND_API_KEY") ? good("RESEND_API_KEY is set") : todo("RESEND_API_KEY not set yet");
     have.has("OWNER_EMAIL") ? good("OWNER_EMAIL is set") : good("OWNER_EMAIL not set: orders and the morning report go to connect@thekaal.co");
+    have.has("DESK_PASSCODE") ? good(`DESK_PASSCODE is set: the desk is open at ${WORKER_URL}/desk`) : todo("DESK_PASSCODE not set: the desk stays shut");
     return;
   }
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL"].filter(k => env[k])) {
+  deskWasSet = have.has("DESK_PASSCODE");
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE"].filter(k => env[k])) {
     const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: k, text: env[k], type: "secret_text" } });
     if (!r.ok) stop(`Could not set ${k}: ${r.text.slice(0, 200)}`);
     good(`${k} ${have.has(k) ? "updated" : "set"}`);
@@ -243,13 +253,15 @@ function sampleDigest() {
     c: { visit: 241, visitor: 187, hero_complete: 120, view: 66, dial: 21, early_dial: 9, number: 8, checkout: 3, caseback_view: 8, gift: 1, provenance_click: 4 },
     orders: [{ n: 7, dial: "Midnight", amount: "₹5,999", paise: 599900, email: owners[0], contact: "+919311416678", id: "pay_SAMPLE0000001", at: "6 Oct 2026, 7:15 pm" }],
     unfinished: [{ n: 11, dial: "Champagne", stage: "Payment failed: Bank declined", at: "6 Oct 2026, 3:20 pm", email: "sample@example.com", contact: "+919311416678" }],
-    leads: [{ email: "sample.lead@example.com", source: "footer", at: "6 Oct 2026, 11:02 am" }], trend };
+    leads: [{ email: "sample.lead@example.com", source: "footer", at: "6 Oct 2026, 11:02 am" }], trend,
+    alerts: [{ level: "act", kind: "address", title: "No. 07: no delivery address yet", detail: "Paid 6 Oct 2026, 7:15 pm. Send them the address link, or mark it dispatched if it has already gone." }],
+    deskUrl: `${WORKER_URL}/desk` };
 }
 
 /* ── 6. The emails, to the owner ── */
 async function testEmails() {
   step("6. The emails, sent to you as samples");
-  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, ownerDigest, arriveBy, indiaTime } = await import("../worker/mail.js");
+  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, ownerDigest, arriveBy, indiaTime } = await import("../worker/mail.js");
   const at = new Date();
   const base = { site: "https://thekaal.co", n: 7, dial: "Midnight", amount: "₹5,999", paymentId: "pay_SAMPLE0000001", orderId: "order_SAMPLE00000001",
     email: owners[0], contact: "+919311416678", gift: true, giftNote: "A sample card, written by hand.", when: indiaTime(at), arriveBy: arriveBy(at),
@@ -260,6 +272,7 @@ async function testEmails() {
     ["What you get when they pay", ownerSale(base)],
     ["What you get when they give an address", ownerShip({ ...base, address: addr, buyerEmail: owners[0] })],
     ["What the buyer gets when they give an address", buyerShip({ ...base, address: addr })],
+    ["What the buyer gets when you mark it dispatched on the desk", buyerDispatched({ ...base, address: addr, courier: "Delhivery", tracking: "SAMPLE123456", url: "" })],
     ["What you get at the end of every day (sample numbers)", ownerDigest(sampleDigest())]
   ];
   const from = "KAAL <connect@thekaal.co>";
@@ -269,6 +282,35 @@ async function testEmails() {
     good(`sent: ${label}`);
   }
   say(`\n  Check ${owners.join(" and ")}. If they are in Spam, mark them "Not spam" once.`);
+}
+
+/* ── 7. The desk ── */
+let deskWasSet = false;
+async function ensureDesk(verified) {
+  step("7. The desk");
+  if (env.DESK_PASSCODE) { good(`open at ${WORKER_URL}/desk with the passcode you chose`); return; }
+  if (deskWasSet) { good(`open at ${WORKER_URL}/desk (its passcode was set before; untouched)`); return; }
+  if (!verified) { todo("shut for now: a passcode is made and emailed to you once sending works. Run this again after the domain verifies."); return; }
+  /* Sixteen characters from an alphabet with no look-alikes (no 0/o, 1/l/i):
+     about 79 bits, read aloud or typed on a phone without a mistake. */
+  const abc = "abcdefghjkmnpqrstuvwxyz23456789", bytes = randomBytes(16);
+  const code = Array.from(bytes, b => abc[b % abc.length]).join("").replace(/(.{4})(?!$)/g, "$1-");
+  const desk = `${WORKER_URL}/desk`;
+  const text = [`The desk: ${desk}`, "", `Passcode: ${code}`, "", "Open it on your phone and let the phone save the passcode when it offers.",
+    "Everything the website knows is there: orders and addresses, the dispatch button that emails the buyer their tracking,",
+    "who nearly bought, the Series 02 list, the twenty, and the day's numbers.", "",
+    "Nothing on thekaal.co links to it. Keep this email private; to change the passcode, see docs/desk.md."].join("\n");
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#111">
+<p>The desk: <a href="${desk}">${desk}</a></p><p>Passcode: <b style="font-family:Menlo,Consolas,monospace;font-size:18px;letter-spacing:1px">${code}</b></p>
+<p>Open it on your phone and let the phone save the passcode when it offers. Orders and addresses, the dispatch button that emails the buyer their tracking, who nearly bought, the Series 02 list, the twenty, and the day's numbers.</p>
+<p style="color:#666">Nothing on thekaal.co links to it. Keep this email private; to change the passcode, see docs/desk.md.</p></div>`;
+  /* Emailed first: a passcode set but never delivered would lock the owner out. */
+  const m = await rs("/emails", { method: "POST", body: { from: "KAAL <connect@thekaal.co>", to: owners, subject: "Your KAAL desk", text, html, reply_to: "connect@thekaal.co" } });
+  if (!m.ok) { todo(`could not email a passcode (${m.status}); the desk stays shut. Set DESK_PASSCODE yourself (docs/desk.md).`); return; }
+  const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: "DESK_PASSCODE", text: code, type: "secret_text" } });
+  if (!r.ok) stop(`Could not set DESK_PASSCODE: ${r.text.slice(0, 200)}. The emailed passcode does not work; run this again.`);
+  good(`made a passcode and emailed it to ${owners.join(" and ")} ("Your KAAL desk"). It is not shown here.`);
+  good(`open at ${desk}`);
 }
 
 (async () => {
@@ -284,6 +326,7 @@ async function testEmails() {
   await liveCheck();
   const d = await domain();
   if (d && d.status === "verified" && mode === "all") await testEmails();
+  if (mode === "all") await ensureDesk(!!(d && d.status === "verified"));
   step("Done");
   if (mode === "all") say("  Commit wrangler.toml if it changed (the store's id is not a secret).");
 })();

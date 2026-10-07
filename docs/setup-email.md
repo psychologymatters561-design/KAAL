@@ -10,7 +10,14 @@ inbox is involved anywhere.
 | A payment lands | the buyer | "No. 07 is yours": their engraved caseback, the order, payment reference, arrival date, what happens next, a button to add the address |
 | A payment lands | connect@thekaal.co | "New order · No. 07 Midnight · ₹5,999": buyer's email and phone, WhatsApp button, gift card, dispatch-by date. Reply writes to the buyer. (`ORDER_ALERT = "off"` in `wrangler.toml` turns this one off.) |
 | The buyer gives an address | both | the address, to copy (you) and to check (them) |
+| You tap **Mark dispatched** on the desk | the buyer | "No. 07 is on its way": courier, tracking number, where it is going (the confirmation promised this "the day it leaves") |
 | Just after midnight, every day | connect@thekaal.co | **The daily report**: visitors, page visits, how many scrolled through the film, reached the twenty, chose a dial, chose a number (add to cart), opened checkout, paid; each order with contact; unfinished checkouts with why and how to reach them; new Series 02 leads; numbers left; the last seven days |
+
+Beside the emails there is **the desk**, your private page at
+`kaal-edition.kaal-edition-hq.workers.dev/desk`: orders and addresses, the
+dispatch button, who nearly bought, the Series 02 list, the twenty, the day's
+numbers, and anything that needs you. Passcode only, never linked from the
+site. docs/desk.md explains it.
 
 The report's counts come from the site's own counter: daily totals only, no
 cookie, no identifier (`legal.html` says so in the privacy section).
@@ -57,7 +64,10 @@ menu in the session's title bar → **Edit**:
    ```
    CLOUDFLARE_API_TOKEN=…the token from step 2…
    RESEND_API_KEY=…the re_ key from Resend…
+   DESK_PASSCODE=…a passcode you choose for the desk (optional)…
    ```
+   Leave `DESK_PASSCODE` out and one is made for you and emailed to
+   connect@thekaal.co instead (docs/desk.md).
 3. Save. New sessions pick it up.
 
 https://code.claude.com/docs/en/cloud-environments#network-access
@@ -70,10 +80,12 @@ Merge the pull request first, then start a **new** session and send:
 
 It creates the store and the counter, deploys the worker, sets the Resend key
 (your Razorpay and GitHub secrets are left alone), checks the live worker,
-confirms thekaal.co with Resend, and sends five **[Sample]** emails to
-connect@thekaal.co: the four order emails and a daily report with made-up
-numbers. From that moment the site's return address, the Series 02 forms and
-the counter switch on by themselves.
+confirms thekaal.co with Resend, and sends six **[Sample]** emails to
+connect@thekaal.co: the five order emails and a daily report with made-up
+numbers. Then it opens the desk: with the passcode you chose, or with one it
+makes and emails to connect@thekaal.co as "Your KAAL desk". From that moment
+the site's return address, the Series 02 forms and the counter switch on by
+themselves.
 
 ## Step 5. Where you read connect@thekaal.co
 

@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   KAAL · THE FOUR EMAILS
+   KAAL · THE EMAILS
 
    Every message the shop sends, as HTML with a plain-text twin. The
    worker decides WHEN to send; this file decides only what each one
@@ -16,6 +16,11 @@
      buyerShip           to the buyer, at the same moment: the address
                          as we have it, so a mistake is caught before
                          dispatch
+     buyerDispatched     to the buyer, when the owner marks it sent on the
+                         desk: the courier and the tracking number, which
+                         the first email promised "the day it leaves"
+     ownerDigest         to the owner, just after midnight: the day in
+                         numbers, and whatever needs them
 
    Built the way email has to be built: tables, inline styles, no web
    fonts, no script, images only as decoration (every one has alt text
@@ -42,14 +47,20 @@ const pad2 = (n) => (n < 10 ? "0" + n : String(n));
 
 /* Five working days, Monday to Saturday, counted from today in India.
    The same rule the receipt page uses, so the two never disagree. */
-export function arriveBy(from) {
+function fiveWorkingDays(from) {
   const d = new Date((from || new Date()).getTime() + 5.5 * 3600 * 1000);
   let k = 0;
   while (k < 5) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0) k++; }
+  return d;
+}
+export function arriveBy(from) {
+  const d = fiveWorkingDays(from);
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${days[d.getUTCDay()]}, ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
+/* The same date as "2026-10-12", for comparing against today. */
+export function arriveByDay(from) { return fiveWorkingDays(from).toISOString().slice(0, 10); }
 
 /* "2 Oct 2026, 7:15 pm", in India, whatever the server's clock. */
 export function indiaTime(at) {
@@ -319,6 +330,43 @@ export function buyerShip(d) {
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
 
+/* ══════════ 4b. TO THE BUYER, THE DAY IT LEAVES ══════════
+   Sent from the desk when the owner marks the piece dispatched and ticks
+   "email the buyer". The confirmation promised tracking "the day it
+   leaves"; this is that promise kept. */
+export function buyerDispatched(d) {
+  const n = pad2(d.n), site = d.site;
+  const subject = `No. ${n} is on its way`;
+  const went = d.courier ? `handed to ${d.courier}` : "sent";
+  const preheader = `${d.courier ? d.courier + " " : ""}${d.tracking ? "tracking " + d.tracking + ". " : ""}${d.arriveBy ? `Arrives by ${d.arriveBy}.` : ""}`;
+  const body = [
+    image(`${site}/assets/email/caseback-${n}.png`, `Your caseback, engraved: Limited edition No. ${n}`, 160, 160),
+    h1(`No. ${n} is on its way.`),
+    para(`It was checked by hand, boxed and ${esc(went)} today.`),
+    d.url ? buttons([button(d.url, "Track it")]) : "",
+    card("", [
+      d.courier ? ["Courier", esc(d.courier)] : null,
+      d.tracking ? ["Tracking number", `<span style="font-family:Menlo,Consolas,monospace;font-size:14px;">${esc(d.tracking)}</span>`] : null,
+      d.arriveBy ? ["Arrives by", esc(d.arriveBy)] : null,
+      d.address ? ["Going to", addressBlock(d.address)] : null
+    ], { pad: "0 32px 22px" }),
+    para("When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", { size: 14, lh: 22 }),
+    para(`Questions? Reply to this email, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>.`, { size: 14, lh: 22, pad: "0 32px 0" })
+  ].join("\n");
+  const text = [
+    `No. ${n} is on its way.`, "",
+    `It was checked by hand, boxed and ${went} today.`, "",
+    d.courier ? `Courier: ${d.courier}` : null,
+    d.tracking ? `Tracking number: ${d.tracking}` : null,
+    d.url ? `Track it: ${d.url}` : null,
+    d.arriveBy ? `Arrives by: ${d.arriveBy}` : null,
+    d.address ? `Going to:\n${addressText(d.address)}` : null, "",
+    "When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", "",
+    `Questions? Reply to this email, or call or WhatsApp ${PHONE}.`, "", "KAAL · thekaal.co"
+  ].filter(x => x !== null).join("\n");
+  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+}
+
 /* ══════════ 5. TO THE OWNER, AT THE END OF EVERY DAY ══════════
    The day in one email: how many came, how far they got, who paid, who
    nearly did, who asked to hear about Series 02, what is left. */
@@ -389,10 +437,19 @@ ${d.trend.map(t => `<tr>${td(esc(dayLabel(t.day, true).replace(/ [A-Z][a-z]{2}$/
     !d.razorpay ? "Orders and checkouts need the Razorpay keys on the worker." : ""
   ].filter(Boolean);
 
+  /* What needs the owner, from the same list the desk shows. */
+  const alerts = (d.alerts || []).filter(a => a.level === "act");
+  const needs = alerts.length ? `<tr><td class="px" style="padding:0 32px 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.gold};border-radius:4px;">
+<tr><td style="padding:20px 24px 4px;font-family:${SERIF};font-size:21px;color:${C.goldLit};">Needs you</td></tr>
+${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.line};font-family:${SANS};font-size:15px;line-height:22px;color:${C.bone};">${esc(a.title)}${a.detail ? `<br><span style="color:${C.mute};font-size:13px;">${esc(a.detail)}</span>` : ""}</td></tr>`).join("")}
+<tr><td style="padding:0 0 10px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>` : "";
+
   const body = [
     eyebrow("Daily report"),
     h1(esc(dayLabel(d.day))),
     para(`${d.left} of ${d.edition} remain${d.sold.length ? ` · sold: ${d.sold.map(pad2).join(", ")}` : ""}`, { color: C.bone, pad: "0 32px 18px" }),
+    needs,
     stats,
     funnel,
     d.orders.length ? card(plural(orders, "order"), orderRows) : "",
@@ -400,13 +457,14 @@ ${d.trend.map(t => `<tr>${td(esc(dayLabel(t.day, true).replace(/ [A-Z][a-z]{2}$/
     d.leads.length ? card(`${plural(leads, "new lead")} for Series 02`, leadRows) : "",
     others.length ? card("Other moments", others) : "",
     trend,
-    buttons([button(`https://dashboard.razorpay.com/app/payments`, "Open Razorpay", { ghost: true })]),
+    buttons([d.deskUrl ? button(d.deskUrl, "Open the desk") : "", button(`https://dashboard.razorpay.com/app/payments`, "Open Razorpay", { ghost: true })]),
     para(["Visitors are counted once per browser per day, without cookies; orders and checkouts come from Razorpay."].concat(notes).map(esc).join("<br>"), { size: 12, lh: 19, color: C.faint, pad: "0 32px 0" })
   ].join("\n");
 
   const text = [
     `KAAL DAILY · ${dayLabel(d.day)}`,
     `${d.left} of ${d.edition} remain${d.sold.length ? ` · sold: ${d.sold.map(pad2).join(", ")}` : ""}`, "",
+    alerts.length ? "NEEDS YOU\n" + alerts.map(a => `${a.title}${a.detail ? ` (${a.detail})` : ""}`).join("\n") + "\n" : "",
     `Visitors: ${visitors} · Page visits: ${c.visit || 0}`,
     `Scrolled through the film: ${c.hero_complete || 0}`,
     `Reached the twenty: ${c.view || 0}`,
@@ -419,6 +477,7 @@ ${d.trend.map(t => `<tr>${td(esc(dayLabel(t.day, true).replace(/ [A-Z][a-z]{2}$/
     d.leads.length ? "NEW LEADS (SERIES 02)\n" + d.leads.map(l => `${l.email} · ${l.source || "Series 02"} · ${l.at}`).join("\n") + "\n" : "",
     "LAST SEVEN DAYS (visitors / cart / checkout / orders)",
     ...d.trend.map(t => `${dayLabel(t.day, true)}: ${t.visitors} / ${t.numbers} / ${t.checkouts} / ${t.orders}`), "",
+    d.deskUrl ? `Desk: ${d.deskUrl}` : "",
     ...notes
   ].filter(x => x !== "").join("\n");
 

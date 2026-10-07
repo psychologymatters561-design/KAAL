@@ -44,6 +44,9 @@
      POST /shipping     where the watch goes, given after paying, once the
                         payment is proved; tells the owner at once
 
+     GET  /desk         the owner's private desk (section 6): passcode only,
+                        never linked from the site, invisible to robots
+
      POST /list {email} the Series 02 list: one address, stored under the
                         hash of itself, rate limited, nothing else kept
      scheduled()        the abandoned-checkout email. Built, and OFF until
@@ -78,7 +81,8 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
-import { buyerConfirmation, ownerSale, ownerShip, buyerShip, ownerDigest, arriveBy, indiaTime } from "./mail.js";
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, ownerDigest, arriveBy, arriveByDay, indiaTime } from "./mail.js";
+import { deskPage } from "./desk.js";
 
 const HOLD_SECONDS = 12 * 60;
 const KEY_SOLD = "sold";
@@ -90,6 +94,11 @@ export default {
   async fetch(request, env, ctx) {
     const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
+
+    /* The owner's desk answers for itself, before anything that would
+       hand thekaal.co a CORS header: no other site may read it. */
+    if (path === "/desk" || path.startsWith("/desk/")) return desk(request, env, ctx, path);
+    if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
 
     if (request.method === "OPTIONS") return preflight(request, env);
 
@@ -586,6 +595,11 @@ async function webhook(request, env, ctx) {
 
   const valid = await verifySignature(rawBody, signature, env.RAZORPAY_WEBHOOK_SECRET);
   if (!valid) return new Response("Signature mismatch.", { status: 400 });
+  /* For the desk's health list: when Razorpay last reached this worker. */
+  if (env.KAAL_STATE) {
+    const seen = env.KAAL_STATE.put("seen:webhook", new Date().toISOString()).catch(() => null);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(seen); else await seen;
+  }
 
   let event;
   try { event = JSON.parse(rawBody); }
@@ -1034,12 +1048,69 @@ async function leadsBetween(env, from, to) {
       for (const k of page.keys || []) {
         const v = await env.KAAL_STATE.get(k.name, "json").catch(() => null);
         const at = v && Date.parse(v.at) / 1000;
-        if (v && at >= from && at < to) out.push({ email: v.email, source: v.source || "", at: indiaTime(new Date(at * 1000)) });
+        if (v && at >= from && at < to) out.push({ email: v.email, source: v.source || "", ts: at, at: indiaTime(new Date(at * 1000)) });
       }
       cursor = page.list_complete ? null : page.cursor;
     } while (cursor);
   } catch (e) { console.log("Lead listing failed:", String(e).slice(0, 120)); }
-  return out.sort((a, b) => (a.at < b.at ? -1 : 1));
+  return out.sort((a, b) => a.ts - b.ts);
+}
+
+/* Every paid order of the last SALES_DAYS days, newest first, with where
+   each one stands: the address, the dispatch, the day it is due. The desk
+   and the morning report both read this, so the two can never disagree. */
+const SALES_DAYS = 120;
+async function ledger(env, nowMs) {
+  const now = Math.floor(nowMs / 1000);
+  const rzp = !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
+  const pays = rzp ? await listPayments(env, now - SALES_DAYS * 86400, now) : null;
+  const orders = [];
+  let lookups = 0;
+  const paid = (pays || []).filter(p => p.status === "captured" || p.status === "authorized" || p.status === "refunded")
+    .sort((a, b) => b.created_at - a.created_at);
+  for (const p of paid) {
+    const notes = p.notes || {};
+    let n = parseInt(notes.kaal_no, 10);
+    if (!n && p.order_id && lookups < 25) { lookups++; n = await numberFromOrder(env, p.order_id); }
+    n = n || 0;
+    let address = null, sent = null;
+    if (env.KAAL_STATE && p.order_id) {
+      address = await env.KAAL_STATE.get("ship:" + p.order_id, "json").catch(() => null);
+      sent = await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null);
+    }
+    const at = new Date(p.created_at * 1000), back = p.amount_refunded || 0;
+    orders.push({
+      n, dial: n ? DIAL_OF(env, n) : "", id: p.id, orderId: p.order_id || "",
+      amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`, paise: p.amount || 0,
+      email: p.email || "", contact: p.contact || "", ts: p.created_at, day: istDay(p.created_at * 1000), at: indiaTime(at),
+      gift: notes.gift === "yes", giftNote: notes.gift_note || "",
+      due: arriveBy(at), dueDay: arriveByDay(at), address, sent,
+      refund: p.status === "refunded" || (back && back >= (p.amount || 0)) ? "full" : back ? "part" : ""
+    });
+  }
+  return { rzp, pays, orders };
+}
+
+/* Checkouts opened in the window that never became a payment, with how far
+   each got and how to reach the person, when Razorpay knows. */
+async function unfinishedBetween(env, pays, from, to) {
+  const paidOrders = new Set(pays.filter(p => p.status === "captured" || p.status === "authorized" || p.status === "refunded").map(p => p.order_id).filter(Boolean));
+  const out = [];
+  for (const o of await listOrders(env, from, to)) {
+    if (o.status === "paid" || paidOrders.has(o.id)) continue;
+    /* The latest try says how far they got; a person often tries twice,
+       and only one of the tries may carry their email, phone or the bank's
+       reason, so those come from whichever try has them. */
+    const tries = pays.filter(p => p.order_id === o.id).sort((a, b) => b.created_at - a.created_at);
+    const t = tries[0], has = (k) => (tries.find(p => p[k]) || {})[k] || "";
+    const why = (tries.find(p => p.status === "failed" && p.error_description) || {}).error_description;
+    const n = parseInt((o.notes || {}).kaal_no, 10) || 0;
+    out.push({ n, dial: n ? DIAL_OF(env, n) : "", ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
+      email: has("email"), contact: has("contact"),
+      stage: t ? (t.status === "failed" ? "Payment failed" + (why ? `: ${String(why).slice(0, 80)}` : "") + (tries.length > 1 ? ` (${tries.length} tries)` : "") : `Payment ${t.status}`)
+               : "Closed checkout before paying" });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
 }
 
 async function digestData(env, day) {
@@ -1047,46 +1118,28 @@ async function digestData(env, day) {
   const edition = parseInt(env.EDITION || "20", 10);
   const days = [];
   for (let i = 6; i >= 0; i--) days.push(istDay(Date.parse(day + "T12:00:00Z") - IST_MS - i * 86400000));
-  const counts = await statsFor(env, days);
-  const [from, to] = istWindow(day), from7 = istWindow(days[0])[0];
+  const nowMs = Date.now();
+  const [counts, L, soldRaw] = await Promise.all([statsFor(env, days), ledger(env, nowMs), knownSold(env)]);
+  const [from, to] = istWindow(day);
 
-  const rzp = !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
-  const pays = rzp ? ((await listPayments(env, from7, to)) || []) : [];
-  const captured = pays.filter(p => p.status === "captured" || p.status === "authorized");
+  const live = L.orders.filter(o => o.refund !== "full");
   const ordersOn = {};
-  for (const p of captured) { const dd = istDay(p.created_at * 1000); ordersOn[dd] = (ordersOn[dd] || 0) + 1; }
+  for (const o of live) ordersOn[o.day] = (ordersOn[o.day] || 0) + 1;
+  const orders = L.orders.filter(o => o.ts >= from && o.ts < to);
+  const unfinished = L.rzp ? await unfinishedBetween(env, L.pays || [], from, to) : [];
 
-  const orders = [];
-  for (const p of captured.filter(p => p.created_at >= from && p.created_at < to)) {
-    let n = parseInt((p.notes || {}).kaal_no, 10);
-    if (!n && p.order_id) n = await numberFromOrder(env, p.order_id);
-    orders.push({ n: n || 0, dial: n ? DIAL_OF(env, n) : "", amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`,
-      paise: p.amount || 0, email: p.email || "", contact: p.contact || "", id: p.id, at: indiaTime(new Date(p.created_at * 1000)) });
-  }
-
-  const paidOrders = new Set(captured.map(p => p.order_id).filter(Boolean));
-  const unfinished = [];
-  for (const o of rzp ? await listOrders(env, from, to) : []) {
-    if (o.status === "paid" || paidOrders.has(o.id)) continue;
-    const tries = pays.filter(p => p.order_id === o.id).sort((a, b) => b.created_at - a.created_at);
-    const t = tries[0];
-    const n = parseInt((o.notes || {}).kaal_no, 10) || 0;
-    unfinished.push({ n, dial: n ? DIAL_OF(env, n) : "", at: indiaTime(new Date(o.created_at * 1000)),
-      email: (t && t.email) || "", contact: (t && t.contact) || "",
-      stage: t ? (t.status === "failed" ? "Payment failed" + (t.error_description ? `: ${String(t.error_description).slice(0, 80)}` : "") : `Payment ${t.status}`)
-               : "Closed checkout before paying" });
-  }
-
-  const sold = (await knownSold(env)) || [];
+  const sold = soldRaw || [];
   const c = counts[day] || {};
   return {
     site, day, edition, c, orders, unfinished,
     leads: await leadsBetween(env, from, to),
     sold: sold.slice().sort((a, b) => a - b), left: Math.max(0, edition - sold.length),
-    revenue: orders.reduce((t, o) => t + o.paise, 0),
+    revenue: orders.filter(o => o.refund !== "full").reduce((t, o) => t + o.paise, 0),
     trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, visits: (counts[dd] || {}).visit || 0,
       numbers: (counts[dd] || {}).number || 0, checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
-    counting: !!env.STATS, razorpay: rzp
+    alerts: alertsFor(env, L, soldRaw, nowMs),
+    deskUrl: env.DESK_PASSCODE ? workerUrl(env) + "/desk" : "",
+    counting: !!env.STATS, razorpay: L.rzp
   };
 }
 
@@ -1108,6 +1161,287 @@ async function dailyDigest(env) {
     const m = ownerDigest(await digestData(env, day));
     await sendEmail(env, ownerInbox(env), m.subject, m.text, m.html);
   } catch (e) { console.log("Daily report threw:", String(e).slice(0, 160)); }
+}
+
+/* ══════════ 6. THE DESK ══════════
+
+   One private page for the owner, at <worker>/desk: today so far, every
+   order and where it stands, who nearly bought, the Series 02 list, the
+   twenty, and whatever needs doing. Nothing on thekaal.co links to it,
+   robots are told to stay out, and it opens only with the passcode in
+   DESK_PASSCODE, a worker secret. Without that secret it stays shut.
+
+   A right passcode earns a cookie that lasts thirty days on that device:
+   the expiry, signed with a key made from the passcode, so changing the
+   passcode signs every device out. Wrong passcodes are counted per
+   connection (a salted hash, like the list's limiter), and the ninth in
+   fifteen minutes is refused unread. The page loads nothing from any
+   other site, and no other site can read anything from it.
+
+     GET  /desk              the page (it asks for the passcode itself)
+     POST /desk/login        {passcode}
+     POST /desk/logout
+     GET  /desk/data         everything the page shows, as JSON
+     GET  /desk/orders.csv   every order, with addresses, for the books
+     GET  /desk/leads.csv    the whole Series 02 list
+     POST /desk/dispatch     {o, courier, tracking, url, notify} marks an
+                             order sent and, if asked, emails the buyer
+                             their tracking; {o, undo:true} takes it back
+   ─────────────────── */
+
+const DESK_COOKIE = "kaal_desk";
+const DESK_DAYS = 30;
+const DESK_TRIES = 8, DESK_TRIES_SECONDS = 15 * 60;
+const ADDRESS_AFTER = 6 * 3600;   /* paid this long ago with no address: ask them */
+
+function workerUrl(env) { return String(env.WORKER_URL || "https://kaal-edition.kaal-edition-hq.workers.dev").replace(/\/+$/, ""); }
+
+function deskHeaders(extra) {
+  return Object.assign({
+    "Cache-Control": "no-store",
+    "X-Robots-Tag": "noindex, nofollow, noarchive",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
+  }, extra || {});
+}
+function deskJson(body, status, extra) {
+  return new Response(JSON.stringify(body), { status: status || 200, headers: deskHeaders(Object.assign({ "Content-Type": "application/json" }, extra || {})) });
+}
+
+/* The signing key mixes the passcode with a secret that never leaves the
+   worker, so a stolen cookie cannot be used to guess the passcode offline. */
+const deskKey = (env) => `kaal-desk|${env.DESK_PASSCODE}|${env.RAZORPAY_KEY_SECRET || env.GITHUB_TOKEN || ""}`;
+async function deskSession(request, env) {
+  if (!env.DESK_PASSCODE) return false;
+  const m = new RegExp(`(?:^|;\\s*)${DESK_COOKIE}=(\\d{10,15})\\.([0-9a-f]{64})`).exec(request.headers.get("Cookie") || "");
+  if (!m || !(parseInt(m[1], 10) > Date.now())) return false;
+  return timingSafeEqual(await hmacHex("desk|" + m[1], deskKey(env)), m[2]);
+}
+
+/* Every write the desk makes carries X-Desk and comes from the desk's own
+   address. A form on another site can do neither, and SameSite=Strict
+   keeps the cookie off its requests anyway. */
+function deskWrite(request) {
+  if (request.headers.get("X-Desk") !== "1") return false;
+  const origin = request.headers.get("Origin");
+  return !origin || origin === new URL(request.url).origin;
+}
+
+async function desk(request, env, ctx, path) {
+  const method = request.method;
+  if (path === "/desk" && method === "GET") {
+    const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+    return new Response(deskPage(nonce), { headers: deskHeaders({
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+    }) });
+  }
+  if (path === "/desk/login" && method === "POST") return deskLogin(request, env);
+  if (path === "/desk/logout" && method === "POST") {
+    if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+    return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=; Path=/desk; Max-Age=0; HttpOnly; Secure; SameSite=Strict` });
+  }
+  if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
+  if (!(await deskSession(request, env))) return deskJson({ ok: false, reason: "signed-out" }, 401);
+  if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
+  if (path === "/desk/orders.csv" && method === "GET") return deskOrdersCsv(env);
+  if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
+  if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
+  return deskJson({ ok: false, reason: "not-found" }, 404);
+}
+
+async function deskLogin(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  const rl = "rl:desk:" + (await sha256hex(`${ip}|${env.LIST_SALT || "kaal-desk"}`)).slice(0, 32);
+  const tries = env.KAAL_STATE ? parseInt((await env.KAAL_STATE.get(rl).catch(() => null)) || "0", 10) || 0 : 0;
+  if (tries >= DESK_TRIES) return deskJson({ ok: false, reason: "rate" }, 429);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const given = String((body && body.passcode) || "").trim().slice(0, 200);
+  /* Compared as hashes, so the comparison takes the same time whatever
+     the lengths. */
+  const right = given && timingSafeEqual(await sha256hex("desk|" + given), await sha256hex("desk|" + String(env.DESK_PASSCODE).trim()));
+  if (!right) {
+    if (env.KAAL_STATE) await env.KAAL_STATE.put(rl, String(tries + 1), { expirationTtl: DESK_TRIES_SECONDS }).catch(() => null);
+    return deskJson({ ok: false, reason: "wrong" }, 401);
+  }
+  const exp = String(Date.now() + DESK_DAYS * 86400000);
+  const token = exp + "." + (await hmacHex("desk|" + exp, deskKey(env)));
+  return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=${token}; Path=/desk; Max-Age=${DESK_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict` });
+}
+
+/* What needs the owner, most urgent kind first. "act" is a job; "note" is
+   worth knowing. The morning report carries the acts; the desk shows both. */
+function alertsFor(env, L, sold, nowMs) {
+  const out = [], now = Math.floor(nowMs / 1000), today = istDay(nowMs);
+  const byN = {};
+  for (const o of L.orders) {
+    if (o.refund === "full") continue;
+    const no = `No. ${pad2(o.n)}`;
+    if (!o.n) {
+      out.push({ level: "act", kind: "unknown", id: o.id, title: `A payment of ${o.amount} has no watch number`, detail: `${o.at}. Open it in Razorpay, read the notes, and mark the number sold by hand.` });
+      continue;
+    }
+    (byN[o.n] = byN[o.n] || []).push(o);
+    if (sold && sold.indexOf(o.n) < 0) {
+      out.push({ level: "act", kind: "unsold", n: o.n, title: `${no} is paid for, but the site still offers it`, detail: "Add it to sold in index.html, and check the worker's GitHub token." });
+    }
+    if (o.sent) continue;
+    if (!o.address && now - o.ts >= ADDRESS_AFTER) {
+      out.push({ level: "act", kind: "address", n: o.n, orderId: o.orderId, title: `${no}: no delivery address yet`, detail: `Paid ${o.at}. Send them the address link, or mark it dispatched if it has already gone.` });
+    }
+    if (today > o.dueDay) out.push({ level: "act", kind: "late", n: o.n, orderId: o.orderId, title: `${no}: dispatch is late`, detail: `It was promised by ${o.due}. If it has already gone, mark it dispatched.` });
+    else if (today === o.dueDay) out.push({ level: "act", kind: "due", n: o.n, orderId: o.orderId, title: `${no}: dispatch today`, detail: `It was promised by ${o.due}.` });
+  }
+  for (const n of Object.keys(byN)) {
+    if (byN[n].length > 1) out.push({ level: "act", kind: "double", n: +n, title: `No. ${pad2(+n)} was paid for ${byN[n].length} times`, detail: "One watch, more than one buyer: refund the later payment in Razorpay and write to them." });
+  }
+  if (L.rzp && L.pays === null) out.push({ level: "act", kind: "razorpay", title: "Razorpay refused to list payments", detail: "Orders cannot be read. Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the worker." });
+  if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) out.push({ level: "act", kind: "mail", title: "Nothing is being emailed", detail: "Buyers get no confirmation and you get no report until RESEND_API_KEY is set (docs/setup-email.md)." });
+  const failedToday = (L.pays || []).filter(p => p.status === "failed" && istDay(p.created_at * 1000) === today).length;
+  if (failedToday >= 3) out.push({ level: "note", kind: "failures", title: `${failedToday} payments failed today`, detail: "If they share one reason in Razorpay, a payment method may be refusing." });
+  if (sold) {
+    const left = Math.max(0, parseInt(env.EDITION || "20", 10) - sold.length);
+    if (left === 0) out.push({ level: "note", kind: "complete", title: "The edition is complete", detail: "All twenty have gone." });
+    else if (left <= 3) out.push({ level: "note", kind: "few", title: `${left} of ${env.EDITION || 20} remain`, detail: "" });
+  }
+  const order = ["unknown", "double", "unsold", "late", "due", "address", "razorpay", "mail"];
+  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === "act" ? -1 : 1) || (order.indexOf(a.kind) - order.indexOf(b.kind)));
+}
+
+async function deskData(env) {
+  const nowMs = Date.now(), now = Math.floor(nowMs / 1000);
+  const today = istDay(nowMs), yesterday = istDay(nowMs - 86400000);
+  const days = [];
+  for (let i = 6; i >= 0; i--) days.push(istDay(nowMs - i * 86400000));
+  const site = siteUrl(env), edition = parseInt(env.EDITION || "20", 10);
+  const [counts, L, soldRaw] = await Promise.all([statsFor(env, days), ledger(env, nowMs), knownSold(env)]);
+  const pays = L.pays || [];
+  const unfinished = L.rzp ? await unfinishedBetween(env, pays, istWindow(yesterday)[0], now + 60) : [];
+  const leads = await leadsBetween(env, 0, now + 60);
+
+  const held = [];
+  let lastHook = null, lastDigest = null;
+  if (env.KAAL_STATE) {
+    try {
+      for (const k of (await env.KAAL_STATE.list({ prefix: HOLD_PREFIX })).keys) {
+        const n = parseInt(k.name.slice(HOLD_PREFIX.length), 10);
+        if (n) held.push(n);
+      }
+    } catch (e) { /* no holds shown */ }
+    lastHook = await env.KAAL_STATE.get("seen:webhook").catch(() => null);
+    try {
+      const keys = (await env.KAAL_STATE.list({ prefix: "digest:" })).keys.map(k => k.name.slice(7)).sort();
+      lastDigest = keys.length ? keys[keys.length - 1] : null;
+    } catch (e) { lastDigest = null; }
+  }
+
+  const live = L.orders.filter(o => o.refund !== "full");
+  const ordersOn = {}, revenueOn = {};
+  for (const o of live) { ordersOn[o.day] = (ordersOn[o.day] || 0) + 1; revenueOn[o.day] = (revenueOn[o.day] || 0) + o.paise; }
+  const sold = soldRaw ? soldRaw.slice().sort((a, b) => a - b) : null;
+  const dials = {};
+  for (let n = 1; n <= edition; n++) dials[n] = DIAL_OF(env, n);
+  const mail = !!(env.RESEND_API_KEY || env.BREVO_API_KEY);
+  const hour = parseInt(env.DIGEST_HOUR_IST || "0", 10);
+
+  return {
+    ok: true, now: indiaTime(new Date(nowMs)), today, yesterday, site, edition,
+    c: { today: counts[today] || {}, yesterday: counts[yesterday] || {} },
+    paid: { today: ordersOn[today] || 0, yesterday: ordersOn[yesterday] || 0, todayPaise: revenueOn[today] || 0, yesterdayPaise: revenueOn[yesterday] || 0 },
+    trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, numbers: (counts[dd] || {}).number || 0,
+      checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
+    sold, held, dials, left: sold ? Math.max(0, edition - sold.length) : null,
+    orders: L.orders.map(o => Object.assign({}, o, {
+      shipUrl: o.orderId ? `${site}/claimed.html?o=${encodeURIComponent(o.orderId)}&n=${o.n ? pad2(o.n) : ""}#ship` : ""
+    })),
+    revenue: live.reduce((t, o) => t + o.paise, 0),
+    unfinished,
+    leads: { total: leads.length, today: leads.filter(l => istDay(l.ts * 1000) === today).length, recent: leads.slice(-50).reverse() },
+    alerts: alertsFor(env, L, soldRaw, nowMs),
+    health: [
+      { ok: mail, label: "Emails", detail: mail ? `Order emails go to buyers, and alerts and the daily report to ${ownerInbox(env).join(", ")}.` : "Not sending: RESEND_API_KEY is not set on the worker." },
+      { ok: L.rzp && L.pays !== null, label: "Razorpay", detail: !L.rzp ? "No keys on the worker: orders cannot be read." : L.pays === null ? "The keys are set, but Razorpay refused the listing." : `Reading payments from the last ${SALES_DAYS} days.` },
+      { ok: !!lastHook || !live.length, label: "Payment webhook", detail: lastHook ? `Last heard from Razorpay ${indiaTime(new Date(lastHook))}.` : "Not heard from since this desk was switched on. It is heard at the next payment." },
+      { ok: !!env.KAAL_STATE, label: "Store", detail: env.KAAL_STATE ? "Holds, addresses, dispatches and the Series 02 list are kept." : "Not connected: addresses, holds and the Series 02 list are not kept." },
+      { ok: !!env.STATS, label: "Visitor count", detail: env.STATS ? `${(counts[today] || {}).visit || 0} page visits counted today, without cookies.` : "Not connected: the daily report has no visitor numbers." },
+      { ok: !!(env.GITHUB_TOKEN && env.GITHUB_OWNER), label: "Sold list", detail: env.GITHUB_TOKEN ? "Each sale is written to the site within a minute." : "No GITHUB_TOKEN: sales are not written to the site." },
+      { ok: env.DIGEST !== "off" && mail, label: "Daily report", detail: env.DIGEST === "off" ? "Switched off (DIGEST in wrangler.toml)." : `Every day at ${hour === 0 ? "midnight" : hour + ":00"}, India time${lastDigest ? `; last one covered ${lastDigest}` : ""}.` }
+    ],
+    counting: !!env.STATS, razorpay: L.rzp
+  };
+}
+
+/* The buyer's confirmation promised tracking "the day it leaves". This is
+   how that promise is kept: one tap on the desk, the courier and number,
+   and (when ticked) the email. The record is kept even when the email is
+   not wanted, so an order sent before the desk existed stops being flagged. */
+async function deskDispatch(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.KAAL_STATE) return deskJson({ ok: false, reason: "no-store" }, 503);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const orderId = String((body && body.o) || "");
+  if (!ORDER_ID.test(orderId)) return deskJson({ ok: false, reason: "bad-order" }, 400);
+  const key = "sent:" + orderId;
+  if (body.undo === true) { await env.KAAL_STATE.delete(key); return deskJson({ ok: true, undone: true }); }
+
+  const courier = cleanField(body.courier, 40), tracking = cleanField(body.tracking, 60);
+  let url = cleanField(body.url, 300);
+  if (url && !/^https:\/\/[^\s"'<>]+$/i.test(url)) url = "";
+
+  const order = await readOrder(env, orderId);
+  const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
+  if (!order || !n) return deskJson({ ok: false, reason: "unknown-order" }, 404);
+  const pays = await paymentsOf(env, orderId);
+  const good = pays.find(p => p.status === "captured" || p.status === "authorized");
+  if (order.status !== "paid" && !good) return deskJson({ ok: false, reason: "not-paid" }, 409);
+
+  const before = await env.KAAL_STATE.get(key, "json").catch(() => null);
+  const rec = { at: new Date().toISOString(), courier, tracking, url, mailed: (before && before.mailed) || "" };
+  const buyer = good && good.email && validEmail(String(good.email).toLowerCase()) ? String(good.email) : "";
+  let mailed = false;
+  if (body.notify === true && buyer) {
+    const address = await env.KAAL_STATE.get("ship:" + orderId, "json").catch(() => null);
+    const paidAt = good.created_at ? new Date(good.created_at * 1000) : new Date();
+    /* The arrival date is only repeated while it is still ahead. */
+    const promise = arriveByDay(paidAt) > istDay(Date.now()) ? arriveBy(paidAt) : "";
+    const m = buyerDispatched({ site: siteUrl(env), n, courier, tracking, url, arriveBy: promise, address });
+    mailed = await sendEmail(env, buyer, m.subject, m.text, m.html);
+    if (mailed) rec.mailed = rec.at;
+  }
+  await env.KAAL_STATE.put(key, JSON.stringify(rec));
+  return deskJson({ ok: true, mailed, to: mailed ? maskEmail(buyer) : "", sent: rec });
+}
+
+/* A spreadsheet opens these. A cell that starts like a formula is made
+   plain text, so a name typed as "=HYPERLINK(...)" stays a name. */
+function csvCell(v) {
+  let s = String(v == null ? "" : v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function csv(rows, name) {
+  const text = "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return new Response(text, { headers: deskHeaders({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}-${istDay(Date.now())}.csv"` }) });
+}
+async function deskOrdersCsv(env) {
+  const L = await ledger(env, Date.now());
+  const rows = [["Number", "Dial", "Paid (India time)", "Amount (INR)", "Payment", "Order", "Email", "Phone", "Gift", "Gift card",
+    "Name", "Address line 1", "Address line 2", "City", "State", "PIN", "Delivery phone", "Dispatched", "Courier", "Tracking", "Refund"]];
+  for (const o of L.orders.slice().reverse()) {
+    const a = o.address || {}, s = o.sent || {};
+    rows.push([o.n ? pad2(o.n) : "", o.dial, o.at, (o.paise / 100).toFixed(2), o.id, o.orderId, o.email, o.contact, o.gift ? "yes" : "", o.giftNote,
+      a.name, a.line1, a.line2, a.city, a.state, a.pin, a.phone, s.at ? indiaTime(new Date(s.at)) : "", s.courier, s.tracking, o.refund]);
+  }
+  return csv(rows, "kaal-orders");
+}
+async function deskLeadsCsv(env) {
+  const leads = await leadsBetween(env, 0, Math.floor(Date.now() / 1000) + 60);
+  return csv([["Email", "Form", "Joined (India time)"]].concat(leads.map(l => [l.email, l.source, l.at])), "kaal-series-02");
 }
 
 /* ══════════ 4. PLUMBING ══════════ */

@@ -30,6 +30,8 @@ ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 MAIL_FROM     = "KAAL <connect@thekaal.co>"
 MAIL_REPLY_TO = "connect@thekaal.co"
 SITE_URL      = "https://thekaal.co"
+# This worker's own address, for the desk link in the daily report.
+WORKER_URL    = "https://kaal-edition.kaal-edition-hq.workers.dev"
 
 # Which dial each number carries, for the sale emails. A mirror of
 # KAAL.dials in index.html; tools/check.mjs fails the build if they differ.
@@ -84,6 +86,10 @@ ORDER_ALERT     = "on"
 #                                              separated. Without it, they go
 #                                              to connect@thekaal.co
 # (BREVO_API_KEY works instead of Resend; Resend wins if both are set.)
+# The owner's private desk, <worker>/desk (docs/desk.md). Shut until set:
+#   wrangler secret put DESK_PASSCODE          ten characters or more;
+#                                              changing it signs every
+#                                              device out
 # Optional — a salt for the Series 02 list's rate limiter, so its hashed
 # IP keys cannot be reversed by trying every address:
 #   wrangler secret put LIST_SALT

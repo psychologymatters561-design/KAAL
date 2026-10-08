@@ -14,7 +14,7 @@ save it. You stay signed in on that phone for thirty days.
 | **Needs you** | The jobs, most urgent first: a payment with no watch number, a number paid for twice, a sold number the site still offers, a dispatch that is late or due today, a buyer who paid six or more hours ago and has not given an address. Each one has WhatsApp, Email and Call buttons for that buyer. |
 | **Today so far / Yesterday** | Visitors, add to cart, checkouts and orders, and how far people got: scrolled through the film, reached the twenty, chose a dial, chose a number, opened checkout, paid. |
 | **Orders** | Every paid order from the last 120 days: number, dial, buyer, gift card text, the delivery address with a Copy button, the dispatch-by date, and **Mark dispatched**. *Download CSV* gives every order with its address, for the books. |
-| **Nearly bought** | Checkouts from today and yesterday that did not end in a payment, with the reason Razorpay gives and the person's contact if Razorpay has it. |
+| **Nearly bought** | Checkouts from today and yesterday that did not end in a payment: the name, city, phone and email the person gave before paying, and the reason Razorpay gives. |
 | **The twenty** | Which numbers are sold, which are held right now by someone paying, and which are open. |
 | **Series 02 list** | Everyone who asked to hear about Series 02, newest first. *Download CSV* gives the whole list. |
 | **Last seven days** | Visitors, add to cart, checkouts and orders per day. |
@@ -38,6 +38,23 @@ Two other uses:
   mark it dispatched. It stops showing as late.
 - **A mistake.** *Undo* takes the mark back. An email that already went
   cannot be unsent, so check the number before you tap.
+
+## Refunds
+
+When Razorpay processes a refund (you issued it in Razorpay, or a
+cancellation did), the site finds it by itself within half an hour. You get
+an email, and so does the buyer (in KAAL's words, beside Razorpay's own).
+
+A **full** refund leaves one question, and only you answer it. Until you do,
+the site keeps showing the number as sold, and **Needs you** asks:
+
+- **Put No. 07 back on sale.** It leaves the sold list on thekaal.co within
+  a minute, and anyone can buy it.
+- **Keep it retired.** Nothing changes on the site. You can still put it
+  back on sale later from the same order.
+
+The desk refuses to release a number someone has bought again since. A
+**part** refund (say, a goodwill amount) is reported, and the order stands.
 
 ## Who can see it
 

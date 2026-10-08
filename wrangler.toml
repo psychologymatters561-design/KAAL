@@ -53,6 +53,13 @@ DIGEST_HOUR_IST = "0"
 # The instant "New order" email to the owner, the moment a payment lands.
 # The buyer's own confirmation always goes. "off" leaves only the daily report.
 ORDER_ALERT     = "on"
+
+# Refunds are found on their own: every half hour the worker asks Razorpay
+# (at once, if the Razorpay webhook also sends refund.processed), records
+# each one once and emails the owner. A full refund never puts the number
+# back on sale; the desk asks. The buyer also gets KAAL's own refund email;
+# "off" leaves them with Razorpay's notice alone.
+REFUND_EMAIL    = "on"
 # ABANDON_FROM  = "KAAL <connect@thekaal.co>"   # a sender your provider has verified
 
 # Where and when a number went, shown under it in the register ONLY with

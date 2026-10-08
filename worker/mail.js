@@ -19,6 +19,11 @@
      buyerDispatched     to the buyer, when the owner marks it sent on the
                          desk: the courier and the tracking number, which
                          the first email promised "the day it leaves"
+     buyerRefund         to the buyer, when Razorpay processes a refund:
+                         how much, which references, when the bank shows it
+     ownerRefund         to the owner, at the same moment, with the one
+                         question a full refund leaves: is the number
+                         back on sale?
      ownerDigest         to the owner, just after midnight: the day in
                          numbers, and whatever needs them
 
@@ -236,6 +241,7 @@ export function ownerSale(d) {
       wa ? button(`https://wa.me/${wa}`, "WhatsApp buyer", { ghost: true }) : ""
     ]),
     card("Buyer", [
+      d.buyerName ? ["Name", esc(d.buyerName)] : null,
       ["Email", d.email ? `<a href="mailto:${esc(d.email)}" style="color:${C.goldLit};">${esc(d.email)}</a>` : `<span style="color:${C.faint};">not given</span>`],
       ["Phone", d.contact ? `<a href="tel:${esc(d.contact)}" style="color:${C.goldLit};">${esc(d.contact)}</a>` : `<span style="color:${C.faint};">not given</span>`],
       ["Address", d.address ? addressBlock(d.address) : `<span style="color:${C.mute};">Not given yet. They were asked on the thank-you page, and a second email comes the moment they send it.</span>`]
@@ -258,6 +264,7 @@ export function ownerSale(d) {
   const text = [
     known ? `NEW ORDER · No. ${n}${d.dial ? " · " + d.dial : ""}` : "PAYMENT RECEIVED, NUMBER UNKNOWN: CHECK RAZORPAY",
     `${d.amount} paid · ${d.when}`, "",
+    d.buyerName ? `Buyer: ${d.buyerName}` : null,
     `Buyer email: ${d.email || "not given"}`,
     `Buyer phone: ${d.contact || "not given"}${wa ? ` (WhatsApp: https://wa.me/${wa})` : ""}`,
     d.address ? `Address:\n${addressText(d.address)}` : "Address: not given yet. A second email comes the moment they send it.", "",
@@ -367,6 +374,70 @@ export function buyerDispatched(d) {
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
 
+/* ══════════ 4c. REFUNDS ══════════
+   Found by the worker on its own (section 7 there). The buyer's is plain
+   and complete: the amount, both references, and when a bank shows it.
+   Nothing in it asks them to buy again. */
+export function buyerRefund(d) {
+  const n = d.n ? pad2(d.n) : "", site = d.site;
+  const what = n ? ` for No. ${n}` : "";
+  const subject = d.full ? `Your refund${what} has been processed` : `A refund of ${d.amount}${what} has been processed`;
+  const preheader = `${d.amount} is on its way back to the account you paid from.`;
+  const body = [
+    h1("Your refund is on its way."),
+    para(`${esc(d.amount)}${esc(what)} has been sent back to the account you paid from. Razorpay processed it on ${esc(d.when)}; most banks show it within 5 to 7 working days.`),
+    card("", [
+      ["Refunded", esc(d.amount)],
+      ["Payment reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.paymentId)}</span>`],
+      ["Refund reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.refundId)}</span>`]
+    ], { pad: "0 32px 22px" }),
+    para(`If it has not reached you after seven working days, reply to this email with the refund reference, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>. A person answers.`, { size: 14, lh: 22, pad: "0 32px 0" })
+  ].join("\n");
+  const text = [
+    "Your refund is on its way.", "",
+    `${d.amount}${what} has been sent back to the account you paid from. Razorpay processed it on ${d.when}; most banks show it within 5 to 7 working days.`, "",
+    `Refunded: ${d.amount}`, `Payment reference: ${d.paymentId}`, `Refund reference: ${d.refundId}`, "",
+    `If it has not reached you after seven working days, reply to this email with the refund reference, or call or WhatsApp ${PHONE}. A person answers.`, "",
+    "KAAL · thekaal.co"
+  ].join("\n");
+  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+}
+
+export function ownerRefund(d) {
+  const site = d.site, n = d.n ? pad2(d.n) : "";
+  const subject = n ? `Refund processed · No. ${n}${d.dial ? " " + d.dial : ""} · ${d.amount}${d.full ? "" : " (part)"}`
+                    : `Refund processed · ${d.amount} · number unknown`;
+  const next = !d.full ? "A part refund: the order itself stands."
+    : !n ? "The worker could not tell which number this payment was for. Check the payment in Razorpay."
+    : d.stillSold ? `No. ${n} is still shown as sold. On the desk, put it back on sale or keep it retired.`
+    : `No. ${n} is not on the sold list.`;
+  const rzp = `https://dashboard.razorpay.com/app/payments/${encodeURIComponent(d.paymentId || "")}`;
+  const body = [
+    eyebrow(d.full ? "Refund" : "Part refund"),
+    h1(n ? `No. ${n}${d.dial ? " &middot; " + esc(d.dial) : ""}` : "Refund"),
+    para(`${esc(d.amount)} of ${esc(d.paid)} went back to the buyer &middot; ${esc(d.when)}`, { color: C.bone, pad: "0 32px 18px" }),
+    para(esc(next), { pad: "0 32px 14px" }),
+    buttons([d.full && n && d.stillSold && d.deskUrl ? button(d.deskUrl, "Open the desk") : "", button(rzp, "Open in Razorpay", { ghost: true })]),
+    card("Refund", [
+      ["Buyer", d.email ? `<a href="mailto:${esc(d.email)}" style="color:${C.goldLit};">${esc(d.email)}</a>` : `<span style="color:${C.faint};">no email</span>`],
+      d.contact ? ["Phone", `<a href="tel:${esc(d.contact)}" style="color:${C.goldLit};">${esc(d.contact)}</a>`] : null,
+      ["Payment", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.paymentId)}</span>`],
+      ["Refund", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.refundId)}</span>`],
+      ["Buyer told", d.buyerTold ? "Yes, by KAAL and by Razorpay" : "By Razorpay"]
+    ])
+  ].join("\n");
+  const text = [
+    n ? `REFUND · No. ${n}${d.dial ? " · " + d.dial : ""}` : "REFUND · number unknown",
+    `${d.amount} of ${d.paid} went back to the buyer · ${d.when}`, "", next, "",
+    `Buyer: ${d.email || "no email"}${d.contact ? " · " + d.contact : ""}`,
+    `Payment: ${d.paymentId}`, `Refund: ${d.refundId}`,
+    `Buyer told: ${d.buyerTold ? "by KAAL and by Razorpay" : "by Razorpay"}`,
+    d.full && n && d.stillSold && d.deskUrl ? `Desk: ${d.deskUrl}` : "",
+    `Razorpay: ${rzp}`
+  ].filter(x => x !== "").join("\n");
+  return { subject, html: frame({ title: subject, preheader: next, body, site }), text };
+}
+
 /* ══════════ 5. TO THE OWNER, AT THE END OF EVERY DAY ══════════
    The day in one email: how many came, how far they got, who paid, who
    nearly did, who asked to hear about Series 02, what is left. */
@@ -403,6 +474,7 @@ ${stat(visitors, "Visitors")}${stat(numbers, "Add to cart")}</tr><tr>${stat(orde
     ["Chose a dial", `${(c.dial || 0) + (c.early_dial || 0)}`],
     ["Chose a number", `${numbers}${muted(pct(numbers, visitors))}`],
     ["Opened checkout", `${checkouts}${muted(pct(checkouts, visitors))}`],
+    ["Gave their details", `${c.details || 0}${muted(pct(c.details || 0, visitors))}`],
     ["Paid", `${orders}${muted(pct(orders, visitors))}${orders ? `<br><span style="color:${C.mute};">${esc(money)}</span>` : ""}`]
   ]);
 
@@ -414,8 +486,10 @@ ${stat(visitors, "Visitors")}${stat(numbers, "Add to cart")}</tr><tr>${stat(orde
   const nearlyRows = d.unfinished.map(u => {
     const wa = waNumber(u.contact);
     return [`No. ${u.n ? pad2(u.n) : "??"}${u.dial ? " · " + u.dial : ""}`,
-      `${esc(u.stage)}<br><span style="color:${C.faint};font-size:13px;">${esc(u.at)}</span>${u.email ? `<br><a href="mailto:${esc(u.email)}" style="color:${C.goldLit};">${esc(u.email)}</a>` : ""}${u.contact ? `<br><a href="tel:${esc(u.contact)}" style="color:${C.goldLit};">${esc(u.contact)}</a>` : ""}${wa ? ` · <a href="https://wa.me/${wa}" style="color:${C.goldLit};">WhatsApp</a>` : ""}`];
+      `${u.name ? `<b style="font-weight:600;">${esc(u.name)}</b>${u.city ? ` &middot; ${esc(u.city)}` : ""}<br>` : ""}${esc(u.stage)}<br><span style="color:${C.faint};font-size:13px;">${esc(u.at)}</span>${u.email ? `<br><a href="mailto:${esc(u.email)}" style="color:${C.goldLit};">${esc(u.email)}</a>` : ""}${u.contact ? `<br><a href="tel:${esc(u.contact)}" style="color:${C.goldLit};">${esc(u.contact)}</a>` : ""}${wa ? ` · <a href="https://wa.me/${wa}" style="color:${C.goldLit};">WhatsApp</a>` : ""}`];
   });
+  const refundRows = (d.refunds || []).map(r => [`No. ${r.n ? pad2(r.n) : "??"}${r.dial ? " · " + r.dial : ""}`,
+    `${esc(r.amount)} back to the buyer${r.full ? "" : " (part)"}<br><span style="color:${C.faint};font-size:13px;">${esc(r.at)}</span>`]);
   const leadRows = d.leads.map(l => [esc(l.source || "Series 02"), `<a href="mailto:${esc(l.email)}" style="color:${C.goldLit};">${esc(l.email)}</a><br><span style="color:${C.faint};font-size:13px;">${esc(l.at)}</span>`]);
   const others = [
     ["Pressed Choose your number", c.hero || 0], ["Picked a dial early", c.early_dial || 0], ["Followed a dial link", c.ctx_cta || 0],
@@ -454,6 +528,7 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     funnel,
     d.orders.length ? card(plural(orders, "order"), orderRows) : "",
     d.unfinished.length ? card("Nearly bought", nearlyRows) : "",
+    refundRows.length ? card(plural(refundRows.length, "refund"), refundRows) : "",
     d.leads.length ? card(`${plural(leads, "new lead")} for Series 02`, leadRows) : "",
     others.length ? card("Other moments", others) : "",
     trend,
@@ -471,9 +546,11 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     `Chose a dial: ${(c.dial || 0) + (c.early_dial || 0)}`,
     `Chose a number (add to cart): ${numbers}`,
     `Opened checkout: ${checkouts}`,
+    `Gave their details: ${c.details || 0}`,
     `Paid: ${orders}${orders ? ` (${money})` : ""}`, "",
     d.orders.length ? "ORDERS\n" + d.orders.map(o => `No. ${o.n ? pad2(o.n) : "??"}${o.dial ? " " + o.dial : ""} · ${o.amount} · ${o.at} · ${o.email || "no email"} · ${o.contact || "no phone"} · ${o.id}`).join("\n") + "\n" : "",
-    d.unfinished.length ? "NEARLY BOUGHT\n" + d.unfinished.map(u => `No. ${u.n ? pad2(u.n) : "??"} · ${u.stage} · ${u.at} · ${u.email || "no email"} · ${u.contact || "no phone"}`).join("\n") + "\n" : "",
+    d.unfinished.length ? "NEARLY BOUGHT\n" + d.unfinished.map(u => `No. ${u.n ? pad2(u.n) : "??"}${u.name ? " · " + u.name : ""}${u.city ? " · " + u.city : ""} · ${u.stage} · ${u.at} · ${u.email || "no email"} · ${u.contact || "no phone"}`).join("\n") + "\n" : "",
+    (d.refunds || []).length ? "REFUNDS\n" + d.refunds.map(r => `No. ${r.n ? pad2(r.n) : "??"}${r.dial ? " " + r.dial : ""} · ${r.amount}${r.full ? "" : " (part)"} · ${r.at}`).join("\n") + "\n" : "",
     d.leads.length ? "NEW LEADS (SERIES 02)\n" + d.leads.map(l => `${l.email} · ${l.source || "Series 02"} · ${l.at}`).join("\n") + "\n" : "",
     "LAST SEVEN DAYS (visitors / cart / checkout / orders)",
     ...d.trend.map(t => `${dayLabel(t.day, true)}: ${t.visitors} / ${t.numbers} / ${t.checkouts} / ${t.orders}`), "",

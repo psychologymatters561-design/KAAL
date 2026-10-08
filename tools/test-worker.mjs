@@ -244,6 +244,9 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   KV.store.set("sent:order_D", JSON.stringify({ at: "2026-10-03T10:00:00Z", courier: "Delhivery", tracking: "DL123", url: "", mailed: "" }));
   KV.store.set("hold:15", JSON.stringify({ until: Date.now() + 600000 }));
   KV.store.set("list:ccc", JSON.stringify({ email: "today.lead@example.com", at: "2026-10-07T05:00:00Z", source: "stillness" }));
+  /* The /list test above stored its address at the real time; pin it inside
+     this test's day, or the answers below change with the calendar. */
+  for (const [k, v] of KV.store) if (k.startsWith("list:") && v.includes("asha@example.com")) KV.store.set(k, JSON.stringify(Object.assign(JSON.parse(v), { at: "2026-10-07T07:30:00Z" })));
   dobox.set("d:2026-10-07", { visit: 12, visitor: 9, number: 2, checkout: 1, view: 5 });
   const deskFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
@@ -275,7 +278,7 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   ok(byId.pay_D.n === 12 && byId.pay_D.sent.tracking === "DL123" && byId.pay_C.refund === "full" && byId.pay_B.address.city === "Pune", "desk orders: number read from the order when the payment lacks it, dispatches, refunds and addresses attached");
   ok(d.revenue === 3 * 599900 && d.paid.today === 1 && d.left === 16 && d.held.includes(15), "desk: money taken leaves out the refund; today's orders, what remains, what is held");
   ok(d.c.today.visitor === 9 && d.unfinished.length === 1 && d.unfinished[0].n === 11 && /Payment failed: Card declined \(3 tries\)/.test(d.unfinished[0].stage) && d.unfinished[0].contact === "+919800000009" && d.unfinished[0].email === "try@example.com", "desk: today's count, and the checkout that nearly happened, with the reason and contact from whichever try had them");
-  ok(d.leads.total === 4 && d.leads.today >= 1 && d.leads.recent.every((l, i, a) => !i || a[i - 1].ts >= l.ts) && d.leads.recent.some(l => l.email === "today.lead@example.com"), "desk: the whole Series 02 list, newest first");
+  ok(d.leads.total === 4 && d.leads.today === 2 && d.leads.recent.map(l => l.email).join() === "asha@example.com,today.lead@example.com,lead.one@example.com,old.lead@example.com", "desk: the whole Series 02 list, newest first, and who joined today");
   ok(d.health.length >= 6 && d.health.every(h => typeof h.ok === "boolean" && h.label && h.detail), "desk: a health line for each moving part");
 
   /* Read as bytes: Response.text() quietly drops the byte-order mark being checked for. */

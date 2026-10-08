@@ -1,0 +1,76 @@
+# ══════════════════════════════════════════════════════════════════
+# Switch the worker on from a phone: no computer, no terminal.
+#
+# GitHub's own machine runs tools/setup-email.mjs, the same command that
+# docs/setup-email.md describes, with these repository secrets
+# (Settings → Secrets and variables → Actions):
+#
+#   CLOUDFLARE_API_TOKEN   "Edit Cloudflare Workers" token
+#   RESEND_API_KEY         Resend key with Full access
+#   DESK_PASSCODE          optional; without it, one is made and emailed
+#                          to connect@thekaal.co
+#   CLOUDFLARE_ACCOUNT_ID  optional; only if the token sees several accounts
+#
+# It runs only when someone with write access presses "Run workflow" (or
+# asks Claude to). Never on a push or a pull request, so no fork and no
+# outside contribution can reach the secrets. This repository is public
+# and so are these logs: the script never prints a key or the passcode,
+# and GitHub blanks out the secrets' values in logs regardless.
+#
+# If the run creates the worker's store, the store's id (not a secret)
+# is committed back to wrangler.toml, so every later deploy keeps it.
+# ══════════════════════════════════════════════════════════════════
+name: setup-worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "all: do everything not yet done · check: only report · test: send the sample emails again"
+        type: choice
+        options: [all, check, test]
+        default: all
+
+permissions:
+  contents: write
+
+concurrency:
+  group: setup-worker
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run the setup
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          case "$MODE" in
+            check) node tools/setup-email.mjs --check ;;
+            test)  node tools/setup-email.mjs --test ;;
+            *)     node tools/setup-email.mjs ;;
+          esac
+
+      - name: Keep the store's id in wrangler.toml
+        if: ${{ inputs.mode == 'all' }}
+        continue-on-error: true
+        run: |
+          if git diff --quiet -- wrangler.toml; then echo "wrangler.toml unchanged."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wrangler.toml
+          git commit -m "Bind the worker's KAAL_STATE store (setup-worker run)"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"

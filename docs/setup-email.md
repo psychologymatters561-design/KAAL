@@ -72,6 +72,30 @@ menu in the session's title bar → **Edit**:
 
 https://code.claude.com/docs/en/cloud-environments#network-access
 
+## From a phone: GitHub runs it for you
+
+No computer is needed. Instead of steps 3 and 4, GitHub's own machine runs
+the setup (the `setup-worker` workflow).
+
+1. In your phone's browser (not the GitHub app), signed in to GitHub, open
+   each link below. Each one opens GitHub's **New secret** form for this
+   repository. Type the **Name** exactly as shown, paste the value into
+   **Secret**, and tap **Add secret**:
+   - https://github.com/psychologymatters561-design/KAAL/settings/secrets/actions/new
+     → Name `CLOUDFLARE_API_TOKEN`, Secret: the token from step 2
+   - the same link again → Name `RESEND_API_KEY`, Secret: your Resend key
+   - the same link again (optional) → Name `DESK_PASSCODE`, Secret: a
+     passcode of ten or more characters for the desk. Leave it out and
+     one is made and emailed to connect@thekaal.co.
+2. Run it: **Actions** tab → **setup-worker** → **Run workflow** → mode
+   `all` → **Run workflow**. Or ask Claude to run it.
+3. Open the run to read what it did, the same lines the command prints.
+   It never prints a key or the passcode, and GitHub blanks out secrets
+   in logs anyway (these logs are public, like the repository).
+
+Run it again whenever you like: it skips what is already done. Mode
+`check` only reports where things stand; `test` sends the samples again.
+
 ## Step 4. Run the setup
 
 Merge the pull request first, then start a **new** session and send:

@@ -67,8 +67,11 @@ const stop = (s) => { console.log(`\n  ✗ ${s}\n`); process.exit(1); };
 
 const env = process.env;
 const missing = ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"].filter(k => !env[k]);
-if (missing.length && mode !== "test") stop(`Missing ${missing.join(", ")}. docs/setup-email.md, steps 1 to 3, says where each comes from and where it goes.`);
-if (mode === "test" && !env.RESEND_API_KEY) stop("Missing RESEND_API_KEY.");
+/* On GitHub (the setup-worker workflow) the keys are repository secrets,
+   not a Claude environment's variables; say so where it applies. */
+const WHERE = env.GITHUB_ACTIONS ? "Add it on GitHub: Settings → Secrets and variables → Actions → New repository secret (docs/setup-email.md, \"From a phone\")." : "docs/setup-email.md, steps 1 to 3, says where each comes from and where it goes.";
+if (missing.length && mode !== "test") stop(`Missing ${missing.join(", ")}. ${WHERE}`);
+if (mode === "test" && !env.RESEND_API_KEY) stop(`Missing RESEND_API_KEY. ${WHERE}`);
 const owners = String(env.OWNER_EMAIL || "connect@thekaal.co").split(",").map(s => s.trim()).filter(Boolean);
 if (owners.some(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) stop("OWNER_EMAIL does not look like an email address (or a comma-separated list of them).");
 if (env.DESK_PASSCODE && String(env.DESK_PASSCODE).trim().length < 10) stop("DESK_PASSCODE is shorter than 10 characters. Choose a longer one: four unrelated words work well.");

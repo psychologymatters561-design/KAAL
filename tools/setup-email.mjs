@@ -5,6 +5,8 @@
      node tools/setup-email.mjs            do everything below that is not done yet
      node tools/setup-email.mjs --check    only report where things stand
      node tools/setup-email.mjs --test     send the sample emails to the owner
+     node tools/setup-email.mjs --deploy   only deploy the worker again (after a change
+                                           to worker/); needs only CLOUDFLARE_API_TOKEN
 
    Reads these from the environment, never from the command line, never
    prints them, never writes them to disk:
@@ -57,7 +59,8 @@ const WORKER = "kaal-edition";
 const WORKER_URL = process.env.KAAL_SETUP_WORKER_URL || "https://kaal-edition.kaal-edition-hq.workers.dev";
 const CF = process.env.KAAL_SETUP_CF_API || "https://api.cloudflare.com/client/v4";
 const RS = process.env.KAAL_SETUP_RESEND_API || "https://api.resend.com";
-const mode = process.argv.includes("--check") ? "check" : process.argv.includes("--test") ? "test" : "all";
+const mode = process.argv.includes("--check") ? "check" : process.argv.includes("--test") ? "test"
+  : process.argv.includes("--deploy") ? "deploy" : "all";
 
 const say = (s = "") => console.log(s);
 const step = (s) => console.log(`\n── ${s} ${"─".repeat(Math.max(0, 60 - s.length))}`);
@@ -66,7 +69,7 @@ const todo = (s) => console.log(`  • ${s}`);
 const stop = (s) => { console.log(`\n  ✗ ${s}\n`); process.exit(1); };
 
 const env = process.env;
-const missing = ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"].filter(k => !env[k]);
+const missing = (mode === "deploy" ? ["CLOUDFLARE_API_TOKEN"] : ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"]).filter(k => !env[k]);
 /* On GitHub (the setup-worker workflow) the keys are repository secrets,
    not a Claude environment's variables; say so where it applies. */
 const WHERE = env.GITHUB_ACTIONS ? "Add it on GitHub: Settings → Secrets and variables → Actions → New repository secret (docs/setup-email.md, \"From a phone\")." : "docs/setup-email.md, steps 1 to 3, says where each comes from and where it goes.";
@@ -197,7 +200,8 @@ async function liveCheck() {
   try {
     const r = await fetch(WORKER_URL + "/state", { headers: { Origin: "https://thekaal.co" } });
     const j = await r.json();
-    if (j.v >= 2) good("answers v2: the page now uses the payment return address and the Series 02 forms");
+    if (j.v >= 3) good("answers v3: the page asks for the buyer's details before payment, and refunds are traced");
+    else if (j.v >= 2) todo("answers v2: the store is not bound, so details before payment stay off. Run again in mode all.");
     else todo("still the old worker (no v2). Deploy has not reached it yet; run again in a minute.");
   } catch (e) {
     todo(`could not reach ${new URL(WORKER_URL).host} from here (${e.cause ? e.cause.code : e.message}). Open ${WORKER_URL}/state in a browser: it should show "v":2.`);
@@ -264,11 +268,14 @@ function sampleDigest() {
 /* ── 6. The emails, to the owner ── */
 async function testEmails() {
   step("6. The emails, sent to you as samples");
-  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, ownerDigest, arriveBy, indiaTime } = await import("../worker/mail.js");
+  const { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, indiaTime } = await import("../worker/mail.js");
   const at = new Date();
   const base = { site: "https://thekaal.co", n: 7, dial: "Midnight", amount: "₹5,999", paymentId: "pay_SAMPLE0000001", orderId: "order_SAMPLE00000001",
     email: owners[0], contact: "+919311416678", gift: true, giftNote: "A sample card, written by hand.", when: indiaTime(at), arriveBy: arriveBy(at),
     left: 16, edition: 20, hasAddress: false, shipUrl: "https://thekaal.co/claimed.html#ship" };
+  const refund = { site: "https://thekaal.co", n: 7, dial: "Midnight", amount: "₹5,999", paid: "₹5,999", full: true, paymentId: "pay_SAMPLE0000001",
+    refundId: "rfnd_SAMPLE000001", when: indiaTime(at), email: owners[0], contact: "+919311416678", stillSold: true,
+    deskUrl: `${WORKER_URL}/desk`, buyerTold: true };
   const addr = { name: "Sample Buyer", phone: "+919311416678", line1: "12 Sample Street", line2: "", city: "Delhi", state: "Delhi", pin: "110001" };
   const mails = [
     ["What the buyer gets when they pay", buyerConfirmation(base)],
@@ -276,6 +283,8 @@ async function testEmails() {
     ["What you get when they give an address", ownerShip({ ...base, address: addr, buyerEmail: owners[0] })],
     ["What the buyer gets when they give an address", buyerShip({ ...base, address: addr })],
     ["What the buyer gets when you mark it dispatched on the desk", buyerDispatched({ ...base, address: addr, courier: "Delhivery", tracking: "SAMPLE123456", url: "" })],
+    ["What the buyer gets when a refund is processed", buyerRefund({ ...refund })],
+    ["What you get when a refund is processed", ownerRefund({ ...refund })],
     ["What you get at the end of every day (sample numbers)", ownerDigest(sampleDigest())]
   ];
   const from = "KAAL <connect@thekaal.co>";
@@ -321,6 +330,7 @@ async function ensureDesk(verified) {
   if (mode === "test") { await testEmails(); return; }
   await cloudflareAccount();
   await ensureKV();
+  if (mode === "deploy") { await deploy(); await liveCheck(); step("Done"); return; }
   /* Deploy before the secrets: the new wrangler.toml no longer defines
      OWNER_EMAIL as a plain setting, so the secret can never collide with
      one left on an older deploy. */

@@ -26,10 +26,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "all: do everything not yet done · check: only report · test: send the sample emails again"
+        description: "deploy: put the latest worker live (after a change) · all: first-time setup, everything not yet done · check: only report · test: send the sample emails again"
         type: choice
-        options: [all, check, test]
-        default: all
+        options: [deploy, all, check, test]
+        default: deploy
 
 permissions:
   contents: write
@@ -60,11 +60,12 @@ jobs:
           case "$MODE" in
             check) node tools/setup-email.mjs --check ;;
             test)  node tools/setup-email.mjs --test ;;
-            *)     node tools/setup-email.mjs ;;
+            all)   node tools/setup-email.mjs ;;
+            *)     node tools/setup-email.mjs --deploy ;;
           esac
 
       - name: Keep the store's id in wrangler.toml
-        if: ${{ inputs.mode == 'all' }}
+        if: ${{ inputs.mode == 'all' || inputs.mode == 'deploy' }}
         continue-on-error: true
         run: |
           if git diff --quiet -- wrangler.toml; then echo "wrangler.toml unchanged."; exit 0; fi

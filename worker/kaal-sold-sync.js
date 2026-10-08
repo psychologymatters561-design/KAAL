@@ -32,7 +32,9 @@
    twenty-first sale. Standard Checkout keeps the buyer on thekaal.co
    and moves that responsibility here, so two more routes carry it:
 
-     POST /order {n}    the order for that number, priced by this file
+     POST /order {n}    the order for that number, priced by this file; since
+                        v3 it also keeps the buyer's details given before
+                        paying (name, phone, email, where it goes)
      POST /verify {..}  the signature, checked before anything is believed
 
    AND TWO THAT ARE NOT ABOUT MONEY (October 2026):
@@ -50,7 +52,8 @@
      POST /list {email} the Series 02 list: one address, stored under the
                         hash of itself, rate limited, nothing else kept
      scheduled()        the abandoned-checkout email. Built, and OFF until
-                        ABANDON_EMAIL = "on" — see docs/email.md
+                        ABANDON_EMAIL = "on" — see docs/email.md. Also the
+                        refund watch (section 7) and the morning report
 
    Two things about /order are the whole point of it existing. It reads
    the price from PRICE_PAISE and ignores whatever the browser said the
@@ -81,7 +84,7 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
-import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, ownerDigest, arriveBy, arriveByDay, indiaTime } from "./mail.js";
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime } from "./mail.js";
 import { deskPage } from "./desk.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -89,6 +92,7 @@ const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
+const LEAD_DAYS = 90;           /* details from a checkout that was never paid */
 
 export default {
   async fetch(request, env, ctx) {
@@ -121,6 +125,7 @@ export default {
      feature stays off. */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(abandonedCheckouts(env));
+    ctx.waitUntil(refundWatch(env));
     ctx.waitUntil(dailyDigest(env));
   }
 };
@@ -135,6 +140,7 @@ export default {
 async function getState(request, env) {
   if (!env.KAAL_STATE) {
     const placed = await readPlaced(env);
+    /* No store, nowhere to keep details given before paying: still v2. */
     return json(request, env, placed ? { v: 2, sold: null, held: [], placed } : { v: 2, sold: null, held: [] });
   }
 
@@ -150,8 +156,9 @@ async function getState(request, env) {
   } catch (e) { /* a listing that fails is a page with no holds, not an error */ }
 
   /* v: 2 tells the page this worker has /callback, /receipt, /shipping and
-     /list. The page uses none of them until it sees it. */
-  const out = { v: 2, sold, held, at: now };
+     /list; v: 3, that /order also keeps the buyer's details given before
+     paying. The page uses none of them until it sees the number. */
+  const out = { v: 3, sold, held, at: now };
   const placed = await readPlaced(env);
   if (placed) out.placed = placed;
   return json(request, env, out, { "Cache-Control": "public, max-age=10" });
@@ -211,6 +218,8 @@ async function postOrder(request, env) {
   if (isNaN(n) || n < 1 || n > edition) {
     return json(request, env, { ok: false, reason: "out-of-range" }, {}, 400);
   }
+  const buyer = cleanBuyer(body && body.buyer);
+  if (buyer === null) return json(request, env, { ok: false, reason: "details" }, {}, 400);
 
   /* The price is read here and nowhere else. Nothing in the request body
      can reach it, so a hand-rolled POST asking to pay one rupee gets an
@@ -280,6 +289,19 @@ async function postOrder(request, env) {
      including from a worker with no KV bound and so nowhere to keep it —
      and a hold that is promised and not real is worse than none. It is a
      duration, not a timestamp, so a buyer's wrong clock cannot misstate it. */
+  /* The details given before paying become the delivery address the
+     moment the order exists, under the same key the thank-you page's form
+     writes, so a buyer who gave them here is never asked again. Kept 90
+     days unless the payment lands (notifySale keeps it for good then):
+     long enough to help someone finish, not a mailing list. */
+  if (buyer && env.KAAL_STATE) {
+    try {
+      await env.KAAL_STATE.put("ship:" + order.id,
+        JSON.stringify(Object.assign({ at: new Date().toISOString(), src: "checkout", buyer: buyer.who }, buyer.parcel)),
+        { expirationTtl: LEAD_DAYS * 86400 });
+    } catch (e) { console.log("Checkout details not kept:", String(e).slice(0, 120)); }
+  }
+
   let heldFor = 0;
   if (env.KAAL_STATE) {
     try {
@@ -305,7 +327,8 @@ async function postOrder(request, env) {
     currency: order.currency,
     key_id: env.RAZORPAY_KEY_ID,
     n,
-    held_for: heldFor
+    held_for: heldFor,
+    details: !!buyer
   });
 }
 
@@ -456,6 +479,41 @@ async function getReceipt(request, env, url) {
 
 function cleanField(v, max) { return cleanNote(v, max); }
 
+/* Where a watch goes, cleaned the same way whether it arrives before the
+   payment (/order) or after it (/shipping): every line but the landmark,
+   a six-digit PIN, a phone of ten digits or more. null when incomplete. */
+function cleanAddress(src) {
+  const a = {
+    name:  cleanField(src && src.name, 80),
+    phone: String((src && src.phone) || "").replace(/[^\d+]/g, "").slice(0, 15),
+    line1: cleanField(src && src.line1, 120),
+    line2: cleanField(src && src.line2, 120),
+    city:  cleanField(src && src.city, 60),
+    state: cleanField(src && src.state, 40),
+    pin:   String((src && src.pin) || "").replace(/\D/g, "").slice(0, 6)
+  };
+  if (!a.name || !a.line1 || !a.city || !a.state || a.pin.length !== 6 || a.phone.replace(/\D/g, "").length < 10) return null;
+  return a;
+}
+
+/* The buyer's own details, given before paying (/order, worker v3): who
+   they are and where it goes. The parcel's name and phone are the
+   recipient's when it is a gift, the buyer's otherwise. undefined when the
+   page sent none (an older page), null when what it sent is incomplete. */
+function cleanBuyer(src) {
+  if (src === undefined || src === null) return undefined;
+  if (typeof src !== "object") return null;
+  const email = String(src.email || "").trim().toLowerCase().slice(0, 254);
+  const who = { name: cleanField(src.name, 80), phone: String(src.phone || "").replace(/[^\d+]/g, "").slice(0, 15), email };
+  if (!who.name || who.phone.replace(/\D/g, "").length < 10 || !validEmail(email)) return null;
+  const parcel = cleanAddress(Object.assign({}, src, {
+    name: src.to_name ? src.to_name : src.name,
+    phone: src.to_phone ? src.to_phone : src.phone
+  }));
+  if (!parcel) return null;
+  return { parcel, who };
+}
+
 /* "rahul.sharma@gmail.com" → "ra•••@gmail.com": enough for a buyer to
    recognise their own address, not enough to read someone else's. */
 function maskEmail(e) {
@@ -471,18 +529,8 @@ async function postShipping(request, env, ctx) {
   const orderId = String((body && body.o) || "");
   if (!ORDER_ID.test(orderId)) return json(request, env, { ok: false, reason: "bad-order" }, {}, 400);
 
-  const a = {
-    name:  cleanField(body.name, 80),
-    phone: String(body.phone || "").replace(/[^\d+]/g, "").slice(0, 15),
-    line1: cleanField(body.line1, 120),
-    line2: cleanField(body.line2, 120),
-    city:  cleanField(body.city, 60),
-    state: cleanField(body.state, 40),
-    pin:   String(body.pin || "").replace(/\D/g, "").slice(0, 6)
-  };
-  if (!a.name || !a.line1 || !a.city || !a.state || a.pin.length !== 6 || a.phone.replace(/\D/g, "").length < 10) {
-    return json(request, env, { ok: false, reason: "incomplete" }, {}, 400);
-  }
+  const a = cleanAddress(body);
+  if (!a) return json(request, env, { ok: false, reason: "incomplete" }, {}, 400);
 
   const order = await readOrder(env, orderId);
   const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
@@ -538,6 +586,12 @@ async function notifySale(env, entity, chosen) {
     let address = null;
     if (env.KAAL_STATE && entity.order_id) {
       try { address = JSON.parse((await env.KAAL_STATE.get("ship:" + entity.order_id)) || "null"); } catch (e) { address = null; }
+      /* Given before paying, it was kept for 90 days in case the payment
+         never came. It came: keep it for good, the same write without the
+         expiry. */
+      if (address && address.src === "checkout") {
+        try { await env.KAAL_STATE.put("ship:" + entity.order_id, JSON.stringify(address)); } catch (e) { /* the copy in the emails remains */ }
+      }
     }
     const paidAt = entity.created_at ? new Date(entity.created_at * 1000) : new Date();
     const buyer = String(entity.email || "").trim();
@@ -547,6 +601,7 @@ async function notifySale(env, entity, chosen) {
       amount: `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`,
       paymentId, orderId: entity.order_id || "",
       email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
+      buyerName: (address && address.buyer && address.buyer.name) || "",
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
       when: indiaTime(paidAt), arriveBy: arriveBy(paidAt),
       left: Math.max(0, edition - sold.size), edition,
@@ -604,6 +659,18 @@ async function webhook(request, env, ctx) {
   let event;
   try { event = JSON.parse(rawBody); }
   catch (e) { return new Response("Bad JSON.", { status: 400 }); }
+
+  /* A refund, the moment Razorpay processes it, if the webhook is
+     subscribed to refund.processed. Without that subscription the cron
+     finds the same refund within half an hour; either way it is recorded
+     and told once (section 7). */
+  if (event.event === "refund.processed") {
+    const p = event.payload || {};
+    const job = recordRefund(env, p.refund && p.refund.entity, p.payment && p.payment.entity)
+      .catch(e => console.log("Refund webhook threw:", String(e).slice(0, 160)));
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
+    return new Response("Refund noted.", { status: 200 });
+  }
 
   if (event.event !== "payment.captured") {
     return new Response("Ignored: " + String(event.event).slice(0, 60), { status: 200 });
@@ -668,8 +735,13 @@ async function webhook(request, env, ctx) {
 /* Read, modify, write — and mean it. Two webhooks landing together both
    read the same blob sha, and the second PUT is rejected with a 409. The
    old build returned 502 and left it to Razorpay's retry schedule, which
-   is minutes. Three attempts here closes it in milliseconds. */
-async function commitSold(env, chosen, paymentId) {
+   is minutes. Three attempts here closes it in milliseconds.
+
+   One routine for every change to the `sold` line: a sale adds a number
+   (commitSold), and the owner's "back on sale" after a refund takes one
+   away (releaseSold). `change` reads the current list and the edition and
+   returns either { next } or a { status } that ends it without writing. */
+async function rewriteSold(env, change, message) {
   const owner  = env.GITHUB_OWNER, repo = env.GITHUB_REPO;
   const branch = env.GITHUB_BRANCH || "main";
   const api    = `https://api.github.com/repos/${owner}/${repo}/contents/index.html`;
@@ -690,7 +762,6 @@ async function commitSold(env, chosen, paymentId) {
 
     const editionMatch = decoded.match(/edition:\s*(\d+)/);
     const edition = editionMatch ? parseInt(editionMatch[1], 10) : 20;
-    if (!chosen || isNaN(chosen) || chosen < 1 || chosen > edition) return { status: "bad-number" };
 
     const soldPattern = /sold:\s*\[([^\]]*)\]/;
     const match = decoded.match(soldPattern);
@@ -700,15 +771,15 @@ async function commitSold(env, chosen, paymentId) {
     }
 
     const current = match[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-    if (current.indexOf(chosen) > -1) return { status: "already" };
+    const step = change(current, edition);
+    if (step.status) return step;
 
-    const updated = current.concat([chosen]).sort((a, b) => a - b);
     const putRes = await fetch(api, {
       method: "PUT",
       headers: Object.assign({ "Content-Type": "application/json" }, headers),
       body: JSON.stringify({
-        message: `Auto: mark number ${chosen} sold (payment ${paymentId})`,
-        content: btoa(decoded.replace(soldPattern, `sold:     [${updated.join(", ")}]`)),
+        message,
+        content: btoa(decoded.replace(soldPattern, `sold:     [${step.next.join(", ")}]`)),
         sha: file.sha,
         branch
       })
@@ -722,6 +793,28 @@ async function commitSold(env, chosen, paymentId) {
   }
   console.log("GitHub PUT conflicted three times running.");
   return { status: "error" };
+}
+
+async function commitSold(env, chosen, paymentId) {
+  return rewriteSold(env, (current, edition) => {
+    if (!chosen || isNaN(chosen) || chosen < 1 || chosen > edition) return { status: "bad-number" };
+    if (current.indexOf(chosen) > -1) return { status: "already" };
+    return { next: current.concat([chosen]).sort((a, b) => a - b) };
+  }, `Auto: mark number ${chosen} sold (payment ${paymentId})`);
+}
+
+/* The other direction, and only ever on the owner's tap on the desk after
+   a full refund. KV follows, so /order and the live page agree at once. */
+async function releaseSold(env, n, why) {
+  const r = await rewriteSold(env, (current) => current.indexOf(n) < 0 ? { status: "already" } : { next: current.filter(x => x !== n) },
+    `Auto: number ${n} back on sale (${why})`);
+  if ((r.status === "ok" || r.status === "already") && env.KAAL_STATE) {
+    try {
+      const kv = (await readSold(env)) || [];
+      await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(kv.filter(x => x !== n)));
+    } catch (e) { console.log("KV sold not updated after a release:", String(e).slice(0, 120)); }
+  }
+  return r;
 }
 
 /* ══════════ 3c. THE SERIES 02 LIST ══════════
@@ -959,7 +1052,7 @@ async function sendEmail(env, to, subject, text, html, replyToOverride) {
 
 const IST_MS = 5.5 * 3600 * 1000;
 const COUNTED = new Set(["visit", "visitor", "hero", "hero_complete", "early_dial", "ctx_cta", "view", "dial",
-  "number", "caseback_view", "gift", "checkout", "list", "film", "provenance_click", "deeplink"]);
+  "number", "caseback_view", "gift", "checkout", "details", "list", "film", "provenance_click", "deeplink"]);
 
 /* "2026-10-06": the calendar day in India for a moment in time. */
 function istDay(ms) { return new Date(ms + IST_MS).toISOString().slice(0, 10); }
@@ -1073,19 +1166,26 @@ async function ledger(env, nowMs) {
     let n = parseInt(notes.kaal_no, 10);
     if (!n && p.order_id && lookups < 25) { lookups++; n = await numberFromOrder(env, p.order_id); }
     n = n || 0;
-    let address = null, sent = null;
+    let address = null, sent = null, refundRec = null, release = null;
     if (env.KAAL_STATE && p.order_id) {
       address = await env.KAAL_STATE.get("ship:" + p.order_id, "json").catch(() => null);
       sent = await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null);
     }
     const at = new Date(p.created_at * 1000), back = p.amount_refunded || 0;
+    if (back && env.KAAL_STATE) {
+      refundRec = await env.KAAL_STATE.get("refundof:" + p.id, "json").catch(() => null);
+      const r = n ? await env.KAAL_STATE.get("refunded:" + n, "json").catch(() => null) : null;
+      if (r && r.payment === p.id) release = r;
+    }
     orders.push({
       n, dial: n ? DIAL_OF(env, n) : "", id: p.id, orderId: p.order_id || "",
       amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`, paise: p.amount || 0,
       email: p.email || "", contact: p.contact || "", ts: p.created_at, day: istDay(p.created_at * 1000), at: indiaTime(at),
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
       due: arriveBy(at), dueDay: arriveByDay(at), address, sent,
-      refund: p.status === "refunded" || (back && back >= (p.amount || 0)) ? "full" : back ? "part" : ""
+      refund: p.status === "refunded" || (back && back >= (p.amount || 0)) ? "full" : back ? "part" : "",
+      refunded: back ? rupees(back) : "", refundedOn: refundRec ? indiaTime(new Date(refundRec.refundedAt)) : "",
+      release: release ? { decided: release.decided || "", at: release.decidedAt || "" } : null
     });
   }
   return { rzp, pays, orders };
@@ -1105,8 +1205,14 @@ async function unfinishedBetween(env, pays, from, to) {
     const t = tries[0], has = (k) => (tries.find(p => p[k]) || {})[k] || "";
     const why = (tries.find(p => p.status === "failed" && p.error_description) || {}).error_description;
     const n = parseInt((o.notes || {}).kaal_no, 10) || 0;
+    /* What they told us before paying, if they did (worker v3): enough to
+       reach someone who closed the payment window without typing a thing. */
+    let given = null;
+    if (env.KAAL_STATE) given = await env.KAAL_STATE.get("ship:" + o.id, "json").catch(() => null);
+    const who = (given && given.buyer) || {};
     out.push({ n, dial: n ? DIAL_OF(env, n) : "", ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
-      email: has("email"), contact: has("contact"),
+      name: who.name || "", city: given ? [given.city, given.state].filter(Boolean).join(", ") : "",
+      email: has("email") || who.email || "", contact: has("contact") || who.phone || "",
       stage: t ? (t.status === "failed" ? "Payment failed" + (why ? `: ${String(why).slice(0, 80)}` : "") + (tries.length > 1 ? ` (${tries.length} tries)` : "") : `Payment ${t.status}`)
                : "Closed checkout before paying" });
   }
@@ -1137,6 +1243,8 @@ async function digestData(env, day) {
     revenue: orders.filter(o => o.refund !== "full").reduce((t, o) => t + o.paise, 0),
     trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, visits: (counts[dd] || {}).visit || 0,
       numbers: (counts[dd] || {}).number || 0, checkouts: (counts[dd] || {}).checkout || 0, orders: ordersOn[dd] || 0 })),
+    refunds: (await refundsBetween(env, from, to)).map(r => ({ n: r.n, dial: r.n ? DIAL_OF(env, r.n) : "", amount: rupees(r.amount),
+      full: !!r.full, payment: r.payment, at: indiaTime(new Date(r.refundedAt)) })),
     alerts: alertsFor(env, L, soldRaw, nowMs),
     deskUrl: env.DESK_PASSCODE ? workerUrl(env) + "/desk" : "",
     counting: !!env.STATS, razorpay: L.rzp
@@ -1187,6 +1295,8 @@ async function dailyDigest(env) {
      POST /desk/dispatch     {o, courier, tracking, url, notify} marks an
                              order sent and, if asked, emails the buyer
                              their tracking; {o, undo:true} takes it back
+     POST /desk/release      {n, action: "sell" | "retire"} the owner's
+                             answer to a full refund (section 7)
    ─────────────────── */
 
 const DESK_COOKIE = "kaal_desk";
@@ -1248,6 +1358,7 @@ async function desk(request, env, ctx, path) {
   if (path === "/desk/orders.csv" && method === "GET") return deskOrdersCsv(env);
   if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
   if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
+  if (path === "/desk/release" && method === "POST") return deskRelease(request, env);
   return deskJson({ ok: false, reason: "not-found" }, 404);
 }
 
@@ -1278,8 +1389,16 @@ async function deskLogin(request, env) {
 function alertsFor(env, L, sold, nowMs) {
   const out = [], now = Math.floor(nowMs / 1000), today = istDay(nowMs);
   const byN = {};
+  const live = new Set(L.orders.filter(o => o.refund !== "full" && o.n).map(o => o.n));
   for (const o of L.orders) {
-    if (o.refund === "full") continue;
+    if (o.refund === "full") {
+      if (o.n && sold && sold.indexOf(o.n) > -1 && !live.has(o.n) && !(o.release && o.release.decided)) {
+        out.push({ level: "act", kind: "refund", n: o.n, orderId: o.orderId, id: o.id,
+          title: `No. ${pad2(o.n)} was refunded: back on sale, or keep it retired?`,
+          detail: `${o.refunded || o.amount} went back to the buyer${o.refundedOn ? " on " + o.refundedOn : ""}. The site still shows it sold until you choose.` });
+      }
+      continue;
+    }
     const no = `No. ${pad2(o.n)}`;
     if (!o.n) {
       out.push({ level: "act", kind: "unknown", id: o.id, title: `A payment of ${o.amount} has no watch number`, detail: `${o.at}. Open it in Razorpay, read the notes, and mark the number sold by hand.` });
@@ -1308,7 +1427,7 @@ function alertsFor(env, L, sold, nowMs) {
     if (left === 0) out.push({ level: "note", kind: "complete", title: "The edition is complete", detail: "All twenty have gone." });
     else if (left <= 3) out.push({ level: "note", kind: "few", title: `${left} of ${env.EDITION || 20} remain`, detail: "" });
   }
-  const order = ["unknown", "double", "unsold", "late", "due", "address", "razorpay", "mail"];
+  const order = ["unknown", "double", "unsold", "refund", "late", "due", "address", "razorpay", "mail"];
   return out.sort((a, b) => (a.level === b.level ? 0 : a.level === "act" ? -1 : 1) || (order.indexOf(a.kind) - order.indexOf(b.kind)));
 }
 
@@ -1444,9 +1563,166 @@ async function deskLeadsCsv(env) {
   return csv([["Email", "Form", "Joined (India time)"]].concat(leads.map(l => [l.email, l.source, l.at])), "kaal-series-02");
 }
 
+/* ══════════ 7. REFUNDS ══════════
+
+   A refund is issued in Razorpay: from its dashboard, or by Razorpay on a
+   cancellation. This worker finds it on its own. Every cron run lists the
+   last fifteen days of refunds (the very first run looks back 180), and
+   the webhook hands over refund.processed at once if Razorpay is told to
+   send it. Each processed refund is recorded once, under refund:<id>, and
+   told once: to the owner, and to the buyer in KAAL's words (Razorpay
+   sends its own notice too; REFUND_EMAIL = "off" leaves it at that).
+
+   A full refund never puts the number back on sale by itself. The watch
+   may still be on its way back, or the owner may want that number retired
+   for good. The desk asks, and only the owner's tap moves the sold list
+   (POST /desk/release). ─────────────────── */
+const REFUND_LOOKBACK = 15 * 86400, REFUND_FIRST_LOOKBACK = 180 * 86400, REFUNDS_PER_RUN = 6;
+
+async function listRefunds(env, from, to) {
+  const out = [];
+  try {
+    for (let skip = 0; skip < 500; skip += 100) {
+      const res = await fetch(`${RZP_API}/refunds?from=${from}&to=${to}&count=100&skip=${skip}`, { headers: razorpayAuth(env) });
+      if (!res.ok) { console.log("Refund listing failed:", res.status); return null; }
+      const items = ((await res.json()) || {}).items || [];
+      out.push(...items);
+      if (items.length < 100) break;
+    }
+  } catch (e) { console.log("Refund listing threw:", String(e).slice(0, 120)); return null; }
+  return out;
+}
+
+async function readPayment(env, id) {
+  try {
+    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(id)}`, { headers: razorpayAuth(env) });
+    return res.ok ? await res.json() : null;
+  } catch (e) { return null; }
+}
+
+async function refundWatch(env) {
+  try {
+    if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !env.KAAL_STATE) return;
+    const now = Math.floor(Date.now() / 1000);
+    const first = !(await env.KAAL_STATE.get("refunds:looked").catch(() => null));
+    const list = await listRefunds(env, now - (first ? REFUND_FIRST_LOOKBACK : REFUND_LOOKBACK), now + 60);
+    if (!list) return;
+    /* A few new ones per run keeps a run inside the Worker's request
+       budget; the rest are simply found again half an hour later. */
+    let fresh = 0;
+    for (const r of list.sort((a, b) => a.created_at - b.created_at)) {
+      if (fresh >= REFUNDS_PER_RUN) return;
+      if ((await recordRefund(env, r)) === "new") fresh++;
+    }
+    if (first) await env.KAAL_STATE.put("refunds:looked", String(now));
+  } catch (e) { console.log("Refund watch threw:", String(e).slice(0, 160)); }
+}
+
+/* "new" when recorded and told now, "seen" when it already was, "skip"
+   when it is not a processed refund or Razorpay could not be read (it is
+   tried again on the next run). */
+async function recordRefund(env, r, payment) {
+  if (!r || !r.id || !r.payment_id || !env.KAAL_STATE || r.status !== "processed") return "skip";
+  const key = "refund:" + r.id;
+  if (await env.KAAL_STATE.get(key).catch(() => null)) return "seen";
+  if (!payment || payment.id !== r.payment_id) payment = await readPayment(env, r.payment_id);
+  if (!payment) return "skip";
+
+  let n = parseInt((payment.notes || {}).kaal_no, 10);
+  if (!n && payment.order_id) n = await numberFromOrder(env, payment.order_id);
+  n = n || 0;
+  const back = Math.max(payment.amount_refunded || 0, r.amount || 0);
+  const full = payment.status === "refunded" || back >= (payment.amount || 0);
+  const when = new Date((r.created_at || Math.floor(Date.now() / 1000)) * 1000);
+  const rec = { at: new Date().toISOString(), refundedAt: when.toISOString(), id: r.id, n, payment: payment.id,
+    order: payment.order_id || "", amount: r.amount || 0, full };
+
+  /* Written before anything is said, so a send that fails is never sent
+     twice. The payment's own copy is what the desk's order list reads. */
+  await env.KAAL_STATE.put(key, JSON.stringify(rec));
+  await env.KAAL_STATE.put("refundof:" + payment.id, JSON.stringify(rec)).catch(() => null);
+  if (full && n) {
+    const cur = await env.KAAL_STATE.get("refunded:" + n, "json").catch(() => null);
+    if (!cur || cur.payment !== payment.id) {
+      await env.KAAL_STATE.put("refunded:" + n, JSON.stringify({ n, payment: payment.id, refund: r.id, at: rec.refundedAt, decided: "" }));
+    }
+  }
+
+  if (env.RESEND_API_KEY || env.BREVO_API_KEY) {
+    const email = String(payment.email || "").trim();
+    const emailOk = email && validEmail(email.toLowerCase());
+    const sold = (await knownSold(env)) || [];
+    const d = {
+      site: siteUrl(env), n, dial: n ? DIAL_OF(env, n) : "", amount: rupees(r.amount), paid: rupees(payment.amount), full,
+      paymentId: payment.id, refundId: r.id, when: indiaTime(when), email: emailOk ? email : "", contact: String(payment.contact || ""),
+      stillSold: !!(full && n && sold.indexOf(n) > -1), deskUrl: env.DESK_PASSCODE ? workerUrl(env) + "/desk" : "",
+      buyerTold: !!(emailOk && env.REFUND_EMAIL !== "off")
+    };
+    const toOwner = ownerRefund(d);
+    const sends = [sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html, emailOk ? email : undefined)];
+    if (emailOk && env.REFUND_EMAIL !== "off") {
+      const toBuyer = buyerRefund(d);
+      sends.push(sendEmail(env, email, toBuyer.subject, toBuyer.text, toBuyer.html));
+    }
+    await Promise.all(sends);
+  }
+  console.log(`Refund ${r.id} recorded${n ? " for No. " + pad2(n) : ""}${full ? " (full)" : ""}.`);
+  return "new";
+}
+
+/* The owner's answer to a full refund, from the desk. Allowed only when
+   Razorpay shows that number's payment fully refunded and no other payment
+   for it still standing, so a number that has since sold again can never
+   be released by a stale tap. "retire" only writes the answer down. */
+async function deskRelease(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.KAAL_STATE) return deskJson({ ok: false, reason: "no-store" }, 503);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const n = parseInt(body && body.n, 10), action = body && body.action;
+  if (!(n >= 1 && n <= parseInt(env.EDITION || "20", 10)) || (action !== "sell" && action !== "retire")) {
+    return deskJson({ ok: false, reason: "bad-request" }, 400);
+  }
+  const L = await ledger(env, Date.now());
+  if (L.rzp && L.pays === null) return deskJson({ ok: false, reason: "razorpay" }, 502);
+  const mine = L.orders.filter(o => o.n === n);
+  const refunded = mine.find(o => o.refund === "full");
+  if (!refunded) return deskJson({ ok: false, reason: "not-refunded" }, 409);
+  if (mine.some(o => o.refund !== "full")) return deskJson({ ok: false, reason: "sold-again" }, 409);
+
+  const prev = (await env.KAAL_STATE.get("refunded:" + n, "json").catch(() => null)) || { n, payment: refunded.id };
+  if (action === "sell") {
+    const r = await releaseSold(env, n, `refunded, payment ${refunded.id}`);
+    if (r.status === "error") return deskJson({ ok: false, reason: "github" }, 502);
+  }
+  const rec = Object.assign({}, prev, { decided: action, decidedAt: new Date().toISOString() });
+  await env.KAAL_STATE.put("refunded:" + n, JSON.stringify(rec));
+  return deskJson({ ok: true, n, decided: action });
+}
+
+/* Refunds recorded in a window, for the morning report. */
+async function refundsBetween(env, from, to) {
+  if (!env.KAAL_STATE) return [];
+  const out = [];
+  try {
+    let cursor;
+    do {
+      const page = await env.KAAL_STATE.list({ prefix: "refund:", cursor });
+      for (const k of page.keys || []) {
+        const v = await env.KAAL_STATE.get(k.name, "json").catch(() => null);
+        const t = v && Date.parse(v.refundedAt) / 1000;
+        if (v && t >= from && t < to) out.push(v);
+      }
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  } catch (e) { console.log("Refund listing (KV) failed:", String(e).slice(0, 120)); }
+  return out.sort((a, b) => (a.refundedAt < b.refundedAt ? -1 : 1));
+}
+
 /* ══════════ 4. PLUMBING ══════════ */
 
 const pad2 = (n) => (n < 10 ? "0" + n : String(n));
+const rupees = (paise) => `₹${((paise || 0) / 100).toLocaleString("en-IN")}`;
 const isText = (v) => typeof v === "string" && v.length > 0 && v.length < 256;
 
 /* The number, from the one copy of it a browser never touched. /order

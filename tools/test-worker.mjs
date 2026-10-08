@@ -18,11 +18,11 @@ let failed = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed++; };
 
 function kv() {
-  const store = new Map();
+  const store = new Map(), ttl = new Map();
   return {
-    store,
+    store, ttl,
     async get(k, t) { const v = store.has(k) ? store.get(k) : null; return v === null ? null : (t === "json" ? JSON.parse(v) : v); },
-    async put(k, v) { store.set(k, v); }, async delete(k) { store.delete(k); },
+    async put(k, v, o) { store.set(k, v); ttl.set(k, o && o.expirationTtl); }, async delete(k) { store.delete(k); ttl.delete(k); },
     async list({ prefix }) { return { keys: [...store.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })) }; }
   };
 }
@@ -48,6 +48,7 @@ globalThis.fetch = async (url, init) => {
     const content = Buffer.from(`var KAAL = { edition:  20,\n  sold:     ${ghSold},\n};`).toString("base64");
     return new Response(JSON.stringify({ content, sha: "x" }));
   }
+  if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
   let m = /\/orders\/(order_\w+)\/payments/.exec(url);
   if (m) return new Response(JSON.stringify({ items: [{ id: "pay_ABC123", status: payStatus, email: "rahul.sharma@example.com", contact: "+919999999999", created_at: 1790000000 }] }));
   m = /\/orders\/(order_\w+)$/.exec(url);
@@ -74,7 +75,9 @@ ok((await r.json()).mail === false, "receipt: never claims an email when none ca
 r = await w.fetch(new Request("https://w/receipt?o=../../x"), env, ctx());
 ok(r.status === 400, "receipt: a malformed order id is refused");
 r = await w.fetch(new Request("https://w/state", { headers: { Origin: "https://thekaal.co" } }), env, ctx());
-ok((await r.json()).v === 2, "state: announces v2, so the page turns on the return address and the list");
+ok((await r.json()).v === 3, "state: announces v3 with its store, so the page asks for details before paying");
+r = await w.fetch(new Request("https://w/state", { headers: { Origin: "https://thekaal.co" } }), Object.assign({}, env, { KAAL_STATE: undefined }), ctx());
+ok((await r.json()).v === 2, "state: without a store it stays v2: nowhere to keep details, so the page does not ask for them");
 
 /* ── 3. The delivery address ── */
 const ship = { o: "order_TESTORDER1", name: "Ravi Kumar", phone: "+91 98765 43210", line1: "12 Park <Street>", line2: "", city: "Kolkata", state: "West Bengal", pin: "700016" };
@@ -335,6 +338,149 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   ok(r.status === 429, "desk: eight wrong passcodes in fifteen minutes and that connection is refused, even with the right one");
 
   globalThis.fetch = deskFetch; Date.now = realNow;
+}
+
+
+/* ── 10. Details before paying ── */
+{
+  const posted = [];
+  const orderFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/orders$/.test(url) && init && init.method === "POST") {
+      posted.push(JSON.parse(init.body));
+      return new Response(JSON.stringify({ id: "order_DETAILS0" + posted.length, amount: 599900, currency: "INR" }));
+    }
+    return orderFetch(url, init);
+  };
+  const envO = Object.assign({}, env, { PRICE_PAISE: "599900" });
+  KV.store.set("sold", "[1,2,3,9]");
+  const order = (b) => w.fetch(new Request("https://w/order", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://thekaal.co" }, body: JSON.stringify(b) }), envO, ctx());
+  const buyer = { name: "Meera Iyer", phone: "+91 98200 00001", email: "Meera.Iyer@Example.com", line1: "Flat 4B, Sea Breeze", line2: "", city: "Mumbai", state: "Maharashtra", pin: "400050" };
+
+  r = await order({ n: 12, by: "t1", buyer });
+  d = await r.json();
+  let rec = JSON.parse(KV.store.get("ship:order_DETAILS01") || "null");
+  ok(d.ok && d.details === true && rec && rec.src === "checkout" && rec.pin === "400050" && rec.name === "Meera Iyer" && rec.buyer.email === "meera.iyer@example.com", "order: the details given before paying become the delivery address, under the order");
+  ok(KV.ttl.get("ship:order_DETAILS01") === 90 * 86400, "order: kept 90 days while unpaid, not forever");
+  ok(!JSON.stringify(posted[0].notes).includes("Meera") && !JSON.stringify(posted[0].notes).includes("400050"), "order: the details stay with KAAL, not in Razorpay's order notes");
+
+  r = await order({ n: 13, by: "t2", gift: true, buyer: Object.assign({}, buyer, { to_name: "Appa Iyer", to_phone: "9800000002" }) });
+  rec = JSON.parse(KV.store.get("ship:order_DETAILS02") || "null");
+  ok(rec && rec.name === "Appa Iyer" && rec.phone === "9800000002" && rec.buyer.name === "Meera Iyer", "order: a gift goes to the recipient's name and phone; the buyer is kept as the buyer");
+
+  r = await order({ n: 14, by: "t3", buyer: Object.assign({}, buyer, { pin: "4000" }) });
+  ok(r.status === 400 && (await r.json()).reason === "details" && posted.length === 2, "order: half-filled details are refused before Razorpay is asked for anything");
+  r = await order({ n: 14, by: "t4", buyer: Object.assign({}, buyer, { email: "not-an-email" }) });
+  ok(r.status === 400, "order: an email that cannot receive the confirmation is refused");
+  r = await order({ n: 14, by: "t5" });
+  ok((await r.json()).details === false && posted.length === 3, "order: a page that sends no details (older page) still gets its order");
+
+  /* The payment lands: the address is already known, and kept for good. */
+  mails.length = 0;
+  const eD = { id: "pay_DETAILS01", order_id: "order_DETAILS01", amount: 599900, currency: "INR", email: "meera.iyer@example.com", contact: "+919820000001", created_at: 1790000000, notes: { kaal_no: "12" } };
+  await hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: eD } } }), envO);
+  const mineD = mails.find(m => m.to[0] === "meera.iyer@example.com"), ownD = mails.find(m => /^New order · No\. 12/.test(m.subject));
+  ok(mineD && /We have your delivery address/.test(mineD.text) && !/Add delivery address|claimed\.html\?o=/.test(mineD.text), "paid: the buyer is not asked for an address they already gave");
+  ok(ownD && /Buyer: Meera Iyer/.test(ownD.text) && /Mumbai, Maharashtra 400050/.test(ownD.text), "paid: the owner's alert carries the buyer's name and the address");
+  ok(KV.store.has("ship:order_DETAILS01") && KV.ttl.get("ship:order_DETAILS01") === undefined, "paid: the address is kept for good once the money is real");
+  globalThis.fetch = orderFetch;
+}
+
+/* ── 11. Refunds, found on their own ── */
+{
+  const base = globalThis.fetch;
+  const puts = [];
+  let refundList = [];
+  const payments = {
+    pay_R1: { id: "pay_R1", status: "refunded", amount: 599900, amount_refunded: 599900, email: "refund.buyer@example.com", contact: "+919800000011", order_id: "order_R1", created_at: 1791000000, notes: { kaal_no: "07" } },
+    pay_R3: { id: "pay_R3", status: "captured", amount: 599900, amount_refunded: 100000, email: "part.buyer@example.com", order_id: "order_R3", created_at: 1791000000, notes: { kaal_no: "11" } }
+  };
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: refundList }));
+    let m = /\/v1\/payments\/(pay_\w+)$/.exec(url);
+    if (m) return payments[m[1]] ? new Response(JSON.stringify(payments[m[1]])) : new Response("{}", { status: 404 });
+    if (/\/v1\/payments\?/.test(url)) return new Response(JSON.stringify({ items: Object.values(payments).concat([
+      { id: "pay_LIVE9", status: "captured", order_id: "order_L9", amount: 599900, created_at: 1791000000, notes: { kaal_no: "09" } }]) }));
+    if (/\/v1\/orders\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+    if (url.includes("api.github.com") && init && init.method === "PUT") { puts.push(JSON.parse(init.body)); return new Response("{}"); }
+    return base(url, init);
+  };
+  const envR = Object.assign({}, envC, { DESK_PASSCODE: "brass-quiet-lantern-42" });
+  KV.store.set("sold", "[1,2,3,7,9]"); ghSold = "[1, 2, 3, 7, 9]";
+  for (const k of [...KV.store.keys()]) if (/^(refund|refunded|refundof|refunds):/.test(k)) KV.store.delete(k);
+  const at = (iso) => Math.floor(Date.parse(iso) / 1000);
+  refundList = [
+    { id: "rfnd_A1", payment_id: "pay_R1", amount: 599900, status: "processed", created_at: at("2026-10-07T05:00:00Z") },
+    { id: "rfnd_P1", payment_id: "pay_R1", amount: 100, status: "pending", created_at: at("2026-10-07T05:30:00Z") }
+  ];
+  const tick = async (iso, e = envR) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, e, k); await k.done(); };
+  mails.length = 0;
+  await tick("2026-10-08T06:00:00Z");                                        /* 11:30 am in India: no report hour */
+  const own = mails.find(m => /^Refund processed · No\. 07/.test(m.subject)), buy = mails.find(m => m.to[0] === "refund.buyer@example.com");
+  ok(mails.length === 2 && own && own.subject === "Refund processed · No. 07 · ₹5,999" && own.to.join() === "owner@thekaal.co,me@example.org", "refund: found without being told, and the owner is emailed (" + mails.map(m => m.subject).join(" / ") + ")");
+  ok(own && /still shown as sold/.test(own.text) && /\/desk/.test(own.text) && own.reply_to === "refund.buyer@example.com", "refund: the owner is asked the one question it leaves, with the desk link, and can reply to the buyer");
+  ok(buy && buy.subject === "Your refund for No. 07 has been processed" && /₹5,999/.test(buy.text) && /rfnd_A1/.test(buy.text) && /5 to 7 working days/.test(buy.text) && !/thekaal\.co\/#|choose|buy again/i.test(buy.text), "refund: the buyer is told plainly, with both references, and not sold to");
+  ok(JSON.parse(KV.store.get("refunded:7")).decided === "" && KV.store.has("refund:rfnd_A1") && !KV.store.has("refund:rfnd_P1"), "refund: recorded once; a pending refund waits until Razorpay processes it");
+  ok(JSON.parse(KV.store.get("sold")).includes(7) && puts.length === 0, "refund: the number is NOT put back on sale by itself");
+  await tick("2026-10-08T06:30:00Z");
+  ok(mails.length === 2, "refund: the next run finds it again and says nothing");
+
+  /* The same refund announced by the webhook as well: still once. A new
+     part refund by webhook: told, no question about the number. */
+  const rhook = (b) => { const k = ctx(); return w.fetch(new Request("https://w/", { method: "POST", headers: { "x-razorpay-signature": createHmac("sha256", "wh").update(b).digest("hex") }, body: b }), envR, k).then(async res => { await k.done(); return res; }); };
+  r = await rhook(JSON.stringify({ event: "refund.processed", payload: { refund: { entity: refundList[0] }, payment: { entity: payments.pay_R1 } } }));
+  ok(r.status === 200 && mails.length === 2, "refund webhook: a refund the cron already told is not told twice");
+  const part = { id: "rfnd_W1", payment_id: "pay_R3", amount: 100000, status: "processed", created_at: at("2026-10-08T06:40:00Z") };
+  r = await rhook(JSON.stringify({ event: "refund.processed", payload: { refund: { entity: part }, payment: { entity: payments.pay_R3 } } }));
+  const ownP = mails.find(m => /\(part\)$/.test(m.subject)), buyP = mails.find(m => m.to[0] === "part.buyer@example.com");
+  ok(ownP && ownP.subject === "Refund processed · No. 11 · ₹1,000 (part)" && /order itself stands/.test(ownP.text) && buyP && buyP.subject === "A refund of ₹1,000 for No. 11 has been processed" && !KV.store.has("refunded:11"), "refund webhook: a part refund is told at once, and asks nothing about the number");
+  refundList.push(part);
+  const before = mails.length; await tick("2026-10-08T07:00:00Z");
+  ok(mails.length === before, "refund: the cron does not repeat what the webhook already told");
+
+  /* REFUND_EMAIL off: the owner only. */
+  payments.pay_R4 = { id: "pay_R4", status: "refunded", amount: 599900, amount_refunded: 599900, email: "quiet@example.com", order_id: "order_R4", created_at: 1791000000, notes: { kaal_no: "15" } };
+  refundList.push({ id: "rfnd_Q1", payment_id: "pay_R4", amount: 599900, status: "processed", created_at: at("2026-10-08T07:10:00Z") });
+  mails.length = 0; await tick("2026-10-08T07:30:00Z", Object.assign({}, envR, { REFUND_EMAIL: "off" }));
+  ok(mails.length === 1 && /No\. 15/.test(mails[0].subject) && /Buyer told: by Razorpay/.test(mails[0].text), "REFUND_EMAIL off: only the owner hears from KAAL");
+  delete payments.pay_R4;
+
+  /* The desk: the question, then the owner's answer. */
+  Date.now = () => Date.parse("2026-10-08T08:00:00Z");
+  const D = (path, init = {}) => w.fetch(new Request("https://kaal-edition.example.workers.dev" + path, init), envR, ctx());
+  const W = (path, body, extra = {}) => D(path, { method: "POST", headers: Object.assign({ "Content-Type": "application/json", "X-Desk": "1", "cf-connecting-ip": "6.6.6.6" }, extra), body: JSON.stringify(body) });
+  r = await W("/desk/login", { passcode: "brass-quiet-lantern-42" });
+  const jar = { Cookie: (r.headers.get("Set-Cookie") || "").split(";")[0] };
+  d = await (await D("/desk/data", { headers: jar })).json();
+  const o7 = d.orders.find(o => o.id === "pay_R1");
+  ok(d.alerts.some(a => a.kind === "refund" && a.n === 7) && o7 && o7.refund === "full" && o7.refunded === "₹5,999" && o7.release && o7.release.decided === "", "desk: a full refund asks 'back on sale, or keep it retired?', with the amount and date");
+  ok(!d.alerts.some(a => a.kind === "unsold" && a.n === 7) && !d.alerts.some(a => a.n === 11 && a.kind === "refund"), "desk: no false 'site still offers it' for a refunded number, and no question for a part refund");
+
+  r = await D("/desk/release", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ n: 7, action: "sell" }) });
+  ok(r.status === 403 && puts.length === 0, "release: refused without the desk's own header");
+  r = await W("/desk/release", { n: 9, action: "sell" }, jar);
+  ok(r.status === 409 && (await r.json()).reason === "not-refunded" && puts.length === 0, "release: a number that was never refunded cannot be put back on sale");
+  r = await W("/desk/release", { n: 7, action: "retire" }, jar);
+  d = await (await D("/desk/data", { headers: jar })).json();
+  ok((await r.json()).decided === "retire" && puts.length === 0 && !d.alerts.some(a => a.kind === "refund") && JSON.parse(KV.store.get("sold")).includes(7), "release: 'keep it retired' is written down, the question goes, the number stays sold");
+  r = await W("/desk/release", { n: 7, action: "sell" }, jar);
+  const commit = puts[0] ? Buffer.from(puts[0].content, "base64").toString() : "";
+  ok((await r.json()).decided === "sell" && /sold:\s+\[1, 2, 3, 9\]/.test(commit) && /back on sale \(refunded, payment pay_R1\)/.test(puts[0].message) && !JSON.parse(KV.store.get("sold")).includes(7), "release: 'back on sale' takes No. 07 off index.html's sold list and the live list, in one commit");
+  payments.pay_NEW7 = { id: "pay_NEW7", status: "captured", amount: 599900, order_id: "order_N7", created_at: 1791100000, notes: { kaal_no: "07" } };
+  r = await W("/desk/release", { n: 7, action: "sell" }, jar);
+  ok(r.status === 409 && (await r.json()).reason === "sold-again" && puts.length === 1, "release: once someone has bought No. 07 again, no stale tap can release it");
+  delete payments.pay_NEW7;
+
+  /* The morning report lists the day's refunds. */
+  mails.length = 0;
+  KV.store.delete("digest:2026-10-07"); dobox.set("d:2026-10-07", { visit: 5, visitor: 4, details: 2, checkout: 3 });
+  await tick("2026-10-07T18:35:00Z");
+  const rep7 = mails.find(m => /^KAAL daily · Wed 7 Oct/.test(m.subject));
+  ok(rep7 && /REFUNDS\nNo\. 07 · ₹5,999 · 7 Oct 2026, 10:30 am/.test(rep7.text) && /Gave their details: 2/.test(rep7.text), "report: the day's refunds, and how many gave their details");
+
+  globalThis.fetch = base; Date.now = realNow; ghSold = "[1, 2]";
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");

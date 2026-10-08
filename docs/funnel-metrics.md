@@ -17,7 +17,8 @@ sends data anywhere.
 | Chose a number | `AddToCart` | `add_to_cart` | a number is chosen |
 | Saw their caseback | `CasebackView` | `caseback_view` | the piece turns to "LIMITED EDITION NO. 07" |
 | Added the gift card | `GiftOrder` | `add_gift` | the gift option is turned on |
-| Opened checkout | `InitiateCheckout` | `begin_checkout` | Razorpay opens |
+| Opened checkout | `InitiateCheckout` | `begin_checkout` | the buy button is pressed (with details before payment on, this opens the "Where should it go?" form) |
+| Gave their details | (not sent to Meta or Google) | (not sent) | the form is completed and Razorpay opens; counted only in the site's own daily report, with nothing about who |
 | Paid | `Purchase` | `purchase` | the receipt page, once per payment id (the worker sends the same event server-side, so Meta counts it once) |
 | Joined Series 02 | `Lead` | `generate_lead` | the email is accepted |
 | Checked who is selling | `ProvenanceClick` | `provenance_click` | "Who is selling this →" |

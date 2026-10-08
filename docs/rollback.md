@@ -26,6 +26,7 @@ Nothing else moves, and the page underneath still works.
 | `sharp` | Phones swapping in a full-resolution frame when the film rests | The film stays at its scrolling resolution |
 | `world3d` | The live light-and-dust world behind the page | The colour wash that was there before |
 | `reviews` | Owners' reviews | No reviews section |
+| `details` | The "Where should No. 07 go?" form before payment (name, phone, email, address) | Razorpay opens straight away, and the address is asked for on the thank-you page after payment, as before |
 
 The GitHub web editor is enough: open `index.html`, press `.` or the pencil,
 search for `features:`, change the word, commit to `main`.

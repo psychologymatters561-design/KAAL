@@ -1535,6 +1535,35 @@ a{color:inherit}
 .gift-body textarea:focus{border-color:var(--gold)}
 .gift-meta{margin:0;font-size:.75rem;color:var(--mute)}
 
+/* ── WHO AND WHERE, once, before paying. The buyer's own details, in the
+      same field style as the thank-you page's address form. ── */
+.details{width:min(34rem,100% - 2rem);max-height:calc(100svh - 2rem);margin:auto;padding:0;overflow:auto;
+  background:#0e0f0d;color:var(--bone);border:1px solid var(--line);border-radius:4px;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.details::backdrop{background:rgba(4,5,4,.78)}
+.details form{display:grid;gap:1rem;padding:clamp(1.25rem,1rem + 2vw,2rem)}
+.det-eyebrow{margin:0;font-size:.6875rem;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.det-title{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(1.6rem,1.2rem + 1.6vw,2.2rem);line-height:1.1;letter-spacing:-.01em}
+.det-why,.det-note{margin:0;font-size:.875rem;line-height:1.55;color:var(--mute)}
+.det-note{font-size:.75rem;color:var(--faint)}
+.det-note a{color:var(--mute)}
+.details fieldset{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:0;padding:0;border:0;min-width:0}
+.details legend{grid-column:1 / -1;padding:0 0 .55rem;font-size:.8125rem;color:var(--bone)}
+.details label{display:grid;gap:.3rem;min-width:0;font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+.details label small{letter-spacing:0;text-transform:none;font-size:.6875rem}
+.details label[hidden]{display:none}
+.details .wide{grid-column:1 / -1}
+.details input{width:100%;min-height:44px;padding:.65rem .8rem;background:rgba(237,232,223,.035);border:1px solid var(--line);
+  border-radius:2px;color:var(--bone);font:inherit;font-size:1rem;letter-spacing:0;text-transform:none}
+.details input:focus{border-color:var(--gold);outline:none}
+.details input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.details input[aria-invalid="true"]{border-color:#C9775F}
+.det-msg{margin:0;min-height:1.3em;font-size:.875rem;color:var(--bone)}
+.details .buy{width:100%;justify-content:center;cursor:pointer;border:0;font:inherit}
+.det-back{justify-self:center;min-height:44px;padding:.4rem 1rem;background:none;border:0;color:var(--mute);font:inherit;font-size:.875rem;cursor:pointer;text-decoration:underline;text-underline-offset:.2em}
+@media (max-width:30rem){.details fieldset{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.details[open]{animation:det-in .45s var(--ease)}}
+@keyframes det-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
 /* ── WHICH ONE IS YOURS. One question, four answers, live counts. ── */
 .early{padding-block:calc(var(--air) * .85)}
 .early .statement{font-size:clamp(2rem,1rem + 4.2vw,4.6rem)}
@@ -2401,6 +2430,41 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
         <a class="buy inert" id="cta" role="button" aria-disabled="true">No. 03 &nbsp;·&nbsp; Emerald &nbsp;·&nbsp; &#8377;5,999</a>
         <a class="who" id="whoLink" href="provenance.html">Who is selling this &rarr;</a>
       </div>
+      <!-- WHO AND WHERE, once, before paying (worker v3, KAAL.features.details).
+           A native dialog: the browser keeps focus inside it, Escape and
+           Back close it, and a browser without <dialog> skips straight to
+           Razorpay as before. The buyer's phone and email go into the
+           payment window prefilled, so nothing is asked twice. Every field
+           is the buyer's; nothing is guessed or kept beyond what the
+           privacy note under the button says. -->
+      <dialog class="details" id="details" aria-labelledby="detTitle">
+        <form id="detForm" novalidate>
+          <p class="det-eyebrow" id="detEyebrow"></p>
+          <h2 class="det-title" id="detTitle">Where should it go?</h2>
+          <p class="det-why">Once, before you pay. Your phone and email go into the payment window for you, so it will not ask again.</p>
+          <fieldset>
+            <legend>You</legend>
+            <label class="wide">Full name<input name="name" autocomplete="name" required maxlength="80"></label>
+            <label>Phone<input name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="15" placeholder="+91"></label>
+            <label>Email<input name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label>
+          </fieldset>
+          <fieldset>
+            <legend id="detWhere">Delivery address</legend>
+            <label class="wide det-gift" hidden>Their name<input name="to_name" autocomplete="shipping name" maxlength="80"></label>
+            <label class="wide det-gift" hidden>Their phone, for the courier<input name="to_phone" type="tel" inputmode="tel" autocomplete="shipping tel" maxlength="15" placeholder="+91"></label>
+            <label class="wide">Address<input name="line1" autocomplete="shipping address-line1" required maxlength="120"></label>
+            <label class="wide"><span>Landmark or apartment <small>optional</small></span><input name="line2" autocomplete="shipping address-line2" maxlength="120"></label>
+            <label>City<input name="city" autocomplete="shipping address-level2" required maxlength="60"></label>
+            <label>State<input name="state" autocomplete="shipping address-level1" required maxlength="40" list="inStates"></label>
+            <label>PIN code<input name="pin" inputmode="numeric" autocomplete="shipping postal-code" required pattern="[0-9]{6}" maxlength="6"></label>
+          </fieldset>
+          <datalist id="inStates"><option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option><option>Chhattisgarh</option><option>Delhi</option><option>Goa</option><option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option><option>Jammu and Kashmir</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option><option>Ladakh</option><option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Puducherry</option><option>Punjab</option><option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option><option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option><option>Chandigarh</option><option>Andaman and Nicobar Islands</option><option>Dadra and Nagar Haveli and Daman and Diu</option><option>Lakshadweep</option></datalist>
+          <p class="det-msg" id="detMsg" role="alert"></p>
+          <button class="buy" type="submit" id="detGo">Continue to payment</button>
+          <button class="det-back" type="button" id="detBack">Back</button>
+          <p class="det-note">Used only to deliver this watch and to reach you about this order. If the payment does not go through, they are deleted after 90 days. <a href="legal.html#privacy">Privacy</a></p>
+        </form>
+      </dialog>
       <ul class="assure">
         <li>Made in India, finished by hand</li>
         <li>Two years on that movement, from dispatch</li>
@@ -2560,7 +2624,8 @@ var KAAL = {
     sharp:    true,   // phones swap in a full-resolution frame when the film rests
     world3d:  true,   // the live light-and-dust world behind the page
     reviews:  true,   // owners' reviews, shown only once KAAL.reviews holds real ones
-    count:    true    // the private daily count behind the owner's morning report
+    count:    true,   // the private daily count behind the owner's morning report
+    details:  true    // name, phone, email and address asked once, before Razorpay opens
   },
 
   /* ── OWNERS, IN THEIR OWN WORDS. Empty, and the section does not exist.
@@ -2731,7 +2796,7 @@ function track(name, data){
       is the first visit today; the date stays on the device. The owner's
       morning report is built from these. KAAL.features.count turns it off. */
 var COUNTED = { hero:1, hero_complete:1, early_dial:1, ctx_cta:1, view:1, dial:1, number:1,
-                caseback_view:1, gift:1, checkout:1, list:1, film:1, provenance_click:1, deeplink:1 };
+                caseback_view:1, gift:1, checkout:1, details:1, list:1, film:1, provenance_click:1, deeplink:1 };
 var COUNT = { visit:1 };
 try{
   var today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
@@ -2758,6 +2823,9 @@ var OFF = {};
    page uses nothing that worker lacks: no Razorpay return address and no
    Series 02 form (both would reach an address the old worker refuses). */
 var API2 = false;
+/* v:3 also keeps the buyer's details given before paying. Until the worker
+   says so, the page asks for them after payment, as before. */
+var API3 = false;
 function ownerReviews(){
   return (KAAL.reviews || []).filter(function(r){
     return r && r.consent === true && r.text && r.name && r.no >= 1 && r.no <= KAAL.edition;
@@ -4331,13 +4399,13 @@ function wireBuy(el){
       el.setAttribute("href", checkoutUrl(chosen));
       holdNumber(chosen); return;
     }
-    if(mode === "standard"){ e.preventDefault(); startCheckout(chosen, el); }
+    if(mode === "standard"){ e.preventDefault(); beginCheckout(chosen, el); }
   });
   el.addEventListener("keydown", function(e){
     var press = e.key === "Enter" || e.key === " " || e.key === "Spacebar";
     if(press && choosing(el)){ e.preventDefault(); toChoice(); return; }
     if(!chosen || payMode() !== "standard") return;
-    if(press){ e.preventDefault(); startCheckout(chosen, el); }
+    if(press){ e.preventDefault(); beginCheckout(chosen, el); }
   });
 }
 wireBuy(cta);
@@ -4820,6 +4888,7 @@ function markSold(n){
       .then(function(d){
         if(!d) return;
         if(d.v >= 2 && !API2){ API2 = true; document.documentElement.classList.add("api2"); }
+        if(d.v >= 3) API3 = true;
         /* Where and when a number went, if — and only if — its owner said
            it may be shown. Plain text, short, written into the cell with
            textContent so nothing in it can ever be markup. */
@@ -4897,6 +4966,105 @@ function payMode(){
   return "";
 }
 
+/* ── WHO AND WHERE, once, before paying. ──
+   The buy button opens this when the worker keeps such details (v3) and
+   KAAL.features.details is on. Otherwise, and in any browser without
+   <dialog>, the button goes straight to Razorpay exactly as it always has,
+   and the address is asked for after payment as before.
+   What was typed is kept for this tab only (sessionStorage): a payment
+   that fails or is closed can be tried again without typing it twice, and
+   it is gone when the tab closes. Nothing is stored on the device. */
+var detDlg = document.getElementById("details"), detForm = document.getElementById("detForm");
+var BUYER_KEY = "kaal_buyer";
+var BUYER_FIELDS = ["name", "phone", "email", "to_name", "to_phone", "line1", "line2", "city", "state", "pin"];
+var DET_LABEL = { name:"your name", phone:"your phone", email:"your email", to_name:"their name", to_phone:"their phone",
+                  line1:"the address", city:"the city", state:"the state", pin:"a six digit PIN code" };
+
+function detailsWanted(){
+  return API3 && on("details") && !!detDlg && typeof detDlg.showModal === "function";
+}
+function beginCheckout(n, el){
+  if(paying) return;
+  if(detailsWanted()) openDetails(n, el, "");
+  else startCheckout(n, el);
+}
+function digitsIn(v){ return String(v || "").replace(/\D/g, "").length; }
+/* As Razorpay wants a phone: +91 and ten digits, whichever way it was typed. */
+function e164(v){
+  var d = String(v || "").replace(/\D/g, "");
+  if(d.length === 10) return "+91" + d;
+  if(d.length === 11 && d.charAt(0) === "0") return "+91" + d.slice(1);
+  if(d.length === 12 && d.slice(0, 2) === "91") return "+" + d;
+  return String(v || "").trim();
+}
+
+function openDetails(n, el, msg){
+  var f = detForm.elements, g = giftInfo(), saved = {}, face = FACE[KAAL.dials[n]] || FACE.ivory, first = null;
+  try{ saved = JSON.parse(sessionStorage.getItem(BUYER_KEY) || "{}") || {}; }catch(e){ saved = {}; }
+  BUYER_FIELDS.forEach(function(k){
+    if(!f[k]) return;
+    if(!f[k].value && saved[k]) f[k].value = saved[k];
+    f[k].removeAttribute("aria-invalid");
+  });
+  $("#detEyebrow").textContent = "No. " + pad(n) + "  \u00b7  " + face.name + "  \u00b7  \u20b9" + KAAL.price;
+  $("#detTitle").textContent = "Where should No. " + pad(n) + " go?";
+  $("#detGo").textContent = "Continue to payment  \u00b7  \u20b9" + KAAL.price;
+  $$(".det-gift", detForm).forEach(function(l){ l.hidden = !g.on; });
+  $("#detWhere").textContent = g.on ? "Their address. It is a gift, so it goes to them" : "Delivery address";
+  $("#detMsg").textContent = msg || "";
+  detDlg._n = n; detDlg._el = el;
+  detDlg.showModal();
+  BUYER_FIELDS.forEach(function(k){
+    var i = f[k];
+    if(!first && i && k !== "line2" && !i.value && !(i.parentNode && i.parentNode.hidden)) first = i;
+  });
+  try{ (first || f.name).focus(); }catch(e){}
+}
+
+function readDetails(){
+  var f = detForm.elements, g = giftInfo(), b = {}, bad = [];
+  BUYER_FIELDS.forEach(function(k){ b[k] = String(f[k].value || "").replace(/\s+/g, " ").trim(); f[k].removeAttribute("aria-invalid"); });
+  b.pin = b.pin.replace(/\D/g, "");
+  function need(k, good){ if(!good){ bad.push(k); f[k].setAttribute("aria-invalid", "true"); } }
+  need("name", b.name.length >= 2);
+  need("phone", digitsIn(b.phone) >= 10);
+  need("email", /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(b.email));
+  if(g.on){ need("to_name", b.to_name.length >= 2); need("to_phone", digitsIn(b.to_phone) >= 10); }
+  else { b.to_name = ""; b.to_phone = ""; }
+  need("line1", b.line1.length >= 3);
+  need("city", b.city.length >= 2);
+  need("state", b.state.length >= 2);
+  need("pin", /^\d{6}$/.test(b.pin));
+  return { b: b, bad: bad };
+}
+
+if(detForm){
+  detForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var r = readDetails(), n = detDlg._n, el = detDlg._el;
+    if(r.bad.length){
+      $("#detMsg").textContent = "Still needed: " + r.bad.map(function(k){ return DET_LABEL[k]; }).join(", ") + ".";
+      try{ detForm.elements[r.bad[0]].focus(); }catch(err){}
+      return;
+    }
+    try{ sessionStorage.setItem(BUYER_KEY, JSON.stringify(r.b)); }catch(err){}
+    track("details", { no:pad(n) });
+    detDlg.close();
+    startCheckout(n, el, r.b);
+  });
+  document.getElementById("detBack").addEventListener("click", function(){ detDlg.close(); });
+  /* A line marked as missing stops being marked the moment it is fixed. */
+  detForm.addEventListener("input", function(e){
+    var t = e.target;
+    if(t && t.getAttribute && t.getAttribute("aria-invalid") === "true") t.removeAttribute("aria-invalid");
+    if(!detForm.querySelector('[aria-invalid="true"]')) $("#detMsg").textContent = "";
+  });
+  /* Back where they were: the button they pressed, not the top of the page. */
+  detDlg.addEventListener("close", function(){
+    if(!paying && detDlg._el){ try{ detDlg._el.focus({ preventScroll:true }); }catch(err){} }
+  });
+}
+
 /* checkout.js is a third-party script that weighs more than this page
    does. Loading it in the markup would put it in front of every visitor
    including the many who only ever came to look. It is fetched on the
@@ -4920,7 +5088,7 @@ function loadRzp(){
 
 var paying = false;
 
-function startCheckout(n, el){
+function startCheckout(n, el, buyer){
   if(paying) return;
   paying = true;
   el.setAttribute("aria-busy", "true");
@@ -4946,17 +5114,23 @@ function startCheckout(n, el){
       method:"POST", mode:"cors", credentials:"omit",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ n:n, by:clientToken, gift:g.on, gift_note:g.note,
-                             fbp:cookie("_fbp"), fbc:cookie("_fbc") })
+                             fbp:cookie("_fbp"), fbc:cookie("_fbc"),
+                             buyer: buyer || undefined })
     });
   }).then(function(r){
     return r.json().catch(function(){ return null; });
   }).then(function(d){
-    if(d && d.ok && d.order_id && d.key_id){ openRzp(d, n, el, done, g); return; }
+    if(d && d.ok && d.order_id && d.key_id){ openRzp(d, n, el, done, g, buyer); return; }
 
     /* The two answers worth their own sentence. Being told the number
        went while you were reaching for your card is a bad moment, but it
        is a far better one than a refund three days later. */
     var why = d && d.reason;
+    if(why === "details" && buyer && detailsWanted()){
+      done("");
+      openDetails(n, el, "Something in these details did not look complete. Check each line and try again.");
+      return;
+    }
     if(why === "sold"){
       markSold(n);
       done("Number " + pad(n) + " went while you were deciding. Nothing has been charged. Choose another.");
@@ -5001,7 +5175,7 @@ function heldLine(n, until){
          " while you complete payment.";
 }
 
-function openRzp(order, n, el, done, g){
+function openRzp(order, n, el, done, g, buyer){
   var heldUntil = order.held_for > 0 ? Date.now() + order.held_for * 1000 : 0;
   try{
     var opts = {
@@ -5032,6 +5206,8 @@ function openRzp(order, n, el, done, g){
       } }
     };
     if(API2) opts.callback_url = KAAL.api.replace(/\/+$/, "") + "/callback";
+    /* Given once on this page, so the payment window does not ask again. */
+    if(buyer) opts.prefill = { name: buyer.name, email: buyer.email, contact: e164(buyer.phone) };
     var rzp = new window.Razorpay(opts);
 
     /* A card can be declined for a dozen reasons that are none of this

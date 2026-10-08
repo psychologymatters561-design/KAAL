@@ -124,6 +124,7 @@ section.s{margin:0 0 30px}
 .o-acts{margin-top:12px}
 .o-ship{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:14px}
 .o-ship .done{color:var(--ok)}
+.refund-line{margin:0 0 4px;color:var(--bone)}
 .o-ship .due{color:var(--mute)}
 .o-ship .due.late{color:var(--bad)}
 .o-foot{margin-top:10px;font-size:12px;color:var(--faint)}
@@ -351,7 +352,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       ["Visitors", visitors, true], ["Page visits", c.visit || 0, false],
       ["Scrolled through the film", c.hero_complete || 0, true], ["Reached the twenty", c.view || 0, true],
       ["Chose a dial", (c.dial || 0) + (c.early_dial || 0), true], ["Chose a number", c.number || 0, true],
-      ["Opened checkout", c.checkout || 0, true], ["Paid", paid, true]
+      ["Opened checkout", c.checkout || 0, true], ["Gave their details", c.details || 0, true], ["Paid", paid, true]
     ];
     var top = Math.max(visitors, 1);
     return '<div class="sec-h"><h2>' + (isToday ? "Today so far" : "Yesterday") + '</h2><div class="seg" role="group" aria-label="Day">' +
@@ -401,8 +402,27 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
           '<button class="btn sm" type="button" data-act="open" data-o="' + esc(o.orderId) + '">Mark dispatched</button></div>';
       }
       h += "</div>";
+    } else {
+      h += '<div class="o-ship">' + refundBlock(o) + "</div>";
     }
     return h + '<div class="o-foot mono">' + esc(o.id) + (o.orderId ? " &middot; " + esc(o.orderId) : "") + "</div></article>";
+  }
+
+  /* A full refund leaves one question, and only the owner answers it: is
+     the number back on sale? Nothing moves on the site until a tap here. */
+  function liveFor(n){
+    return (D.orders || []).some(function(x){ return x.n === n && x.refund !== "full"; });
+  }
+  function refundBlock(o){
+    var head = '<p class="refund-line">Refunded ' + esc(o.refunded || o.amount) + (o.refundedOn ? " on " + esc(o.refundedOn) : "") + ".</p>";
+    if (!o.n) return head;
+    var stillSold = D.sold && D.sold.indexOf(o.n) > -1, r = o.release || {};
+    if (liveFor(o.n)) return head + '<p class="sub">' + no(o.n) + " has been bought again since.</p>";
+    if (!stillSold) return head + '<p class="sub">' + no(o.n) + " is on sale" + (r.decided === "sell" && r.at ? " again since " + esc(istTime(r.at)) : "") + ".</p>";
+    var sell = '<button class="btn sm" type="button" data-act="release" data-v="sell" data-n="' + o.n + '">Put ' + no(o.n) + " back on sale</button>";
+    if (r.decided === "retire") return head + '<div class="row" style="justify-content:space-between"><span class="sub">Kept retired' + (r.at ? " since " + esc(istTime(r.at)) : "") + ".</span>" + sell + "</div>";
+    return head + '<p class="sub">The site still shows ' + no(o.n) + " as sold. Back on sale, or keep it retired?</p>" +
+      '<div class="row" style="margin-top:8px">' + sell + '<button class="btn quiet sm" type="button" data-act="release" data-v="retire" data-n="' + o.n + '">Keep it retired</button></div>';
   }
 
   function renderOrders(){
@@ -429,8 +449,9 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     if (!u.length) return h + '<div class="card empty">None. Every checkout opened today and yesterday was paid, or none were opened.</div>';
     return h + '<div class="card list">' + u.map(function(x){
       return '<div class="it"><div class="t"><b>' + no(x.n) + (x.dial ? " &middot; " + esc(x.dial) : "") + '</b><span class="faint">' + esc(x.at) + "</span></div>" +
+        (x.name ? "<p><b>" + esc(x.name) + "</b>" + (x.city ? " &middot; " + esc(x.city) : "") + "</p>" : "") +
         "<p>" + esc(x.stage) + "</p>" + (x.email || x.contact ? "<p>" + (x.email ? esc(x.email) : "") + (x.email && x.contact ? " &middot; " : "") + (x.contact ? esc(x.contact) : "") + "</p>" : "") +
-        ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">Razorpay holds no contact for this one.</p>') + "</div>";
+        ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">No contact given for this one.</p>') + "</div>";
     }).join("") + "</div>";
   }
 
@@ -520,9 +541,18 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     else if (act === "goto"){
       e.preventDefault();
       var o = orderById(el.getAttribute("data-o"));
-      if (o && o.sent && FILTER === "open") FILTER = "all";
+      if (o && (o.sent || o.refund === "full") && FILTER === "open") FILTER = "all";
       $("orders").innerHTML = renderOrders();
       var card = $("o-" + el.getAttribute("data-o")); if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    else if (act === "release"){
+      var rn = parseInt(el.getAttribute("data-n"), 10), what = el.getAttribute("data-v");
+      if (what === "sell" && !window.confirm("Put " + no(rn) + " back on sale? Anyone can buy it on thekaal.co within a minute.")) return;
+      el.disabled = true;
+      call("POST", "/desk/release", { n: rn, action: what }).then(function(j){
+        if (j.ok){ toast(what === "sell" ? no(rn) + " is back on sale" : no(rn) + " stays retired"); load(true); }
+        else { el.disabled = false; toast("Not changed (" + (j.reason || j.status) + ")"); }
+      }, function(){ el.disabled = false; toast("Could not reach the worker"); });
     }
     else if (act === "undo"){
       var n = parseInt(el.getAttribute("data-n"), 10);

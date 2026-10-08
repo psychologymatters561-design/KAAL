@@ -10,6 +10,8 @@ inbox is involved anywhere.
 | A payment lands | the buyer | "No. 07 is yours": their engraved caseback, the order, payment reference, arrival date, what happens next, a button to add the address |
 | A payment lands | connect@thekaal.co | "New order · No. 07 Midnight · ₹5,999": buyer's email and phone, WhatsApp button, gift card, dispatch-by date. Reply writes to the buyer. (`ORDER_ALERT = "off"` in `wrangler.toml` turns this one off.) |
 | The buyer gives an address | both | the address, to copy (you) and to check (them) |
+| Razorpay processes a refund | the buyer | "Your refund for No. 07 has been processed": amount, both references, when banks show it (`REFUND_EMAIL = "off"` in `wrangler.toml` leaves them with Razorpay's own notice) |
+| Razorpay processes a refund | connect@thekaal.co | "Refund processed · No. 07 · ₹5,999", and, for a full refund, the question the desk asks: back on sale, or keep it retired? |
 | You tap **Mark dispatched** on the desk | the buyer | "No. 07 is on its way": courier, tracking number, where it is going (the confirmation promised this "the day it leaves") |
 | Just after midnight, every day | connect@thekaal.co | **The daily report**: visitors, page visits, how many scrolled through the film, reached the twenty, chose a dial, chose a number (add to cart), opened checkout, paid; each order with contact; unfinished checkouts with why and how to reach them; new Series 02 leads; numbers left; the last seven days |
 
@@ -93,8 +95,18 @@ the setup (the `setup-worker` workflow).
    It never prints a key or the passcode, and GitHub blanks out secrets
    in logs anyway (these logs are public, like the repository).
 
-Run it again whenever you like: it skips what is already done. Mode
-`check` only reports where things stand; `test` sends the samples again.
+Run it again whenever you like: it skips what is already done.
+
+- `deploy` (the default): puts the latest worker live after a change to
+  it is merged. It touches no keys and sends no emails.
+- `all`: the first-time setup, everything not yet done, with the samples.
+- `check`: only reports where things stand.
+- `test`: sends the samples again.
+
+**Refunds, instantly (optional).** The worker finds every refund within half
+an hour on its own. To hear at once instead: Razorpay Dashboard → Settings →
+Webhooks → the existing webhook (the worker's address) → Edit → also tick
+`refund.processed` → Save.
 
 ## Step 4. Run the setup
 

@@ -109,9 +109,9 @@ ORDER_ALERT     = "on"
 # existed: the webhook still records sales, /state answers "no opinion",
 # and the page trusts its own array.
 #
-# [[kv_namespaces]]
-# binding = "KAAL_STATE"
-# id      = "paste-the-id-here"
+[[kv_namespaces]]
+binding = "KAAL_STATE"
+id = "574516a441944b5cba9f34d9b73527e4"
 #
 # The Series 02 list (POST /list) and the abandoned-checkout email both live
 # in this namespace too. Until it exists, /list answers "no-store" and the

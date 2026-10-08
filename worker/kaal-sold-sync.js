@@ -567,7 +567,7 @@ async function postShipping(request, env, ctx) {
    once. Sent through the same provider as the rest (Resend or Brevo). With
    no provider key it logs and returns: a sale is never held up by mail.
    The words and the look live in worker/mail.js. */
-async function notifySale(env, entity, chosen) {
+async function notifySale(env, entity, chosen, short) {
   try {
     if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) { console.log("Sale emails skipped: no RESEND_API_KEY or BREVO_API_KEY."); return; }
     const paymentId = String(entity.id || "");
@@ -602,6 +602,7 @@ async function notifySale(env, entity, chosen) {
       paymentId, orderId: entity.order_id || "",
       email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
       buyerName: (address && address.buyer && address.buyer.name) || "",
+      short: short ? { claimed: short.claimed, price: rupees(parseInt(env.PRICE_PAISE || "0", 10)) } : null,
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
       when: indiaTime(paidAt), arriveBy: arriveBy(paidAt),
       left: Math.max(0, edition - sold.size), edition,
@@ -680,18 +681,46 @@ async function webhook(request, env, ctx) {
   const notes     = entity.notes || {};
   const paymentId = entity.id || "unknown";
   const raw       = notes.kaal_no;
-  let   chosen    = parseInt(raw, 10);
+  let   chosen    = NaN;
 
-  /* These notes are on the PAYMENT, and nothing here wrote them. The
-     Payment Page route put the number there as a custom field; Standard
-     Checkout puts it there from the browser's checkout options. Both
-     arrive the same way and neither is this worker's own handwriting,
-     so when it is missing or nonsense the order is asked instead —
-     /order wrote kaal_no onto the order itself, somewhere no browser
-     can reach. A captured payment that goes unrecorded is the one
-     failure on this path that costs an actual watch, and it is worth
-     one extra call to avoid it. */
-  if (isNaN(chosen) && entity.order_id) chosen = await numberFromOrder(env, entity.order_id);
+  /* WHICH NUMBER, from the hand that can be trusted. Notes on the PAYMENT
+     are the payer's own: Standard Checkout puts them there from the
+     browser, the old hosted Payment Page from a field the buyer fills in.
+     /order wrote kaal_no onto the ORDER, where no browser can reach, so
+     whenever the payment belongs to an order this worker priced, the
+     order says which number it was. The payment's note is only a fallback
+     for a payment with no readable order (the old Payment Page). */
+  let order = null;
+  if (entity.order_id) {
+    order = await readOrder(env, entity.order_id);
+    chosen = parseInt(order && order.notes && order.notes.kaal_no, 10);
+  }
+  if (isNaN(chosen)) chosen = parseInt(raw, 10);
+
+  /* AND WHAT WAS PAID, before any of it is believed. Razorpay sends this
+     webhook for every captured payment on the account, whatever made it.
+     Without this, one rupee paid anywhere on the account with "kaal_no: 7"
+     in its notes would strike No. 07 off the live site and email a
+     stranger "No. 07 is yours". A sale needs the full price, in the
+     shop's currency; anything less reaches the owner as a payment to
+     look at, and is never recorded as a sale. */
+  const price = parseInt(env.PRICE_PAISE || "0", 10);
+  const currency = String(env.CURRENCY || "INR").toUpperCase();
+  /* Without a price to compare (PRICE_PAISE is in wrangler.toml, and
+     tools/check.mjs fails the build if it disagrees with the page), a real
+     sale must still be recorded: say so loudly and fall back to the check
+     this worker made before. */
+  const priced = price >= MIN_PAISE;
+  if (!priced) console.log("PRICE_PAISE is not set: the amount of this payment could not be checked.");
+  const paidInFull = !priced || ((entity.amount || 0) >= price &&
+    String(entity.currency || "INR").toUpperCase() === currency &&
+    !(order && (order.amount || 0) < price));
+  let short = null;
+  if (!paidInFull) {
+    short = { claimed: isNaN(chosen) ? 0 : chosen };
+    console.log(`payment.captured below the price (${entity.amount} ${entity.currency}): not a sale.`);
+    chosen = NaN;
+  }
 
   /* The upper bound is read from the file itself rather than written
      here. The old `chosen > 20` was a second copy of `edition`, and the
@@ -702,8 +731,13 @@ async function webhook(request, env, ctx) {
      should not wait on it; nor should a retry that finds the sale already
      recorded skip them. notifySale sends each payment's pair once (KV),
      and a payment with no usable number still reaches the owner. */
-  const mail = notifySale(env, entity, chosen);
+  const mail = notifySale(env, entity, chosen, short);
   if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
+
+  if (short) {
+    if (!(ctx && ctx.waitUntil)) await mail;
+    return new Response("Captured, but not the price: not recorded as a sale.", { status: 200 });
+  }
 
   const commit = await commitSold(env, chosen, paymentId);
 

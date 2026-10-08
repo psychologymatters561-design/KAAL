@@ -222,18 +222,25 @@ export function buyerConfirmation(d) {
 export function ownerSale(d) {
   const site = d.site, known = d.n >= 1;
   const n = known ? pad2(d.n) : "??";
+  const short = !known && d.short;
+  const claimed = short && d.short.claimed ? ` mentioning No. ${pad2(d.short.claimed)}` : "";
   const subject = known
     ? `New order · No. ${n}${d.dial ? " " + d.dial : ""} · ${d.amount}`
+    : short ? `Payment of ${d.amount} is not the price · not a sale · check Razorpay`
     : `Payment received, number unknown · ${d.amount} · check Razorpay`;
   const preheader = known
     ? `${d.email || "no email"} · ${d.contact || "no phone"} · dispatch by ${d.arriveBy}`
+    : short ? `A payment of ${d.amount}${claimed} was captured. The price is ${d.short.price}, so nothing was marked sold.`
     : "A payment was captured without a usable watch number. Open it in Razorpay.";
+  const why = short
+    ? `A payment of ${d.amount}${claimed} was captured on your Razorpay account. The price is ${d.short.price}, so it was not recorded as a sale, no number was marked sold, and the payer was not told they own anything. Open it in Razorpay: if it was a mistake, refund it there.`
+    : "The payment is real but the worker could not tell which number it was for. Open it in Razorpay, read the notes, and mark the number sold by hand.";
   const wa = waNumber(d.contact);
   const rzp = `https://dashboard.razorpay.com/app/payments/${encodeURIComponent(d.paymentId || "")}`;
 
   const body = [
     eyebrow(known ? "New order" : "Check this payment"),
-    h1(known ? `No. ${n}${d.dial ? " &middot; " + esc(d.dial) : ""}` : "Number unknown"),
+    h1(known ? `No. ${n}${d.dial ? " &middot; " + esc(d.dial) : ""}` : short ? "Not the price" : "Number unknown"),
     para(`${esc(d.amount)} paid &middot; ${esc(d.when)}`, { color: C.bone, pad: "0 32px 18px" }),
     known && d.dial ? image(`${site}/assets/email/dial-${esc(String(d.dial).toLowerCase())}.jpg`, `${d.dial} dial`, 150, 236) : "",
     buttons([
@@ -257,12 +264,12 @@ export function ownerSale(d) {
       [`Inspect and box No. ${n}`, d.gift ? `Gift: write the card by hand${d.giftNote ? " (text above)" : ""}. No price in the box.` : "Check it, close it, box it."],
       [`Dispatch by ${d.arriveBy}`, "Book the courier once the address is in."],
       ["Send tracking", d.email ? `To ${d.email}, the day it leaves.` : "To the buyer, the day it leaves."]
-    ]) : para("The payment is real but the worker could not tell which number it was for. Open it in Razorpay, read the notes, and mark the number sold by hand.", { color: C.bone }),
+    ]) : para(esc(why), { color: C.bone }),
     para("Reply to this email to write to the buyer directly.", { size: 13, lh: 20, color: C.faint, pad: "0 32px 0" })
   ].join("\n");
 
   const text = [
-    known ? `NEW ORDER · No. ${n}${d.dial ? " · " + d.dial : ""}` : "PAYMENT RECEIVED, NUMBER UNKNOWN: CHECK RAZORPAY",
+    known ? `NEW ORDER · No. ${n}${d.dial ? " · " + d.dial : ""}` : short ? `NOT THE PRICE, NOT A SALE: CHECK RAZORPAY\n${why}` : "PAYMENT RECEIVED, NUMBER UNKNOWN: CHECK RAZORPAY",
     `${d.amount} paid · ${d.when}`, "",
     d.buyerName ? `Buyer: ${d.buyerName}` : null,
     `Buyer email: ${d.email || "not given"}`,

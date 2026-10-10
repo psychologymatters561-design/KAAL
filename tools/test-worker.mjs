@@ -35,7 +35,7 @@ const DIALS = JSON.stringify({ "3": "Emerald", "9": "Midnight" });
 const env = {
   KAAL_STATE: KV, EDITION: "20", ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp", RAZORPAY_KEY_SECRET: "sek",
   RESEND_API_KEY: "re", OWNER_EMAIL: "owner@thekaal.co, me@example.org", SITE_URL: "https://thekaal.co", DIALS,
-  RAZORPAY_WEBHOOK_SECRET: "wh", GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r"
+  RAZORPAY_WEBHOOK_SECRET: "wh", GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", PRICE_PAISE: "599900"
 };
 
 const mails = [];
@@ -204,7 +204,7 @@ Date.now = realNow; globalThis.fetch = digestFetch;
 
 /* ── 8. Only the daily email, if the owner wants only that ── */
 mails.length = 0;
-const e9 = Object.assign({}, entity, { id: "pay_ALERTOFF", notes: { kaal_no: "05" } });
+const e9 = Object.assign({}, entity, { id: "pay_ALERTOFF", order_id: undefined, notes: { kaal_no: "05" } });
 const b9 = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: e9 } } });
 await hook(b9, Object.assign({}, env, { ORDER_ALERT: "off" }));
 ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[0].subject === "No. 05 is yours", "ORDER_ALERT off: the buyer still gets their confirmation, the owner waits for the daily report");
@@ -351,6 +351,8 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
       posted.push(JSON.parse(init.body));
       return new Response(JSON.stringify({ id: "order_DETAILS0" + posted.length, amount: 599900, currency: "INR" }));
     }
+    const got = /\/v1\/orders\/order_DETAILS0(\d)$/.exec(url);
+    if (got) return new Response(JSON.stringify({ id: "order_DETAILS0" + got[1], status: "paid", amount: 599900, notes: posted[got[1] - 1].notes }));
     return orderFetch(url, init);
   };
   const envO = Object.assign({}, env, { PRICE_PAISE: "599900" });
@@ -481,6 +483,32 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   ok(rep7 && /REFUNDS\nNo\. 07 · ₹5,999 · 7 Oct 2026, 10:30 am/.test(rep7.text) && /Gave their details: 2/.test(rep7.text), "report: the day's refunds, and how many gave their details");
 
   globalThis.fetch = base; Date.now = realNow; ghSold = "[1, 2]";
+}
+
+
+/* ── 12. Only the full price buys a number ── */
+{
+  mails.length = 0;
+  const base = globalThis.fetch;
+  const puts = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("api.github.com") && init && init.method === "PUT") puts.push(1);
+    return base(url, init);
+  };
+  KV.store.set("sold", "[1,2]"); ghSold = "[1, 2]";
+  const pay = (over) => JSON.stringify({ event: "payment.captured", payload: { payment: { entity: Object.assign(
+    { id: "pay_X" + Math.random().toString(36).slice(2, 8), amount: 599900, currency: "INR", email: "someone@example.com", contact: "+919800000099", created_at: 1791000000 }, over) } } });
+
+  r = await hook(pay({ amount: 100, notes: { kaal_no: "07" } }));
+  ok(/not the price/.test(await r.text()) && puts.length === 0 && !JSON.parse(KV.store.get("sold")).includes(7), "₹1 with 'kaal_no: 07' in its notes marks nothing sold");
+  ok(mails.length === 1 && mails[0].to[0] === "owner@thekaal.co" && /^Payment of ₹1 is not the price · not a sale/.test(mails[0].subject) && /mentioning No\. 07/.test(mails[0].text) && /refund it there/.test(mails[0].text), "₹1: the owner is told exactly what happened; the payer is told nothing");
+  mails.length = 0;
+  r = await hook(pay({ amount: 599900, currency: "USD", notes: { kaal_no: "08" } }));
+  ok(/not the price/.test(await r.text()) && puts.length === 0 && mails.every(m => m.to[0] !== "someone@example.com"), "the right number in the wrong currency is not a sale");
+  mails.length = 0;
+  r = await hook(pay({ order_id: "order_TESTORDER1", notes: { kaal_no: "04" } }));
+  ok(/number 9 recorded as sold/.test(await r.text()) && puts.length === 1 && mails.some(m => m.subject === "No. 09 is yours"), "full price: the number comes from the order the worker priced (09), not the payer's note (04)");
+  globalThis.fetch = base;
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");

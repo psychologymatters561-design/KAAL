@@ -52,11 +52,11 @@ jobs:
       # off its own page's history, and in a shallow clone every page's
       # last commit is the only one there is. gen-sitemap refuses to run
       # on one rather than date the whole site to today.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
 

@@ -2625,7 +2625,8 @@ var KAAL = {
     world3d:  true,   // the live light-and-dust world behind the page
     reviews:  true,   // owners' reviews, shown only once KAAL.reviews holds real ones
     count:    true,   // the private daily count behind the owner's morning report
-    details:  true    // name, phone, email and address asked once, before Razorpay opens
+    details:  true,   // name, phone, email and address asked once, before Razorpay opens
+    autoplay: true    // the first scroll plays the hero film by itself, at real speed
   },
 
   /* ── OWNERS, IN THEIR OWN WORDS. Empty, and the section does not exist.
@@ -3426,6 +3427,15 @@ function loadFilm(){
   var PASSES = [16, 8, 4, 2, 1], pass = 0, inflight = 0, MAXCONN = 6, failed = 0;
 
   function next(){
+    /* While the film plays itself, it needs every frame of the next second
+       and a half, in order, the way a video player buffers: those first,
+       at full density, and only then the coarse-to-fine passes. */
+    if(AUTO.on){
+      var c0 = clamp(Math.floor(filmAt(AUTO.p)), 0, SEQ.n - 1);
+      for(var k = c0; k <= Math.min(SEQ.n - 1, c0 + AUTO_AHEAD); k++){
+        if(!SEQ.st[k] && (k % SEQ.stopAt === 0 || k === SEQ.n - 1)) return k;
+      }
+    }
     while(pass < PASSES.length && PASSES[pass] >= SEQ.stopAt){
       var s = PASSES[pass], c = clamp(Math.round(filmTarget()), 0, SEQ.n - 1), best = -1, bd = 1e9;
       for(var i = 0; i < SEQ.n; i++){
@@ -3478,6 +3488,7 @@ function loadFilm(){
    that moves made the film jump mid scroll, every time the bar did. */
 var hero = $("#hero");
 function heroProgress(){
+  if(AUTO && AUTO.on) return AUTO.p;
   if(M.heroSpan <= 0) return 0;
   return clamp((S.raw - M.heroTop) / M.heroSpan, 0, 1);
 }
@@ -3518,6 +3529,173 @@ function driveHero(now){
   H.settled = H.p === target;
   return H.p;
 }
+
+/* ── THE FILM PLAYS ITSELF (KAAL.features.autoplay).
+
+   A hand scrolls unevenly: a wheel notch is a hundred pixels at once, a
+   thumb flicks and then stops, and the film speeds up and stalls with it.
+   So the first downward scroll at the top of the page is taken as "show
+   me", and the page then moves itself through the hero at the film's own
+   speed: seventeen seconds at 24 frames a second, exactly as it was shot,
+   with a short lead-in before it and a settle after it.
+
+   It moves the real scroll position, so everything already tied to the
+   scroll (the camera push, the captions, the next act rising, the world
+   behind) stays exactly in step, and when it ends the visitor is precisely
+   where their own scrolling would have left them. The hero reads the
+   clock's exact progress rather than the rounded scroll position, so the
+   film runs at an even rate to the frame.
+
+   The visitor is never trapped. The scroll that started it does not count
+   (a trackpad's glide and a thumb still on the glass keep arriving for a
+   moment), but any fresh scroll, swipe, scroll key, link, or a drag of the
+   scrollbar hands the page straight back, from wherever the film is.
+
+   It never outruns the film: if the frames a moment ahead have not arrived
+   yet, the clock waits for them instead of skipping; after eight seconds of
+   waiting it gives the page back. Where the film does not run at all
+   (reduced motion, Save-Data, a 2g link, a tiny or weak device), the
+   first scroll is an ordinary scroll, as it always was. Once per page view;
+   scrolling back up afterwards scrubs by hand as before. */
+var AUTO = { on:false, used:false, t:0, p:0, p0:0, last:0, setY:-1, wait:0,
+             wheelAt:0, wheelMag:0, trigTouch:false, touchX:0, touchY:0, touchArmed:false };
+var AUTO_FILM   = ((KAAL.frameCount || 409) - 1) / 24 * 1000;   /* the film's own length, in ms */
+var AUTO_LEAD   = 1400, AUTO_SETTLE = 1800, AUTO_AHEAD = 36, AUTO_PATIENCE = 8000;
+if(qs.get("debug") === "seq") window.kaalAuto = AUTO;
+
+function hermite(a, b, ma, mb, u){
+  var u2 = u * u, u3 = u2 * u;
+  return (2*u3 - 3*u2 + 1) * a + (u3 - 2*u2 + u) * ma + (-2*u3 + 3*u2) * b + (u3 - u2) * mb;
+}
+/* Progress at t ms: eased in to the film's speed, constant through the
+   film, eased out to rest. The joins match speed as well as position. */
+function autoCurve(t){
+  var V = (FILM_OUT - FILM_IN) / AUTO_FILM, a = Math.min(AUTO.p0, FILM_IN);
+  if(t <= AUTO_LEAD) return hermite(a, FILM_IN, 0, V * AUTO_LEAD, t / AUTO_LEAD);
+  t -= AUTO_LEAD;
+  if(t <= AUTO_FILM) return FILM_IN + V * t;
+  t -= AUTO_FILM;
+  if(t <= AUTO_SETTLE) return hermite(FILM_OUT, 1, V * AUTO_SETTLE, 0, t / AUTO_SETTLE);
+  return 1;
+}
+/* Are the frames a moment past p here? Downloaded is enough: decoding is
+   a few milliseconds and runs ahead of the playhead on its own. */
+function autoReady(p){
+  if(p <= FILM_IN) return true;                 /* the lead-in is the opening frame */
+  if(!SEQ.n) return false;
+  var x = Math.floor(filmAt(p)), stop = SEQ.stopAt || 1;
+  for(var j = x; j <= Math.min(SEQ.n - 1, x + 4); j++){
+    if(j % stop && j !== SEQ.n - 1) continue;
+    var st = SEQ.st[j];
+    if(st !== 2 && st !== 3 && st !== 4 && st !== -1) return false;
+  }
+  return true;
+}
+function autoAllowed(){
+  if(AUTO.used || AUTO.on || !on("autoplay") || !filmAllowed()) return false;
+  if(M.heroSpan <= 0 || document.querySelector("dialog[open]")) return false;   /* a scroll inside a dialog is the dialog's */
+  var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+  return y <= M.heroTop + 4 && H.p < 0.01;
+}
+function autoScrollTo(y){
+  try{ window.scrollTo({ top:y, left:0, behavior:"instant" }); }catch(e){ window.scrollTo(0, y); }
+}
+function autoStart(){
+  AUTO.on = true; AUTO.used = true; AUTO.t = 0; AUTO.last = 0; AUTO.wait = 0;
+  AUTO.p0 = H.p; AUTO.p = H.p; AUTO.setY = -1;
+  document.documentElement.classList.add("film-auto");
+  wake();
+}
+function autoStop(){
+  if(!AUTO.on) return;
+  AUTO.on = false; AUTO.trigTouch = false; AUTO.touchArmed = false;
+  document.documentElement.classList.remove("film-auto");
+  wake();
+}
+/* One step of the clock, from tick(), before the hero reads its progress. */
+function autoStep(now){
+  var dt = AUTO.last ? Math.min(now - AUTO.last, 50) : 0;    /* a hidden tab or a long frame never leaps the film */
+  AUTO.last = now;
+  var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+  if(AUTO.setY >= 0 && Math.abs(y - AUTO.setY) > 3){ autoStop(); return; }   /* moved by something else */
+  if(dt){
+    if(autoReady(autoCurve(AUTO.t + dt))){ AUTO.t += dt; AUTO.wait = 0; }
+    else if((AUTO.wait += dt) > AUTO_PATIENCE){ autoStop(); return; }
+  }
+  AUTO.p = autoCurve(AUTO.t);
+  var ny = Math.round(M.heroTop + AUTO.p * M.heroSpan);
+  if(ny !== y) autoScrollTo(ny);
+  AUTO.setY = ny;
+  if(AUTO.p >= 1) autoStop();
+}
+
+/* The visitor's hand. Captured, and not passive, so the scroll that starts
+   the film can be held back and a fresh one can take over. */
+(function(){
+  function now(){ return window.performance ? performance.now() : Date.now(); }
+  function typing(el){
+    return !!(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
+  }
+  addEventListener("wheel", function(e){
+    if(e.ctrlKey) return;                                   /* pinch and zoom are not scrolling */
+    var t = now(), mag = Math.abs(e.deltaY);
+    if(!AUTO.on){
+      if(e.deltaY > 0 && autoAllowed()){ e.preventDefault(); autoStart(); AUTO.wheelAt = t; AUTO.wheelMag = mag; }
+      return;
+    }
+    /* Still the scroll that started it while the wheel has not rested:
+       a trackpad's glide, or a mouse's burst of notches a fraction of a
+       second apart. A rest of 0.3s, the other direction, or a fresh swipe
+       landing on a fading glide is a new hand. */
+    var fresh = t - AUTO.wheelAt > 300 || e.deltaY < 0 || (AUTO.wheelMag < 40 && mag > AUTO.wheelMag * 1.6 && mag > 12);
+    AUTO.wheelAt = t; AUTO.wheelMag = mag;
+    if(fresh){ autoStop(); return; }
+    e.preventDefault();
+  }, { passive:false, capture:true });
+
+  addEventListener("touchstart", function(e){
+    AUTO.touchArmed = !!(e.touches && e.touches.length === 1);
+    if(!AUTO.touchArmed) return;
+    AUTO.touchX = e.touches[0].clientX; AUTO.touchY = e.touches[0].clientY;
+  }, { passive:true, capture:true });
+  addEventListener("touchmove", function(e){
+    if(!e.touches || e.touches.length !== 1 || !AUTO.touchArmed) return;
+    var dy = AUTO.touchY - e.touches[0].clientY,           /* > 0: the finger moves up, the page would go down */
+        dx = AUTO.touchX - e.touches[0].clientX;
+    if(!AUTO.on){
+      /* Only a touch's first move can start it. A browser hands the touch
+         to its own scrolling on that first move (Safari decides there), and
+         a scroll it has begun cannot be held back: starting later would
+         leave the film and the finger fighting over the page. */
+      AUTO.touchArmed = false;
+      if(dy > 0 && dy >= Math.abs(dx) && e.cancelable !== false && autoAllowed()){
+        e.preventDefault(); autoStart(); AUTO.trigTouch = true; AUTO.touchArmed = true;
+      }
+      return;
+    }
+    if(AUTO.trigTouch){ if(e.cancelable !== false) e.preventDefault(); return; }   /* the same finger that started it */
+    if(Math.abs(dy) > 8) autoStop();                        /* a new finger: the page is theirs, natively */
+  }, { passive:false, capture:true });
+  addEventListener("touchend", function(){ AUTO.trigTouch = false; AUTO.touchArmed = false; }, { passive:true, capture:true });
+  addEventListener("touchcancel", function(){ AUTO.trigTouch = false; AUTO.touchArmed = false; }, { passive:true, capture:true });
+
+  addEventListener("keydown", function(e){
+    if(e.altKey || e.ctrlKey || e.metaKey || typing(e.target)) return;
+    var k = e.key;
+    if(!AUTO.on){
+      if((k === "ArrowDown" || k === "Down" || k === "PageDown" || k === " " || k === "Spacebar") && autoAllowed()){
+        e.preventDefault(); autoStart();
+      }
+      return;
+    }
+    if(/^(ArrowDown|ArrowUp|Down|Up|PageDown|PageUp|Home|End| |Spacebar|Tab)$/.test(k)) autoStop();
+  }, { capture:true });
+
+  /* A link or a button is somewhere to go: let it go there. */
+  addEventListener("click", function(e){
+    if(AUTO.on && e.target && e.target.closest && e.target.closest("a,button,[role=button],label,summary,input,select,textarea")) autoStop();
+  }, { capture:true });
+})();
 
 /* ── THE FILM HAS WEIGHT TOO.
 
@@ -5389,6 +5567,7 @@ function tick(now){
   if(Math.abs(S.raw - S.y) < 0.35) S.y = S.raw;
   S.v = S.y - prevY; prevY = S.y;
 
+  if(AUTO.on) autoStep(now);
   var p = driveHero(now);
   /* The film watched to its end, once: the first stage of the funnel that
      says more than "landed". */
@@ -5403,7 +5582,7 @@ function tick(now){
   driveRail();
   driveChrome();
 
-  var busy = Math.abs(S.raw - S.y) > 0.35 || !H.settled || SEQ.chasing;
+  var busy = Math.abs(S.raw - S.y) > 0.35 || !H.settled || SEQ.chasing || AUTO.on;
   if(busy) awake = 14; else awake--;
   if(awake > 0){ requestAnimationFrame(tick); } else { running = false; H.last = 0; }
 }

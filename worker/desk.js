@@ -180,8 +180,35 @@ table.wk{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .vis .t b{font-weight:600}
 .vis .at{color:var(--goldLit);font-size:14px;margin-top:3px}
 .trail{margin:6px 0 0;font-size:12.5px;color:var(--faint);line-height:1.7}
+.linkish{background:none;border:0;padding:0;color:var(--bone);font:inherit;cursor:pointer;text-align:left}
+.linkish:hover b{text-decoration:underline}
 .feed .it{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:9px 14px}
 .feed .tm{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;padding-top:2px}
+.vctl{display:grid;gap:8px;margin-bottom:10px}
+.vctl input[type=search]{width:100%;min-height:42px;padding:8px 12px;border-radius:6px;border:1px solid var(--line2);background:var(--card);font-size:16px}
+.vrow{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:12px 14px;cursor:pointer;color:inherit}
+.vrow:first-child{border-top:0}
+.vrow:hover{background:var(--card2)}
+.vrow .t{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.vrow .t b{font-weight:600}
+.vrow .m{color:var(--mute);font-size:13px;margin-top:2px}
+.pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.pill{font-size:11px;border:1px solid var(--line2);border-radius:999px;padding:2px 8px;color:var(--mute)}
+.pill.g{border-color:var(--gold);color:var(--goldLit)}
+.pill.ok{border-color:var(--ok);color:var(--ok)}
+.journey{margin-top:10px}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(5,5,4,.72);display:flex;justify-content:center;align-items:flex-end}
+.sheet-in{width:min(760px,100%);max-height:92vh;overflow:auto;overscroll-behavior:contain;background:var(--bg);border:1px solid var(--line2);border-bottom:0;border-radius:14px 14px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+@media (min-width:640px){.sheet{align-items:center}.sheet-in{border-radius:14px;border-bottom:1px solid var(--line2);max-height:86vh}}
+.sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.tl-v{margin:18px 0 6px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--goldLit)}
+.tl{list-style:none;margin:0;padding:0;border-left:1px solid var(--line2)}
+.tl li{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:6px 0 6px 12px;position:relative;font-size:14px}
+.tl li::before{content:"";position:absolute;left:-4px;top:12px;width:7px;height:7px;border-radius:50%;background:var(--line2)}
+.tl li.k::before{background:var(--gold)}
+.tl li.p::before{background:var(--ok)}
+.tl .tm{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;padding-top:1px}
+.tl li.p span:last-child{color:var(--ok)}
 .health .it{display:grid;grid-template-columns:22px 1fr;gap:2px 8px}
 .health .ic{font-weight:700}
 .health .ic.y{color:var(--ok)} .health .ic.n{color:var(--bad)}
@@ -220,6 +247,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
   <section class="s" id="now" aria-live="off"></section>
   <section class="s" id="needs"></section>
   <section class="s" id="day"></section>
+  <section class="s" id="visitors"></section>
   <section class="s" id="orders"></section>
   <section class="s" id="nearly"></section>
   <section class="s" id="twenty"></section>
@@ -233,6 +261,12 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
 </div>
 
 </div>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-in" role="dialog" aria-modal="true" aria-labelledby="sheetT">
+    <div class="sheet-h"><h2 id="sheetT">Visitor</h2><button class="btn quiet sm" type="button" data-act="sheet-close">Close</button></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script nonce="${nonce}">
@@ -240,6 +274,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
   "use strict";
   var D = null, VIEW = "today", FILTER = "open", OPEN_FORM = "", LEADS_ALL = false, LOADED_AT = 0, busy = false;
   var LV = null, FEED_ALL = false, LAST_PAID = 0, liveBusy = false;
+  var VR = "today", VF = "all", VQ = "", VD = null, VROWS = [], vBusy = false, vTimer = 0, SHEET_FROM = null;
   var COURIERS = ["Delhivery", "Blue Dart", "DTDC", "India Post", "Shiprocket", "Ekart", "Xpressbees", "Shadowfax"];
 
   function $(id){ return document.getElementById(id); }
@@ -433,7 +468,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     } else {
       h += '<div class="o-ship">' + refundBlock(o) + "</div>";
     }
-    return h + '<div class="o-foot mono">' + esc(o.id) + (o.orderId ? " &middot; " + esc(o.orderId) : "") + "</div></article>";
+    return h + journeyButton(o.orderId) + '<div class="o-foot mono">' + esc(o.id) + (o.orderId ? " &middot; " + esc(o.orderId) : "") + "</div></article>";
   }
 
   /* A full refund leaves one question, and only the owner answers it: is
@@ -479,7 +514,8 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       return '<div class="it"><div class="t"><b>' + no(x.n) + (x.dial ? " &middot; " + esc(x.dial) : "") + '</b><span class="faint">' + esc(x.at) + "</span></div>" +
         (x.name ? "<p><b>" + esc(x.name) + "</b>" + (x.city ? " &middot; " + esc(x.city) : "") + "</p>" : "") +
         "<p>" + esc(x.stage) + "</p>" + (x.email || x.contact ? "<p>" + (x.email ? esc(x.email) : "") + (x.email && x.contact ? " &middot; " : "") + (x.contact ? esc(x.contact) : "") + "</p>" : "") +
-        ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">No contact given for this one.</p>') + "</div>";
+        ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">No contact given for this one.</p>') +
+        journeyButton(x.orderId) + "</div>";
     }).join("") + "</div>";
   }
 
@@ -528,7 +564,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
                   "google ads": "Google Ads", bing: "Bing", x: "X", youtube: "YouTube", whatsapp: "WhatsApp", linkedin: "LinkedIn",
                   chatgpt: "ChatGPT", perplexity: "Perplexity", duckduckgo: "DuckDuckGo", direct: "Direct" };
   function srcName(v){
-    var s = v.s || "", name = SOURCES[s] || s;
+    var s = v.s || "", name = SOURCES[s] || v.from || s;
     /* The ads open in Instagram's and Facebook's own browsers, which send
        no referrer: the app is the better answer than "Direct". */
     if (v.app && (!s || s === "direct" || s === "meta")) name = v.app;
@@ -543,25 +579,8 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     var d = new Date(ts + 5.5 * 3600000), h = d.getUTCHours();
     return (h % 12 || 12) + ":" + pad(d.getUTCMinutes()) + " " + (h >= 12 ? "pm" : "am");
   }
-  function stepText(e){
-    var n = e.no ? "No. " + e.no : "", d = e.dial || "";
-    switch (e.e){
-      case "film": return "played the film";
-      case "hero_complete": return "watched the whole film";
-      case "view": return "reached the twenty";
-      case "dial": case "early_dial": return "chose " + (d || "a dial");
-      case "number": return "chose " + (n || "a number") + (d ? " &middot; " + esc(d) : "");
-      case "caseback_view": return "turned " + (n || "it") + " to its engraved back";
-      case "gift": return "made it a gift";
-      case "checkout": return "opened checkout" + (n ? " for " + n : "");
-      case "details": return "gave their details" + (n ? " for " + n : "");
-      case "list": return "joined the Series 02 list";
-      case "deeplink": return "arrived on a link to " + (n || "a number");
-      case "provenance_click": return "opened the provenance page";
-      case "ctx_cta": return "tapped Choose yours" + (d ? " under " + esc(d) : "");
-    }
-    return esc(e.e);
-  }
+  var PAGES = { about: "the About page", manifesto: "the manifesto", movement: "the movement page", provenance: "Who is selling this",
+                legal: "terms and privacy", claimed: "the thank-you page", "404": "a missing page" };
   function renderNow(){
     var h = '<div class="sec-h"><div class="live-h"><h2>Right now</h2><span class="pulse' + (LV && LV.live ? "" : " off") + '" aria-hidden="true"></span></div>' +
       (LV && LV.live ? '<span class="faint" style="font-size:12px">Live &middot; every ten seconds</span>' : "") + "</div>";
@@ -584,29 +603,152 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
 
     if (here.length){
       h += '<p class="sub2">On the site</p><div class="card list">' + here.map(function(v){
-        var at = WHERE[v.w] || "On the page", trail = (v.steps || []).filter(function(e){ return e.e !== "early_dial"; });
-        return '<div class="vis"><div class="t"><b>Visitor ' + v.k + '</b><span class="faint">' + took(now - v.since) + "</span></div>" +
+        var at = WHERE[v.w] || (v.p && v.p !== "home" ? "On " + (PAGES[v.p] || v.p) : "On the page"), trail = (v.steps || []).filter(function(e){ return e.e !== "early_dial"; });
+        return '<div class="vis"><div class="t">' + (v.vk ? '<button class="linkish" type="button" data-act="visitor" data-k="' + v.vk + '"><b>Visitor ' + v.vk + "</b> &rsaquo;</button>" : "<b>A visitor</b>") +
+          '<span class="faint">' + took(now - v.since) + "</span></div>" +
           '<div class="faint" style="font-size:13px">' + esc(srcName(v)) + (devName(v) ? " &middot; " + esc(devName(v)) : "") + "</div>" +
           '<div class="at">' + at + (v.n ? " &middot; No. " + pad(v.n) : "") + (v.d ? " &middot; " + esc(v.d.charAt(0).toUpperCase() + v.d.slice(1)) : "") + "</div>" +
           (trail.length ? '<p class="trail">' + trail.slice(-6).map(function(e, j, a){
             var t = clock(e.ts);
-            return (j && clock(a[j - 1].ts) === t ? "" : t + " ") + stepText(e);
+            return (j && clock(a[j - 1].ts) === t ? "" : t + " ") + esc(e.txt || e.e);
           }).join(" &rarr; ") + "</p>" : "") + "</div>";
       }).join("") + "</div>";
     }
 
     var visits = {};
     (L.here || []).concat(L.left || []).forEach(function(v){ visits[v.k] = v; });
+    function who(e){ return e.vk ? '<button class="linkish" type="button" data-act="visitor" data-k="' + e.vk + '"><b>Visitor ' + e.vk + "</b></button>" : "<b>A visitor</b>"; }
     var feed = (L.feed || []).filter(function(e){ return e.e !== "early_dial"; }), list = FEED_ALL ? feed : feed.slice(0, 12);
     h += '<p class="sub2">The last hour</p>';
     if (!feed.length) return h + '<div class="card empty">Nothing yet. Each step a visitor takes appears here a few seconds after they take it.</div>';
     h += '<div class="card list feed">' + list.map(function(e){
       if (e.e === "paid") return '<div class="it"><span class="tm">' + clock(e.ts) + '</span><span class="paid"><b>Paid</b> &middot; ' + (e.no ? "No. " + esc(e.no) : "a number") + (e.dial ? " &middot; " + esc(e.dial) : "") + (e.paise ? " &middot; " + rupees(e.paise) : "") + "</span></div>";
       var v = visits[e.k];
-      return '<div class="it"><span class="tm">' + clock(e.ts) + "</span><span><b>Visitor " + e.k + "</b> " + stepText(e) + (v ? ' <span class="faint">&middot; ' + esc(srcName(v)) + "</span>" : "") + "</span></div>";
+      return '<div class="it"><span class="tm">' + clock(e.ts) + "</span><span>" + who(e) + " &middot; " + esc(e.txt || e.e) + (v ? ' <span class="faint">&middot; ' + esc(srcName(v)) + "</span>" : "") + "</span></div>";
     }).join("") + "</div>";
     if (feed.length > 12) h += '<div class="row" style="margin-top:8px"><button class="btn quiet sm" type="button" data-act="feed">' + (FEED_ALL ? "Show fewer" : "Show the whole hour (" + feed.length + ")") + "</button></div>";
     return h;
+  }
+
+  /* ── visitors: everyone's whole story, ninety days of it ── */
+  function journeyButton(orderId){
+    var j = orderId && D.journeys && D.journeys[orderId];
+    if (!j) return "";
+    return '<div class="journey"><button class="btn quiet sm" type="button" data-act="visitor" data-k="' + j.k + '">Their journey &middot; Visitor ' + j.k +
+      " &middot; " + plural(j.visits, "visit") + " &middot; " + esc(srcName(j)) + "</button></div>";
+  }
+  function dayAt(ms){
+    var d = new Date(ms + 5.5 * 3600000), w = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return w[d.getUTCDay()] + " " + d.getUTCDate() + " " + m[d.getUTCMonth()];
+  }
+  function seenAt(ms){
+    var today = dayAt(Date.now());
+    return dayAt(ms) === today ? clock(ms) : dayAt(ms) + ", " + clock(ms);
+  }
+  function pills(v){
+    var p = [];
+    (v.dials || []).forEach(function(d){ p.push('<span class="pill">' + esc(d) + "</span>"); });
+    (v.numbers || []).forEach(function(n){ p.push('<span class="pill g">No. ' + esc(n) + "</span>"); });
+    if (v.checkout) p.push('<span class="pill g">Opened checkout</span>');
+    (v.paid || []).forEach(function(n){ p.push('<span class="pill ok">Paid &middot; No. ' + esc(n) + "</span>"); });
+    if (!p.length && v.twenty) p.push('<span class="pill">Reached the twenty</span>');
+    if (!p.length && v.film) p.push('<span class="pill">Watched the film</span>');
+    return p.length ? '<div class="pills">' + p.join("") + "</div>" : "";
+  }
+  function visitorMeta(v){
+    return [esc(srcName(v)), esc(devName(v)), plural(v.visits, "visit"), v.time ? took(v.time) + " on the site" : ""].filter(function(x){ return x; }).join(" &middot; ");
+  }
+  function renderVisitorsShell(){
+    var seg = function(v, label){ return '<button type="button" data-act="vr" data-v="' + v + '" aria-pressed="' + (VR === v) + '">' + label + "</button>"; };
+    var chip = function(v, label){ return '<button type="button" data-act="vf" data-v="' + v + '" aria-pressed="' + (VF === v) + '">' + label + "</button>"; };
+    return '<div class="sec-h"><div><h2>Visitors<span class="count" id="vcount" hidden></span></h2><p class="sub">Everyone who came, where from, and everything they did. Kept ninety days.</p></div>' +
+      '<div class="seg" role="group" aria-label="Period">' + seg("today", "Today") + seg("7d", "7 days") + seg("90d", "90 days") + "</div></div>" +
+      '<div class="vctl"><input type="search" id="vq" placeholder="Name, phone, email or number" aria-label="Search visitors" autocomplete="off">' +
+      '<div class="chips" style="margin:0">' + chip("all", "Everyone") + chip("bought", "Bought") + chip("checkout", "Opened checkout") + chip("details", "Gave details") + chip("number", "Chose a number") + "</div></div>" +
+      '<div id="vlist"><div class="card empty">Loading&hellip;</div></div>' +
+      '<div class="row" style="margin-top:10px"><a class="btn ghost sm" id="vcsv1" href="/desk/visitors.csv?r=90d">Spreadsheet: one row per visitor</a><a class="btn ghost sm" id="vcsv2" href="/desk/steps.csv?r=90d">Spreadsheet: every step</a></div>';
+  }
+  function renderVisitorList(){
+    var el = $("vlist"); if (!el) return;
+    var c = $("vcount");
+    if (!VD){ el.innerHTML = '<div class="card empty">Loading&hellip;</div>'; return; }
+    if (!VD.on){ el.innerHTML = '<div class="card empty">Visitor histories start once the visitor counter is connected (Health, below).</div>'; return; }
+    if (c){ c.textContent = VD.total; c.hidden = !VD.total; }
+    if (!VROWS.length){
+      el.innerHTML = '<div class="card empty">' + (VQ ? "No visitor matches that." : VR === "today" ? "Nobody yet today. Each visitor appears here the moment they arrive." : "Nobody in this period.") + "</div>";
+      return;
+    }
+    el.innerHTML = '<div class="card list">' + VROWS.map(function(v){
+      return '<button class="vrow" type="button" data-act="visitor" data-k="' + v.k + '"><div class="t"><b>Visitor ' + v.k + (v.name ? " &middot; " + esc(v.name) : "") + '</b><span class="faint">' + seenAt(v.last) + "</span></div>" +
+        '<div class="m">' + visitorMeta(v) + (v.city ? " &middot; " + esc(v.city) : "") + "</div>" + pills(v) + "</button>";
+    }).join("") + "</div>" +
+      (VD.total > VROWS.length ? '<div class="row" style="margin-top:8px"><button class="btn quiet sm" type="button" data-act="vmore">Show more (' + (VD.total - VROWS.length) + " left)</button></div>" : "");
+  }
+  function loadVisitors(more){
+    if (!D || vBusy) return;
+    vBusy = true;
+    var q = "/desk/visitors?r=" + VR + "&f=" + VF + "&q=" + encodeURIComponent(VQ) + "&off=" + (more ? VROWS.length : 0);
+    fetch(q, { credentials: "same-origin", cache: "no-store", headers: { "X-Desk": "1" } }).then(function(r){
+      if (r.status === 401){ showGate(""); return null; }
+      return r.ok ? r.json() : null;
+    }).then(function(j){
+      if (!j) return;
+      VD = j; VROWS = more ? VROWS.concat(j.rows || []) : (j.rows || []);
+      renderVisitorList();
+    }).catch(function(){ /* the list on screen stands */ }).then(function(){ vBusy = false; });
+    var a = $("vcsv1"), b = $("vcsv2"), r = VR === "today" ? "today" : VR;
+    if (a) a.href = "/desk/visitors.csv?r=" + r;
+    if (b) b.href = "/desk/steps.csv?r=" + r;
+  }
+
+  function openSheet(title, html, from){
+    SHEET_FROM = from || document.activeElement;
+    $("sheetT").textContent = title; $("sheetBody").innerHTML = html; $("sheet").hidden = false;
+    document.body.style.overflow = "hidden";
+    var c = $("sheet").querySelector('[data-act="sheet-close"]'); if (c) c.focus();
+  }
+  function closeSheet(){
+    if ($("sheet").hidden) return;
+    $("sheet").hidden = true; document.body.style.overflow = "";
+    if (SHEET_FROM && SHEET_FROM.focus && document.body.contains(SHEET_FROM)) SHEET_FROM.focus();
+  }
+  function renderTimeline(v){
+    var h = '<p class="mute" style="margin:4px 0 0">' + visitorMeta(v) + "</p>" +
+      '<p class="faint" style="margin:2px 0 0;font-size:13px">First seen ' + dayAt(v.first) + ", " + clock(v.first) + " &middot; last seen " + seenAt(v.last) + "</p>";
+    if (v.name || v.phone || v.email){
+      h += '<div class="card" style="padding:12px 14px;margin-top:12px"><b>' + esc(v.name || "Gave contact details") + "</b>" + (v.city ? ' <span class="faint">&middot; ' + esc(v.city) + "</span>" : "") +
+        "<p class=\"mute\" style=\"margin:4px 0 0;font-size:14px\">" + [v.phone ? esc(v.phone) : "", v.email ? esc(v.email) : ""].filter(function(x){ return x; }).join(" &middot; ") + "</p>" +
+        '<div class="row" style="margin-top:8px">' + contactButtons(v.email, v.phone, true) + "</div></div>";
+    }
+    h += pills(v);
+    var visit = 0, open = false, foot = '<div class="row" style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line)">' +
+      '<button class="btn quiet sm" type="button" data-act="forget" data-k="' + v.k + '">Delete this visitor</button>' +
+      '<span class="faint" style="font-size:12px">For when someone asks. Their orders stay in Razorpay.</span></div>';
+    (v.steps || []).forEach(function(e){
+      if (e.e === "early_dial") return;
+      if (e.e === "visit"){
+        if (open) h += "</ul>";
+        visit++; open = true;
+        h += '<p class="tl-v">Visit ' + visit + " &middot; " + dayAt(e.t) + "</p><ul class=\"tl\">";
+      } else if (!open){ open = true; h += '<ul class="tl">'; }
+      var cls = e.e === "paid" ? "p" : (e.e === "number" || e.e === "checkout" || e.e === "details") ? "k" : "";
+      h += '<li class="' + cls + '"><span class="tm">' + clock(e.t) + "</span><span>" + esc(e.txt || e.e) + "</span></li>";
+    });
+    if (open) h += "</ul>";
+    return h + foot;
+  }
+  function openVisitor(k, from){
+    openSheet("Visitor " + k, '<div class="empty">Loading&hellip;</div>', from);
+    fetch("/desk/visitor?k=" + k, { credentials: "same-origin", cache: "no-store", headers: { "X-Desk": "1" } }).then(function(r){
+      if (r.status === 401){ closeSheet(); showGate(""); return null; }
+      return r.ok ? r.json() : null;
+    }).then(function(j){
+      if ($("sheet").hidden) return;
+      if (!j || !j.ok){ $("sheetBody").innerHTML = '<div class="empty">This visitor is no longer kept (more than ninety days since they were last seen).</div>'; return; }
+      var v = j.v;
+      $("sheetT").textContent = "Visitor " + v.k + (v.name ? " · " + v.name : "");
+      $("sheetBody").innerHTML = renderTimeline(v);
+    }).catch(function(){ if (!$("sheet").hidden) $("sheetBody").innerHTML = '<div class="empty">Could not load just now. Try again.</div>'; });
   }
 
   function renderHealth(){
@@ -620,6 +762,8 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     $("now").innerHTML = renderNow();
     $("needs").innerHTML = renderNeeds();
     $("day").innerHTML = renderDay();
+    if (!$("vlist")){ $("visitors").innerHTML = renderVisitorsShell(); renderVisitorList(); }
+    if (VROWS.length <= 25) loadVisitors(false);   /* a list opened past its first page is left as it is */
     $("orders").innerHTML = renderOrders();
     $("nearly").innerHTML = renderNearly();
     $("twenty").innerHTML = renderTwenty();
@@ -649,6 +793,20 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     else if (act === "view"){ VIEW = el.getAttribute("data-v"); $("day").innerHTML = renderDay(); }
     else if (act === "filter"){ FILTER = el.getAttribute("data-v"); OPEN_FORM = ""; $("orders").innerHTML = renderOrders(); }
     else if (act === "leads"){ LEADS_ALL = !LEADS_ALL; $("leads").innerHTML = renderLeads(); }
+    else if (act === "visitor"){ e.preventDefault(); openVisitor(parseInt(el.getAttribute("data-k"), 10), el); }
+    else if (act === "sheet-close"){ closeSheet(); }
+    else if (act === "forget"){
+      var fk = parseInt(el.getAttribute("data-k"), 10);
+      if (!window.confirm("Delete everything kept about Visitor " + fk + "? Their history, and their name and contact on it, go for good. Their orders stay in Razorpay.")) return;
+      el.disabled = true;
+      call("POST", "/desk/forget", { k: fk }).then(function(j){
+        if (j.ok){ closeSheet(); toast("Visitor " + fk + " deleted"); VD = null; loadVisitors(false); load(true); }
+        else { el.disabled = false; toast("Not deleted (" + (j.reason || j.status) + ")"); }
+      }, function(){ el.disabled = false; toast("Could not reach the worker"); });
+    }
+    else if (act === "vr"){ VR = el.getAttribute("data-v"); $("visitors").querySelectorAll('[data-act="vr"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === el)); }); VD = null; renderVisitorList(); loadVisitors(false); }
+    else if (act === "vf"){ VF = el.getAttribute("data-v"); $("visitors").querySelectorAll('[data-act="vf"]').forEach(function(b){ b.setAttribute("aria-pressed", String(b === el)); }); VD = null; renderVisitorList(); loadVisitors(false); }
+    else if (act === "vmore"){ loadVisitors(true); }
     else if (act === "feed"){ FEED_ALL = !FEED_ALL; $("now").innerHTML = renderNow(); var fb = $("now").querySelector('[data-act="feed"]'); if (fb) fb.focus(); }
     else if (act === "copy"){ copy(el.getAttribute("data-text")); }
     else if (act === "open"){
@@ -698,6 +856,16 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       load(true);
     }, function(){ btn.disabled = false; toast("Could not reach the worker"); });
   });
+
+  /* The search waits for a pause in typing. */
+  document.addEventListener("input", function(e){
+    if (!e.target || e.target.id !== "vq") return;
+    clearTimeout(vTimer);
+    vTimer = setTimeout(function(){ VQ = e.target.value.trim(); VD = null; renderVisitorList(); loadVisitors(false); }, 350);
+  });
+  /* A tap on the dimmed backdrop, or Escape, closes the visitor. */
+  $("sheet").addEventListener("click", function(e){ if (e.target === this) closeSheet(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeSheet(); });
 
   /* ── the live view: every ten seconds while the desk is on screen ── */
   function live(){

@@ -12,7 +12,8 @@ save it. You stay signed in on that phone for thirty days.
 | Part | What it is for |
 |---|---|
 | **Needs you** | The jobs, most urgent first: a payment with no watch number, a number paid for twice, a sold number the site still offers, a dispatch that is late or due today, a buyer who paid six or more hours ago and has not given an address. Each one has WhatsApp, Email and Call buttons for that buyer. |
-| **Right now** | Live, every ten seconds: how many people are on the site this minute and where they are (watching the film, reading, at the twenty, giving their details, paying), the last thirty minutes as a bar per minute, each visitor with where they came from (Instagram, Google…), their device, the number and dial they chose, and their steps so far; then the last hour as a list, sales included the moment Razorpay confirms them. |
+| **Right now** | Live, every ten seconds: how many people are on the site this minute and where they are (watching the film, reading, at the twenty, giving their details, paying), the last thirty minutes as a bar per minute, each visitor with where they came from (Instagram, Google…), their device, the number and dial they chose, and their steps so far; then the last hour as a list, sales included the moment Razorpay confirms them. Tap a visitor to see their whole history. |
+| **Visitors** | Everyone who came in the last ninety days, newest first: where they came from, their device, how many visits, the dials and numbers they chose, whether they opened checkout or paid, and their name and phone once they gave them. Search by name, phone, email, number or visitor number; tap one for every step they ever took. Two spreadsheets: one row per visitor, or one row per step. |
 | **Today so far / Yesterday** | Visitors, add to cart, checkouts and orders, and how far people got: scrolled through the film, reached the twenty, chose a dial, chose a number, opened checkout, paid. Today's numbers now move within seconds of each step, not when the visitor leaves. |
 | **Orders** | Every paid order from the last 120 days: number, dial, buyer, gift card text, the delivery address with a Copy button, the dispatch-by date, and **Mark dispatched**. *Download CSV* gives every order with its address, for the books. |
 | **Nearly bought** | Checkouts from today and yesterday that did not end in a payment: the name, city, phone and email the person gave before paying, and the reason Razorpay gives. |
@@ -48,13 +49,50 @@ otherwise the site that sent it. People who open an ad inside the Instagram
 or Facebook app are shown as *Instagram* or *Facebook* even though those
 apps hide where they came from.
 
-**What it costs and what it keeps.** Nothing extra for the visitor: the
-page already checks the edition with the worker once a minute, and that
-same request now also says "still here, at the twenty". Steps travel with
-the count the page was already sending. Each visit is known only by a
-random tag made when the page loads, never stored on the visitor's phone,
-and the worker forgets the visit an hour after it was last seen. No name,
-no address, no IP, no location. `legal.html` says so in its privacy section.
+**What it costs.** Nothing extra for the visitor: the page already checks
+the edition with the worker once a minute, and that same request now also
+says "still here, at the twenty". Steps travel with the count the page was
+already sending. Each visitor is kept in **Visitors** for ninety days (below).
+
+## Visitors: everyone's whole story
+
+Under *Today so far*. Every person who came, newest first, kept for ninety
+days after the last time they were seen:
+
+- **The row**: *Visitor 12 · Rahul Sharma · Instagram · iPhone · 3 visits ·
+  6m on the site*, then pills for the dials they looked at, the numbers they
+  chose, *Opened checkout*, and *Paid · No. 07*.
+- **Tap it** for the whole story, visit by visit, every step with its time:
+  *Arrived from Instagram on iPhone → Read Emerald → Chose the Midnight dial →
+  Chose No. 07 (Midnight) → Turned No. 07 to its engraved back → Pressed buy
+  → Gave their name, phone and address → Payment failed: Bank declined →
+  Paid ₹5,999 for No. 07*. Pages other than the shop are there too: *Opened
+  the movement page*.
+- **Today / 7 days / 90 days**, and **Everyone / Bought / Opened checkout /
+  Gave details / Chose a number**. Search finds a name, phone, email, city,
+  a number, a source ("instagram") or a visitor number ("visitor 12").
+- **On every order and every Nearly bought**, a *Their journey* button opens
+  the history of the person who placed it.
+- **Spreadsheets**: *one row per visitor* (who, from where, how many visits,
+  what they chose, did they pay) or *every step*. They follow the period
+  you have chosen.
+- **The midnight email** now ends with *Who visited*: each of the day's
+  visitors and what they did that day (the sixty most recent on a busy day;
+  all of them are on the desk).
+
+**How the same person is recognised.** The site already keeps a random ID
+on each phone or computer (for number holds). A return visit from the same
+browser joins the same history; a visit counts as new after thirty minutes
+of nothing. A different phone, a cleared browser or a private window is a
+new visitor until they reach checkout and give the same name or phone.
+
+**When they give their details at checkout**, their name, phone, email and
+city are put on their history, and a payment on that order is too. The
+details form says so at that moment, and `legal.html` says so in full.
+
+**Delete this visitor** (at the foot of any history) removes everything kept
+about them, for when someone asks; their orders stay in Razorpay. Everyone
+else is deleted by itself ninety days after they were last seen.
 
 **It needs the worker redeployed once.** GitHub → Actions → *setup-worker*
 → *Run workflow* → mode **deploy**. Until then the site behaves exactly as

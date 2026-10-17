@@ -82,6 +82,14 @@ if (payMode === "standard" && !apiUrl)
   bad("pay is \"standard\" but api is empty — the page has no worker to create an order with, so every button fails");
 if (payMode !== "standard" && !cfg.checkout)
   soft("pay is not \"standard\" and checkout is empty: the page will render, and it cannot take money");
+/* The other pages send their visits to the owner's history through
+   assets/tags.js, which names the worker a second time. */
+{
+  const tags = existsSync(join(root, "assets/tags.js")) ? readFileSync(join(root, "assets/tags.js"), "utf8") : "";
+  const hist = tags.match(/var HISTORY = "([^"]*)"/)?.[1];
+  if (hist !== undefined && hist && hist !== apiUrl)
+    bad(`assets/tags.js sends the other pages' visits to ${hist}, but KAAL.api is ${apiUrl || "empty"} — they must agree`);
+}
 
 if (existsSync(join(root, "wrangler.toml"))) {
   const toml = readFileSync(join(root, "wrangler.toml"), "utf8");

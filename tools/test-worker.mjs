@@ -511,5 +511,91 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   globalThis.fetch = base;
 }
 
+/* ── 13. The live view: the desk's "Right now" ── */
+{
+  const box = new Map(); let alarm = 0;
+  const so = new Stats({ storage: { async get(k) { return box.get(k); }, async put(k, v) { box.set(k, JSON.parse(JSON.stringify(v))); },
+    async delete(k) { box.delete(k); }, async setAlarm(t) { alarm = t; } } });
+  const LS = { idFromName: () => "kaal", get: () => ({ fetch: (u, i) => so.fetch(new Request(u, i)) }) };
+  const envL = Object.assign({}, env, { STATS: LS, DESK_PASSCODE: "brass-quiet-lantern-42" });
+  const IG = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 350.0";
+  const send = (body, origin = "https://thekaal.co", ua = IG) => {
+    const k = ctx();
+    return w.fetch(new Request("https://w/e", { method: "POST", headers: { Origin: origin, "User-Agent": ua, "Content-Type": "text/plain" }, body: JSON.stringify(body) }), envL, k).then(async res => { await k.done(); return res; });
+  };
+  const seen = (q, ua = IG, origin = "https://thekaal.co") => {
+    const k = ctx();
+    return w.fetch(new Request("https://w/state?" + q, { headers: { Origin: origin, "User-Agent": ua } }), envL, k).then(async res => { await k.done(); return res; });
+  };
+  let t0 = Date.parse("2026-10-06T08:00:00Z");
+  Date.now = () => t0;
+
+  r = await seen("h=abc123def0&w=film&n=0&d=&s=instagram");
+  ok((await r.json()).live === true, "live: /state tells the page the live view is on");
+  let v = await so.liveView();
+  ok(v.here.length === 1 && v.here[0].w === "film" && v.here[0].app === "Instagram" && v.here[0].os === "iPhone" && v.here[0].dev === "phone" && v.here[0].s === "instagram",
+    "live: the page's minute check puts the visit on the desk: watching the film, from Instagram, on an iPhone");
+  ok(!JSON.stringify(v).includes("abc123def0") && v.here[0].k === 1, "live: the visit's tag never leaves the counter; the desk sees Visitor 1");
+
+  t0 += 20000;
+  r = await send({ c: { number: 1 }, l: { v: "abc123def0", w: "twenty", n: 7, d: "midnight", s: "instagram",
+    ev: [{ e: "dial", dial: "Midnight" }, { e: "number", no: "07", dial: "Midnight" }] } });
+  v = await so.liveView();
+  ok(r.status === 204 && v.here[0].w === "twenty" && v.here[0].n === 7 && v.here[0].d === "midnight" && v.here[0].steps.length === 2 && v.feed[0].e === "number" && v.feed[0].no === "07",
+    "live: a step reaches the desk seconds after it is taken, with where the visit is now");
+  ok((box.get("d:2026-10-06") || {}).number === 1, "live: the day's count rides the same request, so Today so far is live too");
+
+  await send({ l: { v: "zzz999yyy8", w: "<script>", n: 400, d: "<b>", s: "<img src=x onerror=1>",
+    ev: [{ e: "evil" }, { e: "number", no: "<b>", dial: "<i>x</i>" }] } });
+  v = await so.liveView();
+  const junk = v.here.find(x => x.k === 2);
+  ok(junk && junk.w === "" && junk.n === 0 && junk.d === "" && junk.steps.length === 1 && junk.steps[0].no === "" && !/[<>]/.test(JSON.stringify(v)),
+    "live: anything off its short lists is dropped, so nothing a stranger posts can reach the desk as markup");
+  await send({ l: { v: "robot00001", w: "film" } }, "https://thekaal.co", "Googlebot/2.1");
+  await send({ l: { v: "elsewhere1", w: "film" } }, "https://evil.example");
+  await seen("h=bad%20tag&w=film");
+  v = await so.liveView();
+  ok(v.here.length === 2, "live: robots, other sites and malformed tags are not visitors");
+
+  await send({ l: { v: "zzz999yyy8", g: 1 } });
+  v = await so.liveView();
+  ok(v.here.length === 1 && v.left.length === 1, "live: a visit that leaves is off 'on the site' at once, and stays in the hour");
+
+  t0 += 1000;
+  r = await hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: "pay_LIVE1", amount: 599900, currency: "INR",
+    email: "x@example.com", contact: "+919800000001", created_at: 1791000000, notes: { kaal_no: "06" } } } } }), envL);
+  v = await so.liveView();
+  ok(v.paid.length === 1 && v.paid[0].no === "06" && v.paid[0].paise === 599900 && v.feed[0].e === "paid", "live: a sale is on the desk the moment Razorpay confirms it");
+
+  t0 += 100000;
+  v = await so.liveView();
+  ok(v.here.length === 0 && v.left.length === 2, "live: a visit that stops checking in leaves 'on the site' within two minutes");
+  ok(v.minutes.length === 30 && v.minutes[28] === 2 && v.minutes[29] === 0, "live: thirty minutes of how many were on the site");
+
+  ok(alarm > 0 && !box.has("live"), "live: the save is scheduled, not written on every check-in");
+  await so.alarm();
+  ok(box.has("live") && box.get("live").visits && Object.keys(box.get("live").visits).length === 2, "live: saved within fifteen seconds, so a quiet spell does not lose it");
+  t0 += 61 * 60000;
+  await so.alarm();
+  v = await so.liveView();
+  ok(!box.has("live") && !v.left.length && !v.paid.length, "live: every visit is forgotten an hour after it was last seen");
+
+  const D = (path, init = {}) => w.fetch(new Request("https://kaal-edition.example.workers.dev" + path, init), envL, ctx());
+  r = await D("/desk/live");
+  ok(r.status === 401, "live: the desk's live view needs the passcode");
+  r = await D("/desk/login", { method: "POST", headers: { "Content-Type": "application/json", "X-Desk": "1", "cf-connecting-ip": "7.7.7.7" }, body: JSON.stringify({ passcode: "brass-quiet-lantern-42" }) });
+  const jar = { Cookie: (r.headers.get("Set-Cookie") || "").split(";")[0] };
+  await seen("h=def456abc1&w=pay&n=3&d=emerald&s=direct", "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36");
+  r = await D("/desk/live", { headers: jar });
+  d = await r.json();
+  ok(r.status === 200 && d.ok && d.today === "2026-10-06" && d.live.here.length === 1 && d.live.here[0].w === "pay" && d.live.here[0].os === "Android" && d.live.here[0].n === 3,
+    "live: with the passcode, the desk sees who is paying right now");
+  ok(r.headers.get("Cache-Control") === "no-store" && !r.headers.get("Access-Control-Allow-Origin"), "live: never cached, and no other site can read it");
+  r = await D("/desk");
+  const pg = await r.text();
+  ok(/id="now"/.test(pg) && /\/desk\/live/.test(pg) && /Right now/.test(pg), "live: the desk page has Right now, and asks for it");
+  Date.now = realNow;
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

@@ -21,8 +21,10 @@ dispatch button, who nearly bought, the Series 02 list, the twenty, the day's
 numbers, and anything that needs you. Passcode only, never linked from the
 site. docs/desk.md explains it.
 
-The report's counts come from the site's own counter: daily totals only, no
-cookie, no identifier (`legal.html` says so in the privacy section).
+The report's counts come from the site's own counter: daily totals, no cookie,
+nothing about who (`legal.html` says so in the privacy section). The desk's
+live view adds a random tag for one page view, forgotten within the hour; the
+privacy section says that too.
 `DIGEST_HOUR_IST` in `wrangler.toml` moves the report (`"9"` would be the
 next morning); `DIGEST = "off"` stops it.
 

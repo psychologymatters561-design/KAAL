@@ -12,7 +12,8 @@ save it. You stay signed in on that phone for thirty days.
 | Part | What it is for |
 |---|---|
 | **Needs you** | The jobs, most urgent first: a payment with no watch number, a number paid for twice, a sold number the site still offers, a dispatch that is late or due today, a buyer who paid six or more hours ago and has not given an address. Each one has WhatsApp, Email and Call buttons for that buyer. |
-| **Today so far / Yesterday** | Visitors, add to cart, checkouts and orders, and how far people got: scrolled through the film, reached the twenty, chose a dial, chose a number, opened checkout, paid. |
+| **Right now** | Live, every ten seconds: how many people are on the site this minute and where they are (watching the film, reading, at the twenty, giving their details, paying), the last thirty minutes as a bar per minute, each visitor with where they came from (Instagram, Google…), their device, the number and dial they chose, and their steps so far; then the last hour as a list, sales included the moment Razorpay confirms them. |
+| **Today so far / Yesterday** | Visitors, add to cart, checkouts and orders, and how far people got: scrolled through the film, reached the twenty, chose a dial, chose a number, opened checkout, paid. Today's numbers now move within seconds of each step, not when the visitor leaves. |
 | **Orders** | Every paid order from the last 120 days: number, dial, buyer, gift card text, the delivery address with a Copy button, the dispatch-by date, and **Mark dispatched**. *Download CSV* gives every order with its address, for the books. |
 | **Nearly bought** | Checkouts from today and yesterday that did not end in a payment: the name, city, phone and email the person gave before paying, and the reason Razorpay gives. |
 | **The twenty** | Which numbers are sold, which are held right now by someone paying, and which are open. |
@@ -22,6 +23,43 @@ save it. You stay signed in on that phone for thirty days.
 
 The daily email at midnight starts with the same **Needs you** list and has a
 button that opens the desk.
+
+## Right now: the live view
+
+You no longer have to wait for the midnight report to see what is
+happening. **Right now**, at the top of the desk, refreshes itself every
+ten seconds while the desk is open on your screen:
+
+- **The big number** is how many people have the site open this minute.
+  Under it, where they are: *watching the film*, *reading the story*, *at
+  the twenty*, *giving their details*, *paying now*.
+- **The bars** are the last thirty minutes, one per minute, so you can see
+  an ad start to land.
+- **On the site** lists each person who is there: *Visitor 4 · Instagram ·
+  iPhone · At the twenty · No. 07 · Midnight*, how long they have been
+  there, and their last few steps.
+- **The last hour** is every step, newest first, and every sale the moment
+  Razorpay confirms it. When a sale appears, the orders below refresh by
+  themselves, address and all.
+
+Where a visit came from is the ad's own `utm_source` when the link has one
+(so tag your ad links `?utm_source=instagram`, `?utm_source=facebook`),
+otherwise the site that sent it. People who open an ad inside the Instagram
+or Facebook app are shown as *Instagram* or *Facebook* even though those
+apps hide where they came from.
+
+**What it costs and what it keeps.** Nothing extra for the visitor: the
+page already checks the edition with the worker once a minute, and that
+same request now also says "still here, at the twenty". Steps travel with
+the count the page was already sending. Each visit is known only by a
+random tag made when the page loads, never stored on the visitor's phone,
+and the worker forgets the visit an hour after it was last seen. No name,
+no address, no IP, no location. `legal.html` says so in its privacy section.
+
+**It needs the worker redeployed once.** GitHub → Actions → *setup-worker*
+→ *Run workflow* → mode **deploy**. Until then the site behaves exactly as
+before and the desk says the live view is waiting for the counter. Turning
+off `count` in `KAAL.features` turns the live view off with it.
 
 ## Mark dispatched
 

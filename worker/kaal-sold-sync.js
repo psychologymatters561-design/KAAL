@@ -106,7 +106,7 @@ export default {
 
     if (request.method === "OPTIONS") return preflight(request, env);
 
-    if (request.method === "GET" && path === "/state") return getState(request, env);
+    if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
@@ -137,11 +137,17 @@ export default {
    empty, cold, or briefly unreachable cannot un-sell a watch. A backend
    that can only ever be more cautious than the static page is a backend
    that cannot take the site down. */
-async function getState(request, env) {
+async function getState(request, env, ctx, url) {
+  /* The page asks this once a minute while it is being looked at, so the
+     same request says "still here" for the owner's live view (section 5b):
+     no second request, nothing added to the answer but `live`. */
+  if (url && url.searchParams.get("h")) liveSeen(request, env, ctx, url.searchParams);
   if (!env.KAAL_STATE) {
     const placed = await readPlaced(env);
     /* No store, nowhere to keep details given before paying: still v2. */
-    return json(request, env, placed ? { v: 2, sold: null, held: [], placed } : { v: 2, sold: null, held: [] });
+    const out = { v: 2, sold: null, held: [], live: !!env.STATS };
+    if (placed) out.placed = placed;
+    return json(request, env, out);
   }
 
   const sold = await readSold(env);
@@ -158,7 +164,7 @@ async function getState(request, env) {
   /* v: 2 tells the page this worker has /callback, /receipt, /shipping and
      /list; v: 3, that /order also keeps the buyer's details given before
      paying. The page uses none of them until it sees the number. */
-  const out = { v: 3, sold, held, at: now };
+  const out = { v: 3, sold, held, at: now, live: !!env.STATS };
   const placed = await readPlaced(env);
   if (placed) out.placed = placed;
   return json(request, env, out, { "Cache-Control": "public, max-age=10" });
@@ -761,6 +767,7 @@ async function webhook(request, env, ctx) {
   }
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
+  liveTell(env, ctx, { e: "paid", no: pad2(chosen), dial: DIAL_OF(env, chosen), paise: entity.amount || 0 });
   await sendPurchaseToMeta(env, entity, chosen);
   if (!(ctx && ctx.waitUntil)) await mail;
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
@@ -1074,7 +1081,8 @@ async function sendEmail(env, to, subject, text, html, replyToOverride) {
 
    The page counts what visitors do in memory and sends the totals once,
    when the page is hidden: one small request per visit, carrying numbers
-   and nothing else. No cookie, no identifier, no IP is kept; "visitor" is
+   and nothing else. No cookie, no identifier, no IP is kept (the live view,
+   5b below, keeps a one-visit tag for an hour and no more); "visitor" is
    the browser saying "first visit today", decided on the device. The
    totals live in one Durable Object, keyed by the day in India, because
    KV's free allowance (1,000 writes a day) is a busy morning of ads.
@@ -1098,38 +1106,130 @@ function istWindow(day) {
 
 async function postCount(request, env, ctx) {
   const done = new Response(null, { status: 204, headers: cors(request, env) });
-  const origin = request.headers.get("Origin") || "";
-  const allowed = (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(x => x.trim());
-  if (allowed.indexOf(origin) < 0 || !env.STATS) return done;
-  if (/bot|crawl|spider|headless|lighthouse|preview/i.test(request.headers.get("User-Agent") || "")) return done;
+  if (!countable(request, env)) return done;
   let body;
-  try { body = JSON.parse((await request.text()).slice(0, 2000)); } catch (e) { return done; }
+  try { body = JSON.parse((await request.text()).slice(0, 4000)); } catch (e) { return done; }
   const add = {};
   for (const k of Object.keys((body && body.c) || {}).slice(0, 32)) {
     if (!COUNTED.has(k)) continue;
     const n = Math.min(10, Math.max(0, parseInt(body.c[k], 10) || 0));
     if (n) add[k] = n;
   }
-  if (!Object.keys(add).length) return done;
+  const live = body && body.l ? liveVisit(request, body.l) : null;
+  if (!Object.keys(add).length && !live) return done;
   const stub = env.STATS.get(env.STATS.idFromName("kaal"));
-  const write = stub.fetch("https://stats/add", { method: "POST", body: JSON.stringify({ day: istDay(Date.now()), add }) })
+  const write = stub.fetch("https://stats/add", { method: "POST", body: JSON.stringify({ day: istDay(Date.now()), add, live }) })
     .catch(e => console.log("Count write failed:", String(e).slice(0, 120)));
   if (ctx && ctx.waitUntil) ctx.waitUntil(write); else await write;
   return done;
 }
 
-/* The one place the counts are kept. Single-threaded by construction, so
-   two visits ending at once cannot lose each other's numbers. */
+/* Only the shop's own pages, only a counter that exists, and never a robot. */
+function countable(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  const allowed = (env.ALLOW_ORIGIN || "https://thekaal.co,https://www.thekaal.co").split(",").map(x => x.trim());
+  if (allowed.indexOf(origin) < 0 || !env.STATS) return false;
+  return !/bot|crawl|spider|headless|lighthouse|preview/i.test(request.headers.get("User-Agent") || "");
+}
+
+/* ══════════ 5b. THE LIVE VIEW ══════════
+
+   What the desk shows as "Right now": who is on the page this minute,
+   where in it they are, and each step a visit takes, seconds after it is
+   taken. The day's totals above wait for a visit to end; this does not.
+
+   A visit is known only by a random tag the page makes when it loads and
+   holds in memory: no cookie, nothing stored on the visitor's device,
+   nothing about who. The page says where it is with its minute check of
+   the edition (/state, already asked), and sends its steps with the count
+   it already sends, a few seconds after each one. From the request itself
+   the worker reads only what kind of device it is and, for the two apps
+   the ads run in, which app. No address, no place, no IP.
+
+   It lives in the counter's own Durable Object: in memory while it is
+   being used, saved at most every fifteen seconds so a quiet spell does not
+   lose it, and every visit forgotten an hour after it was last seen. The
+   tag never leaves the object; the desk sees "Visitor 4". ─────────────── */
+const LIVE_WHERE = new Set(["film", "story", "twenty", "below", "details", "pay"]);
+const LIVE_EV = new Set(["film", "hero_complete", "view", "dial", "early_dial", "number", "caseback_view", "gift",
+  "checkout", "details", "list", "deeplink", "provenance_click", "ctx_cta"]);
+const LIVE_FACES = new Set(["emerald", "midnight", "champagne", "ivory"]);
+
+/* What kind of device, and which of the two in-app browsers the ads open
+   in. Coarse on purpose: enough to know an Instagram ad is landing on
+   iPhones, never enough to tell one phone from another. */
+function uaInfo(ua) {
+  ua = String(ua || "");
+  const app = /Instagram/i.test(ua) ? "Instagram" : /FBAN|FBAV|FB_IAB|FBIOS/i.test(ua) ? "Facebook" : "";
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android"
+    : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "Chromebook" : /Linux/.test(ua) ? "Linux" : "";
+  const dev = /iPad|Tablet/i.test(ua) || (/Android/.test(ua) && !/Mobile/.test(ua)) ? "tablet" : /Mobi|iPhone|Android/i.test(ua) ? "phone" : "computer";
+  return { app, os, dev };
+}
+
+/* One visit's report, cleaned: anything not on these short lists is
+   dropped, so nothing a stranger posts here can reach the desk as markup
+   or grow without bound. */
+function liveVisit(request, l) {
+  const tag = String((l && l.v) || "");
+  if (!/^[a-z0-9]{6,16}$/.test(tag)) return null;
+  const n = parseInt(l.n, 10);
+  const out = Object.assign({ v: tag, w: LIVE_WHERE.has(l.w) ? l.w : "", n: n >= 1 && n <= 99 ? n : 0,
+    d: LIVE_FACES.has(l.d) ? l.d : "", s: String(l.s || "").toLowerCase().replace(/[^a-z0-9 ._-]/g, "").slice(0, 24),
+    g: l.g === 1 || l.g === true, ev: [] }, uaInfo(request.headers.get("User-Agent")));
+  for (const e of Array.isArray(l.ev) ? l.ev.slice(0, 16) : []) {
+    if (!e || !LIVE_EV.has(e.e)) continue;
+    out.ev.push({ e: e.e, no: /^\d{1,2}$/.test(e.no || "") ? String(e.no) : "",
+      dial: /^[A-Za-z]{3,12}$/.test(e.dial || "") ? String(e.dial) : "" });
+  }
+  return out;
+}
+
+/* The page's minute check: "this visit is still here, and here". */
+function liveSeen(request, env, ctx, q) {
+  if (!countable(request, env)) return;
+  const live = liveVisit(request, { v: q.get("h"), w: q.get("w"), n: q.get("n"), d: q.get("d"), s: q.get("s") });
+  if (live) liveTell(env, ctx, live);
+}
+
+/* Anything the worker itself knows first, a sale above all. */
+function liveTell(env, ctx, live) {
+  if (!env.STATS) return;
+  const write = env.STATS.get(env.STATS.idFromName("kaal"))
+    .fetch("https://stats/add", { method: "POST", body: JSON.stringify({ live }) })
+    .catch(e => console.log("Live note failed:", String(e).slice(0, 120)));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(write);
+}
+
+async function liveFor(env) {
+  if (!env.STATS) return null;
+  try {
+    const r = await env.STATS.get(env.STATS.idFromName("kaal")).fetch("https://stats/live");
+    return r.ok ? await r.json() : null;
+  } catch (e) { console.log("Live read failed:", String(e).slice(0, 120)); return null; }
+}
+
+const LIVE_KEEP_MS = 60 * 60 * 1000;   /* a visit is forgotten an hour after it was last seen */
+const LIVE_HERE_MS = 95 * 1000;        /* the page checks in every minute: seen inside this and still open is here */
+const LIVE_SAVE_MS = 15 * 1000;
+const LIVE_MAX = 400;                  /* visits kept at once; the oldest goes first */
+
+/* The one place the counts are kept, and the live view. Single-threaded by
+   construction, so two visits ending at once cannot lose each other's
+   numbers. */
 export class Stats {
-  constructor(state) { this.state = state; }
+  constructor(state) { this.state = state; this.live = null; this.alarmAt = 0; }
   async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === "/add" && request.method === "POST") {
-      const { day, add } = await request.json();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "")) return new Response("bad day", { status: 400 });
-      const cur = (await this.state.storage.get("d:" + day)) || {};
-      for (const k of Object.keys(add || {})) cur[k] = (cur[k] || 0) + (parseInt(add[k], 10) || 0);
-      await this.state.storage.put("d:" + day, cur);
+      const { day, add, live } = await request.json();
+      if (add && Object.keys(add).length) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "")) return new Response("bad day", { status: 400 });
+        const cur = (await this.state.storage.get("d:" + day)) || {};
+        for (const k of Object.keys(add)) cur[k] = (cur[k] || 0) + (parseInt(add[k], 10) || 0);
+        await this.state.storage.put("d:" + day, cur);
+      }
+      if (live) await this.liveTake(live);
       return new Response("ok");
     }
     if (url.pathname === "/get") {
@@ -1138,7 +1238,84 @@ export class Stats {
       for (const d of days) out[d] = (await this.state.storage.get("d:" + d)) || {};
       return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
     }
+    if (url.pathname === "/live") {
+      return new Response(JSON.stringify(await this.liveView()), { headers: { "Content-Type": "application/json" } });
+    }
     return new Response("not found", { status: 404 });
+  }
+
+  async liveLoad() {
+    if (!this.live) this.live = (await this.state.storage.get("live")) || { seq: 0, visits: {}, paid: [] };
+    return this.live;
+  }
+  livePrune(now) {
+    const L = this.live, tags = Object.keys(L.visits);
+    for (const t of tags) if (now - L.visits[t].last > LIVE_KEEP_MS) delete L.visits[t];
+    L.paid = L.paid.filter(p => now - p.ts <= LIVE_KEEP_MS);
+    const left = Object.keys(L.visits);
+    if (left.length > LIVE_MAX) {
+      left.sort((a, b) => L.visits[a].last - L.visits[b].last).slice(0, left.length - LIVE_MAX).forEach(t => { delete L.visits[t]; });
+    }
+    if (!Object.keys(L.visits).length && !L.paid.length) L.seq = 0;
+  }
+  async liveTake(x) {
+    const L = await this.liveLoad(), now = Date.now();
+    if (x.e === "paid") {
+      L.paid.push({ ts: now, no: String(x.no || ""), dial: String(x.dial || ""), paise: parseInt(x.paise, 10) || 0 });
+    } else if (x.v) {
+      let v = L.visits[x.v];
+      if (!v) v = L.visits[x.v] = { k: ++L.seq, first: now, last: now, s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "", w: "", n: 0, d: "", steps: [] };
+      v.last = now;
+      v.gone = !!x.g;
+      if (x.w) v.w = x.w;
+      if (x.n) v.n = x.n;
+      if (x.d) v.d = x.d;
+      if (!v.s && x.s) v.s = x.s;
+      for (const e of x.ev || []) if (v.steps.length < 40) v.steps.push({ ts: now, e: e.e, no: e.no, dial: e.dial });
+    }
+    this.livePrune(now);
+    /* Saved soon, not now: a visit checks in every minute, and a write for
+       each would spend the free plan's allowance on nothing. */
+    if (!this.alarmAt || this.alarmAt > now + LIVE_SAVE_MS) {
+      this.alarmAt = now + LIVE_SAVE_MS;
+      await this.state.storage.setAlarm(this.alarmAt);
+    }
+  }
+  /* Saves the live view, and comes back when the oldest visit in it is an
+     hour old, to forget it. Nothing is kept longer than that. */
+  async alarm() {
+    this.alarmAt = 0;
+    const L = await this.liveLoad(), now = Date.now();
+    this.livePrune(now);
+    const times = Object.values(L.visits).map(v => v.last).concat(L.paid.map(p => p.ts));
+    if (!times.length) { await this.state.storage.delete("live"); return; }
+    await this.state.storage.put("live", L);
+    this.alarmAt = Math.max(now + LIVE_SAVE_MS, Math.min.apply(null, times) + LIVE_KEEP_MS + 1000);
+    await this.state.storage.setAlarm(this.alarmAt);
+  }
+  /* What the desk reads: no tags, only "Visitor 4". */
+  async liveView() {
+    const L = await this.liveLoad(), now = Date.now();
+    this.livePrune(now);
+    const show = v => ({ k: v.k, since: v.first, last: v.last, s: v.s, app: v.app, os: v.os, dev: v.dev, w: v.w, n: v.n, d: v.d,
+      steps: v.steps.map(e => ({ ts: e.ts, e: e.e, no: e.no, dial: e.dial })) });
+    const all = Object.values(L.visits);
+    const isHere = v => !v.gone && now - v.last < LIVE_HERE_MS;
+    const here = all.filter(isHere).sort((a, b) => a.first - b.first).map(show);
+    const left = all.filter(v => !isHere(v)).sort((a, b) => b.last - a.last).slice(0, 40).map(show);
+    /* How many were on the page in each of the last thirty minutes. */
+    const minutes = [];
+    for (let i = 29; i >= 0; i--) {
+      const to = now - i * 60000, from = to - 60000;
+      minutes.push(all.filter(v => v.first < to && v.last >= from).length);
+    }
+    /* Steps sent together share a moment; the later one still goes first. */
+    const feed = [];
+    let o = 0;
+    for (const v of all) for (const e of v.steps) feed.push({ ts: e.ts, o: o++, k: v.k, e: e.e, no: e.no, dial: e.dial });
+    for (const p of L.paid) feed.push({ ts: p.ts, o: o++, k: 0, e: "paid", no: p.no, dial: p.dial, paise: p.paise });
+    feed.sort((a, b) => (b.ts - a.ts) || (b.o - a.o));
+    return { now, here, left, minutes, feed: feed.slice(0, 80).map(({ o, ...e }) => e), paid: L.paid.slice().sort((a, b) => b.ts - a.ts) };
   }
 }
 
@@ -1324,6 +1501,8 @@ async function dailyDigest(env) {
      POST /desk/login        {passcode}
      POST /desk/logout
      GET  /desk/data         everything the page shows, as JSON
+     GET  /desk/live         "Right now" (section 5b) and today's totals,
+                             asked every ten seconds while the desk is open
      GET  /desk/orders.csv   every order, with addresses, for the books
      GET  /desk/leads.csv    the whole Series 02 list
      POST /desk/dispatch     {o, courier, tracking, url, notify} marks an
@@ -1389,6 +1568,7 @@ async function desk(request, env, ctx, path) {
   if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
   if (!(await deskSession(request, env))) return deskJson({ ok: false, reason: "signed-out" }, 401);
   if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
+  if (path === "/desk/live" && method === "GET") return deskJson(await deskLive(env));
   if (path === "/desk/orders.csv" && method === "GET") return deskOrdersCsv(env);
   if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
   if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
@@ -1526,6 +1706,14 @@ async function deskData(env) {
     ],
     counting: !!env.STATS, razorpay: L.rzp
   };
+}
+
+/* "Right now": the live view and today's totals so far, and nothing that
+   has to ask Razorpay, so it can be asked every ten seconds and stay quick. */
+async function deskLive(env) {
+  const nowMs = Date.now(), today = istDay(nowMs);
+  const [live, counts] = await Promise.all([liveFor(env), statsFor(env, [today])]);
+  return { ok: true, at: indiaTime(new Date(nowMs)), now: nowMs, today, c: counts[today] || {}, live, counting: !!env.STATS };
 }
 
 /* The buyer's confirmation promised tracking "the day it leaves". This is

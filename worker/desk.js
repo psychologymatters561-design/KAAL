@@ -157,6 +157,31 @@ table.wk{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .wk tr.now td{color:var(--bone)}
 .wk .vb{display:inline-block;height:6px;background:var(--gold);opacity:.55;border-radius:3px;margin-right:6px;vertical-align:1px}
 
+.live-h{display:flex;align-items:center;gap:10px}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--ok);animation:pulse 2s ease-out infinite}
+.pulse.off{background:var(--faint);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(134,181,146,.55)}70%{box-shadow:0 0 0 10px rgba(134,181,146,0)}100%{box-shadow:0 0 0 0 rgba(134,181,146,0)}}
+.now{padding:16px 16px 12px}
+.now .hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.now .big{font-family:var(--serif);font-size:58px;line-height:.9;color:var(--goldLit);font-variant-numeric:tabular-nums}
+.now .what{color:var(--mute);font-size:15px}
+.paid{color:var(--ok)}
+.where{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.where span{font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:4px 10px;color:var(--mute)}
+.where b{color:var(--bone);font-weight:600}
+.spark{display:flex;align-items:flex-end;gap:2px;height:40px;margin-top:14px}
+.spark i{flex:1;background:var(--gold);opacity:.6;border-radius:1px 1px 0 0}
+.spark i.z{opacity:.18}
+.sparkl{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:4px}
+.sub2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
+.vis{padding:12px 14px;border-top:1px solid var(--line)}
+.vis:first-child{border-top:0}
+.vis .t{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.vis .t b{font-weight:600}
+.vis .at{color:var(--goldLit);font-size:14px;margin-top:3px}
+.trail{margin:6px 0 0;font-size:12.5px;color:var(--faint);line-height:1.7}
+.feed .it{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:9px 14px}
+.feed .tm{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;padding-top:2px}
 .health .it{display:grid;grid-template-columns:22px 1fr;gap:2px 8px}
 .health .ic{font-weight:700}
 .health .ic.y{color:var(--ok)} .health .ic.n{color:var(--bad)}
@@ -164,7 +189,7 @@ table.wk{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid var(--line);padding-top:16px}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--bone);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9}
 .busy{opacity:.6;transition:opacity .2s}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.pulse{animation:none}}
 </style>
 </head>
 <body>
@@ -192,6 +217,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     </div>
   </header>
   <p class="stamp" id="stamp"></p>
+  <section class="s" id="now" aria-live="off"></section>
   <section class="s" id="needs"></section>
   <section class="s" id="day"></section>
   <section class="s" id="orders"></section>
@@ -213,6 +239,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
 (function(){
   "use strict";
   var D = null, VIEW = "today", FILTER = "open", OPEN_FORM = "", LEADS_ALL = false, LOADED_AT = 0, busy = false;
+  var LV = null, FEED_ALL = false, LAST_PAID = 0, liveBusy = false;
   var COURIERS = ["Delhivery", "Blue Dart", "DTDC", "India Post", "Shiprocket", "Ekart", "Xpressbees", "Shadowfax"];
 
   function $(id){ return document.getElementById(id); }
@@ -298,6 +325,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       D = d; LOADED_AT = Date.now();
       render();
       $("gate").hidden = true; $("desk").hidden = false;
+      if (!LV) live();
     }).catch(function(){
       if (D) $("stamp").textContent = "Could not refresh just now. Showing " + D.now + ".";
       else showGate("");
@@ -493,6 +521,94 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       }).join("") + "</tbody></table></div>";
   }
 
+  /* ── right now ── */
+  var WHERE = { film: "Watching the film", story: "Reading the story", twenty: "At the twenty", below: "Below the twenty",
+                details: "Giving their details", pay: "Paying now" };
+  var SOURCES = { instagram: "Instagram", ig: "Instagram", facebook: "Facebook", fb: "Facebook", meta: "Meta ad", google: "Google",
+                  "google ads": "Google Ads", bing: "Bing", x: "X", youtube: "YouTube", whatsapp: "WhatsApp", linkedin: "LinkedIn",
+                  chatgpt: "ChatGPT", perplexity: "Perplexity", duckduckgo: "DuckDuckGo", direct: "Direct" };
+  function srcName(v){
+    var s = v.s || "", name = SOURCES[s] || s;
+    /* The ads open in Instagram's and Facebook's own browsers, which send
+       no referrer: the app is the better answer than "Direct". */
+    if (v.app && (!s || s === "direct" || s === "meta")) name = v.app;
+    return name || "Direct";
+  }
+  function devName(v){ return v.os || ({ computer: "Computer", tablet: "Tablet", phone: "Phone" })[v.dev] || ""; }
+  function took(ms){
+    var t = Math.max(0, Math.round(ms / 1000));
+    return t < 60 ? t + "s" : t < 3600 ? Math.floor(t / 60) + "m " + pad(t % 60) + "s" : Math.floor(t / 3600) + "h " + pad(Math.floor(t % 3600 / 60)) + "m";
+  }
+  function clock(ts){
+    var d = new Date(ts + 5.5 * 3600000), h = d.getUTCHours();
+    return (h % 12 || 12) + ":" + pad(d.getUTCMinutes()) + " " + (h >= 12 ? "pm" : "am");
+  }
+  function stepText(e){
+    var n = e.no ? "No. " + e.no : "", d = e.dial || "";
+    switch (e.e){
+      case "film": return "played the film";
+      case "hero_complete": return "watched the whole film";
+      case "view": return "reached the twenty";
+      case "dial": case "early_dial": return "chose " + (d || "a dial");
+      case "number": return "chose " + (n || "a number") + (d ? " &middot; " + esc(d) : "");
+      case "caseback_view": return "turned " + (n || "it") + " to its engraved back";
+      case "gift": return "made it a gift";
+      case "checkout": return "opened checkout" + (n ? " for " + n : "");
+      case "details": return "gave their details" + (n ? " for " + n : "");
+      case "list": return "joined the Series 02 list";
+      case "deeplink": return "arrived on a link to " + (n || "a number");
+      case "provenance_click": return "opened the provenance page";
+      case "ctx_cta": return "tapped Choose yours" + (d ? " under " + esc(d) : "");
+    }
+    return esc(e.e);
+  }
+  function renderNow(){
+    var h = '<div class="sec-h"><div class="live-h"><h2>Right now</h2><span class="pulse' + (LV && LV.live ? "" : " off") + '" aria-hidden="true"></span></div>' +
+      (LV && LV.live ? '<span class="faint" style="font-size:12px">Live &middot; every ten seconds</span>' : "") + "</div>";
+    if (!LV) return h + '<div class="card empty">Connecting&hellip;</div>';
+    if (!LV.live) return h + '<div class="card empty">' + (LV.counting ? "The live view could not be read just now. It tries again in ten seconds." : "The live view starts once the visitor counter is connected (Health, below).") + "</div>";
+    var L = LV.live, here = L.here || [], now = L.now || LV.now || Date.now(), by = {}, i;
+    for (i = 0; i < here.length; i++){ var w = here[i].w || "film"; by[w] = (by[w] || 0) + 1; }
+    var chips = ["pay", "details", "twenty", "story", "film", "below"].filter(function(w){ return by[w]; })
+      .map(function(w){ return "<span><b>" + by[w] + "</b> " + WHERE[w].toLowerCase() + "</span>"; }).join("");
+    var mins = L.minutes || [], top = 1;
+    for (i = 0; i < mins.length; i++) top = Math.max(top, mins[i]);
+    var spark = mins.map(function(x, j){
+      return '<i class="' + (x ? "" : "z") + '" style="height:' + (x ? Math.max(8, Math.round(x / top * 100)) : 4) + '%" title="' + plural(x, "person", "people") + ", " + (mins.length - 1 - j) + ' min ago"></i>';
+    }).join("");
+    var sales = (L.paid || []).length;
+    h += '<div class="card now"><div class="hd"><span class="big">' + here.length + '</span><span class="what">' + (here.length === 1 ? "person on the site" : "people on the site") +
+      (sales ? ' &middot; <span class="paid">' + plural(sales, "sale") + " in the last hour</span>" : "") + "</span></div>" +
+      (chips ? '<div class="where">' + chips + "</div>" : "") +
+      '<div class="spark" role="img" aria-label="People on the site in each minute of the last half hour">' + spark + '</div><div class="sparkl"><span>30 min ago</span><span>Now</span></div></div>';
+
+    if (here.length){
+      h += '<p class="sub2">On the site</p><div class="card list">' + here.map(function(v){
+        var at = WHERE[v.w] || "On the page", trail = (v.steps || []).filter(function(e){ return e.e !== "early_dial"; });
+        return '<div class="vis"><div class="t"><b>Visitor ' + v.k + '</b><span class="faint">' + took(now - v.since) + "</span></div>" +
+          '<div class="faint" style="font-size:13px">' + esc(srcName(v)) + (devName(v) ? " &middot; " + esc(devName(v)) : "") + "</div>" +
+          '<div class="at">' + at + (v.n ? " &middot; No. " + pad(v.n) : "") + (v.d ? " &middot; " + esc(v.d.charAt(0).toUpperCase() + v.d.slice(1)) : "") + "</div>" +
+          (trail.length ? '<p class="trail">' + trail.slice(-6).map(function(e, j, a){
+            var t = clock(e.ts);
+            return (j && clock(a[j - 1].ts) === t ? "" : t + " ") + stepText(e);
+          }).join(" &rarr; ") + "</p>" : "") + "</div>";
+      }).join("") + "</div>";
+    }
+
+    var visits = {};
+    (L.here || []).concat(L.left || []).forEach(function(v){ visits[v.k] = v; });
+    var feed = (L.feed || []).filter(function(e){ return e.e !== "early_dial"; }), list = FEED_ALL ? feed : feed.slice(0, 12);
+    h += '<p class="sub2">The last hour</p>';
+    if (!feed.length) return h + '<div class="card empty">Nothing yet. Each step a visitor takes appears here a few seconds after they take it.</div>';
+    h += '<div class="card list feed">' + list.map(function(e){
+      if (e.e === "paid") return '<div class="it"><span class="tm">' + clock(e.ts) + '</span><span class="paid"><b>Paid</b> &middot; ' + (e.no ? "No. " + esc(e.no) : "a number") + (e.dial ? " &middot; " + esc(e.dial) : "") + (e.paise ? " &middot; " + rupees(e.paise) : "") + "</span></div>";
+      var v = visits[e.k];
+      return '<div class="it"><span class="tm">' + clock(e.ts) + "</span><span><b>Visitor " + e.k + "</b> " + stepText(e) + (v ? ' <span class="faint">&middot; ' + esc(srcName(v)) + "</span>" : "") + "</span></div>";
+    }).join("") + "</div>";
+    if (feed.length > 12) h += '<div class="row" style="margin-top:8px"><button class="btn quiet sm" type="button" data-act="feed">' + (FEED_ALL ? "Show fewer" : "Show the whole hour (" + feed.length + ")") + "</button></div>";
+    return h;
+  }
+
   function renderHealth(){
     return '<div class="sec-h"><h2>Health</h2></div><div class="card list health">' + (D.health || []).map(function(x){
       return '<div class="it"><span class="ic ' + (x.ok ? "y" : "n") + '">' + (x.ok ? "&#10003;" : "!") + "</span><b>" + esc(x.label) + "</b><p>" + esc(x.detail) + "</p></div>";
@@ -500,7 +616,8 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
   }
 
   function render(){
-    $("stamp").textContent = "Updated " + D.now + ". Refreshes every two minutes while open.";
+    $("stamp").textContent = "Updated " + D.now + ". Orders refresh every two minutes while open; Right now, every ten seconds.";
+    $("now").innerHTML = renderNow();
     $("needs").innerHTML = renderNeeds();
     $("day").innerHTML = renderDay();
     $("orders").innerHTML = renderOrders();
@@ -532,6 +649,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     else if (act === "view"){ VIEW = el.getAttribute("data-v"); $("day").innerHTML = renderDay(); }
     else if (act === "filter"){ FILTER = el.getAttribute("data-v"); OPEN_FORM = ""; $("orders").innerHTML = renderOrders(); }
     else if (act === "leads"){ LEADS_ALL = !LEADS_ALL; $("leads").innerHTML = renderLeads(); }
+    else if (act === "feed"){ FEED_ALL = !FEED_ALL; $("now").innerHTML = renderNow(); var fb = $("now").querySelector('[data-act="feed"]'); if (fb) fb.focus(); }
     else if (act === "copy"){ copy(el.getAttribute("data-text")); }
     else if (act === "open"){
       OPEN_FORM = el.getAttribute("data-o"); $("orders").innerHTML = renderOrders();
@@ -581,9 +699,37 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     }, function(){ btn.disabled = false; toast("Could not reach the worker"); });
   });
 
+  /* ── the live view: every ten seconds while the desk is on screen ── */
+  function live(){
+    if (!D || liveBusy) return;
+    liveBusy = true;
+    fetch("/desk/live", { credentials: "same-origin", cache: "no-store", headers: { "X-Desk": "1" } }).then(function(r){
+      if (r.status === 401){ showGate(""); return null; }
+      return r.ok ? r.json() : null;
+    }).then(function(j){
+      if (!j || !D) return;
+      LV = j;
+      /* A button in here keeps its focus across the redraw. */
+      var f = document.activeElement, act = f && $("now").contains(f) ? f.getAttribute("data-act") : "";
+      $("now").innerHTML = renderNow();
+      if (act){ var back = $("now").querySelector('[data-act="' + act + '"]'); if (back) back.focus(); }
+      /* Today's totals, as they happen rather than every two minutes. */
+      if (j.c && D.c && JSON.stringify(D.c.today || {}) !== JSON.stringify(j.c)){
+        D.c.today = j.c;
+        if (VIEW === "today") $("day").innerHTML = renderDay();
+      }
+      /* A sale the last full load has not seen: load it, address and all. */
+      var p = j.live && j.live.paid && j.live.paid[0];
+      if (p && p.ts > LAST_PAID){ if (LAST_PAID && !OPEN_FORM) load(true); LAST_PAID = p.ts; }
+    }).catch(function(){ /* the last picture stands; the next try is ten seconds away */ })
+      .then(function(){ liveBusy = false; });
+  }
+  setInterval(function(){ if (D && document.visibilityState === "visible") live(); }, 10000);
+
   /* Fresh while it is being looked at; never while a dispatch is being typed. */
   setInterval(function(){ if (D && !OPEN_FORM && document.visibilityState === "visible") load(true); }, 120000);
   document.addEventListener("visibilitychange", function(){
+    if (D && document.visibilityState === "visible") live();
     if (D && !OPEN_FORM && document.visibilityState === "visible" && Date.now() - LOADED_AT > 60000) load(true);
   });
 

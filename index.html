@@ -2795,14 +2795,17 @@ function track(name, data){
     (window.kaalQ = window.kaalQ || []).push([name, data || {}]);
     if(window.kaalFlush) window.kaalFlush();
     if(COUNTED[name]) COUNT[name] = (COUNT[name] || 0) + 1;
+    if(LIVE) liveNote(name, data);
   }catch(e){}
 }
 
 /* ── THE DAILY COUNT. The same moments, tallied here and sent to the shop's
       own worker once, when the page is hidden, as plain numbers: no cookie,
-      no identifier, nothing about who. "visitor" is this browser saying it
-      is the first visit today; the date stays on the device. The owner's
-      morning report is built from these. KAAL.features.count turns it off. */
+      no identifier, nothing about who (THE LIVE VIEW, below, adds a tag for
+      one page view, forgotten within the hour). "visitor" is this browser
+      saying it is the first visit today; the date stays on the device. The
+      owner's morning report is built from these. KAAL.features.count turns
+      it off. */
 var COUNTED = { hero:1, hero_complete:1, early_dial:1, ctx_cta:1, view:1, dial:1, number:1,
                 caseback_view:1, gift:1, checkout:1, details:1, list:1, film:1, provenance_click:1, deeplink:1 };
 var COUNT = { visit:1 };
@@ -2864,21 +2867,101 @@ function ownerReviews(){
 function on(k){ return !OFF[k]; }
 
 /* Sent only to a worker that says it keeps counts (v2), never by a robot
-   browser, and as text/plain so no preflight request is ever made. */
-function flushCount(){
+   browser, and as text/plain so no preflight request is ever made. With
+   the live view on (below), the same request also carries this visit's
+   latest steps, a few seconds after they are taken, and says when the
+   visit has left. */
+function flushCount(gone){
   if(!API2 || OFF.count || !KAAL.api || !navigator.sendBeacon || navigator.webdriver) return;
-  var any = false, k;
+  var body = {}, any = false, k;
   for(k in COUNT) if(COUNT.hasOwnProperty(k)) any = true;
-  if(!any) return;
-  var body = JSON.stringify({ c: COUNT });
-  COUNT = {};
-  try{ navigator.sendBeacon(KAAL.api.replace(/\/+$/, "") + "/e", new Blob([body], { type:"text/plain" })); }catch(e){}
+  if(any) body.c = COUNT;
+  /* Hiding the tab and leaving the page both say "gone": once is enough. */
+  if(LIVE.on && (LIVE.q.length || (gone && !LIVE.left))){
+    body.l = liveNow(); body.l.ev = LIVE.q;
+    if(gone){ body.l.g = 1; LIVE.left = true; }
+  }
+  if(!body.c && !body.l) return;
+  COUNT = {}; LIVE.q = []; LIVE.last = Date.now();
+  try{ navigator.sendBeacon(KAAL.api.replace(/\/+$/, "") + "/e", new Blob([JSON.stringify(body)], { type:"text/plain" })); }catch(e){}
 }
-document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "hidden") flushCount(); });
-addEventListener("pagehide", flushCount);
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "hidden") flushCount(true); else LIVE.left = false;
+});
+addEventListener("pagehide", function(){ flushCount(true); });
+
+/* ── THE LIVE VIEW, for the owner's desk and nobody else.
+
+      The same moments, as they happen. The page already asks the worker
+      once a minute what is sold (liveState, below); that request now also
+      says where this visit is: the film, the story, the twenty, or paying.
+      Each step is sent a few seconds after it is taken, with the count
+      that was going anyway. All of it under a random tag made for this one
+      page view and held only here, in memory: no cookie, nothing stored on
+      the device, nothing about who. The worker forgets it within the hour.
+      Nothing is sent until the worker says it has a live view, nothing is
+      shown on this page, and KAAL.features.count turns it off with the
+      count. ──────────────────────────────────────────────────────────── */
+var LIVE = { on:false, q:[], timer:0, last:0, left:false, tag:"", src:"" };
+var LIVE_EV = { film:1, hero_complete:1, view:1, dial:1, number:1, caseback_view:1, gift:1,
+                checkout:1, details:1, list:1, deeplink:1, provenance_click:1, ctx_cta:1 };
+LIVE.tag = (function(){
+  var t = "", i, b;
+  try{ b = new Uint8Array(10); crypto.getRandomValues(b); for(i = 0; i < b.length; i++) t += (b[i] % 36).toString(36); }
+  catch(e){ for(i = 0; i < 10; i++) t += Math.floor(Math.random() * 36).toString(36); }
+  return t;
+})();
+/* Where the visit came from, in a word: the ad's own utm_source when it
+   has one, else the site that sent it. Never the address itself. */
+LIVE.src = (function(){
+  var u = (qs.get("utm_source") || "").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24);
+  if(u) return u;
+  if(qs.get("fbclid")) return "meta";
+  if(qs.get("gclid") || qs.get("gbraid") || qs.get("wbraid")) return "google ads";
+  var h = "";
+  try{ h = new URL(document.referrer).hostname.replace(/^www\./, ""); }catch(e){}
+  if(!h) return "direct";
+  if(h === location.hostname.replace(/^www\./, "")) return "thekaal.co";
+  var known = [[/(^|\.)instagram\.com$/, "instagram"], [/(^|\.)facebook\.com$|(^|\.)fb\.com$/, "facebook"],
+               [/(^|\.)google\./, "google"], [/(^|\.)bing\.com$/, "bing"], [/^(t\.co|x\.com|twitter\.com)$/, "x"],
+               [/(^|\.)youtube\.com$/, "youtube"], [/whatsapp\./, "whatsapp"], [/(^|\.)linkedin\.com$|^lnkd\.in$/, "linkedin"],
+               [/chatgpt\.com$|openai\.com$/, "chatgpt"], [/perplexity\.ai$/, "perplexity"], [/duckduckgo\.com$/, "duckduckgo"]];
+  for(var i = 0; i < known.length; i++) if(known[i][0].test(h)) return known[i][1];
+  return h.replace(/[^a-z0-9._-]/g, "").slice(0, 24);
+})();
+function liveWhere(){
+  if(paying) return "pay";
+  if(detDlg && detDlg.open) return "details";
+  if(S.raw < M.heroTop + M.heroSpan) return "film";
+  if(S.raw + M.vh > M.twentyTop && S.raw < M.twentyBottom) return "twenty";
+  return S.raw < M.twentyTop ? "story" : "below";
+}
+function liveNow(){
+  /* The twenty always shows a number; only one the visitor chose counts. */
+  return { v:LIVE.tag, w:liveWhere(), n:picked ? chosen || 0 : 0, d:tinted || "", s:LIVE.src };
+}
+function liveNote(name, data){
+  if(!LIVE_EV[name] || OFF.count) return;
+  data = data || {};
+  if(LIVE.q.length < 16) LIVE.q.push({ e:name, no:data.no || "", dial:data.dial || "" });
+  liveSoon();
+}
+/* Steps a few seconds apart travel together: at most one request every
+   five seconds, however quickly someone taps. */
+function liveSoon(){
+  if(!LIVE.on || LIVE.timer || !LIVE.q.length) return;
+  LIVE.timer = setTimeout(function(){ LIVE.timer = 0; flushCount(false); }, Math.max(1500, 5000 - (Date.now() - LIVE.last)));
+}
+/* Added to the minute's /state request; empty when counting is off. */
+function liveQuery(){
+  if(OFF.count || navigator.webdriver) return "";
+  var l = liveNow();
+  return "?h=" + l.v + "&w=" + l.w + "&n=" + l.n + "&d=" + encodeURIComponent(l.d) + "&s=" + encodeURIComponent(l.s);
+}
 
 /* ── One scroll value, eased, and everything on the page derives from
-      it. The page itself never scrolls anything but natively: nothing
+      it. The page itself never scrolls anything but natively: outside the
+      film's one play per page view (THE FILM PLAYS ITSELF, below), nothing
       here calls preventDefault, so there is no wheel to fight, no touch
       to desync, and no momentum to reinvent. What makes it feel like
       silk is that every derived value has weight, not that the
@@ -2903,7 +2986,7 @@ var S = { raw:0, y:0, v:0, max:1 };
    The numbers go stale only when the document itself changes shape: a
    resize, a rotation, a lazy photograph arriving, a plate falling back to
    its panel. Each of those calls remeasure(), debounced. ────────────── */
-var M = { vw:0, vh:0, stageH:0, heroTop:0, heroSpan:1,
+var M = { vw:0, vh:0, view:0, viewW:0, docH:0, stageH:0, heroTop:0, heroSpan:1,
           acts:[], twentyTop:0, twentyBottom:0 };
 
 /* The loop rests. It wakes on input and sleeps when nothing has moved
@@ -3617,6 +3700,7 @@ function autoStop(){
   if(!AUTO.on) return;
   AUTO.on = false; AUTO.trigTouch = false; AUTO.touchArmed = false;
   document.documentElement.classList.remove("film-auto");
+  if(AUTO.release) AUTO.release();    /* once per page view: nothing left to hold */
   wake();
 }
 /* One step of the clock, from tick(), before the hero reads its progress. */
@@ -3637,13 +3721,23 @@ function autoStep(now){
 }
 
 /* The visitor's hand. Captured, and not passive, so the scroll that starts
-   the film can be held back and a fresh one can take over. */
+   the film can be held back and a fresh one can take over.
+
+   A listener that may cancel a touch makes the browser stop and ask the
+   page before every swipe starts to scroll, and on a phone whose main
+   thread is busy decoding film or drawing the world, that wait is felt as
+   a sticky, stuttering start. So these exist only while the film can still
+   play itself: never where it is switched off, and gone the moment its one
+   play per page view is spent. Every scroll after that is the browser's
+   own, untouched. */
 (function(){
+  if(!on("autoplay")) return;
+  var HELD = { passive:false, capture:true }, FREE = { passive:true, capture:true };
   function now(){ return window.performance ? performance.now() : Date.now(); }
   function typing(el){
     return !!(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
   }
-  addEventListener("wheel", function(e){
+  function onWheel(e){
     if(e.ctrlKey) return;                                   /* pinch and zoom are not scrolling */
     var t = now(), mag = Math.abs(e.deltaY);
     if(!AUTO.on){
@@ -3658,14 +3752,14 @@ function autoStep(now){
     AUTO.wheelAt = t; AUTO.wheelMag = mag;
     if(fresh){ autoStop(); return; }
     e.preventDefault();
-  }, { passive:false, capture:true });
+  }
 
-  addEventListener("touchstart", function(e){
+  function onTouchStart(e){
     AUTO.touchArmed = !!(e.touches && e.touches.length === 1);
     if(!AUTO.touchArmed) return;
     AUTO.touchX = e.touches[0].clientX; AUTO.touchY = e.touches[0].clientY;
-  }, { passive:true, capture:true });
-  addEventListener("touchmove", function(e){
+  }
+  function onTouchMove(e){
     if(!e.touches || e.touches.length !== 1 || !AUTO.touchArmed) return;
     var dy = AUTO.touchY - e.touches[0].clientY,           /* > 0: the finger moves up, the page would go down */
         dx = AUTO.touchX - e.touches[0].clientX;
@@ -3682,11 +3776,10 @@ function autoStep(now){
     }
     if(AUTO.trigTouch){ if(e.cancelable !== false) e.preventDefault(); return; }   /* the same finger that started it */
     if(Math.abs(dy) > 8) autoStop();                        /* a new finger: the page is theirs, natively */
-  }, { passive:false, capture:true });
-  addEventListener("touchend", function(){ AUTO.trigTouch = false; AUTO.touchArmed = false; }, { passive:true, capture:true });
-  addEventListener("touchcancel", function(){ AUTO.trigTouch = false; AUTO.touchArmed = false; }, { passive:true, capture:true });
+  }
+  function onTouchEnd(){ AUTO.trigTouch = false; AUTO.touchArmed = false; }
 
-  addEventListener("keydown", function(e){
+  function onKey(e){
     if(e.altKey || e.ctrlKey || e.metaKey || typing(e.target)) return;
     var k = e.key;
     if(!AUTO.on){
@@ -3696,12 +3789,21 @@ function autoStep(now){
       return;
     }
     if(/^(ArrowDown|ArrowUp|Down|Up|PageDown|PageUp|Home|End| |Spacebar|Tab)$/.test(k)) autoStop();
-  }, { capture:true });
+  }
 
   /* A link or a button is somewhere to go: let it go there. */
-  addEventListener("click", function(e){
+  function onClick(e){
     if(AUTO.on && e.target && e.target.closest && e.target.closest("a,button,[role=button],label,summary,input,select,textarea")) autoStop();
-  }, { capture:true });
+  }
+
+  var hands = [["wheel", onWheel, HELD], ["touchstart", onTouchStart, FREE], ["touchmove", onTouchMove, HELD],
+               ["touchend", onTouchEnd, FREE], ["touchcancel", onTouchEnd, FREE],
+               ["keydown", onKey, { capture:true }], ["click", onClick, { capture:true }]];
+  hands.forEach(function(h){ addEventListener(h[0], h[1], h[2]); });
+  AUTO.release = function(){
+    hands.forEach(function(h){ removeEventListener(h[0], h[1], { capture:true }); });
+    AUTO.release = null;
+  };
 })();
 
 /* ── THE FILM HAS WEIGHT TOO.
@@ -3805,12 +3907,12 @@ function driveStage(p){
      then with the band as it rises, so the line handing over is never
      the thing it covers. */
   if(capsWrap){
-    var cy = (-p * 54 - out * M.vh * 0.22).toFixed(1);
+    var cy = (-p * 54 - out * M.view * 0.22).toFixed(1);
     if(cy !== lastCaps){ lastCaps = cy; capsWrap.style.transform = "translate3d(0," + cy + "px,0)"; }
   }
 
   if(heroBand){
-    var by = ((1 - out) * M.vh * 0.08).toFixed(1);
+    var by = ((1 - out) * M.view * 0.08).toFixed(1);
     if(by !== lastBand){ lastBand = by; heroBand.style.transform = "translate3d(0," + by + "px,0)"; }
   }
 }
@@ -3843,7 +3945,7 @@ function driveCaps(p){
 var worldEl = $("#world"), worldNext = $("#worldNext"), acts = $$(".act[data-world]");
 var curWorld = "", nextWorld = "", worldMix = "";
 function driveWorld(){
-  var mid = S.raw + M.vh * 0.5, a = M.acts, here = -1;
+  var mid = S.raw + M.view * 0.5, a = M.acts, here = -1;
   for(var i=0;i<a.length;i++){
     if(a[i].top <= mid && a[i].bottom >= mid){ here = i; break; }
   }
@@ -3851,7 +3953,7 @@ function driveWorld(){
   if(here >= 0 && !reduced){
     var f = (mid - a[here].top) / Math.max(1, a[here].bottom - a[here].top);
     var nx = a[here + 1];
-    if(f > 0.85 && nx && nx.world !== found && nx.top - a[here].bottom < M.vh * 0.5){
+    if(f > 0.85 && nx && nx.world !== found && nx.top - a[here].bottom < M.view * 0.5){
       toward = nx.world; mix = (f - 0.85) / 0.15;
     }
   }
@@ -4021,7 +4123,7 @@ var depthEls = (reduced || NATIVE_DEPTH) ? [] : $$("[data-depth]").filter(functi
   return !el.closest(".still-act") && !el.closest('[data-world="void"] > .act-back') && !el.closest(".pin");
 }).map(function(el){ return { el:el, last:"" }; });
 var pinEls = (reduced || NATIVE_DEPTH || document.documentElement.classList.contains("depth-flat")) ? [] : $$(".pin").map(function(el){ return { el:el, last:"" }; });
-function coverAt(top, h){ return (M.vh - (top - S.raw)) / (M.vh + h); }
+function coverAt(top, h){ return (M.view - (top - S.raw)) / (M.view + h); }
 function driveDepth(){
   var i, d, c, v;
   for(i = 0; i < depthEls.length; i++){
@@ -5061,19 +5163,22 @@ function markSold(n){
 
 (function liveState(){
   if(!KAAL.api || !window.fetch) return;
-  var base = KAAL.api.replace(/\/+$/, ""), busy = false, timer = 0;
+  var base = KAAL.api.replace(/\/+$/, ""), busy = false, timer = 0, asked = false;
 
   function ask(){
-    if(busy || remaining <= 0) return;
-    busy = true;
+    /* A sold-out edition has nothing left to change, so the minute's check
+       stops, unless the owner's live view is counting on it. */
+    if(busy || (remaining <= 0 && asked && !LIVE.on)) return;
+    busy = true; asked = true;
     var ctrl = ("AbortController" in window) ? new AbortController() : null;
     var give = setTimeout(function(){ if(ctrl) ctrl.abort(); }, 4000);
-    fetch(base + "/state", { mode:"cors", credentials:"omit", signal: ctrl && ctrl.signal })
+    fetch(base + "/state" + liveQuery(), { mode:"cors", credentials:"omit", signal: ctrl && ctrl.signal })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if(!d) return;
         if(d.v >= 2 && !API2){ API2 = true; document.documentElement.classList.add("api2"); }
         if(d.v >= 3) API3 = true;
+        if(d.live === true && !LIVE.on){ LIVE.on = true; liveSoon(); }
         /* Where and when a number went, if — and only if — its owner said
            it may be shown. Plain text, short, written into the cell with
            textContent so nothing in it can ever be markup. */
@@ -5603,10 +5708,17 @@ function docTop(el){ return el.getBoundingClientRect().top + (window.pageYOffset
 function measure(){
   M.vw = window.innerWidth;
   M.vh = window.innerHeight;
+  /* What scroll-linked motion is measured against. innerHeight grows and
+     shrinks by sixty to ninety pixels as a phone's URL bar hides and
+     returns, and every plane, caption and colour measured against it
+     jolted at once, a beat after the bar moved. This one moves only when
+     the window really changes shape, by the same rule as the canvases. */
+  if(!M.view || M.vw !== M.viewW || Math.abs(M.vh - M.view) > 120){ M.view = M.vh; M.viewW = M.vw; }
   M.stageH  = stage ? stage.offsetHeight : M.vh;
   M.heroTop = docTop(hero);
   M.heroSpan = Math.max(1, hero.offsetHeight - M.stageH);
-  S.max = Math.max(1, document.documentElement.scrollHeight - M.vh);
+  M.docH = document.documentElement.scrollHeight;
+  S.max = Math.max(1, M.docH - M.vh);
 
   M.acts = acts.map(function(el){
     var t = docTop(el);
@@ -5645,12 +5757,34 @@ function remeasure(){
     var real = vw !== lastVW || Math.abs(vh - lastVH) > 120 || !lastVW;
     lastVW = vw; lastVH = vh;
     if(anchorEl) anchorEl.scrollIntoView({ behavior:"auto", block:"start" });
+    var docH = M.docH;
     measure();
     if(real) sizeCanvas();
-    if(window.kaalWorld && kaalWorld.refresh) kaalWorld.refresh();
+    if(real || M.docH !== docH) worldRefresh();
     wake();
   }, 150);
 }
+
+/* ScrollTrigger re-measures by scrolling the page to the very top and
+   back in one step (gsap 3.12, _refreshAll). At rest nobody can see it.
+   In the middle of a phone's fling it stops the fling dead and puts the
+   page back where the main thread last saw it, a frame or more behind the
+   finger: the page jerks, by itself, under the visitor's thumb. It used to
+   run on every lazy photograph's arrival and every URL bar hide and show,
+   which on a phone that runs the world is all through the scroll. Now it
+   runs only when the document really changed length, and only once the
+   page is standing still with no finger on it. */
+var worldTimer = 0, fingers = 0;
+function worldRefresh(){
+  clearTimeout(worldTimer);
+  worldTimer = setTimeout(function(){
+    if(running || fingers || AUTO.on){ worldRefresh(); return; }
+    if(window.kaalWorld && kaalWorld.refresh) kaalWorld.refresh();
+  }, 300);
+}
+["touchstart","touchend","touchcancel"].forEach(function(ev){
+  addEventListener(ev, function(e){ fingers = e.touches ? e.touches.length : 0; }, { passive:true });
+});
 
 ["scroll","touchstart","touchmove","wheel","keydown"].forEach(function(ev){
   addEventListener(ev, wake, { passive:true });

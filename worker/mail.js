@@ -458,6 +458,79 @@ function dayLabel(day, short) {
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
 const pct = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : "");
 
+/* ── THE WORDS FOR A VISITOR'S STEPS. One place, read by the desk, the
+      midnight email and both spreadsheets, so all four say the same
+      thing. Plain text: whoever shows it escapes it. ── */
+const ACTS = { early: "Which one is yours?", 1: "the idea", 2: "the four faces", 3: "Emerald", 4: "Midnight", 5: "Champagne",
+  6: "Ivory", 7: "the craftsmanship", 8: "the box", 9: "the movement", 10: "the seven-day return", 11: "the twenty",
+  who: "who it is for", owners: "owners' words" };
+const PAGE_NAMES = { home: "the shop", about: "the About page", manifesto: "the manifesto", movement: "the movement page",
+  provenance: "Who is selling this", legal: "terms and privacy", claimed: "the thank-you page", "404": "a page that does not exist" };
+const SOURCE_NAMES = { instagram: "Instagram", ig: "Instagram", facebook: "Facebook", fb: "Facebook", meta: "a Meta ad", google: "Google",
+  "google ads": "a Google ad", bing: "Bing", x: "X", youtube: "YouTube", whatsapp: "WhatsApp", linkedin: "LinkedIn",
+  chatgpt: "ChatGPT", perplexity: "Perplexity", duckduckgo: "DuckDuckGo", direct: "a direct visit", "thekaal.co": "thekaal.co" };
+const SITES = [[/(^|\.)instagram\.com$/, "Instagram"], [/(^|\.)facebook\.com$|(^|\.)fb\.com$|(^|\.)fb\.me$/, "Facebook"],
+  [/(^|\.)google\./, "Google"], [/(^|\.)bing\.com$/, "Bing"], [/^(t\.co|x\.com|twitter\.com)$/, "X"], [/(^|\.)youtube\.com$/, "YouTube"],
+  [/whatsapp\./, "WhatsApp"], [/(^|\.)linkedin\.com$|^lnkd\.in$/, "LinkedIn"], [/chatgpt\.com$|openai\.com$/, "ChatGPT"],
+  [/perplexity\.ai$/, "Perplexity"], [/duckduckgo\.com$/, "DuckDuckGo"]];
+/* The in-app browsers send no referrer: the app is the better answer. */
+export function sourceName(s, app) {
+  if (app && (!s || s === "direct" || s === "meta")) return app;
+  if (SOURCE_NAMES[s]) return SOURCE_NAMES[s];
+  for (const [re, name] of SITES) if (re.test(s || "")) return name;
+  return s || "a direct visit";
+}
+export function deviceName(os, dev) { return os || ({ computer: "a computer", tablet: "a tablet", phone: "a phone" })[dev] || ""; }
+export function stepText(e) {
+  const no = e.no ? `No. ${e.no}` : "", dial = e.dial || "";
+  switch (e.e) {
+    case "visit": {
+      const where = deviceName(e.os, e.dev);
+      return `Arrived from ${sourceName(e.s, e.app)}${where ? " on " + where : ""}${e.x && e.x !== "home" ? ", on " + (PAGE_NAMES[e.x] || e.x) : ""}`;
+    }
+    case "page": return e.x === "home" ? "Opened the shop again" : `Opened ${PAGE_NAMES[e.x] || e.x}`;
+    case "act": return `Read ${ACTS[e.x] || "part of the story"}`;
+    case "hero": return "Pressed Choose your number";
+    case "hero_complete": return "Watched the film to the end";
+    case "film": return "Played the box film";
+    case "view": return "Reached the twenty";
+    case "dial": case "early_dial": return `Chose the ${dial || "?"} dial`;
+    case "number": return `Chose ${no || "a number"}${dial ? " (" + dial + ")" : ""}`;
+    case "caseback_view": return `Turned ${no || "the watch"} to its engraved back`;
+    case "gift": return "Marked it as a gift";
+    case "checkout": return `Pressed buy${no ? " for " + no : ""}`;
+    case "details": return `Gave their name, phone and address${no ? " for " + no : ""}`;
+    case "details_closed": return "Closed the details form without paying";
+    case "pay_closed": return "Closed the payment window without paying";
+    case "pay_failed": return `Payment failed${e.x ? ": " + e.x : ""}`;
+    case "paid": {
+      const paise = parseInt(e.x, 10) || 0;
+      return `Paid${paise ? " ₹" + (paise / 100).toLocaleString("en-IN") : ""} for ${no || "a number"}${dial ? " (" + dial + ")" : ""}`;
+    }
+    case "list": return "Joined the Series 02 list";
+    case "deeplink": return `Arrived on a link to ${no || "a number"}`;
+    case "provenance_click": return "Opened Who is selling this";
+    case "ctx_cta": return `Tapped Choose yours${dial ? " under " + dial : ""}`;
+  }
+  return String(e.e || "");
+}
+/* "2:41 pm", in India. */
+function clockIn(t) {
+  const d = new Date(t + 5.5 * 3600 * 1000), h = d.getUTCHours(), m = d.getUTCMinutes();
+  return `${h % 12 || 12}:${m < 10 ? "0" + m : m} ${h >= 12 ? "pm" : "am"}`;
+}
+function took(ms) {
+  const t = Math.max(0, Math.round(ms / 1000));
+  return t < 60 ? `${t}s` : t < 3600 ? `${Math.floor(t / 60)}m` : `${Math.floor(t / 3600)}h ${Math.floor(t % 3600 / 60)}m`;
+}
+const ORD = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n % 100 !== 12 ? "nd" : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th");
+/* One line about a visitor, for the email and the spreadsheets. */
+export function visitorLine(v) {
+  return [`Visitor ${v.k}`, v.name, sourceName(v.s, v.app), deviceName(v.os, v.dev),
+    v.visitNo ? `${ORD(v.visitNo)} visit` : `${v.visits} ${v.visits === 1 ? "visit" : "visits"}`,
+    v.time ? took(v.time) + " on the site" : "", v.paid && v.paid.length ? "paid for No. " + v.paid.join(", No. ") : ""].filter(Boolean).join(" · ");
+}
+
 export function ownerDigest(d) {
   const c = d.c || {}, site = d.site;
   const visitors = c.visitor || 0, numbers = c.number || 0, checkouts = c.checkout || 0;
@@ -497,6 +570,18 @@ ${stat(visitors, "Visitors")}${stat(numbers, "Add to cart")}</tr><tr>${stat(orde
   });
   const refundRows = (d.refunds || []).map(r => [`No. ${r.n ? pad2(r.n) : "??"}${r.dial ? " · " + r.dial : ""}`,
     `${esc(r.amount)} back to the buyer${r.full ? "" : " (part)"}<br><span style="color:${C.faint};font-size:13px;">${esc(r.at)}</span>`]);
+  /* Who visited, and everything each one did that day. Long days are cut
+     to the sixty most recent, with the rest on the desk. */
+  const VIS_MAX = 60, STEP_MAX = 14;
+  const vis = (d.visitors && d.visitors.rows) || [], visTotal = (d.visitors && d.visitors.total) || vis.length;
+  const visShown = vis.slice(-VIS_MAX).reverse();
+  const visitorRows = visShown.map(v => {
+    const st = v.today.filter(e => e.e !== "early_dial"), more = st.length - STEP_MAX;
+    const head = `<b style="font-weight:600;">${esc(visitorLine(v).replace(/^Visitor \d+ · /, ""))}</b>` +
+      (v.phone || v.email ? `<br>${v.phone ? `<a href="tel:${esc(v.phone)}" style="color:${C.goldLit};">${esc(v.phone)}</a>` : ""}${v.phone && v.email ? " · " : ""}${v.email ? `<a href="mailto:${esc(v.email)}" style="color:${C.goldLit};">${esc(v.email)}</a>` : ""}` : "");
+    const list = st.slice(0, STEP_MAX).map(e => `<span style="color:${C.faint};">${esc(clockIn(e.t))}</span> ${esc(stepText(e))}`).join("<br>");
+    return [`Visitor ${v.k}`, `<div style="text-align:left;">${head}<div style="margin-top:6px;font-size:13px;line-height:20px;color:${C.mute};">${list}${more > 0 ? `<br><span style="color:${C.faint};">and ${more} more steps on the desk</span>` : ""}</div></div>`];
+  });
   const leadRows = d.leads.map(l => [esc(l.source || "Series 02"), `<a href="mailto:${esc(l.email)}" style="color:${C.goldLit};">${esc(l.email)}</a><br><span style="color:${C.faint};font-size:13px;">${esc(l.at)}</span>`]);
   const others = [
     ["Pressed Choose your number", c.hero || 0], ["Picked a dial early", c.early_dial || 0], ["Followed a dial link", c.ctx_cta || 0],
@@ -538,6 +623,8 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     refundRows.length ? card(plural(refundRows.length, "refund"), refundRows) : "",
     d.leads.length ? card(`${plural(leads, "new lead")} for Series 02`, leadRows) : "",
     others.length ? card("Other moments", others) : "",
+    visitorRows.length ? card(`Who visited (${visTotal})`, visitorRows) : "",
+    visTotal > visShown.length ? para(`The ${visShown.length} most recent are here; all ${visTotal}, with every step, are on the desk under Visitors.`, { size: 13, lh: 20, color: C.faint, pad: "0 32px 18px" }) : "",
     trend,
     buttons([d.deskUrl ? button(d.deskUrl, "Open the desk") : "", button(`https://dashboard.razorpay.com/app/payments`, "Open Razorpay", { ghost: true })]),
     para(["Visitors are counted once per browser per day, without cookies; orders and checkouts come from Razorpay."].concat(notes).map(esc).join("<br>"), { size: 12, lh: 19, color: C.faint, pad: "0 32px 0" })
@@ -559,6 +646,8 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     d.unfinished.length ? "NEARLY BOUGHT\n" + d.unfinished.map(u => `No. ${u.n ? pad2(u.n) : "??"}${u.name ? " · " + u.name : ""}${u.city ? " · " + u.city : ""} · ${u.stage} · ${u.at} · ${u.email || "no email"} · ${u.contact || "no phone"}`).join("\n") + "\n" : "",
     (d.refunds || []).length ? "REFUNDS\n" + d.refunds.map(r => `No. ${r.n ? pad2(r.n) : "??"}${r.dial ? " " + r.dial : ""} · ${r.amount}${r.full ? "" : " (part)"} · ${r.at}`).join("\n") + "\n" : "",
     d.leads.length ? "NEW LEADS (SERIES 02)\n" + d.leads.map(l => `${l.email} · ${l.source || "Series 02"} · ${l.at}`).join("\n") + "\n" : "",
+    visShown.length ? `WHO VISITED (${visTotal})\n` + visShown.map(v => visitorLine(v) + (v.phone ? " · " + v.phone : "") + (v.email ? " · " + v.email : "") + "\n  " +
+      v.today.filter(e => e.e !== "early_dial").slice(0, STEP_MAX).map(e => `${clockIn(e.t)} ${stepText(e)}`).join(" > ")).join("\n") + "\n" : "",
     "LAST SEVEN DAYS (visitors / cart / checkout / orders)",
     ...d.trend.map(t => `${dayLabel(t.day, true)}: ${t.visitors} / ${t.numbers} / ${t.checkouts} / ${t.orders}`), "",
     d.deskUrl ? `Desk: ${d.deskUrl}` : "",

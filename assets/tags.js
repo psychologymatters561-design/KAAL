@@ -148,4 +148,49 @@ function flush(){
 
 window.kaalFlush = flush;
 flush();
+
+/* ══ THE OWNER'S HISTORY, on every page but the shop itself ══
+
+   The storefront (index.html) sends its own steps to the shop's worker.
+   Every other page says only that it was opened, that it is still open
+   (once a minute while it is on screen), and when it was left: with the
+   random id the shop already keeps on this device (kaal_client), the
+   page's name and where the visit came from. So the owner's desk can show
+   a visitor who read the movement page before they bought. No cookie,
+   nothing from the page itself; legal.html#privacy says so. An empty
+   HISTORY sends nothing. tools/check.mjs keeps it equal to KAAL.api. */
+var HISTORY = "https://kaal-edition.kaal-edition-hq.workers.dev";
+(function history(){
+  var page = (/\/([a-z0-9]+)\.html$/.exec(location.pathname) || [])[1] || "";
+  if(!HISTORY || !/^(about|manifesto|movement|provenance|legal|claimed|404)$/.test(page)) return;
+  if(!navigator.sendBeacon || navigator.webdriver || !window.Blob) return;
+  var uid = "", tag = "", i;
+  try{
+    uid = localStorage.getItem("kaal_client") || "";
+    if(!uid){ uid = Date.now().toString(36) + Math.random().toString(36).slice(2,10); localStorage.setItem("kaal_client", uid); }
+  }catch(e){ uid = ""; }
+  if(!/^[a-z0-9]{6,24}$/.test(uid)) return;
+  for(i = 0; i < 10; i++) tag += Math.floor(Math.random() * 36).toString(36);
+  /* Where from, in a word: the ad's utm_source, else the site that sent
+     it (the worker turns a site into a name). Never the address itself. */
+  var src = "";
+  try{ src = (new URLSearchParams(location.search).get("utm_source") || "").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24); }catch(e){}
+  if(!src){
+    var h = "";
+    try{ h = new URL(document.referrer).hostname.replace(/^www\./, ""); }catch(e){}
+    src = !h ? "direct" : h === location.hostname.replace(/^www\./, "") ? "thekaal.co" : h.replace(/[^a-z0-9._-]/g, "").slice(0, 24);
+  }
+  function beacon(l){
+    try{ navigator.sendBeacon(HISTORY + "/e", new Blob([JSON.stringify({ l:l })], { type:"text/plain" })); }catch(e){}
+  }
+  var gone = false;
+  function here(ev){ beacon({ v:tag, u:uid, p:page, s:src, ev:ev || [] }); }
+  here([{ e:"page", x:page }]);
+  setInterval(function(){ if(document.visibilityState === "visible" && !gone) here(); }, 60000);
+  function leave(){ if(gone) return; gone = true; beacon({ v:tag, u:uid, p:page, s:src, ev:[], g:1 }); }
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden") leave(); else if(gone){ gone = false; here(); }
+  });
+  addEventListener("pagehide", leave);
+})();
 })();

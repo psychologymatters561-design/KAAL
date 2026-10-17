@@ -735,7 +735,9 @@ worker/mail.js           every email the site sends (buyer and owner at payment
                          the owner's daily report), as HTML with plain-text twins
 worker/desk.js           the owner's private desk page, served at <worker>/desk
                          behind a passcode; never linked from the site. Its
-                         "Right now" is live, every ten seconds (docs/desk.md)
+                         "Right now" is live, every ten seconds, and
+                         "Visitors" keeps everyone's history 90 days
+                         (docs/desk.md)
 assets/email/            the engraved casebacks and dial pictures those emails show
 tools/setup-email.mjs    switches the emails and the payment return on, in one
                          command (docs/setup-email.md)

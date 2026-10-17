@@ -2484,7 +2484,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
           <p class="det-msg" id="detMsg" role="alert"></p>
           <button class="buy" type="submit" id="detGo">Continue to payment</button>
           <button class="det-back" type="button" id="detBack">Back</button>
-          <p class="det-note">Used only to deliver this watch and to reach you about this order. If the payment does not go through, they are deleted after 90 days. <a href="legal.html#privacy">Privacy</a></p>
+          <p class="det-note">Used to deliver this watch and to reach you about this order, and kept with what you looked at on this site. If the payment does not go through, they are deleted after 90 days. <a href="legal.html#privacy">Privacy</a></p>
         </form>
       </dialog>
       <ul class="assure">
@@ -2925,8 +2925,9 @@ addEventListener("pagehide", function(){ flushCount(true); });
       shown on this page, and KAAL.features.count turns it off with the
       count. ──────────────────────────────────────────────────────────── */
 var LIVE = { on:false, q:[], timer:0, last:0, left:false, tag:"", src:"" };
-var LIVE_EV = { film:1, hero_complete:1, view:1, dial:1, number:1, caseback_view:1, gift:1,
-                checkout:1, details:1, list:1, deeplink:1, provenance_click:1, ctx_cta:1 };
+var LIVE_EV = { film:1, hero:1, hero_complete:1, view:1, dial:1, number:1, caseback_view:1, gift:1,
+                checkout:1, details:1, list:1, deeplink:1, provenance_click:1, ctx_cta:1,
+                act:1, details_closed:1, pay_closed:1, pay_failed:1 };
 LIVE.tag = (function(){
   var t = "", i, b;
   try{ b = new Uint8Array(10); crypto.getRandomValues(b); for(i = 0; i < b.length; i++) t += (b[i] % 36).toString(36); }
@@ -2958,14 +2959,18 @@ function liveWhere(){
   if(S.raw + M.vh > M.twentyTop && S.raw < M.twentyBottom) return "twenty";
   return S.raw < M.twentyTop ? "story" : "below";
 }
+/* The device's own id, the one this page already keeps for holds
+   (clientToken): it is what joins today's visit to Monday's in the owner's
+   history, and what /order sends, so a checkout finds its visitor. */
+function liveUid(){ return /^[a-z0-9]{6,24}$/.test(clientToken || "") ? clientToken : ""; }
 function liveNow(){
   /* The twenty always shows a number; only one the visitor chose counts. */
-  return { v:LIVE.tag, w:liveWhere(), n:picked ? chosen || 0 : 0, d:tinted || "", s:LIVE.src };
+  return { v:LIVE.tag, u:liveUid(), w:liveWhere(), n:picked ? chosen || 0 : 0, d:tinted || "", s:LIVE.src };
 }
 function liveNote(name, data){
   if(!LIVE_EV[name] || OFF.count) return;
   data = data || {};
-  if(LIVE.q.length < 16) LIVE.q.push({ e:name, no:data.no || "", dial:data.dial || "" });
+  if(LIVE.q.length < 16) LIVE.q.push({ e:name, no:data.no || "", dial:data.dial || "", x:data.x || "" });
   liveSoon();
 }
 /* Steps a few seconds apart travel together: at most one request every
@@ -2978,7 +2983,7 @@ function liveSoon(){
 function liveQuery(){
   if(OFF.count || navigator.webdriver) return "";
   var l = liveNow();
-  return "?h=" + l.v + "&w=" + l.w + "&n=" + l.n + "&d=" + encodeURIComponent(l.d) + "&s=" + encodeURIComponent(l.s);
+  return "?h=" + l.v + "&u=" + l.u + "&w=" + l.w + "&n=" + l.n + "&d=" + encodeURIComponent(l.d) + "&s=" + encodeURIComponent(l.s);
 }
 
 /* ── One scroll value, eased, and everything on the page derives from
@@ -4947,6 +4952,22 @@ if(giftNote && giftCount){
 var heroCta = $("#heroCta");
 if(heroCta) heroCta.addEventListener("click", function(){ track("hero"); });
 
+/* For the owner's history: which parts of the story this visit read. An
+   act counts when it crosses the middle of the screen, once per page view.
+   The twenty has its own moment (view, above). Nothing here is shown. */
+(function actsRead(){
+  if(OFF.count || !("IntersectionObserver" in window)) return;
+  var io = new IntersectionObserver(function(es){
+    for(var i = 0; i < es.length; i++){
+      if(!es[i].isIntersecting) continue;
+      var el = es[i].target, key = el.getAttribute("data-tick") || (el.id === "early" ? "early" : el.id === "owners" ? "owners" : el.classList.contains("still-act") ? "who" : "");
+      io.unobserve(el);
+      if(key && key !== "11") liveNote("act", { x:key });
+    }
+  }, { rootMargin:"-48% 0px -48% 0px" });
+  $$(".act[data-world]").forEach(function(el){ io.observe(el); });
+})();
+
 /* The hosted Payment Page route. The number rides as kaal_no exactly as it
    always has; the gift rides beside it for a Payment Page that has matching
    custom fields, and is ignored by one that does not. */
@@ -5324,7 +5345,7 @@ function openDetails(n, el, msg){
   $$(".det-gift", detForm).forEach(function(l){ l.hidden = !g.on; });
   $("#detWhere").textContent = g.on ? "Their address. It is a gift, so it goes to them" : "Delivery address";
   $("#detMsg").textContent = msg || "";
-  detDlg._n = n; detDlg._el = el;
+  detDlg._n = n; detDlg._el = el; detDlg._sent = false;
   detDlg.showModal();
   BUYER_FIELDS.forEach(function(k){
     var i = f[k];
@@ -5361,6 +5382,7 @@ if(detForm){
     }
     try{ sessionStorage.setItem(BUYER_KEY, JSON.stringify(r.b)); }catch(err){}
     track("details", { no:pad(n) });
+    detDlg._sent = true;
     detDlg.close();
     startCheckout(n, el, r.b);
   });
@@ -5373,6 +5395,7 @@ if(detForm){
   });
   /* Back where they were: the button they pressed, not the top of the page. */
   detDlg.addEventListener("close", function(){
+    if(!detDlg._sent && !paying) liveNote("details_closed", { no:pad(detDlg._n || chosen) });
     if(!paying && detDlg._el){ try{ detDlg._el.focus({ preventScroll:true }); }catch(err){} }
   });
 }
@@ -5513,6 +5536,7 @@ function openRzp(order, n, el, done, g, buyer){
          worker before it answers that address with "Signature mismatch.",
          which is the last thing a buyer who has just paid should read. */
       modal:       { ondismiss: function(){
+        liveNote("pay_closed", { no:pad(n) });
         if(window.kaalWorld && kaalWorld.pause) kaalWorld.pause(false);
         done("Checkout closed. Nothing has been charged." + heldLine(n, heldUntil));
       } }
@@ -5526,6 +5550,7 @@ function openRzp(order, n, el, done, g, buyer){
        page's business. Say the one thing that is: no money moved. */
     rzp.on("payment.failed", function(e){
       var err = (e && e.error) || {};
+      liveNote("pay_failed", { no:pad(n), x:String(err.description || err.reason || "").slice(0, 60) });
       done("That payment did not go through" + (err.description ? ": " + err.description : "") + ". Nothing has been charged, and you can try again.");
     });
 

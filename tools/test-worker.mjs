@@ -597,5 +597,125 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   Date.now = realNow;
 }
 
+/* ── 14. Every visitor's history: ninety days, joined across visits, linked
+      to the buyer at checkout ── */
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const { ownerDigest } = await import("../worker/mail.js");
+  const db = new DatabaseSync(":memory:");
+  const sql = { exec(q, ...b) {
+    const rows = /^\s*SELECT/i.test(q) ? db.prepare(q).all(...b) : (b.length ? (db.prepare(q).run(...b), []) : (db.exec(q), []));
+    return { toArray: () => rows.map(r => Object.assign({}, r)) };
+  } };
+  const box = new Map();
+  const so = new Stats({ storage: { sql, async get(k) { return box.get(k); }, async put(k, v) { box.set(k, JSON.parse(JSON.stringify(v))); },
+    async delete(k) { box.delete(k); }, async setAlarm() {} } });
+  const HS = { idFromName: () => "kaal", get: () => ({ fetch: (u, i) => so.fetch(new Request(u, i)) }) };
+  const envH = Object.assign({}, env, { STATS: HS, DESK_PASSCODE: "brass-quiet-lantern-42" });
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 350.0";
+  const go = (path, init, e = envH) => { const k = ctx(); return w.fetch(new Request("https://w" + path, init), e, k).then(async res => { await k.done(); return res; }); };
+  const beaconH = (l, ua = IPHONE) => go("/e", { method: "POST", headers: { Origin: "https://thekaal.co", "User-Agent": ua, "Content-Type": "text/plain" }, body: JSON.stringify({ l }) });
+  const U = "mgk2p7xq4h3jz9a1";
+  let t0 = Date.parse("2026-10-14T09:00:00Z");                                      /* 14:30 in India, Tue 14 Oct */
+  Date.now = () => t0;
+
+  await go("/state?h=pagetag001&u=" + U + "&w=film&n=0&d=&s=instagram", { headers: { Origin: "https://thekaal.co", "User-Agent": IPHONE } });
+  let one = so.histOne(1);
+  ok(one.ok && one.v.visits === 1 && one.v.steps[0].txt === "Arrived from Instagram on iPhone", "history: the first minute check opens a history: arrived from Instagram on an iPhone");
+
+  t0 += 40000;
+  await beaconH({ v: "pagetag001", u: U, w: "twenty", n: 3, d: "emerald", s: "instagram", ev: [
+    { e: "act", x: "3" }, { e: "view" }, { e: "dial", dial: "Emerald" }, { e: "number", no: "03", dial: "Emerald" }, { e: "caseback_view", no: "03", dial: "Emerald" }] });
+  one = so.histOne(1);
+  const txts = one.v.steps.map(e => e.txt);
+  ok(txts.includes("Read Emerald") && txts.includes("Reached the twenty") && txts.includes("Chose the Emerald dial") && txts.includes("Chose No. 03 (Emerald)") && txts.includes("Turned No. 03 to its engraved back"),
+    "history: every step is kept in plain words: what they read, the dial, the number, the caseback");
+  ok(one.v.dials.join() === "Emerald" && one.v.numbers.join() === "03" && one.v.n === 3, "history: the dials and numbers they chose are summed up for the list");
+
+  /* Two days later, the same phone, from a Facebook ad, on the movement page first. */
+  t0 += 2 * 86400000;
+  await beaconH({ v: "pagetag002", u: U, p: "movement", s: "facebook", ev: [{ e: "page", x: "movement" }] });
+  t0 += 60000;
+  await go("/state?h=pagetag003&u=" + U + "&w=twenty&n=0&d=&s=thekaal.co", { headers: { Origin: "https://thekaal.co", "User-Agent": IPHONE } });
+  one = so.histOne(1);
+  const visits = one.v.steps.filter(e => e.e === "visit");
+  ok(one.v.visits === 2 && visits[1].txt === "Arrived from Facebook on iPhone, on the movement page" && !one.v.steps.some(e => e.e === "page" && e.x === "movement"),
+    "history: a return two days later joins the same history as visit 2, and says where it landed, once (" + (visits[1] && visits[1].txt) + ")");
+  ok(one.v.steps.some(e => e.txt === "Opened the shop again"), "history: going from another page back to the shop is a step");
+
+  /* The checkout: /order carries the same device id as `by`. */
+  KV.store.delete("hold:3"); KV.store.set("sold", "[1,2,6,9]"); ghSold = "[1, 2]";
+  const baseFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (/\/v1\/orders$/.test(String(url)) && init && init.method === "POST") return new Response(JSON.stringify({ id: "order_HISTA0001", amount: 599900, currency: "INR" }));
+    return baseFetch(url, init);
+  };
+  r = await go("/order", { method: "POST", headers: { Origin: "https://thekaal.co", "Content-Type": "application/json" }, body: JSON.stringify({ n: 3, by: U,
+    buyer: { name: "Rahul Sharma", phone: "+91 98765 43210", email: "rahul.sharma@example.com", line1: "12 Park Street", city: "Kolkata", state: "West Bengal", pin: "700016" } }) });
+  d = await r.json();
+  one = so.histOne(1);
+  ok(d.order_id === "order_HISTA0001" || d.order === "order_HISTA0001" || d.id === "order_HISTA0001" || r.status === 200, "history: the checkout opens as before (" + r.status + ")");
+  ok(one.v.name === "Rahul Sharma" && one.v.phone === "+919876543210" && one.v.email === "rahul.sharma@example.com" && one.v.city === "Kolkata, West Bengal",
+    "history: the details given at checkout are put on the visitor's history");
+  await beaconH({ v: "pagetag003", u: U, w: "pay", n: 3, d: "emerald", ev: [{ e: "checkout", no: "03", dial: "Emerald" }, { e: "details", no: "03" }, { e: "pay_failed", no: "03", x: "Bank <b>declined</b>" }] });
+
+  /* Razorpay says it was paid. */
+  t0 += 60000;
+  r = await hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: "pay_HIST1", order_id: "order_HISTA0001", amount: 599900, currency: "INR",
+    email: "rahul.sharma@example.com", contact: "+919876543210", created_at: Math.floor(t0 / 1000), notes: { kaal_no: "03" } } } } }), envH);
+  globalThis.fetch = baseFetch;
+  one = so.histOne(1);
+  ok(one.v.paid.join() === "03" && one.v.steps.some(e => e.txt === "Paid ₹5,999 for No. 03 (Emerald)") && one.v.steps.some(e => e.txt === "Payment failed: Bank declined"),
+    "history: the failed try and the payment both land on the same visitor, markup stripped");
+  ok(so.histJourneys(["order_HISTA0001"])["order_HISTA0001"].k === 1, "history: the order points back to the visitor who placed it");
+
+  /* A second visitor, never bought. */
+  await go("/state?h=pagetag009&u=zzzzzzzzzz01&w=film&n=0&d=&s=google", { headers: { Origin: "https://thekaal.co", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15" } });
+  await beaconH({ v: "pagetag010", u: "bad id!", w: "film", ev: [{ e: "view" }] });
+  ok(!so.histOne(3).ok && so.histOne(2).ok && so.histOne(2).v.steps[0].txt === "Arrived from Google on Mac", "history: a second device is a second visitor; a malformed id keeps nothing");
+
+  /* The desk. */
+  r = await go("/desk/visitors?r=90d");
+  ok(r.status === 401, "history: the desk's visitor list needs the passcode");
+  r = await go("/desk/login", { method: "POST", headers: { "Content-Type": "application/json", "X-Desk": "1", "cf-connecting-ip": "8.8.4.4" }, body: JSON.stringify({ passcode: "brass-quiet-lantern-42" }) });
+  const jar = { Cookie: (r.headers.get("Set-Cookie") || "").split(";")[0], "X-Desk": "1" };
+  d = await (await go("/desk/visitors?r=90d", { headers: jar })).json();
+  ok(d.ok && d.on && d.total === 2 && d.rows[0].k === 2 && d.rows[1].k === 1 && d.rows[1].from === "Instagram", "history: the desk lists every visitor, most recent first");
+  d = await (await go("/desk/visitors?r=90d&f=bought", { headers: jar })).json();
+  const d2 = await (await go("/desk/visitors?r=90d&q=" + encodeURIComponent("rahul"), { headers: jar })).json();
+  const d3 = await (await go("/desk/visitors?r=90d&q=" + encodeURIComponent("Visitor 2"), { headers: jar })).json();
+  const d4 = await (await go("/desk/visitors?r=today", { headers: jar })).json();
+  ok(d.total === 1 && d.rows[0].name === "Rahul Sharma" && d2.total === 1 && d3.total === 1 && d3.rows[0].k === 2 && d4.total === 2,
+    "history: filtered by who bought, searched by name or visitor number, by period");
+  d = await (await go("/desk/visitor?k=1", { headers: jar })).json();
+  ok(d.ok && d.v.visits === 2 && d.v.steps.every(e => typeof e.txt === "string") && d.v.time > 0, "history: one visitor, every step, with time on the site");
+  r = await go("/desk/visitors.csv?r=90d", { headers: jar });
+  let text = await r.text();
+  ok(/text\/csv/.test(r.headers.get("Content-Type")) && /Rahul Sharma/.test(text) && /Instagram/.test(text) && /Emerald/.test(text) && text.split("\r\n").length === 4,
+    "history: one spreadsheet row per visitor");
+  text = await (await go("/desk/steps.csv?r=90d", { headers: jar })).text();
+  ok(/Chose No\. 03 \(Emerald\)/.test(text) && /Paid ₹5,999 for No\. 03 \(Emerald\)/.test(text), "history: and one row per step");
+  d = await (await go("/desk/data", { headers: jar })).json();
+  ok(d.journeys && typeof d.journeys === "object", "history: the desk's data carries the journey behind each order");
+
+  /* The midnight email. */
+  const day = so.histDay("2026-10-16");
+  const mail = ownerDigest({ site: "https://thekaal.co", day: "2026-10-16", edition: 20, c: {}, orders: [], unfinished: [], leads: [], sold: [1, 2], left: 18,
+    revenue: 0, trend: [], refunds: [], alerts: [], deskUrl: "", counting: true, razorpay: true, visitors: day });
+  ok(day.total === 2 && day.rows.find(v => v.k === 1).visitNo === 2 && /WHO VISITED \(2\)/.test(mail.text) && /Visitor 1 · Rahul Sharma · Instagram · iPhone · 2nd visit/.test(mail.text) && /Who visited \(2\)/.test(mail.html) && /Paid ₹5,999 for No\. 03 \(Emerald\)/.test(mail.text) && /Payment failed/.test(mail.html),
+    "history: the midnight email lists the day's visitors and what each did");
+  ok(!/Read Emerald/.test(mail.text.split("WHO VISITED")[1]), "history: the email shows only that day's steps, not the visit two days before");
+
+  /* Deleted on request, and after ninety days. */
+  r = await go("/desk/forget", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ k: 2 }) });
+  ok((await r.json()).ok && !so.histOne(2).ok, "history: Delete this visitor deletes them");
+  r = await go("/desk/forget", { method: "POST", headers: Object.assign({ "Content-Type": "application/json", Origin: "https://evil.example" }, jar), body: JSON.stringify({ k: 1 }) });
+  ok(r.status === 403 && so.histOne(1).ok, "history: no other site can delete one");
+  t0 += 91 * 86400000;
+  const pr = so.histPrune();
+  ok(pr.deleted === 1 && !so.histOne(1).ok && !Object.keys(so.histJourneys(["order_HISTA0001"])).length, "history: ninety days after they were last seen, a visitor and their order link are deleted");
+  Date.now = realNow;
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

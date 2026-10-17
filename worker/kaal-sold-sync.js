@@ -84,7 +84,8 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
-import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime } from "./mail.js";
+import { buyerConfirmation, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime,
+  stepText, sourceName, deviceName } from "./mail.js";
 import { deskPage } from "./desk.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -108,7 +109,7 @@ export default {
 
     if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
-    if (request.method === "POST" && path === "/order") return postOrder(request, env);
+    if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
     if (request.method === "POST" && path === "/list") return postList(request, env);
     if (request.method === "POST" && path === "/callback") return postCallback(request, env);
@@ -127,6 +128,7 @@ export default {
     ctx.waitUntil(abandonedCheckouts(env));
     ctx.waitUntil(refundWatch(env));
     ctx.waitUntil(dailyDigest(env));
+    ctx.waitUntil(histPrune(env));
   }
 };
 
@@ -222,7 +224,7 @@ async function postHold(request, env) {
    are read from this worker's own configuration and from the edition's
    own state, and the request body contributes exactly one thing — which
    number the buyer is asking for. */
-async function postOrder(request, env) {
+async function postOrder(request, env, ctx) {
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
     console.log("/order called before the Razorpay key pair was set.");
     return json(request, env, { ok: false, reason: "not-configured" }, {}, 503);
@@ -325,6 +327,16 @@ async function postOrder(request, env) {
         JSON.stringify(Object.assign({ at: new Date().toISOString(), src: "checkout", buyer: buyer.who }, buyer.parcel)),
         { expirationTtl: LEAD_DAYS * 86400 });
     } catch (e) { console.log("Checkout details not kept:", String(e).slice(0, 120)); }
+  }
+  /* The visitor's history (section 5c) learns who they are, and which
+     order is theirs: `by` is the same device id the page's steps carry. */
+  if (env.STATS && /^[a-z0-9]{6,24}$/.test(by)) {
+    const link = env.STATS.get(env.STATS.idFromName("kaal")).fetch("https://stats/link", { method: "POST", body: JSON.stringify({
+      u: by, o: order.id, n,
+      buyer: buyer ? { name: buyer.who.name, phone: buyer.who.phone, email: buyer.who.email,
+        city: [buyer.parcel.city, buyer.parcel.state].filter(Boolean).join(", ") } : null
+    }) }).catch(e => console.log("History link failed:", String(e).slice(0, 120)));
+    if (ctx && ctx.waitUntil) ctx.waitUntil(link); else await link;
   }
 
   let heldFor = 0;
@@ -786,7 +798,7 @@ async function webhook(request, env, ctx) {
   }
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
-  liveTell(env, ctx, { e: "paid", no: pad2(chosen), dial: DIAL_OF(env, chosen), paise: entity.amount || 0 });
+  liveTell(env, ctx, { e: "paid", no: pad2(chosen), dial: DIAL_OF(env, chosen), paise: entity.amount || 0, o: entity.order_id || "" });
   await sendPurchaseToMeta(env, entity, chosen);
   if (!(ctx && ctx.waitUntil)) await mail;
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
@@ -1170,9 +1182,13 @@ function countable(request, env) {
    lose it, and every visit forgotten an hour after it was last seen. The
    tag never leaves the object; the desk sees "Visitor 4". ─────────────── */
 const LIVE_WHERE = new Set(["film", "story", "twenty", "below", "details", "pay"]);
-const LIVE_EV = new Set(["film", "hero_complete", "view", "dial", "early_dial", "number", "caseback_view", "gift",
-  "checkout", "details", "list", "deeplink", "provenance_click", "ctx_cta"]);
+/* Every step a visit can take, as the page and the other pages name it.
+   Anything else is dropped. The words for each are stepText(), in mail.js. */
+const LIVE_EV = new Set(["film", "hero", "hero_complete", "view", "dial", "early_dial", "number", "caseback_view", "gift",
+  "checkout", "details", "details_closed", "pay_closed", "pay_failed", "list", "deeplink",
+  "provenance_click", "ctx_cta", "act", "page"]);
 const LIVE_FACES = new Set(["emerald", "midnight", "champagne", "ivory"]);
+const PAGES = new Set(["home", "about", "manifesto", "movement", "provenance", "legal", "claimed", "404"]);
 
 /* What kind of device, and which of the two in-app browsers the ads open
    in. Coarse on purpose: enough to know an Instagram ad is landing on
@@ -1188,18 +1204,21 @@ function uaInfo(ua) {
 
 /* One visit's report, cleaned: anything not on these short lists is
    dropped, so nothing a stranger posts here can reach the desk as markup
-   or grow without bound. */
+   or grow without bound. `v` is the page view's own tag (the live view);
+   `u` is the device's (the history, 5c). */
 function liveVisit(request, l) {
   const tag = String((l && l.v) || "");
   if (!/^[a-z0-9]{6,16}$/.test(tag)) return null;
-  const n = parseInt(l.n, 10);
-  const out = Object.assign({ v: tag, w: LIVE_WHERE.has(l.w) ? l.w : "", n: n >= 1 && n <= 99 ? n : 0,
+  const n = parseInt(l.n, 10), u = String(l.u || "");
+  const out = Object.assign({ v: tag, u: /^[a-z0-9]{6,24}$/.test(u) ? u : "", p: PAGES.has(l.p) ? l.p : "home",
+    w: LIVE_WHERE.has(l.w) ? l.w : "", n: n >= 1 && n <= 99 ? n : 0,
     d: LIVE_FACES.has(l.d) ? l.d : "", s: String(l.s || "").toLowerCase().replace(/[^a-z0-9 ._-]/g, "").slice(0, 24),
     g: l.g === 1 || l.g === true, ev: [] }, uaInfo(request.headers.get("User-Agent")));
   for (const e of Array.isArray(l.ev) ? l.ev.slice(0, 16) : []) {
     if (!e || !LIVE_EV.has(e.e)) continue;
     out.ev.push({ e: e.e, no: /^\d{1,2}$/.test(e.no || "") ? String(e.no) : "",
-      dial: /^[A-Za-z]{3,12}$/.test(e.dial || "") ? String(e.dial) : "" });
+      dial: /^[A-Za-z]{3,12}$/.test(e.dial || "") ? String(e.dial) : "",
+      x: String(e.x || "").replace(/<[^>]*>?/g, "").replace(/[^A-Za-z0-9 .,'()-]/g, "").slice(0, 60) });
   }
   return out;
 }
@@ -1207,7 +1226,7 @@ function liveVisit(request, l) {
 /* The page's minute check: "this visit is still here, and here". */
 function liveSeen(request, env, ctx, q) {
   if (!countable(request, env)) return;
-  const live = liveVisit(request, { v: q.get("h"), w: q.get("w"), n: q.get("n"), d: q.get("d"), s: q.get("s") });
+  const live = liveVisit(request, { v: q.get("h"), u: q.get("u"), w: q.get("w"), n: q.get("n"), d: q.get("d"), s: q.get("s") });
   if (live) liveTell(env, ctx, live);
 }
 
@@ -1228,18 +1247,80 @@ async function liveFor(env) {
   } catch (e) { console.log("Live read failed:", String(e).slice(0, 120)); return null; }
 }
 
-const LIVE_KEEP_MS = 60 * 60 * 1000;   /* a visit is forgotten an hour after it was last seen */
+const LIVE_KEEP_MS = 60 * 60 * 1000;   /* the live view's feed is the last hour */
 const LIVE_HERE_MS = 95 * 1000;        /* the page checks in every minute: seen inside this and still open is here */
 const LIVE_SAVE_MS = 15 * 1000;
 const LIVE_MAX = 400;                  /* visits kept at once; the oldest goes first */
 
-/* The one place the counts are kept, and the live view. Single-threaded by
-   construction, so two visits ending at once cannot lose each other's
-   numbers. */
+/* ══════════ 5c. EVERY VISITOR'S HISTORY ══════════
+
+   The owner asked for the whole story of each visitor: where they came
+   from, every visit, every dial and number they looked at, how far into
+   checkout they got, and, when they gave their details or paid, who they
+   are. So the live view's steps are also written here, kept ninety days
+   from the last time the visitor was seen, and then deleted.
+
+   A visitor is a device: the random id the page already keeps for holds
+   (kaal_client, in the browser's storage), so a return three days later
+   joins the same history. A visit is a stretch of activity with less than
+   thirty minutes between steps. When the same device opens a checkout
+   (/order sends that id as `by`), its name, phone, email and city are put
+   on the history, and a payment on that order is too. legal.html's
+   privacy section says all of this, and the details form says it at the
+   moment they are given.
+
+   One row per visitor in the counter's own SQLite store, its steps as one
+   JSON list (at most STEPS_MAX, the oldest dropped first), so a step costs
+   one row written, not one per step. The desk reads it page by page; the
+   midnight email reads the day's. ─────────────────────────────────────── */
+const HIST_DAYS = 90;
+const VISIT_GAP_MS = 30 * 60 * 1000;
+const STEPS_MAX = 400;
+const SEEN_WRITE_MS = 50 * 1000;   /* a minute check updates "last seen" at most this often */
+const HIST_HOUR_MAX = 3000;        /* new visitors stop being written past this many in an hour */
+
+function stepsOf(row) { try { const a = JSON.parse(row.steps || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function uniq(a) { return a.filter((x, i) => x && a.indexOf(x) === i); }
+
+/* One visitor, as the desk lists them: who, where from, and the
+   moments that matter, worked out from the steps. */
+function visitorSummary(row) {
+  const st = stepsOf(row), first = st.find(e => e.e === "visit") || {};
+  return {
+    k: row.k, first: row.first, last: row.last, visits: row.visits,
+    s: row.s || "", from: sourceName(row.s, row.app), app: row.app || "", os: row.os || "", dev: row.dev || "",
+    name: row.name || "", phone: row.phone || "", email: row.email || "", city: row.city || "",
+    n: row.n || 0, dial: row.dial || "", paid: row.paid ? String(row.paid).split(",").filter(Boolean) : [],
+    landed: first.x || "home", steps: st.length,
+    dials: uniq(st.filter(e => (e.e === "dial" || e.e === "early_dial" || e.e === "number") && e.dial).map(e => e.dial)),
+    /* A dial chosen picks its first open number for them: that counts too. */
+    numbers: uniq(st.filter(e => (e.e === "number" || e.e === "caseback_view" || e.e === "checkout") && e.no).map(e => e.no)
+      .concat(row.n ? [pad2(row.n)] : [])),
+    checkout: st.some(e => e.e === "checkout"), details: st.some(e => e.e === "details"),
+    film: st.some(e => e.e === "hero_complete"), twenty: st.some(e => e.e === "view"),
+    time: visitTime(st, row.last)
+  };
+}
+/* Time on the site across every visit: each visit runs from its arrival to
+   its last step, the latest one to when the visitor was last seen. */
+function visitTime(st, last) {
+  let total = 0, start = 0, end = 0;
+  for (const e of st) {
+    if (e.e === "visit") { if (start) total += Math.max(0, (e.end || end) - start); start = e.t; end = e.t; }
+    else end = e.t;
+  }
+  if (start) total += Math.max(0, Math.max(end, last || 0) - start);
+  return total;
+}
+
+/* The one place the counts are kept, the live view, and the histories.
+   Single-threaded by construction, so two visits ending at once cannot
+   lose each other's numbers. */
 export class Stats {
-  constructor(state) { this.state = state; this.live = null; this.alarmAt = 0; }
+  constructor(state) { this.state = state; this.live = null; this.alarmAt = 0; this.sqlOk = false; }
   async fetch(request) {
-    const url = new URL(request.url);
+    const url = new URL(request.url), q = url.searchParams;
+    const out = (b) => new Response(JSON.stringify(b), { headers: { "Content-Type": "application/json" } });
     if (url.pathname === "/add" && request.method === "POST") {
       const { day, add, live } = await request.json();
       if (add && Object.keys(add).length) {
@@ -1248,21 +1329,211 @@ export class Stats {
         for (const k of Object.keys(add)) cur[k] = (cur[k] || 0) + (parseInt(add[k], 10) || 0);
         await this.state.storage.put("d:" + day, cur);
       }
-      if (live) await this.liveTake(live);
+      if (live) {
+        const k = await this.histTake(live);
+        if (k) live.vk = k;
+        await this.liveTake(live);
+      }
       return new Response("ok");
     }
     if (url.pathname === "/get") {
-      const days = (url.searchParams.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 31);
-      const out = {};
-      for (const d of days) out[d] = (await this.state.storage.get("d:" + d)) || {};
-      return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
+      const days = (q.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 31);
+      const res = {};
+      for (const d of days) res[d] = (await this.state.storage.get("d:" + d)) || {};
+      return out(res);
     }
-    if (url.pathname === "/live") {
-      return new Response(JSON.stringify(await this.liveView()), { headers: { "Content-Type": "application/json" } });
-    }
+    if (url.pathname === "/live") return out(await this.liveView());
+    if (url.pathname === "/link" && request.method === "POST") { await this.histLink(await request.json()); return new Response("ok"); }
+    if (url.pathname === "/visitors") return out(this.histList(q));
+    if (url.pathname === "/visitor") return out(this.histOne(parseInt(q.get("k"), 10)));
+    if (url.pathname === "/journeys" && request.method === "POST") return out(this.histJourneys((await request.json()).o || []));
+    if (url.pathname === "/day") return out(this.histDay(q.get("d") || ""));
+    if (url.pathname === "/rows") return out(this.histRows(parseInt(q.get("since"), 10) || 0));
+    if (url.pathname === "/prune" && request.method === "POST") return out(this.histPrune());
+    if (url.pathname === "/forget" && request.method === "POST") return out(this.histForget(parseInt((await request.json()).k, 10)));
     return new Response("not found", { status: 404 });
   }
 
+  /* ── 5c. the histories ── */
+  get sql() {
+    const sql = this.state.storage.sql;
+    if (!this.sqlOk) {
+      sql.exec(`CREATE TABLE IF NOT EXISTS visitor (id TEXT PRIMARY KEY, k INTEGER NOT NULL, first INTEGER NOT NULL,
+        last INTEGER NOT NULL, visits INTEGER NOT NULL DEFAULT 1, tag TEXT, s TEXT, app TEXT, os TEXT, dev TEXT,
+        name TEXT, phone TEXT, email TEXT, city TEXT, n INTEGER, dial TEXT, paid TEXT, steps TEXT NOT NULL)`);
+      sql.exec("CREATE INDEX IF NOT EXISTS visitor_last ON visitor(last)");
+      sql.exec("CREATE UNIQUE INDEX IF NOT EXISTS visitor_k ON visitor(k)");
+      sql.exec("CREATE TABLE IF NOT EXISTS orderof (o TEXT PRIMARY KEY, id TEXT NOT NULL, at INTEGER NOT NULL)");
+      this.sqlOk = true;
+    }
+    return sql;
+  }
+  hasSql() { return !!(this.state.storage && this.state.storage.sql); }
+  row(id) { return this.sql.exec("SELECT * FROM visitor WHERE id = ?", id).toArray()[0] || null; }
+  async nextK() {
+    const k = ((await this.state.storage.get("vseq")) || 0) + 1;
+    await this.state.storage.put("vseq", k);
+    return k;
+  }
+  save(row, steps) {
+    if (steps.length > STEPS_MAX) steps = steps.slice(steps.length - STEPS_MAX);
+    this.sql.exec(`INSERT INTO visitor (id, k, first, last, visits, tag, s, app, os, dev, name, phone, email, city, n, dial, paid, steps)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET last = excluded.last, visits = excluded.visits, tag = excluded.tag, s = excluded.s,
+      app = excluded.app, os = excluded.os, dev = excluded.dev, name = excluded.name, phone = excluded.phone,
+      email = excluded.email, city = excluded.city, n = excluded.n, dial = excluded.dial, paid = excluded.paid, steps = excluded.steps`,
+      row.id, row.k, row.first, row.last, row.visits, row.tag || null, row.s || null, row.app || null, row.os || null, row.dev || null,
+      row.name || null, row.phone || null, row.email || null, row.city || null, row.n || null, row.dial || null, row.paid || null,
+      JSON.stringify(steps));
+  }
+  /* A report from a page: a minute check, a few steps, or "gone". Returns
+     the visitor's number for the live view. A minute check that changes
+     nothing writes at most once every fifty seconds. */
+  async histTake(x) {
+    if (!x.u || !this.hasSql()) return 0;
+    const now = Date.now();
+    let row = this.row(x.u);
+    const fresh = !row;
+    /* A brake on anyone posting made-up visitors to fill the store: far
+       above what a twenty-watch shop sees in an hour. */
+    if (fresh && this.sql.exec("SELECT COUNT(*) AS c FROM visitor WHERE last >= ?", now - 3600000).toArray()[0].c >= HIST_HOUR_MAX) return 0;
+    if (!row) row = { id: x.u, k: await this.nextK(), first: now, last: now, visits: 0, steps: "[]" };
+    const steps = stepsOf(row);
+    const newVisit = fresh || now - row.last > VISIT_GAP_MS;
+    let changed = fresh || newVisit || (x.ev && x.ev.length) || x.g;
+    if (newVisit) {
+      const prev = steps.filter(e => e.e === "visit").pop();
+      if (prev && !prev.end) prev.end = row.last;
+      row.visits = (row.visits || 0) + 1;
+      steps.push({ t: now, e: "visit", x: x.p || "home", s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "" });
+      if (fresh || !row.s) { row.s = x.s || ""; row.app = x.app || ""; row.os = x.os || ""; row.dev = x.dev || ""; }
+    } else if (x.v && row.tag && x.v !== row.tag && x.p === "home") {
+      /* Back on the storefront within the same visit: a reload, or from one
+         of the other pages. */
+      steps.push({ t: now, e: "page", x: "home" });
+      changed = true;
+    }
+    for (const e of x.ev || []) {
+      if (newVisit && e.e === "page" && e.x === (x.p || "home")) continue;
+      steps.push({ t: now, e: e.e, no: e.no || "", dial: e.dial || "", x: e.x || "" });
+    }
+    if (x.n) { if (row.n !== x.n) changed = true; row.n = x.n; }
+    if (x.d) { const d = x.d.charAt(0).toUpperCase() + x.d.slice(1); if (row.dial !== d) changed = true; row.dial = d; }
+    if (x.v) row.tag = x.v;
+    if (!changed && now - row.last < SEEN_WRITE_MS) return row.k;
+    row.last = now;
+    this.save(row, steps);
+    return row.k;
+  }
+  /* A checkout opened (/order): who they said they are, and which order is
+     theirs, so its payment finds them later. */
+  async histLink(b) {
+    if (!this.hasSql() || !/^[a-z0-9]{6,24}$/.test(String(b.u || "")) || !/^order_\w{6,40}$/.test(String(b.o || ""))) return;
+    const now = Date.now();
+    let row = this.row(b.u);
+    if (!row) row = { id: b.u, k: await this.nextK(), first: now, last: now, visits: 1, steps: JSON.stringify([{ t: now, e: "visit", x: "home" }]) };
+    const steps = stepsOf(row), who = b.buyer || {};
+    for (const f of ["name", "phone", "email", "city"]) if (who[f]) row[f] = String(who[f]).slice(0, 120);
+    if (b.n) row.n = parseInt(b.n, 10) || row.n;
+    row.last = Math.max(row.last, now);
+    this.save(row, steps);
+    this.sql.exec("INSERT OR REPLACE INTO orderof (o, id, at) VALUES (?, ?, ?)", b.o, b.u, now);
+  }
+  /* A payment on an order whose checkout this store saw. */
+  histPaid(x) {
+    if (!this.hasSql() || !x.o) return;
+    const m = this.sql.exec("SELECT id FROM orderof WHERE o = ?", String(x.o)).toArray()[0];
+    const row = m && this.row(m.id);
+    if (!row) return;
+    const steps = stepsOf(row), now = Date.now();
+    steps.push({ t: now, e: "paid", no: String(x.no || ""), dial: String(x.dial || ""), x: String(parseInt(x.paise, 10) || 0) });
+    row.paid = uniq(String(row.paid || "").split(",").concat([String(x.no || "")])).join(",");
+    row.last = Math.max(row.last, now);
+    this.save(row, steps);
+  }
+  histList(q) {
+    if (!this.hasSql()) return { ok: false, total: 0, rows: [] };
+    const since = parseInt(q.get("since"), 10) || 0, f = q.get("f") || "all", off = Math.max(0, parseInt(q.get("off"), 10) || 0);
+    const lim = Math.min(100, Math.max(1, parseInt(q.get("lim"), 10) || 25));
+    let where = "last >= ?";
+    const args = [since];
+    if (f === "bought") where += " AND paid IS NOT NULL AND paid <> ''";
+    else if (f === "details") where += " AND (name IS NOT NULL OR phone IS NOT NULL OR email IS NOT NULL)";
+    else if (f === "number") where += " AND n IS NOT NULL AND n > 0";
+    else if (f === "checkout") where += " AND steps LIKE '%\"e\":\"checkout\"%'";
+    const term = String(q.get("q") || "").trim().slice(0, 60);
+    if (term) {
+      const kn = parseInt(term.replace(/^visitor\s*/i, ""), 10);
+      where += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR s LIKE ? OR app LIKE ? OR paid LIKE ?" + (kn ? " OR k = ?" : "") + ")";
+      const like = "%" + term.replace(/[%_]/g, "") + "%";
+      args.push(like, like, like, like, like, like, like);
+      if (kn) args.push(kn);
+    }
+    const total = this.sql.exec(`SELECT COUNT(*) AS c FROM visitor WHERE ${where}`, ...args).toArray()[0].c;
+    const rows = this.sql.exec(`SELECT * FROM visitor WHERE ${where} ORDER BY last DESC LIMIT ? OFFSET ?`, ...args, lim, off).toArray();
+    return { ok: true, total, rows: rows.map(visitorSummary) };
+  }
+  histOne(k) {
+    if (!this.hasSql() || !k) return { ok: false };
+    const row = this.sql.exec("SELECT * FROM visitor WHERE k = ?", k).toArray()[0];
+    if (!row) return { ok: false, reason: "gone" };
+    return { ok: true, v: Object.assign(visitorSummary(row), { steps: stepsOf(row).map(e => Object.assign({}, e, { txt: stepText(e) })) }) };
+  }
+  histJourneys(orders) {
+    const res = {};
+    if (!this.hasSql()) return res;
+    for (const o of orders.slice(0, 200)) {
+      const m = this.sql.exec("SELECT id FROM orderof WHERE o = ?", String(o)).toArray()[0];
+      const row = m && this.row(m.id);
+      if (row) res[o] = visitorSummary(row);
+    }
+    return res;
+  }
+  /* The day's visitors for the midnight email: everyone with a step that
+     day, with only that day's steps. */
+  histDay(day) {
+    if (!this.hasSql() || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { rows: [], total: 0 };
+    const from = Date.parse(day + "T00:00:00Z") - IST_MS, to = from + 86400000;
+    const rows = this.sql.exec("SELECT * FROM visitor WHERE last >= ? AND first < ? ORDER BY first", from, to).toArray();
+    const out = [];
+    for (const row of rows) {
+      const all = stepsOf(row), today = all.filter(e => e.t >= from && e.t < to);
+      if (!today.length) continue;
+      const visitNo = all.filter(e => e.e === "visit" && e.t < to).length;
+      out.push(Object.assign(visitorSummary(row), { today, visitNo, before: all.some(e => e.e === "visit" && e.t < from) }));
+    }
+    return { rows: out.slice(0, 300), total: out.length };
+  }
+  /* Everything since a moment, for the two spreadsheets: the 5,000 most
+     recent visitors, which is more than ninety days of this shop. */
+  histRows(since) {
+    if (!this.hasSql()) return { rows: [] };
+    return { rows: this.sql.exec("SELECT * FROM visitor WHERE last >= ? ORDER BY last DESC LIMIT 5000", since).toArray()
+      .map(row => Object.assign(visitorSummary(row), { steps: stepsOf(row) })) };
+  }
+  /* Someone asked to have their history deleted (legal.html promises they
+     can): the visitor and the note of which orders were theirs. Their
+     orders themselves stay in Razorpay, where the law keeps them. */
+  histForget(k) {
+    if (!this.hasSql() || !(k > 0)) return { ok: false };
+    const row = this.sql.exec("SELECT id FROM visitor WHERE k = ?", k).toArray()[0];
+    if (!row) return { ok: false, reason: "gone" };
+    this.sql.exec("DELETE FROM orderof WHERE id = ?", row.id);
+    this.sql.exec("DELETE FROM visitor WHERE id = ?", row.id);
+    return { ok: true };
+  }
+  /* Ninety days after a visitor was last seen, they are deleted, with the
+     note of which orders were theirs. */
+  histPrune() {
+    if (!this.hasSql()) return { deleted: 0 };
+    const cut = Date.now() - HIST_DAYS * 86400000;
+    const gone = this.sql.exec("SELECT COUNT(*) AS c FROM visitor WHERE last < ?", cut).toArray()[0].c;
+    this.sql.exec("DELETE FROM visitor WHERE last < ?", cut);
+    this.sql.exec("DELETE FROM orderof WHERE at < ?", cut);
+    return { deleted: gone };
+  }
+
+  /* ── 5b. the live view ── */
   async liveLoad() {
     if (!this.live) this.live = (await this.state.storage.get("live")) || { seq: 0, visits: {}, paid: [] };
     return this.live;
@@ -1281,16 +1552,20 @@ export class Stats {
     const L = await this.liveLoad(), now = Date.now();
     if (x.e === "paid") {
       L.paid.push({ ts: now, no: String(x.no || ""), dial: String(x.dial || ""), paise: parseInt(x.paise, 10) || 0 });
+      this.histPaid(x);
     } else if (x.v) {
       let v = L.visits[x.v];
-      if (!v) v = L.visits[x.v] = { k: ++L.seq, first: now, last: now, s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "", w: "", n: 0, d: "", steps: [] };
+      if (!v) v = L.visits[x.v] = { k: ++L.seq, first: now, last: now, s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "", w: "", n: 0, d: "", p: x.p || "home", steps: [] };
+      /* The visitor's own number, the same one the history and every other
+         day uses, once the device is known. */
+      if (x.vk) v.vk = x.vk;
       v.last = now;
       v.gone = !!x.g;
       if (x.w) v.w = x.w;
       if (x.n) v.n = x.n;
       if (x.d) v.d = x.d;
       if (!v.s && x.s) v.s = x.s;
-      for (const e of x.ev || []) if (v.steps.length < 40) v.steps.push({ ts: now, e: e.e, no: e.no, dial: e.dial });
+      for (const e of x.ev || []) if (v.steps.length < 40) v.steps.push({ ts: now, e: e.e, no: e.no, dial: e.dial, x: e.x || "" });
     }
     this.livePrune(now);
     /* Saved soon, not now: a visit checks in every minute, and a write for
@@ -1301,7 +1576,7 @@ export class Stats {
     }
   }
   /* Saves the live view, and comes back when the oldest visit in it is an
-     hour old, to forget it. Nothing is kept longer than that. */
+     hour old, to drop it from the feed. */
   async alarm() {
     this.alarmAt = 0;
     const L = await this.liveLoad(), now = Date.now();
@@ -1316,8 +1591,9 @@ export class Stats {
   async liveView() {
     const L = await this.liveLoad(), now = Date.now();
     this.livePrune(now);
-    const show = v => ({ k: v.k, since: v.first, last: v.last, s: v.s, app: v.app, os: v.os, dev: v.dev, w: v.w, n: v.n, d: v.d,
-      steps: v.steps.map(e => ({ ts: e.ts, e: e.e, no: e.no, dial: e.dial })) });
+    const num = v => v.vk || 0;
+    const show = v => ({ k: v.k, vk: num(v), since: v.first, last: v.last, s: v.s, from: sourceName(v.s, v.app), app: v.app, os: v.os, dev: v.dev, w: v.w, p: v.p || "home", n: v.n, d: v.d,
+      steps: v.steps.map(e => ({ ts: e.ts, e: e.e, no: e.no, dial: e.dial, txt: stepText(e) })) });
     const all = Object.values(L.visits);
     const isHere = v => !v.gone && now - v.last < LIVE_HERE_MS;
     const here = all.filter(isHere).sort((a, b) => a.first - b.first).map(show);
@@ -1331,8 +1607,8 @@ export class Stats {
     /* Steps sent together share a moment; the later one still goes first. */
     const feed = [];
     let o = 0;
-    for (const v of all) for (const e of v.steps) feed.push({ ts: e.ts, o: o++, k: v.k, e: e.e, no: e.no, dial: e.dial });
-    for (const p of L.paid) feed.push({ ts: p.ts, o: o++, k: 0, e: "paid", no: p.no, dial: p.dial, paise: p.paise });
+    for (const v of all) for (const e of v.steps) feed.push({ ts: e.ts, o: o++, k: v.k, vk: num(v), e: e.e, no: e.no, dial: e.dial, txt: stepText(e) });
+    for (const p of L.paid) feed.push({ ts: p.ts, o: o++, k: 0, vk: 0, e: "paid", no: p.no, dial: p.dial, paise: p.paise, txt: stepText({ e: "paid", no: p.no, dial: p.dial, x: String(p.paise) }) });
     feed.sort((a, b) => (b.ts - a.ts) || (b.o - a.o));
     return { now, here, left, minutes, feed: feed.slice(0, 80).map(({ o, ...e }) => e), paid: L.paid.slice().sort((a, b) => b.ts - a.ts) };
   }
@@ -1440,7 +1716,7 @@ async function unfinishedBetween(env, pays, from, to) {
     let given = null;
     if (env.KAAL_STATE) given = await env.KAAL_STATE.get("ship:" + o.id, "json").catch(() => null);
     const who = (given && given.buyer) || {};
-    out.push({ n, dial: n ? DIAL_OF(env, n) : "", ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
+    out.push({ n, dial: n ? DIAL_OF(env, n) : "", orderId: o.id, ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
       name: who.name || "", city: given ? [given.city, given.state].filter(Boolean).join(", ") : "",
       email: has("email") || who.email || "", contact: has("contact") || who.phone || "",
       stage: t ? (t.status === "failed" ? "Payment failed" + (why ? `: ${String(why).slice(0, 80)}` : "") + (tries.length > 1 ? ` (${tries.length} tries)` : "") : `Payment ${t.status}`)
@@ -1469,6 +1745,7 @@ async function digestData(env, day) {
   return {
     site, day, edition, c, orders, unfinished,
     leads: await leadsBetween(env, from, to),
+    visitors: await histAsk(env, "/day?d=" + day, null, { rows: [], total: 0 }),
     sold: sold.slice().sort((a, b) => a - b), left: Math.max(0, edition - sold.length),
     revenue: orders.filter(o => o.refund !== "full").reduce((t, o) => t + o.paise, 0),
     trend: days.map(dd => ({ day: dd, visitors: (counts[dd] || {}).visitor || 0, visits: (counts[dd] || {}).visit || 0,
@@ -1522,6 +1799,13 @@ async function dailyDigest(env) {
      GET  /desk/data         everything the page shows, as JSON
      GET  /desk/live         "Right now" (section 5b) and today's totals,
                              asked every ten seconds while the desk is open
+     GET  /desk/visitors     every visitor's history (5c), a page at a time:
+                             ?r=today|7d|30d|90d &f=all|bought|details|number
+                             |checkout &q=search &off=
+     GET  /desk/visitor?k=   one visitor, every step
+     GET  /desk/visitors.csv one row per visitor   (?r= as above)
+     GET  /desk/steps.csv    one row per step      (?r= as above)
+     POST /desk/forget       {k} deletes one visitor's history, on request
      GET  /desk/orders.csv   every order, with addresses, for the books
      GET  /desk/leads.csv    the whole Series 02 list
      POST /desk/dispatch     {o, courier, tracking, url, notify} marks an
@@ -1588,6 +1872,18 @@ async function desk(request, env, ctx, path) {
   if (!(await deskSession(request, env))) return deskJson({ ok: false, reason: "signed-out" }, 401);
   if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
   if (path === "/desk/live" && method === "GET") return deskJson(await deskLive(env));
+  if (path === "/desk/visitors" && method === "GET") return deskJson(await deskVisitors(env, new URL(request.url).searchParams));
+  if (path === "/desk/visitor" && method === "GET") {
+    const k = parseInt(new URL(request.url).searchParams.get("k"), 10);
+    return deskJson(k > 0 ? await histAsk(env, "/visitor?k=" + k, null, { ok: false }) : { ok: false });
+  }
+  if (path === "/desk/forget" && method === "POST") {
+    if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+    let b; try { b = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+    return deskJson(await histAsk(env, "/forget", { k: parseInt(b && b.k, 10) }, { ok: false }));
+  }
+  if (path === "/desk/visitors.csv" && method === "GET") return deskVisitorsCsv(env, new URL(request.url).searchParams, false);
+  if (path === "/desk/steps.csv" && method === "GET") return deskVisitorsCsv(env, new URL(request.url).searchParams, true);
   if (path === "/desk/orders.csv" && method === "GET") return deskOrdersCsv(env);
   if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
   if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
@@ -1712,6 +2008,7 @@ async function deskData(env) {
     })),
     revenue: live.reduce((t, o) => t + o.paise, 0),
     unfinished,
+    journeys: await histAsk(env, "/journeys", { o: L.orders.map(o => o.orderId).concat(unfinished.map(u => u.orderId)).filter(Boolean) }, {}),
     leads: { total: leads.length, today: leads.filter(l => istDay(l.ts * 1000) === today).length, recent: leads.slice(-50).reverse() },
     alerts: alertsFor(env, L, soldRaw, nowMs),
     health: [
@@ -1729,6 +2026,56 @@ async function deskData(env) {
 
 /* "Right now": the live view and today's totals so far, and nothing that
    has to ask Razorpay, so it can be asked every ten seconds and stay quick. */
+/* ── The histories (section 5c), as the desk and the report ask for them. ── */
+async function histAsk(env, path, body, fallback) {
+  if (!env.STATS) return fallback;
+  try {
+    const r = await env.STATS.get(env.STATS.idFromName("kaal")).fetch("https://stats" + path,
+      body ? { method: "POST", body: JSON.stringify(body) } : undefined);
+    return r.ok ? await r.json() : fallback;
+  } catch (e) { console.log("History read failed:", String(e).slice(0, 120)); return fallback; }
+}
+function histSince(r) {
+  const now = Date.now();
+  if (r === "today") return Date.parse(istDay(now) + "T00:00:00Z") - IST_MS;
+  if (r === "7d") return now - 7 * 86400000;
+  if (r === "30d") return now - 30 * 86400000;
+  return now - HIST_DAYS * 86400000;
+}
+async function deskVisitors(env, q) {
+  const p = new URLSearchParams({ since: String(histSince(q.get("r") || "today")), f: q.get("f") || "all",
+    q: String(q.get("q") || "").slice(0, 60), off: String(Math.max(0, parseInt(q.get("off"), 10) || 0)), lim: "25" });
+  const res = await histAsk(env, "/visitors?" + p, null, { ok: false, total: 0, rows: [] });
+  return Object.assign({ on: !!env.STATS }, res);
+}
+/* Once a cron run: anyone not seen for ninety days is deleted. */
+async function histPrune(env) {
+  const r = await histAsk(env, "/prune", {}, null);
+  if (r && r.deleted) console.log(`History: ${r.deleted} visitors not seen for ${HIST_DAYS} days deleted.`);
+}
+/* Two spreadsheets: one row per visitor, or one row per step. */
+async function deskVisitorsCsv(env, q, everyStep) {
+  const r = q.get("r") || "90d";
+  const { rows } = await histAsk(env, "/rows?since=" + histSince(r), null, { rows: [] });
+  const t = (ms) => ms ? indiaTime(new Date(ms)) : "";
+  if (!everyStep) {
+    const out = [["Visitor", "First seen (India time)", "Last seen", "Visits", "Time on site (min)", "Came from", "Device", "Landed on",
+      "Name", "Phone", "Email", "City", "Dials looked at", "Numbers chosen", "Reached the twenty", "Opened checkout", "Gave details", "Paid for"]];
+    for (const v of rows) out.push([v.k, t(v.first), t(v.last), v.visits, Math.round(v.time / 60000), sourceName(v.s, v.app), deviceName(v.os, v.dev), v.landed,
+      v.name, v.phone, v.email, v.city, v.dials.join(" "), v.numbers.join(" "), v.twenty ? "yes" : "", v.checkout ? "yes" : "", v.details ? "yes" : "", v.paid.join(" ")]);
+    return csv(out, "kaal-visitors-" + r);
+  }
+  const out = [["Visitor", "Name", "Visit", "When (India time)", "What they did", "Number", "Dial"]];
+  for (const v of rows) {
+    let visit = 0;
+    for (const e of v.steps) {
+      if (e.e === "visit") visit++;
+      out.push([v.k, v.name, visit, t(e.t), stepText(e), e.no ? e.no : "", e.dial || ""]);
+    }
+  }
+  return csv(out, "kaal-every-step-" + r);
+}
+
 async function deskLive(env) {
   const nowMs = Date.now(), today = istDay(nowMs);
   const [live, counts] = await Promise.all([liveFor(env), statsFor(env, [today])]);

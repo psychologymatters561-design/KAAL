@@ -913,7 +913,7 @@ a{color:inherit}
    it the last 8vh. Without motion, or without script, there is no film to
    hand off from and the band simply follows the poster. */
 @media (prefers-reduced-motion:no-preference){
-  body:not(.nojs) .hero + .band{position:relative;z-index:4;margin-top:-16svh}
+  body:not(.nojs) .hero + .band{position:relative;z-index:4;margin-top:-16vh;margin-top:-16svh}
 }
 .band ul{list-style:none;margin:0;padding:0;display:grid;gap:clamp(1rem,2.6vw,1.9rem);
   grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -945,7 +945,7 @@ a{color:inherit}
       carries. It was a drawing until the photographs landed. They have,
       so the drawing is now the layer underneath them and this stops being the best
       available answer to "what am I buying". */
-.piece{margin:clamp(1.8rem,1rem + 2.6svh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
+.piece{margin:clamp(1.8rem,1rem + 2.6vh,3.2rem) 0 0;margin:clamp(1.8rem,1rem + 2.6svh,3.2rem) 0 0;border:1px solid var(--line);border-radius:2px;
   background:var(--void-2);padding:clamp(1.35rem,4vw,1.9rem);
   display:grid;gap:clamp(1.1rem,4vw,2rem);grid-template-columns:auto minmax(0,1fr);align-items:center}
 @media (max-width:32rem){.piece{grid-template-columns:1fr;align-items:start}}
@@ -1047,8 +1047,8 @@ a{color:inherit}
    iOS URL bar arriving or leaving never changes the length of the scrub;
    the canvas itself has a fixed size for the life of the page. */
 .hero{position:relative;height:350vh}
-@media (max-width:599px) and (orientation:portrait){.hero{height:300svh}}
-.stage{position:sticky;top:0;height:100svh;overflow:hidden;
+@media (max-width:599px) and (orientation:portrait){.hero{height:300vh;height:300svh}}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;
   display:grid;place-items:center;background:var(--void)}
 
 /* ── THE CAMERA. One layer holds the picture — the poster and the canvas
@@ -1253,7 +1253,7 @@ a{color:inherit}
 /* The hold is a spacer INSIDE the wrapper, not padding on it: a sticky
    element is kept within its container's content box, so padding is room
    it can never move into. */
-.pin::after{content:"";display:block;height:40svh}
+.pin::after{content:"";display:block;height:40vh;height:40svh}
 .pin > .plate{position:sticky;top:var(--pin-top,12svh)}
 
 @media (prefers-reduced-motion:no-preference){
@@ -1335,7 +1335,7 @@ a{color:inherit}
 .plate.void-plate{background:
     radial-gradient(120% 90% at 30% 18%,rgba(237,232,223,.055),rgba(237,232,223,0) 62%),
     linear-gradient(150deg,rgba(237,232,223,.035),rgba(8,9,8,0) 55%);
-  border:1px solid var(--line);min-height:min(46svh,24rem);
+  border:1px solid var(--line);min-height:min(46vh,24rem);min-height:min(46svh,24rem);
   display:grid;place-items:center;padding:2.5rem}
 .plate.void-plate img{display:none}
 .plate.void-plate::after{box-shadow:none}
@@ -1350,7 +1350,7 @@ a{color:inherit}
    jump. The play mark sits above the vignette; the vignette goes once the
    film is playing, because it would darken the controls. The focus ring is
    drawn inside, since the plate clips anything drawn outside it. */
-.plate-box{aspect-ratio:9/16;width:min(100%,26rem,calc(78svh * 9 / 16));margin-inline:auto}
+.plate-box{aspect-ratio:9/16;width:min(100%,26rem,calc(78vh * 9 / 16));width:min(100%,26rem,calc(78svh * 9 / 16));margin-inline:auto}
 .box-film{position:absolute;inset:0;display:block}
 .box-film img,.plate-box video{display:block;width:100%;height:100%;object-fit:cover;transform:none}
 .plate-box video{background:var(--void)}
@@ -1388,7 +1388,7 @@ a{color:inherit}
      above the plate and another below it. Held beside the reading
      instead, the dial stays in view for every paragraph about it. */
   #movement .split{align-items:start}
-  #movement .split .plate{position:sticky;top:clamp(5.5rem,20svh,12rem)}
+  #movement .split .plate{position:sticky;top:clamp(5.5rem,20vh,12rem);top:clamp(5.5rem,20svh,12rem)}
 }
 
 /* ── The four faces. Chips deal in like cards: their own entrance. ── */
@@ -1515,7 +1515,7 @@ a{color:inherit}
                      to{box-shadow:0 0 0 .75rem rgba(198,161,91,0)}}
 .pick[aria-pressed="true"]{animation:pickTaken .6s var(--ease) 1}
 
-.claim{margin:clamp(1.8rem,1rem + 2.6svh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
+.claim{margin:clamp(1.8rem,1rem + 2.6vh,3.4rem) 0 0;margin:clamp(1.8rem,1rem + 2.6svh,3.4rem) 0 0;display:grid;gap:.2rem;justify-items:start}
 .claim-state{font-size:.8125rem;color:var(--mute);min-height:1.4em;margin:0 0 1.1rem;letter-spacing:.01em;
   display:flex;align-items:center;gap:.62rem}
 
@@ -1537,7 +1537,8 @@ a{color:inherit}
 
 /* ── WHO AND WHERE, once, before paying. The buyer's own details, in the
       same field style as the thank-you page's address form. ── */
-.details{width:min(34rem,100% - 2rem);max-height:calc(100svh - 2rem);margin:auto;padding:0;overflow:auto;
+.details{width:min(34rem,100% - 2rem);max-height:calc(100vh - 2rem);max-height:calc(100svh - 2rem);margin:auto;padding:0;overflow:auto;
+  overscroll-behavior:contain;   /* a scroll that reaches the form's end stays in the form, not the page behind */
   background:#0e0f0d;color:var(--bone);border:1px solid var(--line);border-radius:4px;box-shadow:0 30px 90px rgba(0,0,0,.6)}
 .details::backdrop{background:rgba(4,5,4,.78)}
 .details form{display:grid;gap:1rem;padding:clamp(1.25rem,1rem + 2vw,2rem)}
@@ -1656,7 +1657,7 @@ a{color:inherit}
 .list-state{margin:.5rem 0 0;min-height:1.3em;font-size:.8125rem;color:var(--bone)}
 .list .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .list.done .list-row{display:none}
-.foot-list{margin-top:clamp(2rem,1rem + 3svh,3.2rem);padding-top:1.6rem;border-top:1px solid var(--line)}
+.foot-list{margin-top:clamp(2rem,1rem + 3vh,3.2rem);margin-top:clamp(2rem,1rem + 3svh,3.2rem);padding-top:1.6rem;border-top:1px solid var(--line)}
 .foot-list .list{margin:0;max-width:34rem}
 /* Without script there is nothing to send it with, so there is no form. */
 .nojs .list{display:none}
@@ -1776,7 +1777,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 .dock.show{transform:none;pointer-events:auto}
 .dock-txt{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
 .dock .buy{margin-left:auto;flex:0 0 auto}
-#choose{scroll-margin-top:clamp(4.5rem,10svh,6.5rem)}
+#choose{scroll-margin-top:clamp(4.5rem,10vh,6.5rem);scroll-margin-top:clamp(4.5rem,10svh,6.5rem)}
 @media (max-width:560px){.dock-txt{display:none}.dock .buy{margin:0;width:100%}}
 /* The dock's line carries the dial, the count or the number, and the
    action. On a narrow phone it keeps to one line by giving up a little
@@ -1846,7 +1847,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 .socials a:hover,.socials a:focus-visible{opacity:1;transform:translateY(-2px)}
 .socials svg{width:20px;height:20px;fill:currentColor}
 @media (prefers-reduced-motion:reduce){.socials a:hover,.socials a:focus-visible{transform:none}}
-.foot-end{margin-top:clamp(2rem,1rem + 3svh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
+.foot-end{margin-top:clamp(2rem,1rem + 3vh,4rem);margin-top:clamp(2rem,1rem + 3svh,4rem);padding-top:1.6rem;border-top:1px solid var(--line);
   display:flex;flex-wrap:wrap;gap:1rem;align-items:center;
   font-size:.75rem;color:var(--faint)}
 
@@ -1886,8 +1887,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
      So the hero becomes a first screen — the poster and the words — and the
      captions follow it as a quiet stack the reader scrolls on to. */
   .hero{height:auto}
-  .stage{position:relative;height:auto;min-height:100svh}
-  .hero-ui{height:auto;min-height:100svh;
+  .stage{position:relative;height:auto;min-height:100vh;min-height:100svh}
+  .hero-ui{height:auto;min-height:100vh;min-height:100svh;
     grid-template-rows:minmax(calc(100svh - 6.2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),auto) auto}
   .markwrap{grid-row:1!important}
   .caps{grid-row:2;min-height:0;padding:var(--air) 0 calc(var(--air) * .5)}
@@ -1911,8 +1912,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 .nojs .twenty{margin-top:clamp(2.4rem,6vh,3.6rem)}
 .nojs .pick:not([disabled]):hover{border-color:var(--line);background-color:transparent}
 .nojs .hero{height:auto}
-.nojs .stage{position:relative;height:auto;min-height:100svh}
-.nojs .hero-ui{height:auto;min-height:100svh;
+.nojs .stage{position:relative;height:auto;min-height:100vh;min-height:100svh}
+.nojs .hero-ui{height:auto;min-height:100vh;min-height:100svh;
   grid-template-rows:minmax(calc(100svh - 6.2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),auto) auto}
 .nojs .markwrap{grid-row:1}
 .nojs .caps{grid-row:2;min-height:0;padding:var(--air) 0 calc(var(--air) * .5)}
@@ -1921,12 +1922,33 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 /* The full-bleed phone picture holds the first screen only; the plate on
    anything wider already has its own size and place. */
 @media (max-width:599px) and (orientation:portrait){
-  .nojs .cam{bottom:auto;height:100svh}
+  .nojs .cam{bottom:auto;height:100vh;height:100svh}
 }
 @media (max-width:599px) and (orientation:portrait) and (prefers-reduced-motion:reduce){
-  .cam{bottom:auto;height:100svh}
+  .cam{bottom:auto;height:100vh;height:100svh}
 }
 .nojs .nav{opacity:1;transform:none;pointer-events:auto}
+
+/* ── OLDER THAN svh. iOS before 15.4, Chrome before 108, and the Android
+      WebViews inside Instagram and Facebook on phones that never updated
+      do not know the small viewport unit, and drop every rule that uses
+      it: the hero's stage lost its height and the film's whole scroll fell
+      apart under the thumb. Each rule that measures in svh now says it in
+      vh first, which is what svh refines. Custom properties, and any rule
+      that also uses var() or env(), cannot fall back that way (they always
+      parse), so they are restated here. A browser that knows svh reads none of
+      this. ─────────────────────────────────────────────────────────── */
+@supports not (height:1svh){
+  :root{--air:clamp(3.25rem,1.25rem + 6vh,7.5rem);--air-tall:clamp(4rem,1.5rem + 8vh,9.5rem);--beat:clamp(2rem,1rem + 3.2vh,4.2rem)}
+  @media (min-width:600px),(orientation:landscape){.cam{--plate:min(100vh,62vw);top:calc((100vh - var(--plate)) / 2)}}
+  @media (min-width:600px) and (orientation:portrait){.cam{--plate:min(100vw,70vh);top:0}}
+  .pin > .plate{top:var(--pin-top,12vh)}
+  .foot{padding:clamp(2.75rem,1.5rem + 5vh,5.5rem) 0 calc(7rem + env(safe-area-inset-bottom))}
+  .nojs .hero-ui{grid-template-rows:minmax(calc(100vh - 6.2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),auto) auto}
+  @media (prefers-reduced-motion:reduce){
+    .hero-ui{grid-template-rows:minmax(calc(100vh - 6.2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),auto) auto}
+  }
+}
 </style>
 </head>
 <body class="nojs">

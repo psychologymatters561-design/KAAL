@@ -151,15 +151,8 @@ async function getState(request, env, ctx, url) {
   }
 
   const sold = await readSold(env);
-  const held = [];
+  const held = await listHeld(env);
   const now = Date.now();
-  try {
-    const list = await env.KAAL_STATE.list({ prefix: HOLD_PREFIX });
-    for (const k of list.keys) {
-      const n = parseInt(k.name.slice(HOLD_PREFIX.length), 10);
-      if (!isNaN(n)) held.push(n);
-    }
-  } catch (e) { /* a listing that fails is a page with no holds, not an error */ }
 
   /* v: 2 tells the page this worker has /callback, /receipt, /shipping and
      /list; v: 3, that /order also keeps the buyer's details given before
@@ -168,6 +161,32 @@ async function getState(request, env, ctx, url) {
   const placed = await readPlaced(env);
   if (placed) out.placed = placed;
   return json(request, env, out, { "Cache-Control": "public, max-age=10" });
+}
+
+/* The holds, listed at most once a minute by each running copy of this
+   worker. Every open page asks /state once a minute, and a KV listing is
+   the one operation Cloudflare's free plan allows only a thousand of a day:
+   listed on every ask, a busy morning of ads would spend the day's
+   allowance before noon, and the desk's own listing with it. KV itself
+   takes up to a minute to agree with itself, so a listing a minute old is
+   no less true than a fresh one (and today's page does not read `held` at
+   all). /order, the authority on a number, still reads that number's own
+   hold directly, and the desk lists its own. */
+const HELD_FRESH_MS = 60 * 1000;
+let heldSeen = { at: 0, held: [] };
+async function listHeld(env) {
+  const now = Date.now();
+  if (heldSeen.at && now - heldSeen.at >= 0 && now - heldSeen.at < HELD_FRESH_MS) return heldSeen.held.slice();
+  const held = [];
+  try {
+    const list = await env.KAAL_STATE.list({ prefix: HOLD_PREFIX });
+    for (const k of list.keys) {
+      const n = parseInt(k.name.slice(HOLD_PREFIX.length), 10);
+      if (!isNaN(n)) held.push(n);
+    }
+  } catch (e) { /* a listing that fails is a page with no holds, not an error */ }
+  heldSeen = { at: now, held };
+  return held.slice();
 }
 
 async function postHold(request, env) {

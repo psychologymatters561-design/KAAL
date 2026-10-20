@@ -445,6 +445,81 @@ export function ownerRefund(d) {
   return { subject, html: frame({ title: subject, preheader: next, body, site }), text };
 }
 
+/* ══════════ 4d. TO SOMEONE WHO NEARLY BOUGHT ══════════
+   One email, once per person, ever. Sent by abandonedCheckouts() in the
+   worker, a few hours after a checkout that gave details and never paid.
+   Three shapes, all true at the moment of sending:
+     open  their number is still open and nobody is paying for it
+     lost  their number sold since; others are still open
+     none  no number on the checkout
+   No discount, no deadline. The scarcity is the real count. */
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+  "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export function buyerNearlyBought(d) {
+  const site = d.site, hi = d.first ? `${d.first},` : "Hello,";
+  const leftW = WORDS[d.left] || String(d.left);
+  const No = d.n ? `No. ${pad2(d.n)}` : "";
+  const link = d.n ? `${site}/#n${d.n}` : `${site}/#twenty`;
+  const when = d.when || "Recently";
+
+  let subject, preheader, title, open, cta;
+  if (d.n) {
+    subject = `${No} is still here`;
+    preheader = "You chose it. Nobody has taken it since.";
+    title = No;
+    open = [`${when} you chose ${No}${d.dial ? `, the ${d.dial} dial,` : ""} and stopped one step before it became yours.`,
+      "It is still here. Nobody has taken it since."];
+    cta = `Claim ${No}`;
+  } else if (d.lost) {
+    subject = `No. ${pad2(d.lost)} found its owner`;
+    preheader = `${cap(leftW)} of the twenty have not.`;
+    title = "Still twenty, once";
+    open = [`${when} you chose No. ${pad2(d.lost)}. Since then someone else finished what you started, and it is theirs now.`,
+      `We are telling you because ${leftW} of the twenty are still open, and one of them could still be yours.`];
+    cta = "See the twenty";
+  } else {
+    subject = "Your piece is still waiting";
+    preheader = `${cap(leftW)} of twenty remain. There will not be more.`;
+    title = "Still waiting";
+    open = [`${when} you came close to owning a KAAL, and stopped one step before it was yours.`];
+    cta = "See the twenty";
+  }
+
+  const middle = [
+    `We rarely write, and this is the only time we will write to you about it. Not to rush you. Only because you should know where things stand: of the twenty KAAL 01 pieces, ${leftW} remain. When the last one goes, the reference is retired. We will not make another.`,
+    "Most watches are bought to belong, a famous name worn so it can speak on the wearer's behalf. KAAL was made for the other kind of person: the one who does not need a logo to be seen, because they already know who they are. There is no borrowed name on this watch. On the back there is only a number. The rest is you.",
+    "If something stood in the way, whether the payment did not go through, a question went unanswered, or the moment simply passed, reply to this email. It comes straight to us."
+  ];
+  const facts = [
+    ["Engraved", d.n ? `Limited edition No. ${pad2(d.n)}` : "Your number, one of twenty"],
+    ["Warranty", "Two years on the movement"],
+    ["Returns", "Seven days, full refund"],
+    ["Delivery", "Free across India, in its handmade box"]
+  ];
+  const close = "Time does not wait for anyone. This piece, for now, is waiting for you.";
+  const foot = `You are receiving this because you began an order at thekaal.co. This is the only email we will send about it. Reply "stop" and we will not write again.`;
+
+  const body = [
+    d.n ? image(`${site}/assets/email/caseback-${pad2(d.n)}.png`, `The caseback of ${No}`, 220, 220) : "",
+    h1(esc(title)),
+    para(esc(hi), { align: "left", color: C.bone, pad: "0 32px 16px" }),
+    ...open.map(t => para(esc(t), { align: "left", color: C.bone, pad: "0 32px 16px" })),
+    ...middle.map(t => para(esc(t), { align: "left", pad: "0 32px 16px" })),
+    buttons([button(link, cta)]),
+    card("", facts.map(([k, v]) => [k, esc(v)])),
+    para(`<em style="font-family:${SERIF};font-size:19px;color:${C.goldLit};">${esc(close)}</em>`, { lh: 28, pad: "4px 32px 8px" }),
+    para("KAAL", { size: 13, color: C.bone, pad: "0 32px 18px" }),
+    para(`${esc(foot)}<br>WhatsApp <a href="https://wa.me/${PHONE_WA}" style="color:${C.faint};">${PHONE}</a>`, { size: 12, lh: 19, color: C.faint, pad: "0 32px 0" })
+  ].join("\n");
+
+  const text = [hi, "", open.join("\n\n"), "", middle.join("\n\n"), "", `${d.n ? "If you still want it" : "The twenty"}: ${link}`, "",
+    ...facts.map(([k, v]) => `${k}: ${v}`), "", close, "", "KAAL", "", "--", foot, `WhatsApp ${PHONE}`].join("\n");
+
+  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+}
+
 /* ══════════ 5. TO THE OWNER, AT THE END OF EVERY DAY ══════════
    The day in one email: how many came, how far they got, who paid, who
    nearly did, who asked to hear about Series 02, what is left. */

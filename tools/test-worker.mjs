@@ -717,5 +717,77 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   Date.now = realNow;
 }
 
+/* ── Nearly bought: the one follow-up email (worker 3e) ── */
+{
+  const base = globalThis.fetch;
+  const at = (iso) => Math.floor(Date.parse(iso) / 1000);
+  const orders = [
+    { id: "order_N1", status: "created", created_at: at("2026-10-19T08:00:00Z"), notes: { kaal_no: "05" } },  // open number, Razorpay has the email
+    { id: "order_N7", status: "created", created_at: at("2026-10-12T08:00:00Z"), notes: { kaal_no: "04" } },  // same person, older: no second email
+    { id: "order_N2", status: "created", created_at: at("2026-10-18T08:00:00Z"), notes: { kaal_no: "09" } },  // number sold since
+    { id: "order_N3", status: "created", created_at: at("2026-10-19T09:00:00Z"), notes: { kaal_no: "06" } },  // number held by someone paying now
+    { id: "order_N4", status: "created", created_at: at("2026-10-17T08:00:00Z"), notes: {} },                 // no number, email from our details step
+    { id: "order_N5", status: "created", created_at: at("2026-10-20T05:30:00Z"), notes: { kaal_no: "08" } },  // one hour old: too soon
+    { id: "order_N6", status: "created", created_at: at("2026-10-18T10:00:00Z"), notes: { kaal_no: "10" } },  // this person paid for another piece
+    { id: "order_N8", status: "created", created_at: at("2026-10-18T11:00:00Z"), notes: { kaal_no: "11" } },  // no email anywhere
+    { id: "order_P1", status: "paid",    created_at: at("2026-10-18T09:00:00Z"), notes: { kaal_no: "02" } }
+  ];
+  const pays = [
+    { id: "pay_N1", status: "failed", order_id: "order_N1", email: "Asha.R@Example.com", created_at: at("2026-10-19T08:02:00Z"), error_description: "Bank declined" },
+    { id: "pay_N7", status: "failed", order_id: "order_N7", email: "asha.r@example.com", created_at: at("2026-10-12T08:02:00Z") },
+    { id: "pay_N2", status: "failed", order_id: "order_N2", email: "bilal@example.com", created_at: at("2026-10-18T08:02:00Z") },
+    { id: "pay_N3", status: "failed", order_id: "order_N3", email: "chetan@example.com", created_at: at("2026-10-19T09:02:00Z") },
+    { id: "pay_N5", status: "failed", order_id: "order_N5", email: "early@example.com", created_at: at("2026-10-20T05:32:00Z") },
+    { id: "pay_N6", status: "failed", order_id: "order_N6", email: "buyer@example.com", created_at: at("2026-10-18T10:02:00Z") },
+    { id: "pay_P1", status: "captured", order_id: "order_P1", email: "Buyer@example.com", created_at: at("2026-10-18T09:02:00Z") }
+  ];
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+    let m = /\/v1\/(orders|payments)\?from=(\d+)&to=(\d+)/.exec(url);
+    if (m) {
+      const list = (m[1] === "orders" ? orders : pays).filter(x => x.created_at >= +m[2] && x.created_at <= +m[3]);
+      return new Response(JSON.stringify({ items: /skip=0/.test(url) ? list : [] }));
+    }
+    return base(url, init);
+  };
+  const envN = Object.assign({}, envC, { ABANDON_EMAIL: "on" });
+  KV.store.set("sold", "[1,2,9]"); ghSold = "[1, 2, 9]";
+  KV.store.set("ship:order_N4", JSON.stringify({ buyer: { name: "priya mehta", email: "priya@example.com", phone: "+919800000044" }, city: "Pune", state: "MH" }));
+  KV.store.set("hold:6", JSON.stringify({ by: "someone-else", until: Date.parse("2026-10-20T07:00:00Z") }));
+  for (const k of [...KV.store.keys()]) if (k.startsWith("nearly:")) KV.store.delete(k);
+  const tick = async (iso) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, envN, k); await k.done(); };
+  const nearly = () => mails.filter(m => /still here|found its owner|still waiting/.test(m.subject));
+
+  mails.length = 0;
+  await tick("2026-10-20T15:00:00Z");                                         /* 8:30 pm in India */
+  ok(nearly().length === 0, "nearly: nothing goes out after eight in the evening");
+
+  mails.length = 0;
+  await tick("2026-10-20T06:00:00Z");                                         /* 11:30 am in India */
+  const to = (e) => nearly().find(m => m.to[0] === e);
+  const a = to("asha.r@example.com"), b = to("bilal@example.com"), d = to("priya@example.com");
+  ok(nearly().length === 3 && a && b && d, "nearly: three people written to (" + nearly().map(m => m.to[0] + " / " + m.subject).join(", ") + ")");
+  ok(a && a.subject === "No. 05 is still here" && /caseback-05\.png/.test(a.html) && /thekaal\.co\/#n5/.test(a.text) && /seventeen remain/.test(a.text) && /^Hello,/.test(a.text) && /Yesterday you chose No\. 05/.test(a.text),
+    "nearly: an open number gets its own caseback, link, the true count and when they chose it");
+  ok(a && a.from === "KAAL <connect@thekaal.co>" && a.reply_to === "connect@thekaal.co" && /Reply "stop"/.test(a.text), "nearly: from KAAL, replies come to connect@, and it says how to stop");
+  ok(b && b.subject === "No. 09 found its owner" && !/#n9/.test(b.text) && /#twenty/.test(b.text), "nearly: a number that sold since is told honestly, and pointed at the rest");
+  ok(d && d.subject === "Your piece is still waiting" && /^Priya,/.test(d.text), "nearly: no number, an email from our own details step, and their first name");
+  ok(!to("chetan@example.com") && !to("early@example.com") && !to("buyer@example.com") && nearly().every(m => !/discount|% off|hurry|last chance/i.test(m.text)),
+    "nearly: not while someone is paying for their number, not too soon, never to a buyer, and no fake pressure");
+  ok(nearly().filter(m => m.to[0] === "asha.r@example.com").length === 1, "nearly: two tries by one person is one email");
+
+  mails.length = 0;
+  KV.store.delete("hold:6");
+  await tick("2026-10-20T06:30:00Z");
+  ok(nearly().length === 1 && to("chetan@example.com") && to("chetan@example.com").subject === "No. 06 is still here", "nearly: once the hold lapses, that person is written to on the next run");
+  mails.length = 0;
+  await tick("2026-10-20T07:00:00Z");
+  await tick("2026-10-27T06:00:00Z");
+  ok(nearly().length === 1 && to("early@example.com"), "nearly: everyone already written to is never written to again; the late one gets theirs when due");
+
+  globalThis.fetch = base; Date.now = realNow; ghSold = "[1, 2]";
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

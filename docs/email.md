@@ -1,38 +1,41 @@
 # The one email after an unfinished checkout
 
-Built, tested, and **off**. Nothing is sent until you turn it on.
+**On** (`ABANDON_EMAIL = "on"` in `wrangler.toml`). One email, once per
+person, ever, to someone who started a checkout, gave an email, and never
+paid. The words are `buyerNearlyBought()` in `worker/mail.js`; the rules are
+`abandonedCheckouts()` in `worker/kaal-sold-sync.js`.
 
 ## What it sends
 
-Exactly this, as plain text, to someone whose checkout for a number did not
-finish:
+The KAAL dark email, from `KAAL <connect@thekaal.co>`, with a plain-text
+copy. One of three, whichever is true when it is sent:
 
-> **Subject:** No. 07
->
-> No. 07 went back to the twenty this afternoon. If you still want it, it is
-> here: thekaal.co/#n7. If someone else chooses it first, it is theirs.
+| Their checkout | Subject | What it says |
+|---|---|---|
+| Number still open | **No. 07 is still here** | Their caseback photo; when they chose it; nobody has taken it; the real count left; *Claim No. 07* to `thekaal.co/#n7` |
+| Number sold since | **No. 07 found its owner** | Someone else finished what they started; how many are still open; *See the twenty* |
+| No number on it | **Your piece is still waiting** | How many remain; *See the twenty* |
 
-`thekaal.co/#n7` opens the twenty on No. 07 with the caseback turned to it.
+All three: no discount, no deadline. The anti-brand paragraph, "reply to
+this email", the warranty, seven-day return and free delivery, and a footer
+saying this is the only email and *reply "stop"* ends it. Someone who
+replies "stop" is already done: there is no second email to stop.
 
 ## When it sends, and when it does not
 
-The worker checks every thirty minutes (the cron in `wrangler.toml`). One
-email goes out only when **all** of these are true:
+The worker checks every thirty minutes (the cron in `wrangler.toml`).
 
 | Rule | Why |
 |---|---|
-| `ABANDON_EMAIL = "on"` in `wrangler.toml` | It is off by default. `"on"` is the only value that sends. |
-| The checkout was priced by this worker 3 to 27 hours ago and never paid | Too soon is pushy; much later is stale. |
-| Razorpay holds an email for it | Razorpay only has one if the buyer reached the payment step and it failed or was abandoned there. A modal opened and closed with nothing typed leaves no address, so no email. Nothing is collected for this. |
-| The number is still open and nobody else is holding it | The email says "it is here". That has to be true when it lands. |
-| That person has not since paid for any piece | |
-| They have never had this email for this number | Exactly once per person per number. The record is kept for a year. |
-| It is between 12:00 and 18:00 in India | The words say "this afternoon". |
+| Checkout priced by this worker 3 hours to `ABANDON_LOOKBACK_DAYS` (default 30) ago, never paid | Too soon is pushy. The first run after switching on catches the backlog. |
+| There is an email: the one typed into the site's details step, or the one Razorpay holds | Nothing is guessed. |
+| That person has never paid for any piece | |
+| They have never had this email, for any number | Once per person, ever. Key `nearly:<hash>`, kept two years, written before the send. |
+| If their number is open and someone is paying for it this minute, wait for the next run | "Still here" has to be true when it lands. |
+| Between 10:00 and 20:00 in India, at most ten per run | |
 
-At most ten go out per run. If the provider refuses a send, it is logged and
-never retried. Once means once.
-
-The worker code is `abandonedCheckouts()` in `worker/kaal-sold-sync.js`.
+The desk's **Nearly bought** shows *Follow-up email sent* on anyone who has
+had it.
 
 ## Turning it on
 
@@ -85,7 +88,7 @@ The worker code is `abandonedCheckouts()` in `worker/kaal-sold-sync.js`.
    npx wrangler tail
    ```
 
-   A send logs `Abandoned-checkout emails sent: N.` A missing key logs which
+   A send logs `Nearly-bought emails sent: N.` A missing key logs which
    one is missing.
 
 To switch it off again, set `ABANDON_EMAIL = "off"` and redeploy. Nothing

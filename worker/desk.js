@@ -513,7 +513,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
     return h + '<div class="card list">' + u.map(function(x){
       return '<div class="it"><div class="t"><b>' + no(x.n) + (x.dial ? " &middot; " + esc(x.dial) : "") + '</b><span class="faint">' + esc(x.at) + "</span></div>" +
         (x.name ? "<p><b>" + esc(x.name) + "</b>" + (x.city ? " &middot; " + esc(x.city) : "") + "</p>" : "") +
-        "<p>" + esc(x.stage) + "</p>" + (x.email || x.contact ? "<p>" + (x.email ? esc(x.email) : "") + (x.email && x.contact ? " &middot; " : "") + (x.contact ? esc(x.contact) : "") + "</p>" : "") +
+        "<p>" + esc(x.stage) + "</p>" + (x.followed ? '<p class="faint">Follow-up email sent ' + esc(x.followed) + "</p>" : "") + (x.email || x.contact ? "<p>" + (x.email ? esc(x.email) : "") + (x.email && x.contact ? " &middot; " : "") + (x.contact ? esc(x.contact) : "") + "</p>" : "") +
         ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">No contact given for this one.</p>') +
         journeyButton(x.orderId) + "</div>";
     }).join("") + "</div>";

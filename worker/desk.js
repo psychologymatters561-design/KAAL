@@ -449,7 +449,7 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
         h += '<div class="row" style="justify-content:space-between"><span class="done">&#10003; Dispatched ' + esc(istTime(s.at)) +
           (s.courier ? " &middot; " + esc(s.courier) : "") + (s.tracking ? ' &middot; <span class="mono">' + esc(s.tracking) + "</span>" : "") +
           (s.mailed ? " &middot; buyer emailed" : "") + "</span>" +
-          '<button class="btn quiet sm" type="button" data-act="undo" data-o="' + esc(o.orderId) + '" data-n="' + o.n + '">Undo</button></div>';
+          '<button class="btn quiet sm" type="button" data-act="undo" data-o="' + esc(o.orderId) + '" data-n="' + o.n + '">Undo</button></div>' + afterLine(o);
       } else if (open){
         h += '<form class="ship" data-o="' + esc(o.orderId) + '" data-n="' + o.n + '">' +
           '<input type="text" name="courier" placeholder="Courier" list="couriers" autocomplete="off" maxlength="40">' +
@@ -469,6 +469,17 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       h += '<div class="o-ship">' + refundBlock(o) + "</div>";
     }
     return h + journeyButton(o.orderId) + '<div class="o-foot mono">' + esc(o.id) + (o.orderId ? " &middot; " + esc(o.orderId) : "") + "</div></article>";
+  }
+
+  /* The notes the worker sent the owner on its own after dispatch. */
+  function afterLine(o){
+    var a = o.after || {}, names = [["after1", "Arrival note"], ["after2", "Seven-day note"], ["after3", "One-year note"]];
+    var got = names.filter(function(k){ return a[k[0]]; }).map(function(k){ return k[1] + " sent " + esc(a[k[0]]); });
+    return got.length ? '<p class="sub">' + got.join(" &middot; ") + "</p>" : "";
+  }
+  function stopButton(email, stopped){
+    return '<button class="btn quiet sm" type="button" data-act="stop" data-email="' + esc(email) + '" data-v="' + (stopped ? "undo" : "stop") + '">' +
+      (stopped ? "Emails stopped &middot; undo" : "Stop emails to this person") + "</button>";
   }
 
   /* A full refund leaves one question, and only the owner answers it: is
@@ -514,7 +525,9 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       return '<div class="it"><div class="t"><b>' + no(x.n) + (x.dial ? " &middot; " + esc(x.dial) : "") + '</b><span class="faint">' + esc(x.at) + "</span></div>" +
         (x.name ? "<p><b>" + esc(x.name) + "</b>" + (x.city ? " &middot; " + esc(x.city) : "") + "</p>" : "") +
         "<p>" + esc(x.stage) + "</p>" + (x.followed ? '<p class="faint">Follow-up email sent ' + esc(x.followed) + "</p>" : "") + (x.email || x.contact ? "<p>" + (x.email ? esc(x.email) : "") + (x.email && x.contact ? " &middot; " : "") + (x.contact ? esc(x.contact) : "") + "</p>" : "") +
-        ((x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + "</div>" : '<p class="faint">No contact given for this one.</p>') +
+        (x.wa && waNum(x.contact) ? '<div class="row" style="margin-top:8px"><a class="btn sm" href="https://wa.me/' + waNum(x.contact) + "?text=" + encodeURIComponent(x.wa) + '" target="_blank" rel="noopener">WhatsApp, words typed</a>' +
+          '<a class="btn quiet sm" href="tel:' + esc(x.contact) + '">Call</a></div><p class="faint">No email, so nothing goes on its own. This opens WhatsApp with the note written; you press send.</p>'
+        : (x.email || x.contact) ? '<div class="row" style="margin-top:8px">' + contactButtons(x.email, x.contact, true) + (x.email ? stopButton(x.email, x.stopped) : "") + "</div>" : '<p class="faint">No contact given for this one.</p>') +
         journeyButton(x.orderId) + "</div>";
     }).join("") + "</div>";
   }
@@ -537,11 +550,12 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
   function renderLeads(){
     var L = D.leads || { total: 0, today: 0, recent: [] }, list = LEADS_ALL ? L.recent : L.recent.slice(0, 8);
     var h = '<div class="sec-h"><div><h2>Series 02 list' + (L.total ? '<span class="count">' + L.total + "</span>" : "") + '</h2><p class="sub">' +
-      (L.today ? plural(L.today, "joined", "joined") + " today" : "Nobody new today") + " &middot; one email when Series 02 is drawn, nothing else</p></div>" +
+      (L.today ? plural(L.today, "joined", "joined") + " today" : "Nobody new today") + " &middot; one note while Series 01 is open, one email when Series 02 is drawn</p></div>" +
       (L.total ? '<a class="btn ghost sm" href="/desk/leads.csv">Download CSV</a>' : "") + "</div>";
     if (!L.total) return h + '<div class="card empty">No one on the list yet.</div>';
     h += '<div class="card list">' + list.map(function(l){
-      return '<div class="it"><div class="t"><a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a><span class="faint">' + esc(l.source || "") + "</span></div><p class=\"faint\">" + esc(l.at) + "</p></div>";
+      return '<div class="it"><div class="t"><a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a><span class="faint">' + esc(l.source || "") + "</span></div><p class=\"faint\">" + esc(l.at) + "</p>" +
+        '<div class="row" style="margin-top:6px">' + stopButton(l.email, l.stopped) + "</div></div>";
     }).join("") + "</div>";
     if (L.recent.length > 8) h += '<div class="row" style="margin-top:8px"><button class="btn quiet sm" type="button" data-act="leads">' + (LEADS_ALL ? "Show fewer" : "Show the latest " + L.recent.length) + "</button></div>";
     return h;
@@ -827,6 +841,15 @@ footer{color:var(--faint);font-size:12px;line-height:1.6;border-top:1px solid va
       el.disabled = true;
       call("POST", "/desk/release", { n: rn, action: what }).then(function(j){
         if (j.ok){ toast(what === "sell" ? no(rn) + " is back on sale" : no(rn) + " stays retired"); load(true); }
+        else { el.disabled = false; toast("Not changed (" + (j.reason || j.status) + ")"); }
+      }, function(){ el.disabled = false; toast("Could not reach the worker"); });
+    }
+    else if (act === "stop"){
+      var se = el.getAttribute("data-email"), undo = el.getAttribute("data-v") === "undo";
+      if (!undo && !window.confirm("Stop every email the worker sends on its own to " + se + "? Order emails still go if they buy.")) return;
+      el.disabled = true;
+      call("POST", "/desk/stop", { email: se, undo: undo }).then(function(j){
+        if (j.ok){ toast(undo ? "Emails to " + se + " can go again" : "No more emails to " + se); load(true); }
         else { el.disabled = false; toast("Not changed (" + (j.reason || j.status) + ")"); }
       }, function(){ el.disabled = false; toast("Could not reach the worker"); });
     }

@@ -51,9 +51,10 @@
 
      POST /list {email} the Series 02 list: one address, stored under the
                         hash of itself, rate limited, nothing else kept
-     scheduled()        the abandoned-checkout email. Built, and OFF until
-                        ABANDON_EMAIL = "on" — see docs/email.md. Also the
-                        refund watch (section 7) and the morning report
+     scheduled()        the emails nobody presses send on (section 3e),
+                        each with its own switch in wrangler.toml — see
+                        docs/email.md. Also the refund watch (section 7)
+                        and the morning report
 
    Two things about /order are the whole point of it existing. It reads
    the price from PRICE_PAISE and ignores whatever the browser said the
@@ -84,7 +85,7 @@
    Do it when the cadence arrives, not before.
    ══════════════════════════════════════════════════════════════════ */
 
-import { buyerConfirmation, buyerNearlyBought, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime,
+import { buyerConfirmation, buyerNearlyBought, nearlyWhatsApp, seriesTwoNote, afterArrival, afterSettled, afterYear, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime,
   stepText, sourceName, deviceName } from "./mail.js";
 import { deskPage } from "./desk.js";
 
@@ -121,11 +122,11 @@ export default {
     return new Response("KAAL edition worker is alive.", { status: 200 });
   },
 
-  /* The cron in wrangler.toml calls this. It does nothing at all unless
-     ABANDON_EMAIL is "on", so the trigger can stay configured while the
-     feature stays off. */
+  /* The cron in wrangler.toml calls this. Each email it sends on its own
+     (section 3e) does nothing unless its own switch is "on", so the trigger
+     can stay configured while any of them stays off. */
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(abandonedCheckouts(env));
+    ctx.waitUntil(followUps(env));
     ctx.waitUntil(refundWatch(env));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
@@ -639,6 +640,7 @@ async function notifySale(env, entity, chosen, short) {
       paymentId, orderId: entity.order_id || "",
       email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
       buyerName: (address && address.buyer && address.buyer.name) || "",
+      first: firstNameOf(address && address.buyer && address.buyer.name),
       short: short ? { claimed: short.claimed, price: rupees(parseInt(env.PRICE_PAISE || "0", 10)) } : null,
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
       when: indiaTime(paidAt), arriveBy: arriveBy(paidAt),
@@ -894,9 +896,10 @@ async function releaseSold(env, n, why) {
    One field on the page and one key here. The address is stored under the
    SHA-256 of itself, so adding the same person twice changes nothing, with
    the moment it arrived and which form it came from — and nothing else:
-   no name, no IP, no cookie. The page promises "One email when Series 02
-   is drawn. Nothing else, ever." and this route keeps nothing that could
-   be used for anything else.
+   no name, no IP, no cookie. The page promises "One note while Series 01
+   is still open, and one email when Series 02 is drawn. Nothing else." The
+   note is section 3e's; this route keeps nothing that could be used for
+   anything else.
 
    Read it out when Series 02 is drawn:
      wrangler kv key list --binding KAAL_STATE --prefix list:
@@ -975,29 +978,55 @@ async function readPlaced(env) {
   return Object.keys(out).length ? out : null;
 }
 
-/* ══════════ 3e. THE ONE EMAIL AFTER AN UNFINISHED CHECKOUT ══════════
+/* ══════════ 3e. THE EMAILS NOBODY PRESSES SEND ON ══════════
 
-   OFF unless ABANDON_EMAIL = "on". Runs on the thirty-minute cron. The
-   words are buyerNearlyBought() in mail.js. The rules this code keeps:
+   Five of them, each switched on by its own line in wrangler.toml ("on" is
+   the only value that sends), each once per person or once per order,
+   ever. Run on the thirty-minute cron. The words are in mail.js; this
+   decides who gets which, and when. docs/email.md has the table.
 
-   - A checkout this worker priced, at least three hours ago and within
-     the last ABANDON_LOOKBACK_DAYS (default 30), that never became a
-     payment. The first run after switching on catches the backlog; after
-     that it is one email a few hours after each drop-off.
-   - Only when there is an address to write to: the email the person typed
-     into our own details step (ship:<order>) or the one Razorpay holds.
-     Nothing is guessed.
-   - Not to anybody who has paid for any piece.
-   - Exactly once per PERSON, ever, whichever number and however many
-     tries: a KV key (nearly:<hash of email>), kept two years, written
-     before the send so a failed send is never repeated.
-   - If their number is still open, the email says so. If someone is
-     paying for it this minute, they are skipped for this run and tried
-     again on the next, because "still here" has to be true when it lands.
-     If it sold since, they get the version that says so.
-   - Only between 10:00 and 20:00 in India. At most ten per run. */
-const ABANDON_AFTER = 3 * 3600;
-const ABANDON_MAX   = 10;
+     ABANDON_EMAIL   the nearly-bought note: a checkout at least three hours
+                     and at most ABANDON_LOOKBACK_DAYS (default 30) old that
+                     never became a payment, to the email typed into our own
+                     details step (ship:<order>) or the one Razorpay holds.
+                     Once per PERSON (nearly:<hash>), whichever number and
+                     however many tries. Their number still open: it says so,
+                     unless someone is paying for it this minute, when it
+                     waits for the next run, because "still unclaimed" has to
+                     be true when it lands. Sold since: it says so, with the
+                     same dial's open numbers. No number: the count.
+     SERIES02_EMAIL  the one note to the Series 02 list, a day after joining,
+                     while Series 01 has a piece left. Never to anyone who
+                     had the nearly-bought note, or whose own checkout is
+                     still in that note's window (s02note:<hash>).
+     ARRIVAL_EMAIL   "Has No. 07 arrived?", the day after its arrive-by date
+                     and at least two days after dispatch (after1:<order>)
+     SETTLED_EMAIL   "No. 07 is yours for good", ten days after dispatch and
+                     never before seven days past the arrive-by date, if
+                     nothing was refunded (after2:<order>)
+     YEAR_EMAIL      "One year with No. 07", a year after dispatch (after3:)
+
+   The rules every one of them keeps:
+   - Only between 10:00 and 20:00 in India.
+   - At most ten per run and ninety a day, all five together (the count is
+     sent:<India day>), so with the order emails the shop stays inside
+     Resend's free hundred a day. Every attempt counts.
+   - Never to anyone who replied "stop" (stop:<hash>, set on the desk).
+   - The two before a purchase never go to anyone who has paid for any
+     piece: a payment captured, authorized or refunded under that email in
+     the last PAID_DAYS, or the email given before paying for one.
+   - The three after it are not sent late: a note about arriving goes
+     within a week of the arrive-by date or not at all, so switching one on
+     never sends a stale backlog. A gift's buyer is not its wearer, so the
+     two that speak of wearing it are not sent for a gift.
+   - The once-key is written BEFORE the send: once means once, even if the
+     send fails. */
+const ABANDON_AFTER   = 3 * 3600;
+const FOLLOW_RUN_MAX  = 10;
+const FOLLOW_DAY_MAX  = 90;
+const PAID_DAYS       = 400;
+const S02_AFTER       = 24 * 3600;
+const ONCE_TTL        = 3 * 365 * 24 * 3600;
 
 function nearlyWhen(tsSec, nowMs) {
   const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -1009,21 +1038,30 @@ function nearlyWhen(tsSec, nowMs) {
   if (days <= 13) return "Last week";
   return "A few weeks ago";
 }
+/* The first word of the name they gave, in title case ("mary-jane" is
+   "Mary-Jane"); nothing when it is missing, a single letter, or holds a
+   digit or an @, and the email says "Hello," instead. */
 function firstNameOf(full) {
   const f = String(full || "").trim().split(/\s+/)[0] || "";
   if (f.length < 2 || /[@\d]/.test(f)) return "";
-  return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase();
+  return f.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
 }
-const nearlyKey = async (email) => "nearly:" + (await sha256hex(String(email).trim().toLowerCase())).slice(0, 32);
+/* One record per person: the same hash of their email names every key
+   kept about them here. */
+const personHash = async (email) => (await sha256hex(String(email).trim().toLowerCase())).slice(0, 32);
+const nearlyKey = async (email) => "nearly:" + (await personHash(email));
+const stopKey = async (email) => "stop:" + (await personHash(email));
 
-async function abandonedCheckouts(env) {
-  if (env.ABANDON_EMAIL !== "on") return;
+async function followUps(env) {
+  const want = { nearly: env.ABANDON_EMAIL === "on", s02: env.SERIES02_EMAIL === "on",
+    after1: env.ARRIVAL_EMAIL === "on", after2: env.SETTLED_EMAIL === "on", after3: env.YEAR_EMAIL === "on" };
+  if (!Object.values(want).some(Boolean)) return;
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !env.KAAL_STATE) {
-    console.log("ABANDON_EMAIL is on, but the Razorpay keys or the KV namespace are missing.");
+    console.log("Follow-up emails are on, but the Razorpay keys or the KV namespace are missing.");
     return;
   }
   if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) {
-    console.log("ABANDON_EMAIL is on, but neither RESEND_API_KEY nor BREVO_API_KEY is set.");
+    console.log("Follow-up emails are on, but neither RESEND_API_KEY nor BREVO_API_KEY is set.");
     return;
   }
   const nowMs = Date.now();
@@ -1031,55 +1069,187 @@ async function abandonedCheckouts(env) {
   if (istHour < 10 || istHour >= 20) return;
 
   const now = Math.floor(nowMs / 1000);
-  const lookback = Math.max(1, parseInt(env.ABANDON_LOOKBACK_DAYS || "30", 10) || 30) * 86400;
-  const payments = await listPayments(env, now - lookback - 3600, now);
+  const payments = await listPayments(env, now - PAID_DAYS * 86400, now, 2000);
   if (!payments) return;
-
-  const paid = new Set();
-  for (const p of payments) {
-    if ((p.status === "captured" || p.status === "authorized" || p.status === "refunded") && p.email) paid.add(String(p.email).trim().toLowerCase());
+  const countKey = "sent:" + istDay(nowMs);
+  const count = (await env.KAAL_STATE.get(countKey, "json").catch(() => null)) || {};
+  const R = { env, nowMs, now, payments, count, run: 0, written: new Set(), site: siteUrl(env),
+    edition: parseInt(env.EDITION || "20", 10), paid: await paidEmails(env, payments) };
+  try {
+    if (want.nearly) await nearlyRound(R);
+    if (want.s02) await seriesTwoRound(R);
+    if (want.after1 || want.after2 || want.after3) await afterRound(R, want);
+  } catch (e) { console.log("Follow-up emails threw:", String(e).slice(0, 160)); }
+  if (R.run) {
+    await env.KAAL_STATE.put(countKey, JSON.stringify(count), { expirationTtl: 40 * 86400 }).catch(() => null);
+    console.log(`Follow-up emails sent: ${R.run}; ${count.total} today.`);
   }
-  const sold = (await knownSold(env)) || [];
-  const edition = parseInt(env.EDITION || "20", 10);
-  const left = Math.max(0, edition - sold.length);
-  if (!left) return;
-
-  /* Newest checkout per person. */
-  const latest = new Map();
-  for (const u of await unfinishedBetween(env, payments, now - lookback, now - ABANDON_AFTER)) {
-    const email = String(u.email || "").trim().toLowerCase();
-    if (!validEmail(email) || paid.has(email)) continue;
-    if (!latest.has(email)) latest.set(email, u);   // already newest first
-  }
-
-  let sent = 0;
-  for (const [email, u] of latest) {
-    if (sent >= ABANDON_MAX) break;
-    const once = await nearlyKey(email);
-    if (await env.KAAL_STATE.get(once).catch(() => null)) continue;
-
-    const n = u.n && u.n <= edition ? u.n : 0;
-    const isOpen = n && sold.indexOf(n) === -1;
-    if (isOpen) {
-      const hold = await env.KAAL_STATE.get(HOLD_PREFIX + n, "json").catch(() => null);
-      if (hold && hold.until > Date.now()) continue;   // someone is paying for it now; next run
-    }
-    const mail = buyerNearlyBought({
-      site: siteUrl(env), first: firstNameOf(u.name), when: nearlyWhen(u.ts, nowMs), left,
-      n: isOpen ? n : 0, lost: n && !isOpen ? n : 0, dial: isOpen ? u.dial : ""
-    });
-    /* Written BEFORE sending: once means once, even if the send fails. */
-    await env.KAAL_STATE.put(once, JSON.stringify({ at: indiaTime(new Date(nowMs)), n, order: u.orderId, subject: mail.subject }),
-      { expirationTtl: 2 * 365 * 24 * 3600 });
-    if (await sendEmail(env, email, mail.subject, mail.text, mail.html)) sent++;
-  }
-  if (sent) console.log(`Nearly-bought emails sent: ${sent}.`);
 }
 
-async function listPayments(env, from, to) {
+const room = (R) => R.run < FOLLOW_RUN_MAX && (R.count.total || 0) < FOLLOW_DAY_MAX;
+const stopped = async (env, email) => !!(await env.KAAL_STATE.get(await stopKey(email)).catch(() => null));
+async function heldNow(env, n) {
+  const h = await env.KAAL_STATE.get(HOLD_PREFIX + n, "json").catch(() => null);
+  return !!(h && h.until > Date.now());
+}
+/* What the counts in an email are read from. Unknown is a reason not to
+   write, never a reason to write "twenty are left". */
+async function soldFor(R) {
+  if (R.sold === undefined) R.sold = await knownSold(R.env);
+  return R.sold;
+}
+/* Every checkout in the nearly-bought window that never became a payment,
+   newest first, read once a run. */
+async function checkoutsFor(R) {
+  if (!R.checkouts) {
+    const days = Math.max(1, parseInt(R.env.ABANDON_LOOKBACK_DAYS || "30", 10) || 30);
+    R.checkouts = await unfinishedBetween(R.env, R.payments, R.now - days * 86400, R.now);
+  }
+  return R.checkouts;
+}
+/* Everyone who has paid for a piece: the email Razorpay took, and the one
+   typed into our details step for the same order, which can differ. */
+async function paidEmails(env, payments) {
+  const out = new Set(), orders = new Set();
+  for (const p of payments) {
+    if (p.status !== "captured" && p.status !== "authorized" && p.status !== "refunded") continue;
+    if (p.email) out.add(String(p.email).trim().toLowerCase());
+    if (p.order_id) orders.add(p.order_id);
+  }
+  for (const o of orders) {
+    const given = await env.KAAL_STATE.get("ship:" + o, "json").catch(() => null);
+    if (given && given.buyer && given.buyer.email) out.add(String(given.buyer.email).trim().toLowerCase());
+  }
+  return out;
+}
+async function followSend(R, kind, email, mail, once, record) {
+  await R.env.KAAL_STATE.put(once, JSON.stringify(Object.assign({ at: indiaTime(new Date(R.nowMs)), subject: mail.subject }, record)),
+    { expirationTtl: ONCE_TTL });
+  R.run++;
+  R.count.total = (R.count.total || 0) + 1;
+  R.count[kind] = (R.count[kind] || 0) + 1;
+  R.written.add(email);
+  return sendEmail(R.env, email, mail.subject, mail.text, mail.html, undefined, mail.headers);
+}
+
+async function nearlyRound(R) {
+  const { env, nowMs } = R;
+  const sold = await soldFor(R);
+  if (!sold) { console.log("Nearly-bought: the sold list could not be read, so nothing was sent."); return; }
+  const left = Math.max(0, R.edition - sold.length);
+  if (!left) return;
+
+  /* Each person's newest checkout. One still under three hours old means
+     they are still trying, or only just stopped: not yet. */
+  const latest = new Map();
+  for (const u of await checkoutsFor(R)) {
+    const email = String(u.email || "").trim().toLowerCase();
+    if (!validEmail(email) || R.paid.has(email)) continue;
+    if (!latest.has(email)) latest.set(email, u);
+  }
+  for (const [email, u] of latest) {
+    if (!room(R)) return;
+    if (u.ts > R.now - ABANDON_AFTER) continue;
+    const once = await nearlyKey(email);
+    if (await env.KAAL_STATE.get(once).catch(() => null)) continue;
+    if (await stopped(env, email)) continue;
+
+    const n = u.n >= 1 && u.n <= R.edition ? u.n : 0;
+    const dial = n ? DIAL_OF(env, n) : "";
+    const open = !!n && sold.indexOf(n) === -1;
+    const same = [];
+    if (open) {
+      if (await heldNow(env, n)) continue;                 // someone is paying for it now; next run
+    } else if (n && dial) {
+      const pool = [];
+      for (let k = 1; k <= R.edition; k++) if (k !== n && DIAL_OF(env, k) === dial && sold.indexOf(k) === -1) pool.push(k);
+      for (const k of pool) if (!(await heldNow(env, k))) same.push(k);
+      if (pool.length && !same.length) continue;           // the dial's last open numbers are being paid for; next run
+    }
+    const mail = buyerNearlyBought({ site: R.site, first: firstNameOf(u.name), when: nearlyWhen(u.ts, nowMs),
+      n, open, dial, sold: sold.length, left, sameDial: same });
+    await followSend(R, "nearly", email, mail, once, { n, order: u.orderId });
+  }
+}
+
+async function seriesTwoRound(R) {
+  const { env } = R;
+  if (!room(R)) return;
+  const sold = await soldFor(R);
+  if (!sold) return;
+  const left = Math.max(0, R.edition - sold.length);
+  if (!left) return;
+  const trying = new Set((await checkoutsFor(R)).map(u => String(u.email || "").trim().toLowerCase()).filter(Boolean));
+  let cursor;
+  do {
+    const page = await env.KAAL_STATE.list({ prefix: LIST_PREFIX, cursor });
+    for (const k of page.keys || []) {
+      if (!room(R)) return;
+      /* list:<sha-256 of the email>, so its first 32 are the person's hash. */
+      const once = "s02note:" + k.name.slice(LIST_PREFIX.length, LIST_PREFIX.length + 32);
+      if (await env.KAAL_STATE.get(once).catch(() => null)) continue;
+      const v = await env.KAAL_STATE.get(k.name, "json").catch(() => null);
+      const email = String((v && v.email) || "").trim().toLowerCase();
+      const joined = v && Date.parse(v.at) / 1000;
+      if (!validEmail(email) || !(joined <= R.now - S02_AFTER)) continue;
+      if (R.paid.has(email) || trying.has(email) || R.written.has(email)) continue;
+      if (await env.KAAL_STATE.get(await nearlyKey(email)).catch(() => null)) continue;
+      if (await stopped(env, email)) continue;
+      await followSend(R, "s02", email, seriesTwoNote({ site: R.site, left }), once, { source: (v && v.source) || "" });
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+}
+
+/* "2 Oct 2027", in India. */
+function longDate(ms) {
+  const d = new Date(ms + IST_MS);
+  return `${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+const dayPlus = (day, k) => new Date(Date.parse(day + "T12:00:00Z") + k * 86400000).toISOString().slice(0, 10);
+
+async function afterRound(R, want) {
+  const { env } = R;
+  const today = istDay(R.nowMs);
+  let lookups = 0;
+  const paid = R.payments.filter(p => (p.status === "captured" || p.status === "authorized") && p.order_id && p.email)
+    .sort((a, b) => a.created_at - b.created_at);
+  for (const p of paid) {
+    if (!room(R)) return;
+    const sent = await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null);
+    const out = sent && Date.parse(sent.at);
+    if (!out) continue;                                     // not dispatched
+    const email = String(p.email).trim().toLowerCase();
+    if (!validEmail(email)) continue;
+    const since = (R.nowMs - out) / 86400000;
+    const due = arriveByDay(new Date(p.created_at * 1000));
+    const gift = (p.notes || {}).gift === "yes";
+    const kinds = [];
+    if (want.after1 && today > due && today <= dayPlus(due, 7) && since >= 2) kinds.push(["after1", afterArrival]);
+    if (want.after2 && !gift && !(p.amount_refunded > 0) && since >= 10 && since < 30 && today > dayPlus(due, 7)) kinds.push(["after2", afterSettled]);
+    if (want.after3 && !gift && since >= 365 && since < 395) kinds.push(["after3", afterYear]);
+    if (!kinds.length || await stopped(env, email)) continue;
+
+    let n = parseInt((p.notes || {}).kaal_no, 10);
+    if (!n && lookups < 5) { lookups++; n = await numberFromOrder(env, p.order_id); }
+    if (!(n >= 1 && n <= R.edition)) continue;
+    const given = await env.KAAL_STATE.get("ship:" + p.order_id, "json").catch(() => null);
+    const first = firstNameOf(given && given.buyer && given.buyer.name);
+    for (const [kind, make] of kinds) {
+      const once = kind + ":" + p.order_id;
+      if (await env.KAAL_STATE.get(once).catch(() => null)) continue;
+      const end = new Date(out); end.setUTCFullYear(end.getUTCFullYear() + 2);      // twenty four months from dispatch
+      const mail = make({ site: R.site, n, first, until: longDate(end.getTime()) });
+      await followSend(R, kind, email, mail, once, { n });
+      break;                                                // one note per owner per run
+    }
+  }
+}
+
+async function listPayments(env, from, to, max = 500) {
   const out = [];
   try {
-    for (let skip = 0; skip < 500; skip += 100) {
+    for (let skip = 0; skip < max; skip += 100) {
       const res = await fetch(`${RZP_API}/payments?from=${from}&to=${to}&count=100&skip=${skip}`, { headers: razorpayAuth(env) });
       if (!res.ok) { console.log("Payment listing failed:", res.status); return null; }
       const page = await res.json();
@@ -1096,8 +1266,10 @@ async function listPayments(env, from, to) {
 
 /* Resend if its key is set, Brevo if that one is. Plain text only, from
    ABANDON_FROM, replies to connect@thekaal.co unless ABANDON_REPLY_TO says
-   otherwise. A refused send is logged and never retried. */
-async function sendEmail(env, to, subject, text, html, replyToOverride) {
+   otherwise. A refused send is logged and never retried. `headers` are
+   extra mail headers (List-Unsubscribe on the emails nobody asked for);
+   both providers take them as they are. */
+async function sendEmail(env, to, subject, text, html, replyToOverride, headers) {
   const from    = env.MAIL_FROM || env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
   const replyTo = replyToOverride || env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
   const list    = (Array.isArray(to) ? to : [to]).filter(Boolean);
@@ -1107,6 +1279,7 @@ async function sendEmail(env, to, subject, text, html, replyToOverride) {
     if (env.RESEND_API_KEY) {
       const msg = { from, to: list, subject, text, reply_to: replyTo };
       if (html) msg.html = html;
+      if (headers) msg.headers = headers;
       res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
@@ -1119,6 +1292,7 @@ async function sendEmail(env, to, subject, text, html, replyToOverride) {
         to: list.map(email => ({ email })), subject, textContent: text, replyTo: { email: replyTo }
       };
       if (html) msg.htmlContent = html;
+      if (headers) msg.headers = headers;
       res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
@@ -1698,9 +1872,15 @@ async function ledger(env, nowMs) {
     if (!n && p.order_id && lookups < 25) { lookups++; n = await numberFromOrder(env, p.order_id); }
     n = n || 0;
     let address = null, sent = null, refundRec = null, release = null;
+    const after = {};
     if (env.KAAL_STATE && p.order_id) {
       address = await env.KAAL_STATE.get("ship:" + p.order_id, "json").catch(() => null);
       sent = await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null);
+      /* The notes to the owner after it left (section 3e). */
+      if (sent) for (const k of ["after1", "after2", "after3"]) {
+        const a = await env.KAAL_STATE.get(k + ":" + p.order_id, "json").catch(() => null);
+        if (a) after[k] = a.at || "yes";
+      }
     }
     const at = new Date(p.created_at * 1000), back = p.amount_refunded || 0;
     if (back && env.KAAL_STATE) {
@@ -1713,7 +1893,7 @@ async function ledger(env, nowMs) {
       amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`, paise: p.amount || 0,
       email: p.email || "", contact: p.contact || "", ts: p.created_at, day: istDay(p.created_at * 1000), at: indiaTime(at),
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
-      due: arriveBy(at), dueDay: arriveByDay(at), address, sent,
+      due: arriveBy(at), dueDay: arriveByDay(at), address, sent, after,
       refund: p.status === "refunded" || (back && back >= (p.amount || 0)) ? "full" : back ? "part" : "",
       refunded: back ? rupees(back) : "", refundedOn: refundRec ? indiaTime(new Date(refundRec.refundedAt)) : "",
       release: release ? { decided: release.decided || "", at: release.decidedAt || "" } : null
@@ -1785,6 +1965,7 @@ async function digestData(env, day) {
     refunds: (await refundsBetween(env, from, to)).map(r => ({ n: r.n, dial: r.n ? DIAL_OF(env, r.n) : "", amount: rupees(r.amount),
       full: !!r.full, payment: r.payment, at: indiaTime(new Date(r.refundedAt)) })),
     alerts: alertsFor(env, L, soldRaw, nowMs),
+    followUps: env.KAAL_STATE ? (await env.KAAL_STATE.get("sent:" + day, "json").catch(() => null)) || {} : {},
     deskUrl: env.DESK_PASSCODE ? workerUrl(env) + "/desk" : "",
     counting: !!env.STATS, razorpay: L.rzp
   };
@@ -1845,6 +2026,9 @@ async function dailyDigest(env) {
                              their tracking; {o, undo:true} takes it back
      POST /desk/release      {n, action: "sell" | "retire"} the owner's
                              answer to a full refund (section 7)
+     POST /desk/stop         {email} someone replied "stop": no email the
+                             worker sends on its own goes to them again
+                             (section 3e); {email, undo:true} takes it back
    ─────────────────── */
 
 const DESK_COOKIE = "kaal_desk";
@@ -1920,6 +2104,7 @@ async function desk(request, env, ctx, path) {
   if (path === "/desk/leads.csv" && method === "GET") return deskLeadsCsv(env);
   if (path === "/desk/dispatch" && method === "POST") return deskDispatch(request, env);
   if (path === "/desk/release" && method === "POST") return deskRelease(request, env);
+  if (path === "/desk/stop" && method === "POST") return deskStop(request, env);
   return deskJson({ ok: false, reason: "not-found" }, 404);
 }
 
@@ -2025,6 +2210,19 @@ async function deskData(env) {
   const sold = soldRaw ? soldRaw.slice().sort((a, b) => a - b) : null;
   const dials = {};
   for (let n = 1; n <= edition; n++) dials[n] = DIAL_OF(env, n);
+  /* Who asked not to be written to, and, for someone who left a phone and
+     no email, the nearly-bought note as a WhatsApp the owner sends by hand. */
+  for (const u of unfinished) {
+    if (u.email && env.KAAL_STATE) u.stopped = await stopped(env, u.email);
+    if (!u.email && u.contact && sold) {
+      const n = u.n >= 1 && u.n <= edition ? u.n : 0, dial = n ? dials[n] : "", open = !!n && sold.indexOf(n) < 0;
+      const same = [];
+      if (n && !open && dial) for (let k = 1; k <= edition; k++) if (k !== n && dials[k] === dial && sold.indexOf(k) < 0) same.push(k);
+      u.wa = nearlyWhatsApp({ site, first: firstNameOf(u.name), n, open, dial, left: edition - sold.length, sameDial: same });
+    }
+  }
+  const recentLeads = leads.slice(-50).reverse();
+  if (env.KAAL_STATE) for (const l of recentLeads) l.stopped = await stopped(env, l.email);
   const mail = !!(env.RESEND_API_KEY || env.BREVO_API_KEY);
   const hour = parseInt(env.DIGEST_HOUR_IST || "0", 10);
 
@@ -2041,7 +2239,7 @@ async function deskData(env) {
     revenue: live.reduce((t, o) => t + o.paise, 0),
     unfinished,
     journeys: await histAsk(env, "/journeys", { o: L.orders.map(o => o.orderId).concat(unfinished.map(u => u.orderId)).filter(Boolean) }, {}),
-    leads: { total: leads.length, today: leads.filter(l => istDay(l.ts * 1000) === today).length, recent: leads.slice(-50).reverse() },
+    leads: { total: leads.length, today: leads.filter(l => istDay(l.ts * 1000) === today).length, recent: recentLeads },
     alerts: alertsFor(env, L, soldRaw, nowMs),
     health: [
       { ok: mail, label: "Emails", detail: mail ? `Order emails go to buyers, and alerts and the daily report to ${ownerInbox(env).join(", ")}.` : "Not sending: RESEND_API_KEY is not set on the worker." },
@@ -2154,6 +2352,22 @@ async function deskDispatch(request, env) {
   }
   await env.KAAL_STATE.put(key, JSON.stringify(rec));
   return deskJson({ ok: true, mailed, to: mailed ? maskEmail(buyer) : "", sent: rec });
+}
+
+/* Inbound mail is not wired to this worker, so a reply saying "stop"
+   reaches a person, and this is where they mark it. Kept for good, under
+   the same hash as everything else kept about that person. */
+async function deskStop(request, env) {
+  if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
+  if (!env.KAAL_STATE) return deskJson({ ok: false, reason: "no-store" }, 503);
+  let body;
+  try { body = await request.json(); } catch (e) { return deskJson({ ok: false, reason: "bad-request" }, 400); }
+  const email = String((body && body.email) || "").trim().toLowerCase();
+  if (!validEmail(email)) return deskJson({ ok: false, reason: "invalid" }, 400);
+  const key = await stopKey(email);
+  if (body.undo === true) { await env.KAAL_STATE.delete(key); return deskJson({ ok: true, stopped: false }); }
+  await env.KAAL_STATE.put(key, JSON.stringify({ at: new Date().toISOString() }));
+  return deskJson({ ok: true, stopped: true });
 }
 
 /* A spreadsheet opens these. A cell that starts like a formula is made

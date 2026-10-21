@@ -11,7 +11,7 @@
      node tools/test-worker.mjs
    Exits non-zero if anything fails. CI runs it on every pull request.
    ══════════════════════════════════════════════════════════════════ */
-import { createHmac } from "node:crypto";
+import { createHmac, createHash } from "node:crypto";
 import w from "../worker/kaal-sold-sync.js";
 
 let failed = 0;
@@ -717,7 +717,22 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   Date.now = realNow;
 }
 
-/* ── Nearly bought: the one follow-up email (worker 3e) ── */
+/* ── The emails nobody presses send on (worker 3e) ──
+   What every customer email must never say, read from what a person sees:
+   the subject, the plain text, and the HTML with its tags and styles
+   taken out (so `<!doctype` and `!important` are not mistaken for an
+   exclamation mark). */
+const BANNED = /discount|% off|hurry|last chance|exclusive|luxury|limited time|hold|reserve|!/i;
+const seen = (m) => [m.subject, m.text, String(m.html || "").replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " ")
+  .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&[a-z#0-9]+;/gi, " ")].join("\n");
+const clean = (m) => !BANNED.test(seen(m)) && !/\u2014/.test(seen(m));
+const UNSUB = "<mailto:connect@thekaal.co?subject=stop>";
+const unsub = (m) => !!(m && m.headers && m.headers["List-Unsubscribe"] === UNSUB);
+const FULL_DIALS = JSON.stringify(Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, i < 6 ? "Emerald" : i < 10 ? "Midnight" : i < 14 ? "Champagne" : "Ivory"])));
+const sha = (s) => createHash("sha256").update(String(s).trim().toLowerCase()).digest("hex");
+const person = (s) => sha(s).slice(0, 32);
+
+/* ── Part 1. Nearly bought ── */
 {
   const base = globalThis.fetch;
   const at = (iso) => Math.floor(Date.parse(iso) / 1000);
@@ -730,7 +745,11 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
     { id: "order_N5", status: "created", created_at: at("2026-10-20T05:30:00Z"), notes: { kaal_no: "08" } },  // one hour old: too soon
     { id: "order_N6", status: "created", created_at: at("2026-10-18T10:00:00Z"), notes: { kaal_no: "10" } },  // this person paid for another piece
     { id: "order_N8", status: "created", created_at: at("2026-10-18T11:00:00Z"), notes: { kaal_no: "11" } },  // no email anywhere
-    { id: "order_P1", status: "paid",    created_at: at("2026-10-18T09:00:00Z"), notes: { kaal_no: "02" } }
+    { id: "order_N9", status: "created", created_at: at("2026-10-16T08:00:00Z"), notes: {} },                 // a name that is not a name
+    { id: "order_NS", status: "created", created_at: at("2026-10-16T09:00:00Z"), notes: { kaal_no: "12" } },  // replied "stop"
+    { id: "order_NT", status: "created", created_at: at("2026-10-16T10:00:00Z"), notes: { kaal_no: "13" } },  // paid later, under the email typed before paying
+    { id: "order_P1", status: "paid",    created_at: at("2026-10-18T09:00:00Z"), notes: { kaal_no: "02" } },
+    { id: "order_P2", status: "paid",    created_at: at("2026-09-01T09:00:00Z"), notes: { kaal_no: "01" } }
   ];
   const pays = [
     { id: "pay_N1", status: "failed", order_id: "order_N1", email: "Asha.R@Example.com", created_at: at("2026-10-19T08:02:00Z"), error_description: "Bank declined" },
@@ -739,7 +758,12 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
     { id: "pay_N3", status: "failed", order_id: "order_N3", email: "chetan@example.com", created_at: at("2026-10-19T09:02:00Z") },
     { id: "pay_N5", status: "failed", order_id: "order_N5", email: "early@example.com", created_at: at("2026-10-20T05:32:00Z") },
     { id: "pay_N6", status: "failed", order_id: "order_N6", email: "buyer@example.com", created_at: at("2026-10-18T10:02:00Z") },
-    { id: "pay_P1", status: "captured", order_id: "order_P1", email: "Buyer@example.com", created_at: at("2026-10-18T09:02:00Z") }
+    { id: "pay_NS", status: "failed", order_id: "order_NS", email: "stop.me@example.com", created_at: at("2026-10-16T09:02:00Z") },
+    { id: "pay_NT", status: "failed", order_id: "order_NT", email: "typed.first@example.com", created_at: at("2026-10-16T10:02:00Z") },
+    { id: "pay_P1", status: "captured", order_id: "order_P1", email: "Buyer@example.com", created_at: at("2026-10-18T09:02:00Z") },
+    /* Paid six weeks ago, outside the nearly-bought window, with a different
+       email at Razorpay than the one typed before paying. */
+    { id: "pay_P2", status: "captured", order_id: "order_P2", email: "rzp.other@example.com", created_at: at("2026-09-01T09:02:00Z") }
   ];
   globalThis.fetch = async (url, init) => {
     url = String(url);
@@ -751,13 +775,17 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
     }
     return base(url, init);
   };
-  const envN = Object.assign({}, envC, { ABANDON_EMAIL: "on" });
+  const envN = Object.assign({}, envC, { ABANDON_EMAIL: "on", DIALS: FULL_DIALS });
   KV.store.set("sold", "[1,2,9]"); ghSold = "[1, 2, 9]";
+  for (const k of [...KV.store.keys()]) if (/^(nearly|stop|s02note|sent|list):/.test(k) && !/^sent:order_/.test(k)) KV.store.delete(k);
   KV.store.set("ship:order_N4", JSON.stringify({ buyer: { name: "priya mehta", email: "priya@example.com", phone: "+919800000044" }, city: "Pune", state: "MH" }));
+  KV.store.set("ship:order_N9", JSON.stringify({ buyer: { name: "r2 d2", email: "digits@example.com", phone: "+919800000099" } }));
+  KV.store.set("ship:order_P2", JSON.stringify({ buyer: { name: "Tara", email: "typed.first@example.com", phone: "+919800000077" } }));
   KV.store.set("hold:6", JSON.stringify({ by: "someone-else", until: Date.parse("2026-10-20T07:00:00Z") }));
-  for (const k of [...KV.store.keys()]) if (k.startsWith("nearly:")) KV.store.delete(k);
-  const tick = async (iso) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, envN, k); await k.done(); };
-  const nearly = () => mails.filter(m => /still here|found its owner|still waiting/.test(m.subject));
+  KV.store.set("stop:" + person("stop.me@example.com"), JSON.stringify({ at: "2026-10-19T00:00:00Z" }));
+  const tick = async (iso, e = envN) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, e, k); await k.done(); };
+  const nearly = () => mails.filter(m => /^No\. \d\d$|^[A-Z][a-z]+ of twenty$/.test(m.subject));
+  const to = (e) => nearly().find(m => m.to[0] === e);
 
   mails.length = 0;
   await tick("2026-10-20T15:00:00Z");                                         /* 8:30 pm in India */
@@ -765,28 +793,298 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
 
   mails.length = 0;
   await tick("2026-10-20T06:00:00Z");                                         /* 11:30 am in India */
-  const to = (e) => nearly().find(m => m.to[0] === e);
-  const a = to("asha.r@example.com"), b = to("bilal@example.com"), d = to("priya@example.com");
-  ok(nearly().length === 3 && a && b && d, "nearly: three people written to (" + nearly().map(m => m.to[0] + " / " + m.subject).join(", ") + ")");
-  ok(a && a.subject === "No. 05 is still here" && /caseback-05\.png/.test(a.html) && /thekaal\.co\/#n5/.test(a.text) && /seventeen remain/.test(a.text) && /^Hello,/.test(a.text) && /Yesterday you chose No\. 05/.test(a.text),
-    "nearly: an open number gets its own caseback, link, the true count and when they chose it");
-  ok(a && a.from === "KAAL <connect@thekaal.co>" && a.reply_to === "connect@thekaal.co" && /Reply "stop"/.test(a.text), "nearly: from KAAL, replies come to connect@, and it says how to stop");
-  ok(b && b.subject === "No. 09 found its owner" && !/#n9/.test(b.text) && /#twenty/.test(b.text), "nearly: a number that sold since is told honestly, and pointed at the rest");
-  ok(d && d.subject === "Your piece is still waiting" && /^Priya,/.test(d.text), "nearly: no number, an email from our own details step, and their first name");
-  ok(!to("chetan@example.com") && !to("early@example.com") && !to("buyer@example.com") && nearly().every(m => !/discount|% off|hurry|last chance/i.test(m.text)),
-    "nearly: not while someone is paying for their number, not too soon, never to a buyer, and no fake pressure");
+  const a = to("asha.r@example.com"), b = to("bilal@example.com"), c3 = to("priya@example.com"), dg = to("digits@example.com");
+  ok(nearly().length === 4 && a && b && c3 && dg, "nearly: four people written to (" + nearly().map(m => m.to[0] + " / " + m.subject).join(", ") + ")");
+  ok(a && a.subject === "No. 05" && /^Hello,\n\nYou chose No\. 05 yesterday\. The Emerald dial\. You got as far as checkout/.test(a.text) &&
+    /Seventeen are left; three are already on someone's wrist\./.test(a.text) && /No\. 05: https:\/\/thekaal\.co\/#n5/.test(a.text) && /P\.S\. This is the only time we'll write about No\. 05\./.test(a.text),
+    "nearly A: subject is the number, 'Hello,' without a name, when, dial, the count in words, the link to the number");
+  ok(a && /<title>No\. 05<\/title>/.test(a.html) && /Still unclaimed\./.test(a.html) && !/<img|<h1|border-radius:999px|caseback/.test(a.html) && /text-decoration:underline/.test(a.html) && /font-size:16px/.test(a.html),
+    "nearly A: a personal note: no picture, heading, button or card; 16px; the link one underlined line");
+  ok(a && a.from === "KAAL <connect@thekaal.co>" && a.reply_to === "connect@thekaal.co" && /Reply "stop" and we won't write again\./.test(a.text) && /Reply &quot;stop&quot; and we won&#39;t write again\./.test(a.html),
+    "nearly: from KAAL, replies come to connect@, and the footer says how to stop");
+  ok(b && b.subject === "No. 09" && /It found its owner\./.test(b.html) && /^Hello,\n\nNo\. 09 is gone\. You chose it on Sunday,/.test(b.text) &&
+    /If it was the Midnight dial that held you, No\. 07, No\. 08 and No\. 10 still carry it\. Of the twenty, seventeen are left\./.test(b.text) &&
+    /The Midnight dial: https:\/\/thekaal\.co\/#n7/.test(b.text) && !/#n9/.test(b.text),
+    "nearly B: a number sold since lists the same dial's open numbers and links to the lowest");
+  ok(c3 && c3.subject === "Seventeen of twenty" && /Still open\./.test(c3.html) && /^Priya,\n\nYou got as far as checkout at KAAL on Saturday and stopped there\./.test(c3.text) &&
+    /Of the twenty, seventeen are left and three are already on someone's wrist\./.test(c3.text) && /Choose yours: https:\/\/thekaal\.co\/#twenty/.test(c3.text),
+    "nearly C: no number, an email from our own details step, their first name in title case, the count");
+  ok(dg && /^Hello,/.test(dg.text), "nearly: a name with a digit in it is not used; 'Hello,' instead");
+  ok(nearly().every(m => /\n\n/.test(m.text) && m.html), "nearly: always a plain-text part, with a blank line between paragraphs");
+  ok(nearly().every(unsub), "nearly: List-Unsubscribe on every one");
+  ok(nearly().every(clean), "nearly: no discount, hurry, last chance, exclusive, luxury, limited time, hold, reserve, exclamation mark or em dash");
+  ok(!to("chetan@example.com") && !to("early@example.com") && !to("buyer@example.com") && !to("stop.me@example.com") && !to("typed.first@example.com"),
+    "nearly: not while someone is paying for their number, not too soon, never to a buyer (whichever email they paid under), never after a stop");
   ok(nearly().filter(m => m.to[0] === "asha.r@example.com").length === 1, "nearly: two tries by one person is one email");
+  ok(JSON.parse(KV.store.get("sent:2026-10-20")).nearly === 4, "nearly: the day's count is kept, by kind");
 
   mails.length = 0;
   KV.store.delete("hold:6");
   await tick("2026-10-20T06:30:00Z");
-  ok(nearly().length === 1 && to("chetan@example.com") && to("chetan@example.com").subject === "No. 06 is still here", "nearly: once the hold lapses, that person is written to on the next run");
+  ok(nearly().length === 1 && to("chetan@example.com") && to("chetan@example.com").subject === "No. 06", "nearly: once the hold lapses, that person is written to on the next run");
   mails.length = 0;
   await tick("2026-10-20T07:00:00Z");
   await tick("2026-10-27T06:00:00Z");
   ok(nearly().length === 1 && to("early@example.com"), "nearly: everyone already written to is never written to again; the late one gets theirs when due");
 
-  globalThis.fetch = base; Date.now = realNow; ghSold = "[1, 2]";
+  /* B, with the dial gone: every Midnight number sold. */
+  mails.length = 0;
+  KV.store.set("sold", "[1,2,7,8,9,10]"); ghSold = "[1, 2, 7, 8, 9, 10]";
+  pays.push({ id: "pay_NB", status: "failed", order_id: "order_NB", email: "dana@example.com", created_at: at("2026-10-26T08:02:00Z") });
+  orders.push({ id: "order_NB", status: "created", created_at: at("2026-10-26T08:00:00Z"), notes: { kaal_no: "08" } });
+  await tick("2026-10-27T06:30:00Z");
+  const fb = to("dana@example.com");
+  ok(fb && fb.subject === "No. 08" && /The Midnight dial is now fully claimed\. Fourteen pieces remain in the other three\./.test(fb.text) &&
+    /What's left: https:\/\/thekaal\.co\/#twenty/.test(fb.text) && !/still carry/.test(fb.text),
+    "nearly B: with the dial fully claimed it says so and links to #twenty");
+
+  /* The count is never guessed: no sold list, no email. */
+  mails.length = 0; KV.store.delete("sold"); ghSold = "not-an-array";
+  pays.push({ id: "pay_NU", status: "failed", order_id: "order_NU", email: "unknown.count@example.com", created_at: at("2026-10-26T09:02:00Z") });
+  orders.push({ id: "order_NU", status: "created", created_at: at("2026-10-26T09:00:00Z"), notes: {} });
+  await tick("2026-10-27T07:00:00Z", Object.assign({}, envN, { GITHUB_TOKEN: "" }));
+  ok(!to("unknown.count@example.com"), "nearly: when the sold list cannot be read, nothing is sent rather than a wrong count");
+  KV.store.set("sold", "[1,2,9]"); ghSold = "[1, 2, 9]";
+
+  globalThis.fetch = base; Date.now = realNow;
+}
+
+/* The three shapes, rendered directly: the words for numbers and the
+   "already worn" clause at its edges. */
+{
+  const M = await import("../worker/mail.js");
+  const site = "https://thekaal.co";
+  let m = M.buyerNearlyBought({ site, first: "Rahul", when: "Earlier today", n: 7, open: true, dial: "Midnight", sold: 0, left: 20 });
+  ok(/^Rahul,\n\nYou chose No\. 07 earlier today\. The Midnight dial\./.test(m.text) && /Twenty are left\. We never make/.test(m.text) && !/wrist\. We never/.test(m.text),
+    "nearly A: 'earlier today', and with none sold the 'already worn' clause is dropped");
+  m = M.buyerNearlyBought({ site, when: "A few weeks ago", n: 7, open: true, dial: "Midnight", sold: 1, left: 19 });
+  ok(/Nineteen are left; one is already on someone's wrist\./.test(m.text) && /You chose No\. 07 a few weeks ago\./.test(m.text), "nearly A: with one sold, 'one is already on someone's wrist'");
+  m = M.buyerNearlyBought({ site, when: "Last week", n: 0, sold: 1, left: 19 });
+  ok(m.subject === "Nineteen of twenty" && /nineteen are left and one is already on someone's wrist\./.test(m.text), "nearly C: the subject and the count in words");
+  m = M.buyerNearlyBought({ site, when: "Yesterday", n: 9, open: false, dial: "Midnight", sold: 3, left: 17, sameDial: [10] });
+  ok(/No\. 10 still carries it\./.test(m.text) && /The Midnight dial: https:\/\/thekaal\.co\/#n10/.test(m.text), "nearly B: one number left on the dial reads in the singular");
+  const all = [m, M.seriesTwoNote({ site, left: 17 }), M.afterArrival({ site, n: 7 }), M.afterSettled({ site, n: 7, first: "Rahul" }), M.afterYear({ site, n: 7, until: "21 Oct 2028" }),
+    M.buyerConfirmation({ site, n: 7, dial: "Midnight", amount: "₹5,999", paymentId: "pay_X", when: "21 Oct 2026, 2:00 pm", arriveBy: "Tue, 27 Oct", hasAddress: false, shipUrl: site + "/claimed.html#ship" }),
+    M.buyerConfirmation({ site, n: 7, dial: "Midnight", amount: "₹5,999", paymentId: "pay_X", when: "21 Oct 2026, 2:00 pm", arriveBy: "Tue, 27 Oct", hasAddress: true, gift: true, giftNote: "Happy birthday" })];
+  ok(all.every(clean), "every email: none of the banned words, no exclamation mark, no em dash");
+  ok(/^Hello, this is KAAL\. You chose No\. 07, the Midnight dial, and stopped at payment\. It's still unclaimed, seventeen of the twenty are left/.test(M.nearlyWhatsApp({ site, n: 7, open: true, dial: "Midnight", left: 17 })),
+    "nearly: the WhatsApp words for a phone with no email");
+}
+
+/* ── Part 2. The Series 02 list, one note each ── */
+{
+  const base = globalThis.fetch;
+  const at = (iso) => Math.floor(Date.parse(iso) / 1000);
+  const pays = [
+    { id: "pay_S1", status: "captured", order_id: "order_S1", email: "list.buyer@example.com", created_at: at("2026-10-02T08:00:00Z") },
+    { id: "pay_S2", status: "failed", order_id: "order_S2", email: "list.trying@example.com", created_at: at("2026-10-20T04:00:00Z") }
+  ];
+  const orders = [
+    { id: "order_S1", status: "paid", created_at: at("2026-10-02T07:58:00Z"), notes: { kaal_no: "03" } },
+    { id: "order_S2", status: "created", created_at: at("2026-10-20T03:58:00Z"), notes: { kaal_no: "04" } }
+  ];
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+    const m = /\/v1\/(orders|payments)\?from=(\d+)&to=(\d+)/.exec(url);
+    if (m) return new Response(JSON.stringify({ items: /skip=0/.test(url) ? (m[1] === "orders" ? orders : pays).filter(x => x.created_at >= +m[2] && x.created_at <= +m[3]) : [] }));
+    return base(url, init);
+  };
+  const join = (email, iso) => KV.store.set("list:" + sha(email), JSON.stringify({ email, at: iso, source: "footer" }));
+  for (const k of [...KV.store.keys()]) if (/^(nearly|stop|s02note|list):/.test(k) || /^sent:\d/.test(k)) KV.store.delete(k);
+  KV.store.set("sold", "[1,2,9]");
+  join("list.old@example.com", "2026-10-01T06:00:00Z");
+  join("list.new@example.com", "2026-10-20T03:00:00Z");      // three hours before the run
+  join("list.buyer@example.com", "2026-09-20T06:00:00Z");    // paid since
+  join("list.nearly@example.com", "2026-09-20T06:00:00Z");   // had the nearly-bought note
+  join("list.stop@example.com", "2026-09-20T06:00:00Z");     // replied stop
+  join("list.trying@example.com", "2026-09-20T06:00:00Z");   // a checkout of their own, in that note's window
+  KV.store.set("nearly:" + person("list.nearly@example.com"), JSON.stringify({ at: "x" }));
+  KV.store.set("stop:" + person("list.stop@example.com"), JSON.stringify({ at: "x" }));
+  const envS = Object.assign({}, envC, { SERIES02_EMAIL: "on", DIALS: FULL_DIALS });
+  const tick = async (iso, e = envS) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, e, k); await k.done(); };
+  const notes = () => mails.filter(m => m.subject === "Series 02");
+
+  mails.length = 0;
+  await tick("2026-10-20T06:00:00Z");
+  ok(notes().length === 1 && notes()[0].to[0] === "list.old@example.com", "series 02: one note, to the sign-up a day old who has not paid, had the nearly note, stopped, or got a checkout going (" + notes().map(m => m.to[0]).join(", ") + ")");
+  const s = notes()[0];
+  ok(s && /^Hello,\n\nYou asked us to write once, when Series 02 is drawn\./.test(s.text) && /Of the twenty, seventeen are left, and when the last is claimed/.test(s.text) &&
+    /The seventeen: https:\/\/thekaal\.co\/#twenty/.test(s.text) && /Not drawn yet\. One thing before it is\./.test(s.html) && unsub(s) && clean(s) && /Reply "stop"/.test(s.text),
+    "series 02: the words, the count in words, the link, List-Unsubscribe, the stop line");
+  mails.length = 0;
+  await tick("2026-10-20T06:30:00Z");
+  ok(notes().length === 0, "series 02: never twice, and a new sign-up waits its 24 hours");
+  await tick("2026-10-21T04:40:00Z");                                         /* 10:10 am in India, a day and more after joining */
+  ok(notes().length === 1 && notes()[0].to[0] === "list.new@example.com", "series 02: a new sign-up gets it once they have been on the list a day");
+  ok(!mails.some(m => /list\.(buyer|nearly|stop)@/.test(m.to[0])), "series 02: never to a buyer, to someone who had the nearly note, or after a stop");
+
+  /* Ten a run, ninety a day. */
+  for (let i = 0; i < 30; i++) join(`bulk${i}@example.com`, "2026-10-01T06:00:00Z");
+  mails.length = 0;
+  await tick("2026-10-21T05:00:00Z");
+  ok(notes().length === 10, "cap: at most ten in one run (" + notes().length + ")");
+  KV.store.set("sent:2026-10-21", JSON.stringify({ total: 87 }));
+  mails.length = 0;
+  await tick("2026-10-21T05:30:00Z");
+  ok(notes().length === 3 && JSON.parse(KV.store.get("sent:2026-10-21")).total === 90, "cap: the day stops at ninety, every kind together (" + notes().length + ")");
+  mails.length = 0;
+  await tick("2026-10-21T06:00:00Z");
+  ok(notes().length === 0, "cap: nothing more that day");
+  await tick("2026-10-22T05:00:00Z");
+  ok(notes().length === 10, "cap: the next day starts again");
+  KV.store.set("sold", JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1)));
+  mails.length = 0;
+  await tick("2026-10-23T05:00:00Z");
+  ok(notes().length === 0, "series 02: nothing once Series 01 has no piece left");
+  KV.store.set("sold", "[1,2,9]");
+  mails.length = 0;
+  await tick("2026-10-24T05:00:00Z", Object.assign({}, envS, { SERIES02_EMAIL: "off" }));
+  ok(notes().length === 0, "series 02: SERIES02_EMAIL off sends nothing");
+  globalThis.fetch = base; Date.now = realNow;
+}
+
+/* ── Part 3. The moment they pay ── */
+{
+  /* The welcome email, as the webhook sends it (section 4 above sent it to
+     a buyer who gave no name before paying). */
+  const welcome = mine;
+  const di = welcome.html.indexOf("dial-emerald.jpg"), ci = welcome.html.indexOf("caseback-03.png");
+  ok(di > 0 && ci > di, "welcome: No. 03 names the Emerald dial's picture, then its caseback");
+  /* That order was a gift: bought by one person, worn by another. */
+  ok(/^Hello,\n\nNo\. 03 is yours to give\. Of everyone who will ever wear a KAAL, the person you give it to is the only one who will wear this one\./.test(welcome.text) &&
+    /₹5,999 received\. Here is what happens now\./.test(welcome.html) && /WHAT HAPPENS NOW\n1\. Today: No\. 03 comes out of the edition/.test(welcome.text) &&
+    /3\. Within five working days: it is dispatched\. Tracking comes to this email the day it leaves\. It arrives by /.test(welcome.text) &&
+    /Once it arrives, there are seven days to live with it\./.test(welcome.text) &&
+    /Rare pieces find rare people\. This one found you\./.test(welcome.text) && /\nKAAL$/.test(welcome.text), "welcome: 'Hello,' without a name; a gift is the buyer's to give; the three steps; signed KAAL");
+  ok(!welcome.headers && clean(welcome), "welcome: no List-Unsubscribe on an order email, and nothing it must not say");
+  const M = await import("../worker/mail.js");
+  const g = M.buyerConfirmation({ site: "https://thekaal.co", n: 7, dial: "Midnight", first: "Rahul", amount: "₹5,999", paymentId: "pay_X", when: "x", arriveBy: "Tue, 27 Oct", hasAddress: true });
+  ok(/^Rahul,\n\nNo\. 07 is yours\. Of everyone who will ever wear a KAAL, you are the only one who will wear this one\./.test(g.text) &&
+    /3\. Within five working days: it is dispatched to your door\. Tracking comes to this email the day it leaves\. It reaches you by Tue, 27 Oct\./.test(g.text) &&
+    /At your door, you have seven days to live with it\. If it isn't you, send it back unworn for a full refund\./.test(g.text) && /dial-midnight\.jpg/.test(g.html),
+    "welcome: their first name, the words for the one who will wear it, the Midnight dial for No. 07");
+  /* With a name given before paying, the webhook's email uses it. */
+  mails.length = 0;
+  KV.store.set("ship:order_TESTORDER7", JSON.stringify({ src: "checkout", name: "Rahul Sharma", line1: "1 Road", city: "Delhi", state: "Delhi", pin: "110001", phone: "+919999999999", buyer: { name: "rahul sharma", email: "rahul.sharma@example.com", phone: "+919999999999" } }));
+  const e7 = Object.assign({}, entity, { id: "pay_WELCOME7", order_id: "order_TESTORDER7", notes: { kaal_no: "07" } });
+  const b7 = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: e7 } } });
+  await hook(b7, Object.assign({}, env, { DIALS: FULL_DIALS }));
+  const w7 = mails.find(m => m.to[0] === "rahul.sharma@example.com");
+  ok(w7 && /^Rahul,\n\nNo\. 03 is yours/.test(w7.text) && /We have your delivery address/.test(w7.text), "welcome: 'Rahul,' from the name given before paying");
+
+  /* Every way a payment can succeed ends on claimed.html. */
+  const { readFileSync } = await import("node:fs");
+  const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const confirm = (/function confirmPayment[\s\S]*?\n}\n/.exec(page) || [""])[0];
+  ok(/fetch\(KAAL\.api\.replace\([^)]*\) \+ "\/verify"/.test(confirm) && /location\.href = "claimed\.html\?razorpay_payment_id=" \+ encodeURIComponent\(ref\)/.test(confirm),
+    "paths: the modal's handler verifies, then goes to claimed.html");
+  ok(/handler:\s*function\s*\(res\)\s*\{\s*confirmPayment\(res/.test(page), "paths: the modal's success handler calls confirmPayment");
+  ok(/opts\.callback_url = KAAL\.api\.replace\([^)]*\) \+ "\/callback"/.test(page), "paths: in-app browsers and redirects are sent to the worker's /callback (which redirects to claimed.html, tested above)");
+  ok(/function recoverCheckout[\s\S]*?location\.replace\("claimed\.html\?razorpay_payment_id="/.test(page), "paths: a tab the phone threw away mid-payment recovers to claimed.html");
+  const vsig = createHmac("sha256", "sek").update("order_TESTORDER1|pay_ABC123").digest("hex");
+  r = await w.fetch(new Request("https://w/verify", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://thekaal.co" },
+    body: JSON.stringify({ razorpay_order_id: "order_TESTORDER1", razorpay_payment_id: "pay_ABC123", razorpay_signature: vsig }) }), env, ctx());
+  ok(r.status === 200 && (await r.json()).ok === true, "paths: /verify confirms a signed payment, so the handler goes on to claimed.html");
+  r = await w.fetch(new Request("https://w/verify", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ razorpay_order_id: "order_TESTORDER1", razorpay_payment_id: "pay_ABC123", razorpay_signature: "bad" }) }), env, ctx());
+  ok(r.status === 400, "paths: /verify refuses a bad signature, and the page does not claim a sale");
+  const thanks = readFileSync(new URL("../claimed.html", import.meta.url), "utf8");
+  ok(/id="ship"/.test(thanks) && /kaalQ = window\.kaalQ \|\| \[\]\)\.push\(\["purchase"/.test(thanks) && /\/receipt\?o=/.test(thanks) && />It is yours\.</.test(thanks) &&
+    /assets\/email\/dial-/.test(thanks) && /assets\/email\/caseback-/.test(thanks) && /What happens now/.test(thanks), "claimed.html: the address form, the Purchase event and the order lookup kept; its dial and caseback; the three steps");
+}
+
+/* ── Part 4. After the purchase ── */
+{
+  const base = globalThis.fetch;
+  const at = (iso) => Math.floor(Date.parse(iso) / 1000);
+  const pays = [
+    { id: "pay_A1", status: "captured", order_id: "order_A1", email: "owner.one@example.com", amount: 599900, amount_refunded: 0, created_at: at("2026-10-01T06:00:00Z"), notes: { kaal_no: "03" } },
+    { id: "pay_A2", status: "captured", order_id: "order_A2", email: "gift.giver@example.com", amount: 599900, amount_refunded: 0, created_at: at("2026-10-01T06:10:00Z"), notes: { kaal_no: "04", gift: "yes" } },
+    { id: "pay_A3", status: "captured", order_id: "order_A3", email: "part.refund@example.com", amount: 599900, amount_refunded: 50000, created_at: at("2026-10-01T06:20:00Z"), notes: { kaal_no: "05" } },
+    { id: "pay_A4", status: "captured", order_id: "order_A4", email: "owner.stop@example.com", amount: 599900, amount_refunded: 0, created_at: at("2026-10-01T06:30:00Z"), notes: { kaal_no: "06" } },
+    { id: "pay_A5", status: "captured", order_id: "order_A5", email: "not.sent@example.com", amount: 599900, amount_refunded: 0, created_at: at("2026-10-01T06:40:00Z"), notes: { kaal_no: "07" } },
+    { id: "pay_A6", status: "refunded", order_id: "order_A6", email: "full.refund@example.com", amount: 599900, amount_refunded: 599900, created_at: at("2026-10-01T06:50:00Z"), notes: { kaal_no: "08" } }
+  ];
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+    const m = /\/v1\/(orders|payments)\?from=(\d+)&to=(\d+)/.exec(url);
+    if (m) return new Response(JSON.stringify({ items: m[1] === "payments" && /skip=0/.test(url) ? pays.filter(x => x.created_at >= +m[2] && x.created_at <= +m[3]) : [] }));
+    return base(url, init);
+  };
+  for (const k of [...KV.store.keys()]) if (/^(after\d|stop|list|s02note):/.test(k) || /^sent:\d/.test(k)) KV.store.delete(k);
+  for (const o of ["order_A1", "order_A2", "order_A3", "order_A4", "order_A6"]) KV.store.set("sent:" + o, JSON.stringify({ at: "2026-10-03T10:00:00Z", courier: "Delhivery", tracking: "DL1" }));
+  KV.store.set("ship:order_A1", JSON.stringify({ name: "Meera Iyer", line1: "1 Road", city: "Pune", state: "MH", pin: "411001", phone: "+919800000001", buyer: { name: "meera iyer", email: "owner.one@example.com" } }));
+  KV.store.set("stop:" + person("owner.stop@example.com"), JSON.stringify({ at: "x" }));
+  const envA = Object.assign({}, envC, { ARRIVAL_EMAIL: "on", SETTLED_EMAIL: "on", YEAR_EMAIL: "on", DIALS: FULL_DIALS });
+  const tick = async (iso, e = envA) => { Date.now = () => Date.parse(iso); const k = ctx(); await w.scheduled({}, e, k); await k.done(); };
+  const by = (e, re) => mails.filter(m => m.to[0] === e && re.test(m.subject));
+
+  /* Paid Thu 1 Oct, arrives by Wed 7 Oct, dispatched Sat 3 Oct. */
+  mails.length = 0;
+  await tick("2026-10-07T06:00:00Z");
+  ok(!mails.some(m => /arrived\?/.test(m.subject)), "after: nothing on the arrive-by day itself");
+  await tick("2026-10-08T06:00:00Z");
+  const a1 = by("owner.one@example.com", /^Has No\. 03 arrived\?$/)[0];
+  ok(a1 && /^Meera,\n\nWe hope No\. 03 arrived well/.test(a1.text) && /We set the day, the date and the twenty-four hour hand before it left us, so it should read true when you open the box: the day at twelve, the date at six, the twenty-four hours at nine\./.test(a1.text) &&
+    /If anything isn't right, reply here\.\n\nKAAL$/.test(a1.text) && /caseback-03\.png/.test(a1.html) && clean(a1),
+    "after 4a: the day after arrive-by, 'Has No. 03 arrived?', their first name, set before it left, signed KAAL");
+  ok(by("gift.giver@example.com", /arrived\?/).length === 1 && by("part.refund@example.com", /arrived\?/).length === 1, "after 4a: a gift's buyer and a part refund are asked too");
+  ok(!mails.some(m => m.to[0] === "owner.stop@example.com" || m.to[0] === "not.sent@example.com" || m.to[0] === "full.refund@example.com"),
+    "after: never after a stop, never before dispatch, never for a full refund");
+  mails.length = 0;
+  await tick("2026-10-08T06:30:00Z");
+  ok(!mails.some(m => /arrived\?/.test(m.subject)), "after 4a: once per order");
+
+  mails.length = 0;
+  await tick("2026-10-14T06:00:00Z");
+  ok(!mails.some(m => /for good/.test(m.subject)), "after 4b: not before the seven days from the arrive-by date have run out");
+  await tick("2026-10-15T06:00:00Z");
+  const a2 = by("owner.one@example.com", /^No\. 03 is yours for good$/)[0];
+  ok(a2 && /^Meera,\n\nThe seven days have passed\./.test(a2.text) && /city and month can sit under No\. 03 on thekaal\.co, for example "Delhi · Oct 2026"\. Reply "yes" to be listed\./.test(a2.text) &&
+    /end your reply with "Yes, you can publish this"\. There is no gift for doing so\./.test(a2.text) && clean(a2), "after 4b: ten days after dispatch, the register and the three questions");
+  ok(!by("gift.giver@example.com", /for good/).length && !by("part.refund@example.com", /for good/).length, "after 4b: not for a gift, nor where any refund exists");
+
+  /* The desk shows what went, on each order. */
+  {
+    const deskEnv = Object.assign({}, envA, { DESK_PASSCODE: "brass-quiet-lantern-42" });
+    const login = await w.fetch(new Request("https://k.example.workers.dev/desk/login", { method: "POST", headers: { "Content-Type": "application/json", "X-Desk": "1", "cf-connecting-ip": "6.6.6.6" }, body: JSON.stringify({ passcode: "brass-quiet-lantern-42" }) }), deskEnv, ctx());
+    const jar = { Cookie: (login.headers.get("Set-Cookie") || "").split(";")[0], "X-Desk": "1" };
+    const dd = await (await w.fetch(new Request("https://k.example.workers.dev/desk/data", { headers: jar }), deskEnv, ctx())).json();
+    const o1 = (dd.orders || []).find(o => o.orderId === "order_A1");
+    ok(o1 && o1.after && o1.after.after1 && o1.after.after2 && !o1.after.after3, "desk: each order carries the notes sent to its owner");
+    let sr = await w.fetch(new Request("https://k.example.workers.dev/desk/stop", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ email: "Owner.One@example.com" }) }), deskEnv, ctx());
+    ok((await sr.json()).stopped === true && KV.store.has("stop:" + person("owner.one@example.com")), "desk: 'Stop emails to this person' sets stop:<hash>");
+    sr = await w.fetch(new Request("https://k.example.workers.dev/desk/stop", { method: "POST", headers: { "Content-Type": "application/json", Cookie: jar.Cookie }, body: JSON.stringify({ email: "x@example.com" }) }), deskEnv, ctx());
+    ok(sr.status === 403, "desk: the stop is refused without the desk's own header");
+    await w.fetch(new Request("https://k.example.workers.dev/desk/stop", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ email: "owner.one@example.com", undo: true }) }), deskEnv, ctx());
+    ok(!KV.store.has("stop:" + person("owner.one@example.com")), "desk: and can be taken back");
+  }
+
+  mails.length = 0;
+  await tick("2027-10-04T06:00:00Z");
+  const a3 = by("owner.one@example.com", /^One year with No\. 03$/)[0];
+  ok(a3 && /^Meera,\n\nA year ago No\. 03 left us for your wrist\./.test(a3.text) && /The movement warranty runs for one more year, until 3 Oct 2028\./.test(a3.text) &&
+    /When Series 02 is drawn, owners of Series 01 hear first\./.test(a3.text) && clean(a3), "after 4c: a year after dispatch, the warranty's last year, Series 02 first");
+  ok(!mails.some(m => /arrived\?|for good/.test(m.subject)), "after: a stale note is never sent late");
+  ok(mails.every(m => !m.headers), "after: no List-Unsubscribe on a note to an owner about their own watch");
+
+  /* Each switch on its own. */
+  for (const k of [...KV.store.keys()]) if (/^after\d:/.test(k)) KV.store.delete(k);
+  mails.length = 0;
+  await tick("2026-10-08T07:00:00Z", Object.assign({}, envA, { ARRIVAL_EMAIL: "off" }));
+  ok(!mails.some(m => /arrived\?/.test(m.subject)), "after: ARRIVAL_EMAIL off sends no arrival note");
+
+  /* The daily report counts each kind. */
+  for (const k of [...KV.store.keys()]) if (/^digest:/.test(k)) KV.store.delete(k);
+  KV.store.set("sent:2026-10-08", JSON.stringify({ total: 3, after1: 3 }));
+  mails.length = 0;
+  await tick("2026-10-08T18:35:00Z");
+  const rep2 = mails.find(m => /^KAAL daily · Thu 8 Oct/.test(m.subject));
+  ok(rep2 && /EMAILS SENT ON THEIR OWN\nNearly bought: 0\nSeries 02 note: 0\nArrival note: 3\nSeven-day note: 0\nOne-year note: 0/.test(rep2.text) && /Emails sent on their own/.test(rep2.html),
+    "report: a count of each email the worker sent on its own that day");
+  globalThis.fetch = base; Date.now = realNow;
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");

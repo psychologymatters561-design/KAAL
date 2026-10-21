@@ -59,8 +59,19 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
   box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -6px 14px rgba(0,0,0,.35),0 30px 60px -24px rgba(0,0,0,.95),0 0 0 1px rgba(198,161,91,.25);
   opacity:0;transform:translate3d(0,14px,0) scale(.96);transition:opacity 1.1s var(--ease),transform 1.3s var(--ease)}
 .in .plate{opacity:1;transform:none}
+.plate[hidden]{display:none}
 .plate span{max-width:62%;text-align:center;font-family:var(--display);font-size:clamp(.95rem,.8rem + .7vw,1.2rem);line-height:1.15;
   letter-spacing:.14em;color:#3f4143;text-shadow:0 1px 0 rgba(255,255,255,.55),0 -1px 0 rgba(0,0,0,.35);white-space:pre-line}
+
+/* Once the number is known: its dial, and its back as engraved. */
+.pair{display:flex;justify-content:center;align-items:center;gap:clamp(1rem,5vw,2rem);margin:0 auto 2.2rem;
+  opacity:0;transform:translate3d(0,14px,0);transition:opacity 1.1s var(--ease),transform 1.3s var(--ease)}
+.in .pair{opacity:1;transform:none}
+.pair img{display:block;height:auto}
+.pair .dial{width:min(8.5rem,34vw);border-radius:2px;box-shadow:0 30px 60px -28px rgba(0,0,0,.95)}
+.pair .back{width:min(11.5rem,46vw)}
+.no{margin:-.4rem 0 1rem;text-align:center;font-size:.8125rem;letter-spacing:.32em;text-transform:uppercase;color:var(--mute)}
+.close{font-family:var(--display);font-style:italic;font-size:clamp(1.2rem,1rem + .8vw,1.5rem);color:var(--gold-lit);text-align:center;margin:.4rem 0 1.6rem;text-wrap:balance}
 
 /* The first thing the eye lands on after paying: it went through. */
 .ok{display:flex;align-items:center;justify-content:center;gap:.55rem;width:max-content;max-width:100%;margin:0 auto 1.1rem;
@@ -110,7 +121,7 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
 .back{display:inline-flex;align-items:center;min-height:44px;margin:1.6rem auto 0;font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);
   text-decoration:none;border-bottom:1px solid var(--line)}
 .center{text-align:center}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.plate{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}.plate,.pair{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -118,10 +129,12 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
 <main>
   <div class="wrap">
     <p class="mark">KAAL &middot; Series 01</p>
-    <div class="plate" aria-hidden="true"><span id="engrave">LIMITED EDITION</span></div>
+    <div class="plate" id="plate" aria-hidden="true"><span id="engrave">LIMITED EDITION</span></div>
+    <div class="pair" id="pair" hidden><img class="dial" id="dialImg" alt="" width="150" height="236"><img class="back" id="backImg" alt="" width="200" height="200"></div>
     <p class="ok" id="okPill" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.25" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4.6 8.3l2.2 2.2 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="okText">Payment received</span></p>
     <h1 class="headline" id="headline">It is yours.</h1>
-    <p class="sub">You are not one of many. You are the reason it stopped at twenty.</p>
+    <p class="no" id="noLine" hidden></p>
+    <p class="sub" id="sub">Of everyone who will ever wear a KAAL, you are the only one who will wear this one.</p>
     <p class="state" id="state" role="status" aria-live="polite"></p>
 
     <section class="card" aria-labelledby="orderTitle">
@@ -151,17 +164,21 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
       <datalist id="states"><option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option><option>Chhattisgarh</option><option>Delhi</option><option>Goa</option><option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option><option>Jammu and Kashmir</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option><option>Ladakh</option><option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Puducherry</option><option>Punjab</option><option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option><option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option><option>Chandigarh</option><option>Andaman and Nicobar Islands</option><option>Dadra and Nagar Haveli and Daman and Diu</option><option>Lakshadweep</option></datalist>
     </section>
 
+    <!-- The same three steps as the confirmation email (buyerConfirmation
+         in worker/mail.js), in the same words. -->
     <section class="card" aria-labelledby="nextTitle">
-      <h2 class="title" id="nextTitle">What happens next</h2>
+      <h2 class="title" id="nextTitle">What happens now</h2>
       <ol class="next">
-        <li><div><b>Today</b><span>Your piece is opened, checked and closed again by hand. Nothing ships unseen.</span></div></li>
-        <li><div><b>Within five working days</b><span>It is boxed and dispatched. Tracking comes to the email you paid with, the day it leaves.</span></div></li>
-        <li><div><b>At your door</b><span>Seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.</span></div></li>
+        <li><div><b>Today</b><span id="step1">Your piece comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.</span></div></li>
+        <li><div><b>Next</b><span id="step2">Its box is finished by hand for it, and it is set inside with its warranty card.</span></div></li>
+        <li><div><b>Within five working days</b><span id="step3">It is dispatched to your door. Tracking comes to the email you paid with, the day it leaves.</span></div></li>
       </ol>
     </section>
 
+    <p class="foot-note" id="returnLine">At your door, you have seven days to live with it. If it isn't you, send it back unworn for a full refund.</p>
+    <p class="close">Rare pieces find rare people. This one found you.</p>
     <p class="foot-note" id="mailNote">Keep the payment reference; it finds your order fastest.</p>
-    <p class="foot-note">Questions before it arrives: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a> or <a href="tel:+919311416678">+91 93114 16678</a>. A person answers.</p>
+    <p class="foot-note">Questions before it arrives? Write to <a href="mailto:connect@thekaal.co">connect@thekaal.co</a>, or call or WhatsApp <a href="tel:+919311416678">+91 93114 16678</a>. A person answers.</p>
     <p class="center"><a class="back" href="./">thekaal.co</a></p>
   </div>
 </main>
@@ -184,11 +201,33 @@ try{ localStorage.removeItem("kaal_pending"); }catch(e){}
 
 requestAnimationFrame(function(){ document.body.classList.add("in"); });
 
+var GIFT = false;
+function showSteps(num){
+  var no = num ? "No. " + pad(num) : "";
+  if(no) $("step1").textContent = no + " comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.";
+  if(no) $("step2").textContent = "Its box is finished by hand for it, and " + no + " is set inside with its warranty card.";
+  $("step3").textContent = "It is dispatched" + (GIFT ? "" : " to your door") + ". Tracking comes to the email you paid with, the day it leaves. It " + (GIFT ? "arrives" : "reaches you") + " by " + arriveBy() + ".";
+  if(GIFT){
+    $("sub").textContent = "Of everyone who will ever wear a KAAL, the person you give it to is the only one who will wear this one.";
+    $("returnLine").textContent = "Once it arrives, there are seven days to live with it. If it isn't right, send it back unworn for a full refund.";
+  }
+}
 function showNumber(num){
   if(!num) return;
   var d = DIALS[num] || "";
-  $("headline").textContent = "No. " + pad(num) + " is yours.";
+  $("noLine").textContent = "No. " + pad(num) + (d ? " \u00b7 " + d : "");
+  $("noLine").hidden = false;
   $("engrave").textContent = "LIMITED\nEDITION\nNO. " + pad(num);
+  /* Its own dial and its own engraved back, the same pictures the email
+     carries. Shown only once both have loaded; until then, the drawn one. */
+  if(d){
+    var left = 2, dial = $("dialImg"), back = $("backImg");
+    var ready = function(){ if(--left === 0){ $("plate").hidden = true; $("pair").hidden = false; } };
+    dial.onload = back.onload = ready;
+    dial.alt = "The " + d + " dial"; back.alt = "The caseback of No. " + pad(num) + ", engraved Limited edition No. " + pad(num);
+    dial.src = "assets/email/dial-" + d.toLowerCase() + ".jpg"; back.src = "assets/email/caseback-" + pad(num) + ".png";
+  }
+  showSteps(num);
   var v = $("numberVal"); v.textContent = "";
   if(d){ var dot = document.createElement("span"); dot.className = "dot"; dot.style.background = DISC[d]; v.appendChild(dot); }
   v.appendChild(document.createTextNode("No. " + pad(num) + (d ? " · " + d : "")));
@@ -198,11 +237,12 @@ function showNumber(num){
 }
 function showRef(ref){ if(!ref) return; $("refVal").textContent = ref; $("refRow").hidden = false; }
 
-/* Five working days, Monday to Saturday, counted from today. */
+/* Five working days, Monday to Saturday, counted from today: "Tue, 27 Oct",
+   the way the email writes it. */
 function arriveBy(){
   var d = new Date(), k = 0;
   while(k < 5){ d.setDate(d.getDate() + 1); if(d.getDay() !== 0) k++; }
-  return "By " + d.toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" });
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()] + ", " + d.getDate() + " " + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
 }
 
 /* Razorpay only hands this page a payment id for a payment that went
@@ -213,9 +253,10 @@ function showPaid(amount){
   $("okPill").hidden = false;
 }
 showNumber(n);
+showSteps(n);
 showRef(pid);
 if(pid) showPaid("");
-$("arriveVal").textContent = arriveBy();
+$("arriveVal").textContent = "By " + arriveBy();
 
 /* Purchase, once per payment: the payment id is the event id, so the
    worker's server-side copy of the same purchase is counted with it. */
@@ -251,7 +292,7 @@ function receipt(){
       showPaid(d.amount ? "₹" + (d.amount / 100).toLocaleString("en-IN") : "");
       /* Said only when the worker has actually sent it, never assumed. */
       if(d.mail && d.email_hint) $("mailNote").textContent = "A confirmation is on its way to " + d.email_hint + ". Keep the payment reference; it finds your order fastest.";
-      if(d.gift) $("giftRow").hidden = false;
+      if(d.gift){ $("giftRow").hidden = false; GIFT = true; showSteps(n); }
       $("ship").hidden = false;
       if(d.shipping) shipDone("We have your delivery address. To change it, reply to your confirmation email.");
       purchase(pid, n);

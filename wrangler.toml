@@ -37,9 +37,21 @@ WORKER_URL    = "https://kaal-edition.kaal-edition-hq.workers.dev"
 # KAAL.dials in index.html; tools/check.mjs fails the build if they differ.
 DIALS = '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald","6":"Emerald","7":"Midnight","8":"Midnight","9":"Midnight","10":"Midnight","11":"Champagne","12":"Champagne","13":"Champagne","14":"Champagne","15":"Ivory","16":"Ivory","17":"Ivory","18":"Ivory","19":"Ivory","20":"Ivory"}'
 
-# The one email after an unfinished checkout. Built and OFF. Read
-# docs/email.md before turning it on; "on" is the only value that sends.
-ABANDON_EMAIL = "on"
+# The emails the worker sends on its own (worker section 3e). Each is one
+# per person or per order, ever, between 10:00 and 20:00 India time, at most
+# ten a run and ninety a day across all of them, never to anyone marked
+# "stop" on the desk. "on" is the only value that sends; set one to "off"
+# and deploy to stop it. docs/email.md has the table.
+#   ABANDON_EMAIL   to someone who stopped one step short of paying
+#   SERIES02_EMAIL  to the Series 02 list, once, while Series 01 is open
+#   ARRIVAL_EMAIL   to the owner, the day after it should have arrived
+#   SETTLED_EMAIL   to the owner, once the seven days have passed
+#   YEAR_EMAIL      to the owner, a year after it left
+ABANDON_EMAIL  = "on"
+SERIES02_EMAIL = "on"
+ARRIVAL_EMAIL  = "on"
+SETTLED_EMAIL  = "on"
+YEAR_EMAIL     = "on"
 
 # The owner's end-of-day report (worker section 5): the day's visitors,
 # add-to-carts, checkouts, orders, unfinished checkouts and Series 02 leads,
@@ -136,8 +148,8 @@ class_name = "Stats"
 tag = "v1"
 new_sqlite_classes = ["Stats"]
 
-# Every thirty minutes the worker looks for unfinished checkouts. With
-# ABANDON_EMAIL off it returns before doing anything, so this costs nothing
-# while the feature is off.
+# Every thirty minutes: the emails above, the refund watch and the daily
+# report. An email that is "off", or any of them outside 10:00 to 20:00 in
+# India, returns before doing anything.
 [triggers]
 crons = ["*/30 * * * *"]

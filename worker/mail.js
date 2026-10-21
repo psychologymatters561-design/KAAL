@@ -27,6 +27,16 @@
      ownerDigest         to the owner, just after midnight: the day in
                          numbers, and whatever needs them
 
+   And the ones nobody presses send on (worker section 3e). The two before
+   a purchase read as a personal note, not a newsletter; all of them say
+   only what is true the moment they land:
+
+     buyerNearlyBought   to someone who stopped one step short of paying
+     seriesTwoNote       to the Series 02 list, once, while Series 01 is open
+     afterArrival        to the owner, the day after it should have arrived
+     afterSettled        to the owner, once the seven days have passed
+     afterYear           to the owner, a year after it left us
+
    Built the way email has to be built: tables, inline styles, no web
    fonts, no script, images only as decoration (every one has alt text
    and the message reads completely without them). Dark, like the site,
@@ -84,8 +94,15 @@ export function waNumber(phone) {
   return d.length >= 11 ? d : "";
 }
 
+/* Every email that is not about an order someone has paid for carries a
+   way out, in the footer and in the header mail apps read for their own
+   "unsubscribe" button. A reply saying "stop" reaches a person, who marks
+   it on the desk. */
+export const STOP_LINE = `Reply "stop" and we won't write again.`;
+const MARKETING = { "List-Unsubscribe": "<mailto:connect@thekaal.co?subject=stop>" };
+
 /* ── THE FRAME every message sits in. */
-function frame({ title, preheader, body, site }) {
+function frame({ title, preheader, body, site, stop }) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -109,7 +126,7 @@ ${body}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${C.line};font-size:0;line-height:0;">&nbsp;</td></tr></table>
 </td></tr>
 <tr><td align="center" class="px" style="padding:18px 32px 0;font-family:${SANS};font-size:12px;line-height:19px;color:${C.faint};">
-  KAAL &middot; Series 01 &middot; twenty watches, never drawn again<br>
+  ${stop ? `${esc(STOP_LINE)}<br><br>` : ""}KAAL &middot; Series 01 &middot; twenty watches, never drawn again<br>
   <a href="${esc(site)}" style="color:${C.faint};">thekaal.co</a> &nbsp;&middot;&nbsp; <a href="${esc(site)}/legal.html" style="color:${C.faint};">Seller details, returns and warranty</a>
 </td></tr>
 </table>
@@ -158,6 +175,11 @@ ${rows}<tr><td colspan="2" style="padding:0 0 22px;font-size:0;line-height:0;">&
 function image(src, alt, w, h) {
   return `<tr><td align="center" style="padding:0 0 22px;"><img src="${esc(src)}" width="${w}" height="${h}" alt="${esc(alt)}" style="display:block;width:${w}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;color:${C.faint};font-family:${SANS};font-size:13px;"></td></tr>`;
 }
+/* Two pictures side by side, stacked on a phone. */
+function imagePair([s1, a1, w1, h1], [s2, a2, w2, h2]) {
+  const cell = (src, alt, w, h) => `<td class="stack" align="center" valign="middle" style="padding:0 8px 14px;"><img src="${esc(src)}" width="${w}" height="${h}" alt="${esc(alt)}" style="display:block;margin:0 auto;width:${w}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;color:${C.faint};font-family:${SANS};font-size:13px;"></td>`;
+  return `<tr><td align="center" style="padding:0 0 10px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${cell(s1, a1, w1, h1)}${cell(s2, a2, w2, h2)}</tr></table></td></tr>`;
+}
 function addressBlock(a) {
   return [a.name, a.line1, a.line2, `${a.city}, ${a.state} ${a.pin}`].filter(Boolean).map(esc).join("<br>");
 }
@@ -166,18 +188,40 @@ function addressText(a) {
 }
 const giftCard = (note) => note ? `Handwritten card, no price in the box.<br><span style="color:${C.mute};">&ldquo;${esc(note)}&rdquo;</span>` : "Handwritten card, no price in the box.";
 
-/* ══════════ 1. TO THE BUYER, THE MOMENT THEY PAY ══════════ */
+/* ══════════ 1. TO THE BUYER, THE MOMENT THEY PAY ══════════
+   The same words as the thank-you page (claimed.html), so the page and
+   the inbox say one thing. A gift is bought by one person and worn by
+   another, and the opening says so rather than telling the buyer they
+   will wear it. */
+export function welcomeSteps(n, arrive, gift) {
+  return [
+    ["Today", `No. ${n} comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.`],
+    ["Next", `Its box is finished by hand for it, and No. ${n} is set inside with its warranty card.`],
+    ["Within five working days", `It is dispatched${gift ? "" : " to your door"}. Tracking comes to this email the day it leaves.${arrive ? ` It ${gift ? "arrives" : "reaches you"} by ${arrive}.` : ""}`]
+  ];
+}
+export const WELCOME_RETURN = "At your door, you have seven days to live with it. If it isn't you, send it back unworn for a full refund.";
+export const WELCOME_RETURN_GIFT = "Once it arrives, there are seven days to live with it. If it isn't right, send it back unworn for a full refund.";
+export const WELCOME_CLOSE = "Rare pieces find rare people. This one found you.";
+
 export function buyerConfirmation(d) {
-  const n = pad2(d.n), site = d.site;
+  const n = pad2(d.n), site = d.site, hi = d.first ? `${d.first},` : "Hello,";
   const subject = `No. ${n} is yours`;
-  const preheader = `${d.amount} received. Here is your order, and the day it reaches you.`;
+  const preheader = `${d.amount} received. Here is what happens now.`;
+  const opening = d.gift
+    ? `No. ${n} is yours to give. Of everyone who will ever wear a KAAL, the person you give it to is the only one who will wear this one.`
+    : `No. ${n} is yours. Of everyone who will ever wear a KAAL, you are the only one who will wear this one.`;
+  const next = welcomeSteps(n, d.arriveBy, d.gift);
+  const say = (t, o) => para(t, Object.assign({ align: "left", color: C.bone, pad: "0 32px 18px" }, o || {}));
+  const caseback = [`${site}/assets/email/caseback-${n}.png`, `Your caseback, engraved: Limited edition No. ${n}`, 200, 200];
   const body = [
-    image(`${site}/assets/email/caseback-${n}.png`, `Your caseback, engraved: Limited edition No. ${n}`, 240, 240),
-    h1(`No. ${n} is yours.`),
-    para(`Your payment of ${esc(d.amount)} has been received. No. ${n} is now set aside for you alone, and no one else will ever wear it.`),
+    d.dial ? imagePair([`${site}/assets/email/dial-${esc(String(d.dial).toLowerCase())}.jpg`, `The ${d.dial} dial`, 150, 236], caseback) : image(...caseback),
+    say(esc(hi)),
+    say(esc(opening)),
+    say(`Your payment of ${esc(d.amount)} has been received.`),
     d.hasAddress
-      ? para(`We have your delivery address. Nothing more is needed from you.`, { pad: "0 32px 22px", color: C.bone })
-      : para(`One thing is left: tell us where to send it.`, { pad: "0 32px 14px", color: C.bone }),
+      ? say(`We have your delivery address. Nothing more is needed from you.`, { pad: "0 32px 22px" })
+      : say(`One thing is left: tell us where to send it.`, { pad: "0 32px 14px" }),
     d.hasAddress ? "" : buttons([button(d.shipUrl, "Add delivery address")]),
     card("Your order", [
       ["Watch", `No. ${n}${d.dial ? " &middot; " + esc(d.dial) : ""}`],
@@ -187,18 +231,17 @@ export function buyerConfirmation(d) {
       ["Arrives by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Free delivery, anywhere in India</span>`],
       d.gift ? ["Gift", giftCard(d.giftNote)] : null
     ]),
-    steps("What happens next", [
-      ["Today", `No. ${n} is opened, checked and closed again by hand. Nothing ships unseen.`],
-      ["Within five working days", "It is boxed and dispatched. Tracking comes to this email the day it leaves."],
-      ["At your door", "Seven days to decide. If it is not you, send it back unworn and unmarked for a full refund."]
-    ]),
-    para(`Questions before it arrives? Reply to this email, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>. A person answers.`, { size: 14, lh: 22 }),
-    para(`Keep this email. Your payment reference finds your order fastest.`, { size: 13, lh: 20, color: C.faint, pad: "0 32px 0" })
+    steps("What happens now", next),
+    say(esc(d.gift ? WELCOME_RETURN_GIFT : WELCOME_RETURN)),
+    say(esc(WELCOME_CLOSE)),
+    say(`Questions before it arrives? Reply here, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>. A person answers.`),
+    say("KAAL", { pad: "0 32px 0" })
   ].join("\n");
 
   const text = [
-    `No. ${n} is yours.`, "",
-    `Your payment of ${d.amount} has been received. No. ${n} is now set aside for you alone.`, "",
+    hi, "",
+    opening, "",
+    `Your payment of ${d.amount} has been received.`, "",
     d.hasAddress ? "We have your delivery address. Nothing more is needed from you." : `One thing is left: tell us where to send it.\n${d.shipUrl}`, "",
     "YOUR ORDER",
     `Watch: No. ${n}${d.dial ? " · " + d.dial : ""}`,
@@ -207,12 +250,12 @@ export function buyerConfirmation(d) {
     `Ordered: ${d.when}`,
     `Arrives by: ${d.arriveBy} (free delivery, anywhere in India)`,
     d.gift ? `Gift: handwritten card, no price in the box${d.giftNote ? `. Card: "${d.giftNote}"` : ""}` : "", "",
-    "WHAT HAPPENS NEXT",
-    `1. Today: No. ${n} is opened, checked and closed again by hand.`,
-    "2. Within five working days: it is boxed and dispatched. Tracking comes to this email the day it leaves.",
-    "3. At your door: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", "",
-    `Questions? Reply to this email, or call or WhatsApp ${PHONE}. A person answers.`, "",
-    "KAAL · thekaal.co"
+    "WHAT HAPPENS NOW",
+    ...next.map(([k, v], i) => `${i + 1}. ${k}: ${/^No\. /.test(v) ? v : v.charAt(0).toLowerCase() + v.slice(1)}`), "",
+    d.gift ? WELCOME_RETURN_GIFT : WELCOME_RETURN, "",
+    WELCOME_CLOSE, "",
+    `Questions before it arrives? Reply here, or call or WhatsApp ${PHONE}. A person answers.`, "",
+    "KAAL"
   ].filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n");
 
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
@@ -445,79 +488,181 @@ export function ownerRefund(d) {
   return { subject, html: frame({ title: subject, preheader: next, body, site }), text };
 }
 
-/* ══════════ 4d. TO SOMEONE WHO NEARLY BOUGHT ══════════
-   One email, once per person, ever. Sent by abandonedCheckouts() in the
-   worker, a few hours after a checkout that gave details and never paid.
-   Three shapes, all true at the moment of sending:
-     open  their number is still open and nobody is paying for it
-     lost  their number sold since; others are still open
-     none  no number on the checkout
-   No discount, no deadline. The scarcity is the real count. */
+/* ══════════ 4d. BEFORE A PURCHASE: TWO PERSONAL NOTES ══════════
+   Sent by the worker on its own (section 3e there), each once per person,
+   ever. They are written as a note from a small workshop to one person,
+   and built to look like one: no heading, no button, no picture, no card,
+   16px system type, left aligned, the link a single underlined line, and a
+   plain-text twin with a blank line between paragraphs.
+
+   Nothing in them is a tactic. No discount, no deadline, no "reserved for
+   you": the count is the real count, and the scarcity is a fact about the
+   edition (twenty, never remade), so it is stated as one. */
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
   "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
+export const inWords = (n) => WORDS[n] || String(n);
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const greet = (first) => (first ? `${first},` : "Hello,");
+/* "Yesterday" → "yesterday", "On Sunday" → "on Sunday": only the first letter. */
+const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+const isAre = (n) => (n === 1 ? "is" : "are");
+const nos = (list) => {
+  const a = list.map(x => `No. ${pad2(x)}`);
+  return a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`;
+};
+/* "three are already on someone's wrist", "one is…", or nothing at all. */
+function wornClause(worn) {
+  if (!worn) return "";
+  return worn === 1 ? "one is already on someone's wrist" : `${inWords(worn)} are already on someone's wrist`;
+}
 
+function note({ subject, preheader, site, blocks }) {
+  const p = (inner) => `<tr><td class="px" align="left" style="padding:0 32px 18px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.bone};text-align:left;">${inner}</td></tr>`;
+  const body = blocks.map(b => typeof b === "string" ? p(esc(b))
+    : p(`${esc(b.label)}: <a href="${esc(b.href)}" style="color:${C.goldLit};text-decoration:underline;">${esc(b.href.replace(/^https?:\/\//, ""))}</a>`)).join("\n");
+  const text = blocks.map(b => typeof b === "string" ? b : `${b.label}: ${b.href}`).concat(["--", STOP_LINE]).join("\n\n");
+  return { subject, html: frame({ title: subject, preheader, body, site, stop: true }), text, headers: MARKETING };
+}
+
+const RETURN_LONG = "you have seven days to live with it. If it isn't you, send it back unworn and every rupee comes back.";
+const RETURN_SHORT = "Live with it for seven days. If it isn't you, send it back unworn and every rupee comes back. Two years' warranty on the movement. Free delivery across India.";
+
+/* The one email after an unfinished checkout. Three shapes, whichever is
+   true when it is sent:
+     A  their number is still open (and nobody is paying for it this minute)
+     B  their number sold since: the same dial's open numbers, or the rest
+     C  no number on the checkout
+   d: { site, first, when, n, open, dial, sold (count), left, sameDial } */
 export function buyerNearlyBought(d) {
-  const site = d.site, hi = d.first ? `${d.first},` : "Hello,";
-  const leftW = WORDS[d.left] || String(d.left);
+  const site = d.site, worn = Array.isArray(d.sold) ? d.sold.length : (d.sold || 0), left = d.left;
+  const leftW = inWords(left), wornC = wornClause(worn);
+  const when = lower(d.when || "Recently");
   const No = d.n ? `No. ${pad2(d.n)}` : "";
-  const link = d.n ? `${site}/#n${d.n}` : `${site}/#twenty`;
-  const when = d.when || "Recently";
+  const later = `Nobody in the room will recognise the name on this watch, and that is the point.`;
 
-  let subject, preheader, title, open, cta;
-  if (d.n) {
-    subject = `${No} is still here`;
-    preheader = "You chose it. Nobody has taken it since.";
-    title = No;
-    open = [`${when} you chose ${No}${d.dial ? `, the ${d.dial} dial,` : ""} and stopped one step before it became yours.`,
-      "It is still here. Nobody has taken it since."];
-    cta = `Claim ${No}`;
-  } else if (d.lost) {
-    subject = `No. ${pad2(d.lost)} found its owner`;
-    preheader = `${cap(leftW)} of the twenty have not.`;
-    title = "Still twenty, once";
-    open = [`${when} you chose No. ${pad2(d.lost)}. Since then someone else finished what you started, and it is theirs now.`,
-      `We are telling you because ${leftW} of the twenty are still open, and one of them could still be yours.`];
-    cta = "See the twenty";
-  } else {
-    subject = "Your piece is still waiting";
-    preheader = `${cap(leftW)} of twenty remain. There will not be more.`;
-    title = "Still waiting";
-    open = [`${when} you came close to owning a KAAL, and stopped one step before it was yours.`];
-    cta = "See the twenty";
+  if (d.n && d.open) {
+    return note({ subject: No, preheader: "Still unclaimed.", site, blocks: [
+      greet(d.first),
+      `You chose ${No} ${when}.${d.dial ? ` The ${d.dial} dial.` : ""} You got as far as checkout and stopped one step short.`,
+      "It is still unclaimed. We're writing because that won't stay true on its own.",
+      `${No} is one of twenty. Its number is engraved on the back, and there is only one of it. ${cap(leftW)} ${isAre(left)} left${wornC ? "; " + wornC : ""}. We never make a design twice, so once ${No} is claimed there is no other: not in another colour, not in a later batch. One person will own ${No}, permanently.`,
+      "Most people buy a watch so a famous name can speak for them. The people who wear KAAL don't need that. Nobody in the room will recognise it, and that is the point. The ones who notice will ask, and you'll be the only person who can answer.",
+      `You already chose it once. What stops people at the last step is usually small: a payment that failed, a call, a second thought about a name they don't know. For the last one: ${RETURN_LONG} The movement has a two-year warranty. Delivery is free across India, in its handmade box.`,
+      "And owners of Series 01 hear about Series 02 before anyone else.",
+      { label: No, href: `${site}/#n${d.n}` },
+      "If something went wrong at payment, reply here. A person reads it and will help you finish.",
+      "KAAL",
+      `P.S. This is the only time we'll write about ${No}. If it's still there when you look, it's yours to take.`
+    ] });
   }
 
-  const middle = [
-    `We rarely write, and this is the only time we will write to you about it. Not to rush you. Only because you should know where things stand: of the twenty KAAL 01 pieces, ${leftW} remain. When the last one goes, the reference is retired. We will not make another.`,
-    "Most watches are bought to belong, a famous name worn so it can speak on the wearer's behalf. KAAL was made for the other kind of person: the one who does not need a logo to be seen, because they already know who they are. There is no borrowed name on this watch. On the back there is only a number. The rest is you.",
-    "If something stood in the way, whether the payment did not go through, a question went unanswered, or the moment simply passed, reply to this email. It comes straight to us."
-  ];
-  const facts = [
-    ["Engraved", d.n ? `Limited edition No. ${pad2(d.n)}` : "Your number, one of twenty"],
-    ["Warranty", "Two years on the movement"],
-    ["Returns", "Seven days, full refund"],
-    ["Delivery", "Free across India, in its handmade box"]
-  ];
-  const close = "Time does not wait for anyone. This piece, for now, is waiting for you.";
-  const foot = `You are receiving this because you began an order at thekaal.co. This is the only email we will send about it. Reply "stop" and we will not write again.`;
+  if (d.n) {
+    const same = (d.sameDial || []).slice().sort((a, b) => a - b);
+    const dialLine = !d.dial ? `Of the twenty, ${leftW} ${isAre(left)} left.`
+      : same.length ? `If it was the ${d.dial} dial that held you, ${nos(same)} still ${same.length === 1 ? "carries" : "carry"} it. Of the twenty, ${leftW} ${isAre(left)} left.`
+      : `The ${d.dial} dial is now fully claimed. ${cap(leftW)} ${left === 1 ? "piece remains" : "pieces remain"} in the other three.`;
+    return note({ subject: No, preheader: "It found its owner.", site, blocks: [
+      greet(d.first),
+      `${No} is gone. You chose it ${when}, and since then someone else completed it. It's on a wrist now, and it will not be made again.`,
+      "That is what twenty means here. When one goes, it goes.",
+      dialLine,
+      `${later} The people who notice will ask, and you'll be the only person who can answer.`,
+      `${RETURN_SHORT} Owners of Series 01 hear about Series 02 first.`,
+      d.dial && same.length ? { label: `The ${d.dial} dial`, href: `${site}/#n${same[0]}` } : { label: "What's left", href: `${site}/#twenty` },
+      "KAAL",
+      "P.S. This is the only time we'll write about it."
+    ] });
+  }
 
-  const body = [
-    d.n ? image(`${site}/assets/email/caseback-${pad2(d.n)}.png`, `The caseback of ${No}`, 220, 220) : "",
-    h1(esc(title)),
-    para(esc(hi), { align: "left", color: C.bone, pad: "0 32px 16px" }),
-    ...open.map(t => para(esc(t), { align: "left", color: C.bone, pad: "0 32px 16px" })),
-    ...middle.map(t => para(esc(t), { align: "left", pad: "0 32px 16px" })),
-    buttons([button(link, cta)]),
-    card("", facts.map(([k, v]) => [k, esc(v)])),
-    para(`<em style="font-family:${SERIF};font-size:19px;color:${C.goldLit};">${esc(close)}</em>`, { lh: 28, pad: "4px 32px 8px" }),
-    para("KAAL", { size: 13, color: C.bone, pad: "0 32px 18px" }),
-    para(`${esc(foot)}<br>WhatsApp <a href="https://wa.me/${PHONE_WA}" style="color:${C.faint};">${PHONE}</a>`, { size: 12, lh: 19, color: C.faint, pad: "0 32px 0" })
-  ].join("\n");
+  return note({ subject: `${cap(leftW)} of twenty`, preheader: "Still open.", site, blocks: [
+    greet(d.first),
+    `You got as far as checkout at KAAL ${when} and stopped there.`,
+    `Of the twenty, ${leftW} ${isAre(left)} left${wornC ? " and " + wornC : ""}. We never make a design twice. When the twenty are gone, this one is retired for good.`,
+    `${later} On the back is a number, and the only person who will ever turn it over is you.`,
+    `${RETURN_SHORT} Owners of Series 01 hear about Series 02 first.`,
+    { label: "Choose yours", href: `${site}/#twenty` },
+    "If something went wrong, reply here. A person reads it.",
+    "KAAL",
+    "P.S. This is the only time we'll write about it."
+  ] });
+}
 
-  const text = [hi, "", open.join("\n\n"), "", middle.join("\n\n"), "", `${d.n ? "If you still want it" : "The twenty"}: ${link}`, "",
-    ...facts.map(([k, v]) => `${k}: ${v}`), "", close, "", "KAAL", "", "--", foot, `WhatsApp ${PHONE}`].join("\n");
+/* The same moment for someone who gave a phone and no email. Nothing
+   sends this: the desk opens WhatsApp with it typed, and the owner sends
+   it by hand (automated WhatsApp needs Meta's paid Business API). Same
+   three shapes, same voice. */
+export function nearlyWhatsApp(d) {
+  const site = d.site, left = d.left, leftW = inWords(left);
+  const hello = d.first ? `Hello ${d.first}, this is KAAL.` : "Hello, this is KAAL.";
+  const No = d.n ? `No. ${pad2(d.n)}` : "";
+  if (d.n && d.open) {
+    return `${hello} You chose ${No}${d.dial ? `, the ${d.dial} dial,` : ""} and stopped at payment. It's still unclaimed, ${leftW} of the twenty ${isAre(left)} left, and the design is never made again. If something went wrong at payment, reply here and we'll help you finish: ${site}/#n${d.n}`;
+  }
+  if (d.n) {
+    const same = (d.sameDial || []).slice().sort((a, b) => a - b);
+    const dialLine = !d.dial ? "" : same.length ? ` If it was the ${d.dial} dial that held you, ${nos(same)} still ${same.length === 1 ? "carries" : "carry"} it.` : ` The ${d.dial} dial is now fully claimed.`;
+    return `${hello} You chose ${No} and stopped at payment. Since then someone else completed it, and it will not be made again.${dialLine} Of the twenty, ${leftW} ${isAre(left)} left: ${d.dial && same.length ? `${site}/#n${same[0]}` : `${site}/#twenty`}`;
+  }
+  return `${hello} You got as far as checkout and stopped at payment. ${cap(leftW)} of the twenty ${isAre(left)} left, and the design is never made again. If something went wrong at payment, reply here and we'll help you finish: ${site}/#twenty`;
+}
 
-  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+/* The Series 02 list was promised one note while Series 01 is open and one
+   email when Series 02 is drawn (the consent line under both forms). This
+   is the first. d: { site, left } */
+export function seriesTwoNote(d) {
+  const left = d.left, leftW = inWords(left);
+  return note({ subject: "Series 02", preheader: "Not drawn yet. One thing before it is.", site: d.site, blocks: [
+    "Hello,",
+    "You asked us to write once, when Series 02 is drawn. It isn't yet. We're writing once more now, because what follows can't wait until then.",
+    "When Series 02 comes, it will be a different watch: a new case, new dials, new numbers. Owners of Series 01 hear first. Then this list. Then everyone else.",
+    `Series 01 will not come back. Not its case, not its dials, not its numbers. Of the twenty, ${leftW} ${isAre(left)} left, and when the last is claimed the design is retired for good.`,
+    "So waiting for Series 02 means waiting for a different watch, from the middle of the line. Owning one of these twenty puts you at the front of it, with a piece the rest of the list will never be able to buy.",
+    "Nobody in the room will recognise the name, and that is the point. On the back is a number, and the only person who will ever turn it over is you.",
+    RETURN_SHORT,
+    { label: left === 1 ? "The last one" : `The ${leftW}`, href: `${d.site}/#twenty` },
+    "When Series 02 is drawn, you'll hear, as promised. Until then, this is the only email from us.",
+    "KAAL"
+  ] });
+}
+
+/* ══════════ 4e. AFTER A PURCHASE: THREE NOTES TO THE OWNER ══════════
+   Their number, their name, the caseback at the top, signed KAAL. No
+   offer in any of them. d: { site, n, first, ... } */
+function ownerNote({ subject, preheader, site, n, first, paras }) {
+  const lines = [greet(first)].concat(paras, ["KAAL"]);
+  const body = [image(`${site}/assets/email/caseback-${n}.png`, `The caseback of No. ${n}`, 160, 160)]
+    .concat(lines.map(t => para(esc(t), { align: "left", color: C.bone, pad: "0 32px 18px" }))).join("\n");
+  return { subject, html: frame({ title: subject, preheader, body, site }), text: lines.join("\n\n") };
+}
+
+/* The day, the date and the twenty-four hour hand are set before a piece
+   leaves (the registers as movement.html places them), so the note says
+   that rather than teaching anyone to set them. */
+export function afterArrival(d) {
+  const n = pad2(d.n);
+  return ownerNote({ subject: `Has No. ${n} arrived?`, preheader: "Set before it left us, and read true on arrival.", site: d.site, n, first: d.first, paras: [
+    `We hope No. ${n} arrived well, and that it looks the way it did when it left us.`,
+    "We set the day, the date and the twenty-four hour hand before it left us, so it should read true when you open the box: the day at twelve, the date at six, the twenty-four hours at nine.",
+    "If anything isn't right, reply here."
+  ] });
+}
+
+export function afterSettled(d) {
+  const n = pad2(d.n);
+  return ownerNote({ subject: `No. ${n} is yours for good`, preheader: "The seven days have passed.", site: d.site, n, first: d.first, paras: [
+    `The seven days have passed. No. ${n} is yours for good.`,
+    `One thing, only if you want it: with your permission, your city and month can sit under No. ${n} on thekaal.co, for example "Delhi · Oct 2026". Reply "yes" to be listed.`,
+    `And three short questions, if you have a minute. What is it like to wear No. ${n}, in two or three sentences, the way you'd tell a friend, good or not? Can we publish it with your first name, the first letter of your surname and your city? Would you like a photo beside it, of your face or the watch on your wrist? If you're happy for us to publish your words, end your reply with "Yes, you can publish this". There is no gift for doing so.`
+  ] });
+}
+
+export function afterYear(d) {
+  const n = pad2(d.n);
+  return ownerNote({ subject: `One year with No. ${n}`, preheader: "The movement is covered for one more year.", site: d.site, n, first: d.first, paras: [
+    `A year ago No. ${n} left us for your wrist. We hope it has kept good time, and that by now it looks like yours.`,
+    `The movement warranty runs for one more year, until ${d.until}. If anything in it falters before then, reply here.`,
+    "When Series 02 is drawn, owners of Series 01 hear first. You will hear from us then."
+  ] });
 }
 
 /* ══════════ 5. TO THE OWNER, AT THE END OF EVERY DAY ══════════
@@ -658,6 +803,11 @@ ${stat(visitors, "Visitors")}${stat(numbers, "Add to cart")}</tr><tr>${stat(orde
     return [`Visitor ${v.k}`, `<div style="text-align:left;">${head}<div style="margin-top:6px;font-size:13px;line-height:20px;color:${C.mute};">${list}${more > 0 ? `<br><span style="color:${C.faint};">and ${more} more steps on the desk</span>` : ""}</div></div>`];
   });
   const leadRows = d.leads.map(l => [esc(l.source || "Series 02"), `<a href="mailto:${esc(l.email)}" style="color:${C.goldLit};">${esc(l.email)}</a><br><span style="color:${C.faint};font-size:13px;">${esc(l.at)}</span>`]);
+  /* The emails the worker sent by itself that day (section 3e), by kind. */
+  const fu = d.followUps || {};
+  const autoRows = [["Nearly bought", fu.nearly || 0], ["Series 02 note", fu.s02 || 0], ["Arrival note", fu.after1 || 0],
+    ["Seven-day note", fu.after2 || 0], ["One-year note", fu.after3 || 0]];
+  const autoTotal = autoRows.reduce((t, [, n]) => t + n, 0);
   const others = [
     ["Pressed Choose your number", c.hero || 0], ["Picked a dial early", c.early_dial || 0], ["Followed a dial link", c.ctx_cta || 0],
     ["Saw their caseback", c.caseback_view || 0], ["Added the gift card", c.gift || 0], ["Played the box film", c.film || 0],
@@ -697,6 +847,7 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     d.unfinished.length ? card("Nearly bought", nearlyRows) : "",
     refundRows.length ? card(plural(refundRows.length, "refund"), refundRows) : "",
     d.leads.length ? card(`${plural(leads, "new lead")} for Series 02`, leadRows) : "",
+    autoTotal ? card("Emails sent on their own", autoRows.map(([k, n]) => [k, String(n)])) : "",
     others.length ? card("Other moments", others) : "",
     visitorRows.length ? card(`Who visited (${visTotal})`, visitorRows) : "",
     visTotal > visShown.length ? para(`The ${visShown.length} most recent are here; all ${visTotal}, with every step, are on the desk under Visitors.`, { size: 13, lh: 20, color: C.faint, pad: "0 32px 18px" }) : "",
@@ -720,6 +871,7 @@ ${alerts.map(a => `<tr><td style="padding:10px 24px;border-top:1px solid ${C.lin
     d.orders.length ? "ORDERS\n" + d.orders.map(o => `No. ${o.n ? pad2(o.n) : "??"}${o.dial ? " " + o.dial : ""} · ${o.amount} · ${o.at} · ${o.email || "no email"} · ${o.contact || "no phone"} · ${o.id}`).join("\n") + "\n" : "",
     d.unfinished.length ? "NEARLY BOUGHT\n" + d.unfinished.map(u => `No. ${u.n ? pad2(u.n) : "??"}${u.name ? " · " + u.name : ""}${u.city ? " · " + u.city : ""} · ${u.stage} · ${u.at} · ${u.email || "no email"} · ${u.contact || "no phone"}`).join("\n") + "\n" : "",
     (d.refunds || []).length ? "REFUNDS\n" + d.refunds.map(r => `No. ${r.n ? pad2(r.n) : "??"}${r.dial ? " " + r.dial : ""} · ${r.amount}${r.full ? "" : " (part)"} · ${r.at}`).join("\n") + "\n" : "",
+    autoTotal ? "EMAILS SENT ON THEIR OWN\n" + autoRows.map(([k, n]) => `${k}: ${n}`).join("\n") + "\n" : "",
     d.leads.length ? "NEW LEADS (SERIES 02)\n" + d.leads.map(l => `${l.email} · ${l.source || "Series 02"} · ${l.at}`).join("\n") + "\n" : "",
     visShown.length ? `WHO VISITED (${visTotal})\n` + visShown.map(v => visitorLine(v) + (v.phone ? " · " + v.phone : "") + (v.email ? " · " + v.email : "") + "\n  " +
       v.today.filter(e => e.e !== "early_dial").slice(0, STEP_MAX).map(e => `${clockIn(e.t)} ${stepText(e)}`).join(" > ")).join("\n") + "\n" : "",

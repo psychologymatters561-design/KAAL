@@ -35,7 +35,8 @@ const DIALS = JSON.stringify({ "3": "Emerald", "9": "Midnight" });
 const env = {
   KAAL_STATE: KV, EDITION: "20", ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp", RAZORPAY_KEY_SECRET: "sek",
   RESEND_API_KEY: "re", OWNER_EMAIL: "owner@thekaal.co, me@example.org", SITE_URL: "https://thekaal.co", DIALS,
-  RAZORPAY_WEBHOOK_SECRET: "wh", GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", PRICE_PAISE: "599900"
+  RAZORPAY_WEBHOOK_SECRET: "wh", GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", PRICE_PAISE: "599900",
+  FOLLOW_GAP_MS: "0"
 };
 
 const mails = [];
@@ -922,8 +923,10 @@ const person = (s) => sha(s).slice(0, 32);
   /* Ten a run, ninety a day. */
   for (let i = 0; i < 30; i++) join(`bulk${i}@example.com`, "2026-10-01T06:00:00Z");
   mails.length = 0;
-  await tick("2026-10-21T05:00:00Z");
+  const t0 = performance.now();
+  await tick("2026-10-21T05:00:00Z", Object.assign({}, envS, { FOLLOW_GAP_MS: "30" }));
   ok(notes().length === 10, "cap: at most ten in one run (" + notes().length + ")");
+  ok(performance.now() - t0 >= 9 * 30, "pace: the sends in a run are spaced, never fired back to back");
   KV.store.set("sent:2026-10-21", JSON.stringify({ total: 87 }));
   mails.length = 0;
   await tick("2026-10-21T05:30:00Z");

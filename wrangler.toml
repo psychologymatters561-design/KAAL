@@ -48,6 +48,8 @@ DIALS = '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald",
 #   SETTLED_EMAIL   to the owner, once the seven days have passed
 #   YEAR_EMAIL      to the owner, a year after it left
 ABANDON_EMAIL  = "on"
+# How far back an unpaid checkout still gets its one email: since launch.
+ABANDON_LOOKBACK_DAYS = "45"
 SERIES02_EMAIL = "on"
 ARRIVAL_EMAIL  = "on"
 SETTLED_EMAIL  = "on"

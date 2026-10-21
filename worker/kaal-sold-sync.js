@@ -1074,7 +1074,8 @@ async function followUps(env) {
   const countKey = "sent:" + istDay(nowMs);
   const count = (await env.KAAL_STATE.get(countKey, "json").catch(() => null)) || {};
   const R = { env, nowMs, now, payments, count, run: 0, written: new Set(), site: siteUrl(env),
-    edition: parseInt(env.EDITION || "20", 10), paid: await paidEmails(env, payments) };
+    edition: parseInt(env.EDITION || "20", 10), paid: await paidEmails(env, payments),
+    gap: Math.max(0, parseInt(env.FOLLOW_GAP_MS || "600", 10) || 0) };
   try {
     if (want.nearly) await nearlyRound(R);
     if (want.s02) await seriesTwoRound(R);
@@ -1123,6 +1124,10 @@ async function paidEmails(env, payments) {
   return out;
 }
 async function followSend(R, kind, email, mail, once, record) {
+  /* Resend's free plan takes two requests a second, and a send it refuses
+     here is never tried again (the once-key below), so the sends are
+     spaced rather than fired back to back. */
+  if (R.run > 0 && R.gap > 0) await new Promise(r => setTimeout(r, R.gap));
   await R.env.KAAL_STATE.put(once, JSON.stringify(Object.assign({ at: indiaTime(new Date(R.nowMs)), subject: mail.subject }, record)),
     { expirationTtl: ONCE_TTL });
   R.run++;

@@ -9,7 +9,7 @@ deploy (`tools/deploy-worker.sh`, or the **Set up the worker** workflow in
 
 | Email | Trigger | Subject | Once-key | Flag |
 |---|---|---|---|---|
-| Nearly bought, number still open (A) | A checkout 3 hours to `ABANDON_LOOKBACK_DAYS` (30) old, never paid, with an email (typed in our details step, or held by Razorpay). Their number is unsold and nobody is paying for it this minute. | `No. 07` | `nearly:<hash>` (per person, ever) | `ABANDON_EMAIL` |
+| Nearly bought, number still open (A) | A checkout 3 hours to `ABANDON_LOOKBACK_DAYS` (45, since launch) old, never paid, with an email (typed in our details step, or held by Razorpay). Their number is unsold and nobody is paying for it this minute. | `No. 07` | `nearly:<hash>` (per person, ever) | `ABANDON_EMAIL` |
 | Nearly bought, number sold since (B) | As above, but their number has sold. Lists the same dial's open numbers and links to the lowest; if the dial is fully claimed, says so and links to `#twenty`. | `No. 09` | `nearly:<hash>` | `ABANDON_EMAIL` |
 | Nearly bought, no number (C) | As above, with no number on the checkout. | `Seventeen of twenty` | `nearly:<hash>` | `ABANDON_EMAIL` |
 | Series 02 note | On the Series 02 list for 24 hours, while Series 01 has a piece left. Never to a buyer, to anyone who had the nearly-bought email, or whose own checkout is still in that email's window. Existing sign-ups go in daily-cap-sized batches. | `Series 02` | `s02note:<hash>` | `SERIES02_EMAIL` |
@@ -24,7 +24,7 @@ order id.
 ## Rules every one of them keeps
 
 - **When.** Only between 10:00 and 20:00 in India.
-- **How many.** At most ten per cron run and ninety a day across all five
+- **How many.** At most ten per cron run, spaced 600 ms apart (Resend takes two a second), and ninety a day across all five
   (the count is the KV key `sent:<India day>`, by kind), so with the order
   emails the shop stays inside Resend's free tier of a hundred a day. Every
   attempt counts.

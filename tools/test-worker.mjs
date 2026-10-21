@@ -818,6 +818,7 @@ const person = (s) => sha(s).slice(0, 32);
     "nearly: not while someone is paying for their number, not too soon, never to a buyer (whichever email they paid under), never after a stop");
   ok(nearly().filter(m => m.to[0] === "asha.r@example.com").length === 1, "nearly: two tries by one person is one email");
   ok(JSON.parse(KV.store.get("sent:2026-10-20")).nearly === 4, "nearly: the day's count is kept, by kind");
+  ok(/^4 sent this run; 4 today \(nearly bought 4\)\.$/.test(JSON.parse(KV.store.get("followrun") || "{}").msg || ""), "nearly: the run leaves a line for the desk's Health list (" + (KV.store.get("followrun") || "") + ")");
 
   mails.length = 0;
   KV.store.delete("hold:6");

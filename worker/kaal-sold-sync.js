@@ -1068,19 +1068,30 @@ async function followUps(env) {
   const istHour = new Date(nowMs + IST_MS).getUTCHours();
   if (istHour < 10 || istHour >= 20) return;
 
+  /* What the last run did, for the desk's Health list: the owner cannot
+     read this worker's logs, and "nothing went" needs a reason. */
+  const told = (msg, bad) => env.KAAL_STATE.put("followrun", JSON.stringify({ at: new Date(nowMs).toISOString(), msg, bad: !!bad }),
+    { expirationTtl: 7 * 86400 }).catch(() => null);
   const now = Math.floor(nowMs / 1000);
   const payments = await listPayments(env, now - PAID_DAYS * 86400, now, 2000);
-  if (!payments) return;
+  if (!payments) { await told("Razorpay refused the payment listing, so nothing was sent.", true); return; }
   const countKey = "sent:" + istDay(nowMs);
   const count = (await env.KAAL_STATE.get(countKey, "json").catch(() => null)) || {};
   const R = { env, nowMs, now, payments, count, run: 0, written: new Set(), site: siteUrl(env),
     edition: parseInt(env.EDITION || "20", 10), paid: await paidEmails(env, payments),
     gap: Math.max(0, parseInt(env.FOLLOW_GAP_MS || "600", 10) || 0) };
+  let failed = "";
   try {
     if (want.nearly) await nearlyRound(R);
     if (want.s02) await seriesTwoRound(R);
     if (want.after1 || want.after2 || want.after3) await afterRound(R, want);
-  } catch (e) { console.log("Follow-up emails threw:", String(e).slice(0, 160)); }
+  } catch (e) { failed = String(e).slice(0, 160); console.log("Follow-up emails threw:", failed); }
+  const kinds = [["nearly", "nearly bought"], ["s02", "Series 02"], ["after1", "arrival"], ["after2", "seven-day"], ["after3", "one-year"]]
+    .filter(([k]) => R.count[k]).map(([k, label]) => `${label} ${R.count[k]}`).join(", ");
+  await told(failed ? `Stopped by an error after ${R.run} sent: ${failed}`
+    : R.sold === null ? "The sold list could not be read, so nothing that states a count was sent."
+    : `${R.run} sent this run; ${R.count.total || 0} today${kinds ? " (" + kinds + ")" : ""}.` +
+      (R.run ? "" : ` Checked ${R.payments.length} payments and ${(R.checkouts || []).length} unpaid checkouts; nobody new was due.`), !!failed);
   if (R.run) {
     await env.KAAL_STATE.put(countKey, JSON.stringify(count), { expirationTtl: 40 * 86400 }).catch(() => null);
     console.log(`Follow-up emails sent: ${R.run}; ${count.total} today.`);
@@ -2194,7 +2205,7 @@ async function deskData(env) {
   const leads = await leadsBetween(env, 0, now + 60);
 
   const held = [];
-  let lastHook = null, lastDigest = null;
+  let lastHook = null, lastDigest = null, lastRun = null;
   if (env.KAAL_STATE) {
     try {
       for (const k of (await env.KAAL_STATE.list({ prefix: HOLD_PREFIX })).keys) {
@@ -2203,6 +2214,7 @@ async function deskData(env) {
       }
     } catch (e) { /* no holds shown */ }
     lastHook = await env.KAAL_STATE.get("seen:webhook").catch(() => null);
+    lastRun = await env.KAAL_STATE.get("followrun", "json").catch(() => null);
     try {
       const keys = (await env.KAAL_STATE.list({ prefix: "digest:" })).keys.map(k => k.name.slice(7)).sort();
       lastDigest = keys.length ? keys[keys.length - 1] : null;
@@ -2253,6 +2265,8 @@ async function deskData(env) {
       { ok: !!env.KAAL_STATE, label: "Store", detail: env.KAAL_STATE ? "Holds, addresses, dispatches and the Series 02 list are kept." : "Not connected: addresses, holds and the Series 02 list are not kept." },
       { ok: !!env.STATS, label: "Visitor count", detail: env.STATS ? `${(counts[today] || {}).visit || 0} page visits counted today, without cookies.` : "Not connected: the daily report has no visitor numbers." },
       { ok: !!(env.GITHUB_TOKEN && env.GITHUB_OWNER), label: "Sold list", detail: env.GITHUB_TOKEN ? "Each sale is written to the site within a minute." : "No GITHUB_TOKEN: sales are not written to the site." },
+      { ok: !!lastRun && !lastRun.bad, label: "Emails sent on their own", detail: lastRun ? `Last run ${indiaTime(new Date(lastRun.at))}: ${lastRun.msg}`
+        : "No run yet. The worker runs every half hour, 10:00 to 20:00 India time." },
       { ok: env.DIGEST !== "off" && mail, label: "Daily report", detail: env.DIGEST === "off" ? "Switched off (DIGEST in wrangler.toml)." : `Every day at ${hour === 0 ? "midnight" : hour + ":00"}, India time${lastDigest ? `; last one covered ${lastDigest}` : ""}.` }
     ],
     counting: !!env.STATS, razorpay: L.rzp

@@ -155,3 +155,8 @@ new_sqlite_classes = ["Stats"]
 # India, returns before doing anything.
 [triggers]
 crons = ["*/30 * * * *"]
+
+# Keep the worker's logs (every "Follow-up emails sent", every refusal) in
+# the Cloudflare dashboard: Workers & Pages → kaal-edition → Logs.
+[observability]
+enabled = true

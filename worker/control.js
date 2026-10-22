@@ -93,6 +93,12 @@ export async function control(request, env, ctx, path, T) {
   try {
     if (method === "GET" && route === "/overview") return out(await overview(env, T));
     if (method === "GET" && route === "/orders") return out(await listOrders(env));
+    if (method === "POST" && route === "/import") {
+      const r = await T.importPaid(env);
+      await audit(env, actor, "registry.import.asked", "registry", null, { ok: r.ok });
+      return out(r, r.ok ? 200 : 502);
+    }
+    if (method === "POST" && route === "/orders/manual") return pastSale(env, actor, await body(request) || {});
     let m = /^\/orders\/(\d+)\/(stage|returned|refund)$/.exec(route);
     if (method === "POST" && m) {
       const b = await body(request) || {};
@@ -192,6 +198,7 @@ async function overview(env, T) {
   const mail = {};
   for (const r of (await env.DB.prepare("SELECT status, COUNT(*) AS c FROM email_outbox GROUP BY status").all()).results || []) mail[r.status] = r.c;
   const hook = env.KAAL_STATE ? await env.KAAL_STATE.get("seen:webhook").catch(() => null) : null;
+  const imported = env.KAAL_STATE ? await env.KAAL_STATE.get("registry:imported", "json").catch(() => null) : null;
   /* What has sat too long: the brief's three promises, checked here and
      (Phase 3) emailed to the owner. */
   const late = (await env.DB.prepare(
@@ -204,7 +211,7 @@ async function overview(env, T) {
     revenue: rev ? rev.p : 0, stages: counts,
     returnWindows: open.map(o => ({ id: o.id, piece: o.piece_id, delivered: o.delivered_on, endsAt: o.return_window_ends_at,
       daysLeft: Math.max(0, Math.ceil((Date.parse(o.return_window_ends_at) - Date.now()) / 86400000)) })),
-    approvals: approvals ? approvals.c : 0, emails: mail,
+    approvals: approvals ? approvals.c : 0, emails: mail, imported,
     late: late.map(o => ({ id: o.id, piece: o.piece_id, status: o.status, why: lateWhy(o) })),
     health: [
       { label: "Database", ok: true, detail: "The registry answers." },
@@ -302,6 +309,43 @@ async function stage(env, ctx, T, actor, id, b) {
   return out({ ok: true, status: to, letter });
 }
 
+/* A sale made before the registry (Nos. 01 and 02): typed in once, from
+   the owner's own records, and kept like any other order, except that it
+   can never be refunded from here (no payment of this checkout's exists).
+   Only for a piece that has no order yet. No email is sent to anyone. */
+async function pastSale(env, actor, b) {
+  const n = parseInt(b.n, 10);
+  const p = await env.DB.prepare("SELECT * FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
+  if (!p) return out({ ok: false, reason: "piece", why: "No such number." }, 400);
+  if (p.order_ref || ["available", "placed", "delivered"].indexOf(p.status) < 0) {
+    return out({ ok: false, reason: "taken", why: `No. ${pad2(n)} already has an order, or is ${p.status}.` }, 409);
+  }
+  const name = clean(b.name, 80), email = normEmail(b.email), phone = normPhone(b.phone);
+  const today = istDay(), paid = String(b.paid_on || ""), del = String(b.delivered_on || "");
+  if (!name) return out({ ok: false, reason: "name", why: "The buyer's name." }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return out({ ok: false, reason: "email", why: "The buyer's email: it becomes how they sign in to the registry." }, 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paid) || paid > today) return out({ ok: false, reason: "paid", why: "The day it was paid, not in the future." }, 400);
+  if (del && (!/^\d{4}-\d{2}-\d{2}$/.test(del) || del > today || del < paid)) return out({ ok: false, reason: "delivered", why: "The delivery day: after it was paid, not in the future." }, 400);
+  const series = await env.DB.prepare("SELECT price_paise, return_days FROM series WHERE code = ?1").bind(p.series).first();
+  const amount = Math.round(parseFloat(b.amount_rupees || "0") * 100) || (series && series.price_paise) || 0;
+  const status = del ? "delivered" : "placed";
+  const row = await env.DB.prepare(
+    `INSERT INTO orders (series, piece_id, razorpay_payment_id, buyer_name, email, phone, address_line1, city, state, pincode, amount_paise, status, paid_at,
+       delivered_on, return_window_ends_at, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16) RETURNING id`
+  ).bind(p.series, p.id, "manual:" + crypto.randomUUID(), name, email, phone || null, clean(b.line1, 120) || null, clean(b.city, 60) || null, clean(b.state, 40) || null,
+    String(b.pin || "").replace(/\D/g, "").slice(0, 6) || null, amount, status, iso(Date.parse(paid + "T12:00:00.000+05:30")),
+    del || null, del ? windowEnds(del, (series && series.return_days) || 7) : null, iso()).first();
+  const placed = await env.DB.prepare("UPDATE pieces SET status = ?1, order_ref = ?2, held_by = NULL, held_until = NULL, updated_at = ?3 WHERE id = ?4 AND order_ref IS NULL RETURNING id")
+    .bind(del ? "delivered" : "placed", row.id, iso(), p.id).first();
+  if (!placed) {
+    await env.DB.prepare("DELETE FROM orders WHERE id = ?1").bind(row.id).run();
+    return out({ ok: false, reason: "taken", why: `No. ${pad2(n)} was given an order a moment ago.` }, 409);
+  }
+  await audit(env, actor, "order.past_sale", "order:" + row.id, { piece: p.status }, { piece: p.id, status, paid_on: paid, delivered_on: del || null, email }, p.series);
+  return out({ ok: true, id: row.id });
+}
+
 /* Returned: only while the return window is open and the piece is not
    registered. The buyer joins blocked_buyers (the shop's rule: never sold
    to again). The refund itself is the separate, confirmed Refund. */
@@ -332,6 +376,7 @@ async function refund(env, T, actor, id, b) {
     return out({ ok: false, reason: "confirm", why: `Type ${pad2(o.number)} to confirm the refund.` }, 400);
   }
   if (o.refund_id) return out({ ok: false, reason: "done", why: "Already refunded: " + o.refund_id }, 409);
+  if (/^manual:/.test(o.razorpay_payment_id)) return out({ ok: false, reason: "manual", why: "This sale was recorded by hand, not paid through this checkout. Refund it the way it was paid." }, 409);
   const claim = await env.DB.prepare("UPDATE orders SET refund_requested_at = ?1 WHERE id = ?2 AND refund_requested_at IS NULL AND refund_id IS NULL RETURNING id").bind(iso(), id).first();
   if (!claim) return out({ ok: false, reason: "busy", why: "A refund for this order is already being asked for." }, 409);
   const r = await T.refundPayment(env, o.razorpay_payment_id, o.amount_paise, b.reason === "return" ? "return" : "cancel", o.number, "kaal-");

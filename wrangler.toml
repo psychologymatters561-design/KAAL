@@ -74,6 +74,15 @@ ORDER_ALERT     = "on"
 # the secret META_CAPI_TOKEN (below); without it nothing is sent to Meta.
 META_PIXEL      = "1607748840888926"
 
+# The registry (docs/registry-live.md): every order in a database, the
+# control room at <worker>/control, checkout holds that cannot collide. On
+# once setup-worker has run in mode "live" and bound its database (the
+# [[d1_databases]] block it writes below). "off" puts the shop back exactly
+# as it ran before, nothing deleted: change it here and deploy, or for an
+# instant change, Cloudflare dashboard, Workers, kaal-edition, Settings,
+# Variables (then here too, or the next deploy turns it back on).
+REGISTRY        = "on"
+
 # Refunds are found on their own: every half hour the worker asks Razorpay
 # (at once, if the Razorpay webhook also sends refund.processed), records
 # each one once and emails the owner. A full refund never puts the number

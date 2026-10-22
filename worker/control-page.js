@@ -216,7 +216,13 @@ RENDER.overview = function(j){
   var waiting = ["placed","inspected","packed","dispatched"].map(function(s){ return '<div class="card stat"><b>' + (st[s] || 0) + '</b><span class="muted small">' + s + "</span></div>"; }).join("");
   var wins = j.returnWindows.length ? j.returnWindows.map(function(w){ return "<tr><td>" + esc(w.piece) + '</td><td class="num">' + esc(w.delivered) + '</td><td class="num">' + w.daysLeft + " days left</td></tr>"; }).join("") : '<tr><td class="muted">None open.</td></tr>';
   var late = j.late.length ? j.late.map(function(o){ return '<div class="card"><span class="pill bad">late</span> ' + esc(o.piece) + " · " + esc(o.why) + "</div>"; }).join("") : "";
-  sec("overview").innerHTML = "<h1>Overview</h1>" + late +
+  var im = j.imported, imp = im && im.r ? im.r : null;
+  var importCard = '<div class="card">' + (imp ? '<p class="small">Paid orders brought in from Razorpay ' + esc(when(im.at)) + ": " + (imp.imported || []).length + " new" +
+      ((imp.needsRecord || []).length ? '. <b>To record by hand</b> (Orders, Record a past sale): No. ' + imp.needsRecord.map(pad).join(", No. ") : "") +
+      ((imp.duplicates || []).length ? '. <b class="err">Two payments for one number</b>: ' + imp.duplicates.map(function(d){ return "No. " + pad(d.n) + " (" + esc(d.payment) + ")"; }).join(", ") + ". Check them in Razorpay." : "") + ".</p>"
+    : '<p class="small">Bring the paid orders Razorpay already holds into the registry. Nothing is emailed to anyone.</p>') +
+    '<button class="btn" data-act="import">' + (imp ? "Bring them in again" : "Bring in paid orders from Razorpay") + "</button></div>";
+  sec("overview").innerHTML = "<h1>Overview</h1>" + late + importCard +
     '<div class="card"><div class="row"><span class="sp">' + j.sold + " of " + j.size + ' sold</span><span class="num muted">' + rupees(j.revenue) + "</span></div><div style=\"margin-top:10px\" class=\"strip\">" + cells + "</div></div>" +
     "<h2>Waiting at each stage</h2><div class=\"stats\">" + waiting + "</div>" +
     "<h2>Delivered, return window open</h2><div class=\"card\"><table>" + wins + "</table></div>" +
@@ -225,14 +231,15 @@ RENDER.overview = function(j){
 };
 
 RENDER.orders = function(j){
-  if(!j.orders.length){ sec("orders").innerHTML = '<h1>Orders</h1><div class="card muted">No orders yet. A paid order appears here the moment Razorpay confirms it.</div>'; return; }
-  sec("orders").innerHTML = "<h1>Orders</h1>" + j.orders.map(function(o){
+  var head = '<div class="row"><h1 class="sp">Orders</h1><button class="btn" data-act="pastSale">Record a past sale</button></div>';
+  if(!j.orders.length){ sec("orders").innerHTML = head + '<div class="card muted">No orders yet. A paid order appears here the moment Razorpay confirms it.</div>'; return; }
+  sec("orders").innerHTML = head + j.orders.map(function(o){
     var idx = ["placed","inspected","packed","dispatched","delivered"].indexOf(o.status);
     var bars = [0,1,2,3,4].map(function(i){ return "<i" + (i <= idx ? ' class="on"' : "") + "></i>"; }).join("");
     var next = o.next ? '<button class="btn go" data-act="next" data-id="' + o.id + '" data-to="' + o.next + '">Mark ' + NAMES[o.next] + "</button>" : "";
     var prev = o.next ? '<button class="btn ghost" data-act="preview" data-id="' + o.id + '" data-to="' + o.next + '">Preview email</button>' : "";
     var ret = o.returnOpen ? '<button class="btn warn" data-act="returned" data-id="' + o.id + '">Mark returned</button>' : "";
-    var refund = !o.refund_id && o.status !== "registered" ? '<button class="btn warn ghost" data-act="refund" data-id="' + o.id + '" data-n="' + pad(o.number) + '">Refund</button>' : "";
+    var refund = !o.refund_id && o.status !== "registered" && !/^manual:/.test(o.razorpay_payment_id || "") ? '<button class="btn warn ghost" data-act="refund" data-id="' + o.id + '" data-n="' + pad(o.number) + '">Refund</button>' : "";
     var addr = [o.address_line1, o.address_line2, o.city, o.state, o.pincode].filter(Boolean).join(", ");
     return '<div class="card"><div class="row"><b class="num">No. ' + pad(o.number) + '</b><span class="muted">' + esc(o.colorway) + '</span><span class="sp"></span><span class="pill' + (o.status === "cancelled" || o.status === "returned" ? " bad" : "") + '">' + esc(o.status) + (o.cancel_reason ? " · " + esc(o.cancel_reason) : "") + "</span></div>" +
       '<div class="stages">' + bars + "</div>" +
@@ -380,10 +387,26 @@ document.addEventListener("click", function(e){
   else if(a === "correct"){
     var o = order(id);
     sheet("Change No. " + pad(o.number) + " without email", '<label for="cs">Status</label><select id="cs">' + ["placed","inspected","packed","dispatched","delivered","registered","returned","cancelled"].map(function(s){ return "<option" + (s === o.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+      '<label for="cd">Delivered on (only when changing to delivered)</label><input id="cd" type="date" value="' + esc(o.delivered_on || DATA.orders.today) + '" max="' + esc(DATA.orders.today) + '">' +
       '<label for="cw">Reason (logged)</label><input id="cw"><p class="muted small">For corrections. No email is sent.</p><p class="err" id="sheetErr"></p><button class="btn go" data-act="correctGo" data-id="' + id + '">Change</button>');
   }
   else if(a === "correctGo"){ var w = $("cw").value.trim(); if(w.length < 3){ $("sheetErr").textContent = "Say why, in a few words."; return; }
-    var to = $("cs").value; closeSheet(); hold(id, { to:to, silent:true, reason:w }, "Changing to " + to + ", no email. Saving in"); }
+    var to = $("cs").value, pay = { to:to, silent:true, reason:w }; if(to === "delivered") pay.day = $("cd").value;
+    closeSheet(); hold(id, pay, "Changing to " + to + ", no email. Saving in"); }
+  else if(a === "import"){ el.disabled = true; say("Asking Razorpay. This takes a few seconds.");
+    api("POST", "/control/api/import", {}).then(function(j){ say(j.ok ? "Brought in: " + (j.imported || []).length + " new, " + (j.already || []).length + " already here." : "Razorpay did not answer. Try again in a minute.", !j.ok); load("overview"); }); }
+  else if(a === "pastSale"){
+    sheet("Record a past sale", '<p class="muted small">For a watch sold before this registry (Nos. 01 and 02). No email is sent. It cannot be refunded from here.</p>' +
+      '<label for="ms">Number</label><input id="ms" inputmode="numeric" placeholder="01">' +
+      '<label for="mn">Buyer name</label><input id="mn" autocomplete="off"><label for="me">Buyer email (how they will sign in to the registry)</label><input id="me" type="email" autocomplete="off">' +
+      '<label for="mp">Phone</label><input id="mp" inputmode="tel" autocomplete="off"><label for="ma">Address</label><input id="ma" autocomplete="off">' +
+      '<div class="row"><div class="sp"><label for="mc">City</label><input id="mc"></div><div class="sp"><label for="mt">State</label><input id="mt"></div></div><label for="mz">PIN</label><input id="mz" inputmode="numeric" maxlength="6">' +
+      '<div class="row"><div class="sp"><label for="mpd">Paid on</label><input id="mpd" type="date" max="' + esc(DATA.orders.today) + '"></div><div class="sp"><label for="mdd">Delivered on (if it has arrived)</label><input id="mdd" type="date" max="' + esc(DATA.orders.today) + '"></div></div>' +
+      '<label for="mr">Amount paid, rupees (leave empty for the series price)</label><input id="mr" inputmode="decimal">' +
+      '<p class="err" id="sheetErr"></p><button class="btn go" data-act="pastSaleGo">Record it</button>');
+  }
+  else if(a === "pastSaleGo") api("POST", "/control/api/orders/manual", { n:$("ms").value, name:$("mn").value, email:$("me").value, phone:$("mp").value, line1:$("ma").value, city:$("mc").value, state:$("mt").value,
+      pin:$("mz").value, paid_on:$("mpd").value, delivered_on:$("mdd").value, amount_rupees:$("mr").value }).then(function(j){ if(j.ok){ closeSheet(); say("Recorded."); load("orders"); } else $("sheetErr").textContent = j.why || "Not recorded."; });
   else if(a === "returned"){ var r = prompt("Mark No. " + pad(order(id).number) + " returned? The buyer will never be sold to again. Reason:"); if(r === null) return;
     api("POST", "/control/api/orders/" + id + "/returned", { reason:r }).then(function(j){ say(j.ok ? "Marked returned. Refund it next if you have not." : (j.why || "Not changed."), !j.ok); load("orders"); }); }
   else if(a === "refund"){ var n = el.getAttribute("data-n"); var c = prompt("Refund the full amount through Razorpay? This cannot be undone. Type " + n + " to confirm."); if(c === null) return;

@@ -14,6 +14,13 @@
 #                          worker (docs/meta.md). Modes deploy and all set it
 #   CLOUDFLARE_ACCOUNT_ID  optional; only if the token sees several accounts
 #
+# Mode "staging" (the registry build, docs/staging.md) also needs:
+#   RAZORPAY_TEST_KEY_ID          rzp_test_..., Razorpay in Test Mode → API Keys
+#   RAZORPAY_TEST_KEY_SECRET      shown once beside it
+#   RAZORPAY_TEST_WEBHOOK_SECRET  any long random text; the same goes into the
+#                                 Razorpay TEST webhook
+# and a CLOUDFLARE_API_TOKEN that can also edit D1.
+#
 # It runs only when someone with write access presses "Run workflow" (or
 # asks Claude to). Never on a push or a pull request, so no fork and no
 # outside contribution can reach the secrets. This repository is public
@@ -29,9 +36,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "deploy: put the latest worker live (after a change) · all: first-time setup, everything not yet done · check: only report · test: send the sample emails again"
+        description: "deploy: put the latest worker live (after a change) · all: first-time setup, everything not yet done · check: only report · test: send the sample emails again · staging: the registry's test-mode staging worker"
         type: choice
-        options: [deploy, all, check, test]
+        options: [deploy, all, check, test, staging]
         default: deploy
 
 permissions:
@@ -58,24 +65,30 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          RAZORPAY_TEST_KEY_ID: ${{ secrets.RAZORPAY_TEST_KEY_ID }}
+          RAZORPAY_TEST_KEY_SECRET: ${{ secrets.RAZORPAY_TEST_KEY_SECRET }}
+          RAZORPAY_TEST_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_TEST_WEBHOOK_SECRET }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           MODE: ${{ inputs.mode }}
         run: |
           case "$MODE" in
             check) node tools/setup-email.mjs --check ;;
             test)  node tools/setup-email.mjs --test ;;
+            staging) node tools/setup-email.mjs --staging ;;
             all)   node tools/setup-email.mjs ;;
             *)     node tools/setup-email.mjs --deploy ;;
           esac
 
       - name: Keep the store's id in wrangler.toml
-        if: ${{ inputs.mode == 'all' || inputs.mode == 'deploy' }}
+        if: ${{ inputs.mode == 'all' || inputs.mode == 'deploy' || inputs.mode == 'staging' }}
         continue-on-error: true
+        env:
+          MODE: ${{ inputs.mode }}
         run: |
           if git diff --quiet -- wrangler.toml; then echo "wrangler.toml unchanged."; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add wrangler.toml
-          git commit -m "Bind the worker's KAAL_STATE store (setup-worker run)"
+          git commit -m "Bind the worker's stores in wrangler.toml (setup-worker run, mode $MODE)"
           git pull --rebase origin "$GITHUB_REF_NAME"
           git push origin "HEAD:$GITHUB_REF_NAME"

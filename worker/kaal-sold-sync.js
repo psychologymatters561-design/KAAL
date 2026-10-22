@@ -88,8 +88,18 @@
 import { buyerConfirmation, buyerNearlyBought, nearlyWhatsApp, seriesTwoNote, afterArrival, afterSettled, afterYear, ownerSale, ownerShip, buyerShip, buyerDispatched, buyerRefund, ownerRefund, ownerDigest, arriveBy, arriveByDay, indiaTime,
   stepText, sourceName, deviceName } from "./mail.js";
 import { deskPage } from "./desk.js";
+import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlocked, recordPayment, claimRefund, refundDone, refundFailed, paymentFate } from "./registry.js";
+import { buyerDuplicate, ownerDuplicate, esc } from "./mail.js";
 
 const HOLD_SECONDS = 12 * 60;
+/* With the registry on, a hold is the brief's ten minutes, kept in D1;
+   without it, the twelve this worker has always kept in KV. */
+const holdSeconds = (env) => (registryOn(env) ? HOLD_MS / 1000 : HOLD_SECONDS);
+/* The staging worker (wrangler.toml [env.staging]): Razorpay test mode,
+   its own database, and nothing it does may reach the live site, a real
+   buyer's inbox or Meta. */
+const staging = (env) => env.STAGING === "on";
+const anonBy = () => "anon:" + crypto.randomUUID();
 const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
@@ -107,6 +117,7 @@ export default {
     if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
 
     if (request.method === "OPTIONS") return preflight(request, env);
+    if (staging(env) && request.method === "GET" && path === "/staging") return stagingPage(env);
 
     if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
     if (RATE_LIMITS[path] && overRate(request, path, RATE_LIMITS[path])) {
@@ -171,6 +182,67 @@ function overRate(request, route, max) {
   return over;
 }
 
+/* ══════════ 0b. THE STAGING CHECKOUT ══════════
+
+   Only on the staging worker (STAGING = "on"): a bare page to buy any
+   number with Razorpay's TEST keys and watch the registry answer. The
+   twenty with their state, the last orders (number, state, payment id,
+   refund), and a button. No buyer's name, email or phone is shown.
+   Test card 4111 1111 1111 1111, any future date, any CVV; or UPI
+   success@razorpay. */
+async function stagingPage(env) {
+  let pieces = [], orders = [], err = "";
+  if (registryOn(env)) {
+    try {
+      pieces = (await env.DB.prepare("SELECT number, colorway, state FROM public_registry WHERE series = ?1 ORDER BY number").bind(SERIES).all()).results || [];
+      orders = (await env.DB.prepare("SELECT id, piece_id, status, cancel_reason, razorpay_payment_id, refund_id, paid_at FROM orders ORDER BY id DESC LIMIT 15").all()).results || [];
+    } catch (e) { err = String(e).slice(0, 200); }
+  } else err = "No database is bound (DB). Run the setup-worker workflow in mode staging.";
+  const cell = (p) => `<button type="button" class="n ${esc(p.state)}" data-n="${p.number}" ${p.state === "available" ? "" : "disabled"}><b>${String(p.number).padStart(2, "0")}</b><small>${esc(p.colorway)}<br>${esc(p.state)}</small></button>`;
+  const row = (o) => `<tr><td>${esc(o.piece_id)}</td><td>${esc(o.status)}${o.cancel_reason ? " (" + esc(o.cancel_reason) + ")" : ""}</td><td><code>${esc(o.razorpay_payment_id)}</code></td><td>${o.refund_id ? "<code>" + esc(o.refund_id) + "</code>" : ""}</td><td>${esc(String(o.paid_at || "").slice(0, 16).replace("T", " "))}</td></tr>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAAL staging checkout</title><meta name="robots" content="noindex">
+<style>:root{--void:#080908;--bone:#EDE8DF;--mute:#B3AC9F;--line:#221F1C;--gold:#C6A15B}
+body{margin:0;background:var(--void);color:var(--bone);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:16px}
+h1{font-weight:400;font-size:1.4rem;margin:.2rem 0}p{color:var(--mute);margin:.3rem 0 1rem}.warn{color:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;max-width:720px}
+.n{min-height:64px;background:#0E0F0D;color:var(--bone);border:1px solid var(--line);border-radius:6px;font:inherit;padding:6px;text-align:left}
+.n b{display:block;font-variant-numeric:tabular-nums}.n small{color:var(--mute);font-size:.7rem}.n.available{border-color:var(--gold);cursor:pointer}
+.n[disabled]{opacity:.45}.n.held{opacity:.7}table{border-collapse:collapse;margin-top:1rem;font-size:.8rem;max-width:720px;width:100%;display:block;overflow-x:auto}
+td{border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap}code{font-size:.75rem}#msg{min-height:1.5em;color:var(--gold)}</style></head>
+<body><h1>KAAL staging checkout</h1>
+<p class="warn">Razorpay TEST mode. No real money moves, the live site is never touched, and every email goes to the owner's inbox only.</p>
+<p>Tap an available number to buy it with a test card (4111 1111 1111 1111, any future date, any CVV) or UPI <code>success@razorpay</code>.</p>
+${err ? `<p class="warn">${esc(err)}</p>` : ""}
+<div class="grid">${pieces.map(cell).join("")}</div><p id="msg" role="status"></p>
+<table><tbody><tr><td>Piece</td><td>Order</td><td>Payment</td><td>Refund</td><td>Paid (UTC)</td></tr>${orders.map(row).join("")}</tbody></table>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+(function(){
+  var by = "staging" + Math.random().toString(36).slice(2, 10), msg = document.getElementById("msg");
+  function say(t){ msg.textContent = t; }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".n.available"); if(!b) return;
+    var n = +b.getAttribute("data-n"); say("Opening a test checkout for No. " + n + "...");
+    fetch("/order", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ n:n, by:by }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(!d || !d.ok){ say("Refused: " + (d && d.reason)); return; }
+        var rzp = new Razorpay({ key:d.key_id, order_id:d.order_id, amount:d.amount, currency:d.currency, name:"KAAL (staging)",
+          description:"TEST No. " + n, notes:{ kaal_no: String(n).padStart(2, "0") }, timeout: d.checkout_timeout || undefined,
+          handler: function(res){
+            fetch("/verify", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(res) })
+              .then(function(r){ return r.json(); }).then(function(v){ say(v && v.ok ? "Paid and verified. The webhook places it; reloading in five seconds." : "Signature not verified."); setTimeout(function(){ location.reload(); }, 5000); });
+          },
+          modal:{ ondismiss: function(){ say("Closed. Nothing charged. The hold lasts " + Math.round((d.held_for || 0) / 60) + " minutes."); } } });
+        rzp.open();
+      }).catch(function(){ say("Could not reach /order."); });
+  });
+})();
+</script></body></html>`;
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+    "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" } });
+}
+
 /* ══════════ 1. WHAT THE PAGE ASKS ══════════ */
 
 /* The page merges this into what it already believes. It only ever ADDS
@@ -188,6 +260,7 @@ async function getState(request, env, ctx, url) {
     /* No store, nowhere to keep details given before paying: still v2. */
     const out = { v: 2, sold: null, held: [], live: !!env.STATS };
     if (placed) out.placed = placed;
+    await withRegistry(env, out);
     return json(request, env, out);
   }
 
@@ -201,7 +274,20 @@ async function getState(request, env, ctx, url) {
   const out = { v: 3, sold, held, at: now, live: !!env.STATS };
   const placed = await readPlaced(env);
   if (placed) out.placed = placed;
+  await withRegistry(env, out);
   return json(request, env, out, { "Cache-Control": "public, max-age=10" });
+}
+
+/* The page only ever adds to what it believes is gone, so the registry's
+   answer is merged in, never substituted: a number gone by either account
+   is gone. */
+async function withRegistry(env, out) {
+  if (!registryOn(env)) return;
+  try {
+    const u = await unavailable(env, SERIES);
+    out.sold = [...new Set((out.sold || []).concat(u.gone))].sort((a, b) => a - b);
+    out.held = [...new Set((out.held || []).concat(u.held))].sort((a, b) => a - b);
+  } catch (e) { console.log("Registry unavailable on /state:", String(e).slice(0, 160)); }
 }
 
 /* The holds, listed at most once a minute by each running copy of this
@@ -244,13 +330,22 @@ async function postHold(request, env) {
   const sold = await readSold(env);
   if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" });
 
+  /* The registry's hold is the real one when it is on: one SQL statement,
+     so two buyers cannot both win it. KV keeps its copy for the page. */
+  if (registryOn(env)) {
+    try {
+      const h = await holdPiece(env, SERIES, n, by || anonBy());
+      if (!h.ok) return json(request, env, { ok: false, reason: h.reason === "held" ? "held" : "sold" });
+    } catch (e) { console.log("Registry hold failed on /hold:", String(e).slice(0, 160)); }
+  }
+
   const key = HOLD_PREFIX + n;
   const existing = await env.KAAL_STATE.get(key, "json").catch(() => null);
   /* Re-holding your own number extends it. Somebody else's does not. */
   if (existing && existing.by && existing.by !== by) return json(request, env, { ok: false, reason: "held" });
 
-  const until = Date.now() + HOLD_SECONDS * 1000;
-  await env.KAAL_STATE.put(key, JSON.stringify({ by, until }), { expirationTtl: HOLD_SECONDS });
+  const until = Date.now() + holdSeconds(env) * 1000;
+  await env.KAAL_STATE.put(key, JSON.stringify({ by, until }), { expirationTtl: holdSeconds(env) });
   return json(request, env, { ok: true, n, until });
 }
 
@@ -308,6 +403,26 @@ async function postOrder(request, env, ctx) {
     }
   }
 
+  /* With the registry on: someone the shop does not sell to again is
+     refused in words that accuse nobody, and the number is held before the
+     Razorpay order exists, atomically, so it cannot be priced for two
+     people at once. A registry that cannot be reached is logged and the
+     checks above stand alone, as they always have. */
+  const holder = by || anonBy();
+  let dbHold = false;
+  if (registryOn(env)) {
+    try {
+      if (buyer && await isBlocked(env, buyer.who.email, buyer.who.phone)) {
+        console.log("Checkout refused: a blocked buyer.");
+        return json(request, env, { ok: false, reason: "unavailable" }, {}, 403);
+      }
+      const h = await holdPiece(env, SERIES, n, holder);
+      if (!h.ok) return json(request, env, { ok: false, reason: h.reason === "held" ? "held" : "sold" }, {}, 409);
+      dbHold = true;
+    } catch (e) { console.log("Registry unavailable on /order:", String(e).slice(0, 160)); }
+  }
+  const letGo = () => dbHold ? releaseHold(env, SERIES, n, holder).catch(() => null) : null;
+
   let res, order;
   try {
     res = await fetch(`${RZP_API}/orders`, {
@@ -333,15 +448,18 @@ async function postOrder(request, env, ctx) {
     order = await res.json();
   } catch (e) {
     console.log("Razorpay order call never completed:", String(e).slice(0, 160));
+    await letGo();
     return json(request, env, { ok: false, reason: "upstream" }, {}, 500);
   }
 
   if (res.status === 401 || res.status === 403) {
     console.log("Razorpay rejected the key pair on /order:", res.status);
+    await letGo();
     return json(request, env, { ok: false, reason: "auth" }, {}, 401);
   }
   if (!res.ok || !order || !order.id) {
     console.log("Razorpay refused the order:", res.status, JSON.stringify(order || {}).slice(0, 300));
+    await letGo();
     return json(request, env, { ok: false, reason: "upstream" }, {}, 500);
   }
 
@@ -383,12 +501,13 @@ async function postOrder(request, env, ctx) {
     try {
       await env.KAAL_STATE.put(
         HOLD_PREFIX + n,
-        JSON.stringify({ by, until: Date.now() + HOLD_SECONDS * 1000 }),
-        { expirationTtl: HOLD_SECONDS }
+        JSON.stringify({ by, until: Date.now() + holdSeconds(env) * 1000 }),
+        { expirationTtl: holdSeconds(env) }
       );
-      heldFor = HOLD_SECONDS;
+      heldFor = holdSeconds(env);
     } catch (e) { console.log("Hold failed after a good order:", String(e).slice(0, 120)); }
   }
+  if (dbHold) heldFor = holdSeconds(env);
 
   /* key_id travels to the browser on purpose — it is the publishable
      half of the pair and checkout.js cannot open without it. Sending it
@@ -404,6 +523,10 @@ async function postOrder(request, env, ctx) {
     key_id: env.RAZORPAY_KEY_ID,
     n,
     held_for: heldFor,
+    /* With the registry's hold, the checkout window closes half a minute
+       before the hold does, so a payment cannot start on a number the
+       hold has already let go of. Only sent then; the page uses it if so. */
+    checkout_timeout: dbHold ? holdSeconds(env) - 30 : undefined,
     details: !!buyer
   });
 }
@@ -536,6 +659,10 @@ async function getReceipt(request, env, url) {
   const pays = await paymentsOf(env, orderId);
   const good = pays.find(p => p.status === "captured" || p.status === "authorized");
   const paid = order.status === "paid" || !!good;
+  /* A payment the registry turned away as a second one for the same watch:
+     the thank-you page must not tell its buyer the watch is theirs. */
+  let fate = null;
+  if (registryOn(env) && good) { try { fate = await paymentFate(env, good.id); } catch (e) { fate = null; } }
   let shipping = false;
   if (env.KAAL_STATE) { try { shipping = !!(await env.KAAL_STATE.get("ship:" + orderId)); } catch (e) { shipping = false; } }
 
@@ -546,6 +673,8 @@ async function getReceipt(request, env, url) {
     created_at: order.created_at,
     gift: !!(order.notes && order.notes.gift === "yes"),
     shipping,
+    duplicate: !!(fate && fate.duplicate),
+    refunded: !!(fate && fate.refunded),
     /* Only what the receipt page needs to say "a confirmation is on its
        way to ra•••@gmail.com", and only when an email is actually sent. */
     mail: !!(env.RESEND_API_KEY || env.BREVO_API_KEY) && !!(good && good.email),
@@ -818,6 +947,19 @@ async function webhook(request, env, ctx) {
      should not wait on it; nor should a retry that finds the sale already
      recorded skip them. notifySale sends each payment's pair once (KV),
      and a payment with no usable number still reaches the owner. */
+  /* THE REGISTRY, when it is on, decides first: this payment either places
+     the piece (once, however many times Razorpay delivers it), or the piece
+     already belongs to another order, and this is a second payment for one
+     watch. That one is refunded and apologised for, and nothing below is
+     said: no "No. 07 is yours", no commit, no Purchase to Meta. */
+  const edition0 = parseInt(env.EDITION || "20", 10);
+  if (registryOn(env) && !short && chosen >= 1 && chosen <= edition0) {
+    let fate = null;
+    try { fate = await recordPayment(env, await paymentRecord(env, entity, chosen, order)); }
+    catch (e) { console.log("Registry write failed on the webhook:", String(e).slice(0, 160)); }
+    if (fate && fate.outcome === "duplicate") return duplicatePayment(env, entity, chosen, fate);
+  }
+
   const mail = notifySale(env, entity, chosen, short);
   if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
 
@@ -843,6 +985,10 @@ async function webhook(request, env, ctx) {
     return new Response("Captured but no valid kaal_no — check manually.", { status: 200 });
   }
   if (commit.status === "already") return new Response(`Number ${chosen} already recorded as sold.`, { status: 200 });
+  if (commit.status === "skipped") {
+    if (!(ctx && ctx.waitUntil)) { await mail; if (told) await told; }
+    return new Response(`OK (staging): number ${chosen} placed in the registry; the live site is untouched.`, { status: 200 });
+  }
   if (commit.status === "error")   return new Response("Could not record the sale — see worker logs.", { status: 502 });
 
   /* KV is what the live page reads within seconds; the commit is what
@@ -861,6 +1007,68 @@ async function webhook(request, env, ctx) {
   liveTell(env, ctx, { e: "paid", no: pad2(chosen), dial: DIAL_OF(env, chosen), paise: entity.amount || 0, o: entity.order_id || "" });
   if (!(ctx && ctx.waitUntil)) { await mail; if (told) await told; }
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
+}
+
+/* What the registry keeps about a paid order: the payment's own email and
+   phone, and the name and address the buyer gave at checkout (KV), when
+   they gave them before paying. */
+async function paymentRecord(env, entity, n, order) {
+  let ship = null;
+  if (env.KAAL_STATE && entity.order_id) ship = await env.KAAL_STATE.get("ship:" + entity.order_id, "json").catch(() => null);
+  const notes = (order && order.notes) || entity.notes || {};
+  return {
+    series: SERIES, n, paymentId: String(entity.id), orderId: entity.order_id || null,
+    amount: entity.amount || 0, currency: String(entity.currency || "INR").toUpperCase(),
+    email: entity.email || (ship && ship.buyer && ship.buyer.email) || "", phone: entity.contact || (ship && ship.buyer && ship.buyer.phone) || "",
+    name: (ship && ship.buyer && ship.buyer.name) || (ship && ship.name) || "",
+    address: ship ? { line1: ship.line1, line2: ship.line2, city: ship.city, state: ship.state, pin: ship.pin } : null,
+    gift: notes.gift === "yes", giftNote: notes.gift_note || "",
+    paidAt: entity.created_at ? new Date(entity.created_at * 1000).toISOString() : new Date().toISOString()
+  };
+}
+
+/* A second payment for a watch that already went. It is refunded in full,
+   once (claimRefund lets exactly one delivery ask Razorpay), and the buyer
+   is written to only when the refund exists, so the email can say it is
+   done. If Razorpay refuses, the claim is given back and the webhook
+   answers 502, so Razorpay delivers it again and the refund is retried;
+   the owner hears the first time, and again when it goes through.
+   The refund carries notes.reason "duplicate", which recordRefund reads so
+   that this refund is not mistaken for a returned watch. */
+async function duplicatePayment(env, entity, n, fate) {
+  const o = fate.order;
+  if (o.refund_id) return new Response(`Duplicate payment for No. ${pad2(n)}: already refunded.`, { status: 200 });
+  if (!(await claimRefund(env, o.id))) return new Response(`Duplicate payment for No. ${pad2(n)}: refund in progress.`, { status: 200 });
+
+  let refundId = "", error = "";
+  try {
+    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(entity.id)}/refund`, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, razorpayAuth(env)),
+      body: JSON.stringify({ amount: entity.amount, speed: "normal", receipt: ("dup-" + entity.id).slice(0, 40),
+        notes: { reason: "duplicate", kaal_no: pad2(n) } })
+    });
+    const j = await res.json().catch(() => null);
+    if (res.ok && j && j.id) refundId = j.id;
+    else error = `HTTP ${res.status}${j && j.error && j.error.description ? ": " + String(j.error.description).slice(0, 160) : ""}`;
+  } catch (e) { error = String(e).slice(0, 160); }
+
+  const buyer = String(entity.email || "").trim();
+  const buyerOk = buyer && validEmail(buyer.toLowerCase());
+  const d = { site: siteUrl(env), n, amount: rupees(entity.amount), paymentId: String(entity.id), refundId, error, email: buyerOk ? buyer : "" };
+  const toOwner = ownerDuplicate(d);
+  if (refundId) {
+    await refundDone(env, o.id, refundId, SERIES);
+    console.log(`Duplicate payment ${entity.id} for No. ${pad2(n)} refunded (${refundId}).`);
+    const sends = [sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html, buyerOk ? buyer : undefined)];
+    if (buyerOk) { const m = buyerDuplicate(d); sends.push(sendEmail(env, buyer, m.subject, m.text, m.html)); }
+    await Promise.all(sends);
+    return new Response(`Duplicate payment for No. ${pad2(n)}: refunded.`, { status: 200 });
+  }
+  await refundFailed(env, o.id);
+  console.log(`Duplicate payment ${entity.id} for No. ${pad2(n)}: refund failed (${error}).`);
+  if (fate.fresh) await sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html);
+  return new Response("Duplicate payment: the refund failed; deliver again.", { status: 502 });
 }
 
 /* Read, modify, write — and mean it. Two webhooks landing together both
@@ -927,6 +1135,9 @@ async function rewriteSold(env, change, message) {
 }
 
 async function commitSold(env, chosen, paymentId) {
+  /* Staging takes test-mode payments: none of them may ever touch the live
+     site's sold list. The registry is staging's record. */
+  if (staging(env)) return { status: "skipped" };
   return rewriteSold(env, (current, edition) => {
     if (!chosen || isNaN(chosen) || chosen < 1 || chosen > edition) return { status: "bad-number" };
     if (current.indexOf(chosen) > -1) return { status: "already" };
@@ -1345,8 +1556,12 @@ async function listPayments(env, from, to, max = 500) {
 async function sendEmail(env, to, subject, text, html, replyToOverride, headers) {
   const from    = env.MAIL_FROM || env.ABANDON_FROM || "KAAL <connect@thekaal.co>";
   const replyTo = replyToOverride || env.MAIL_REPLY_TO || env.ABANDON_REPLY_TO || "connect@thekaal.co";
-  const list    = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  let list      = (Array.isArray(to) ? to : [to]).filter(Boolean);
   if (!list.length) return false;
+  /* Staging writes to the owner only, whoever the email was for, and says
+     so in the subject: a test payment made with a real person's address
+     must never reach that person. */
+  if (staging(env)) { subject = `[Staging, for ${list.join(", ")}] ${subject}`.slice(0, 250); list = ownerInbox(env); }
   try {
     let res;
     if (env.RESEND_API_KEY) {
@@ -2557,6 +2772,14 @@ async function recordRefund(env, r, payment) {
      twice. The payment's own copy is what the desk's order list reads. */
   await env.KAAL_STATE.put(key, JSON.stringify(rec));
   await env.KAAL_STATE.put("refundof:" + payment.id, JSON.stringify(rec)).catch(() => null);
+  /* The worker's own refund of a second payment for a watch that went to
+     someone else (duplicatePayment). The watch was never returned: the
+     number stays sold, and the owner and the buyer have already been told
+     exactly this, so nothing more is said. */
+  if (r.notes && r.notes.reason === "duplicate") {
+    console.log(`Refund ${r.id} recorded: a duplicate payment${n ? " for No. " + pad2(n) : ""}.`);
+    return "new";
+  }
   if (full && n) {
     const cur = await env.KAAL_STATE.get("refunded:" + n, "json").catch(() => null);
     if (!cur || cur.payment !== payment.id) {
@@ -2691,7 +2914,7 @@ const META_KEY = "meta:";
 const META_LOOKBACK = 6 * 86400 + 12 * 3600;
 const META_PER_RUN = 8;
 function metaPixel(env) { return String(env.META_PIXEL_ID || env.META_PIXEL || "").replace(/\D/g, ""); }
-const metaOn = (env) => !!(metaPixel(env) && env.META_CAPI_TOKEN);
+const metaOn = (env) => !staging(env) && !!(metaPixel(env) && env.META_CAPI_TOKEN);
 
 /* Meta's normalising for a name: lower case, letters only. */
 const metaName = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-zऀ-ॿ]/g, "");
@@ -2864,12 +3087,16 @@ async function readSold(env) {
    day one, before any KV namespace has been created. */
 async function knownSold(env) {
   const kv = await readSold(env);
-  if (kv) return kv;
-  return readSoldFromGitHub(env);
+  const base = kv || await readSoldFromGitHub(env);
+  if (!registryOn(env)) return base;
+  try {
+    const u = await unavailable(env, SERIES);
+    return [...new Set((base || []).concat(u.gone))].sort((a, b) => a - b);
+  } catch (e) { return base; }
 }
 
 async function readSoldFromGitHub(env) {
-  if (!env.GITHUB_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO) return null;
+  if (staging(env) || !env.GITHUB_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO) return null;
   const branch = env.GITHUB_BRANCH || "main";
   try {
     const res = await fetch(

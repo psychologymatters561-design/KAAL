@@ -453,6 +453,55 @@ export function buyerRefund(d) {
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
 
+/* Two payments reached one number (registry, worker/registry.js). The
+   second buyer is refunded in full by the worker, and told so once the
+   refund exists. Draft wording: the owner approves it in Phase 3. */
+export function buyerDuplicate(d) {
+  const n = pad2(d.n), site = d.site;
+  const subject = `No. ${n} went a moment before your payment`;
+  const preheader = `Your ${d.amount} is refunded in full.`;
+  const lines = [
+    `Another payment for No. ${n} reached us moments before yours. Each number exists once, so we could not place your order.`,
+    `Your payment of ${d.amount} has been refunded in full. Razorpay returns it to the same card or account, usually within five to seven working days.`,
+    "We are sorry for the trouble. If anything about this is unclear, reply to this email and a person will answer."
+  ];
+  const body = [
+    h1(`No. ${n} went first.`),
+    para(esc(lines[0])),
+    para(esc(lines[1])),
+    card("", [
+      ["Refunded", esc(d.amount)],
+      ["Payment reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.paymentId)}</span>`],
+      ["Refund reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.refundId)}</span>`]
+    ], { pad: "0 32px 22px" }),
+    para(esc(lines[2]), { size: 14, lh: 22, pad: "0 32px 0" })
+  ].join("\n");
+  const text = [`No. ${n} went first.`, "", lines[0], "", lines[1], "",
+    `Refunded: ${d.amount}`, `Payment reference: ${d.paymentId}`, `Refund reference: ${d.refundId}`, "",
+    lines[2], "", "KAAL"].join("\n");
+  return { subject, html: frame({ title: subject, preheader, body, site }), text };
+}
+
+export function ownerDuplicate(d) {
+  const n = pad2(d.n), site = d.site;
+  const ok = !!d.refundId;
+  const subject = ok ? `Two payments for No. ${n} · the second is refunded` : `Two payments for No. ${n} · refund it by hand`;
+  const rzp = `https://dashboard.razorpay.com/app/payments/${encodeURIComponent(d.paymentId || "")}`;
+  const what = ok
+    ? `A second payment reached No. ${n} after it was already placed. The worker refunded it in full (${d.refundId}) and wrote to the buyer. The first order stands; nothing for you to do.`
+    : `A second payment reached No. ${n} after it was already placed. The worker could not refund it (${d.error || "Razorpay did not answer"}). Razorpay will send the payment again and the worker will retry, but refund it in Razorpay now to be sure. The first order stands.`;
+  const body = [
+    eyebrow(ok ? "Duplicate payment, refunded" : "Duplicate payment, not refunded"),
+    h1(`No. ${n}`),
+    para(esc(what), { pad: "0 32px 18px" }),
+    buttons([button(rzp, "Open the payment in Razorpay", { ghost: ok })]),
+    card("Second payment", [["Amount", esc(d.amount)], ["Payment", esc(d.paymentId)], ["Buyer", esc(d.email || "not given")]], { pad: "0 32px 22px" })
+  ].join("\n");
+  const text = [`No. ${n}: ${ok ? "duplicate payment refunded" : "duplicate payment NOT refunded"}`, "", what, "",
+    `Amount: ${d.amount}`, `Payment: ${d.paymentId}`, `Buyer: ${d.email || "not given"}`, "", rzp].join("\n");
+  return { subject, html: frame({ title: subject, preheader: what.slice(0, 90), body, site }), text };
+}
+
 export function ownerRefund(d) {
   const site = d.site, n = d.n ? pad2(d.n) : "";
   const subject = n ? `Refund processed · No. ${n}${d.dial ? " " + d.dial : ""} · ${d.amount}${d.full ? "" : " (part)"}`

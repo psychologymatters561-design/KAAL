@@ -38,7 +38,10 @@ jobs:
         run: node tools/check.mjs
 
       - name: Validate the worker parses
-        run: node --check worker/kaal-sold-sync.js && node --check worker/mail.js && node --check worker/desk.js
+        run: node --check worker/kaal-sold-sync.js && node --check worker/mail.js && node --check worker/desk.js && node --check worker/registry.js
 
       - name: Test the money path (payment return, receipt, address, emails, the desk)
         run: node tools/test-worker.mjs
+
+      - name: Test the registry (migrations/, holds, a payment twice, a duplicate's refund, staging)
+        run: node --no-warnings tools/test-registry.mjs

@@ -285,6 +285,22 @@ function receipt(){
         $("state").textContent = "Your bank has not confirmed this payment yet. If money has left your account, write to connect@thekaal.co and a person will check it with you.";
         return;
       }
+      /* A second payment for a number that had already gone (worker
+         registry): never "It is yours", never a Purchase, and no address
+         asked for. The refund is the worker's; this page only says so. */
+      if(d.duplicate){
+        var no = "No. " + pad(d.n || n);
+        $("headline").textContent = no + " went first.";
+        $("sub").textContent = "Another payment for " + no + " reached us moments before yours. Each number exists once, so your order could not be placed.";
+        $("state").textContent = d.refunded ? "Your payment has been refunded in full. An email explains, with the refund reference." : "Your payment is being refunded in full. An email will confirm it, with the refund reference.";
+        $("okPill").hidden = true; $("ship").hidden = true;
+        ["arriveVal", "nextTitle", "returnLine"].forEach(function(id){
+          var el = $(id), box = el && (el.closest(".row") || el.closest("section") || el);
+          if(box) box.hidden = true;
+        });
+        try{ localStorage.setItem("kaal_purchase_" + (d.payment_id || pid), "1"); }catch(e){}
+        return;
+      }
       $("state").textContent = "";
       n = d.n || n; showNumber(n);
       pid = d.payment_id || pid; showRef(pid);

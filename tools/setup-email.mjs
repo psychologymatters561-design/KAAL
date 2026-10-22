@@ -7,6 +7,10 @@
      node tools/setup-email.mjs --test     send the sample emails to the owner
      node tools/setup-email.mjs --deploy   only deploy the worker again (after a change
                                            to worker/); needs only CLOUDFLARE_API_TOKEN
+     node tools/setup-email.mjs --staging  the registry's staging worker: its database and
+                                           store, migrations/, Razorpay TEST keys, deploy
+                                           (needs RAZORPAY_TEST_KEY_ID, RAZORPAY_TEST_KEY_SECRET,
+                                           RAZORPAY_TEST_WEBHOOK_SECRET; see docs/staging.md)
 
    Reads these from the environment, never from the command line, never
    prints them, never writes them to disk:
@@ -64,7 +68,7 @@ const WORKER_URL = process.env.KAAL_SETUP_WORKER_URL || "https://kaal-edition.ka
 const CF = process.env.KAAL_SETUP_CF_API || "https://api.cloudflare.com/client/v4";
 const RS = process.env.KAAL_SETUP_RESEND_API || "https://api.resend.com";
 const mode = process.argv.includes("--check") ? "check" : process.argv.includes("--test") ? "test"
-  : process.argv.includes("--deploy") ? "deploy" : "all";
+  : process.argv.includes("--deploy") ? "deploy" : process.argv.includes("--staging") ? "staging" : "all";
 
 const say = (s = "") => console.log(s);
 const step = (s) => console.log(`\n── ${s} ${"─".repeat(Math.max(0, 60 - s.length))}`);
@@ -73,7 +77,9 @@ const todo = (s) => console.log(`  • ${s}`);
 const stop = (s) => { console.log(`\n  ✗ ${s}\n`); process.exit(1); };
 
 const env = process.env;
-const missing = (mode === "deploy" ? ["CLOUDFLARE_API_TOKEN"] : ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"]).filter(k => !env[k]);
+const missing = (mode === "deploy" ? ["CLOUDFLARE_API_TOKEN"]
+  : mode === "staging" ? ["CLOUDFLARE_API_TOKEN", "RAZORPAY_TEST_KEY_ID", "RAZORPAY_TEST_KEY_SECRET", "RAZORPAY_TEST_WEBHOOK_SECRET"]
+  : ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"]).filter(k => !env[k]);
 /* On GitHub (the setup-worker workflow) the keys are repository secrets,
    not a Claude environment's variables; say so where it applies. */
 const WHERE = env.GITHUB_ACTIONS ? "Add it on GitHub: Settings → Secrets and variables → Actions → New repository secret (docs/setup-email.md, \"From a phone\")." : "docs/setup-email.md, steps 1 to 3, says where each comes from and where it goes.";
@@ -216,6 +222,69 @@ async function ensureMeta() {
   const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: "META_CAPI_TOKEN", text: env.META_CAPI_TOKEN, type: "secret_text" } });
   if (!r.ok) stop(`Could not set META_CAPI_TOKEN: ${r.text.slice(0, 200)}`);
   good("META_CAPI_TOKEN set on the worker. Paid orders of the last six days reach Meta within half an hour.");
+}
+
+/* ── The staging worker (wrangler.toml [env.staging]) ──
+   Its own D1 database and KV store, found by name or made, their ids
+   written over the placeholders in wrangler.toml, migrations/ applied,
+   TEST keys only (a live key is refused before anything is touched), and
+   deployed. The live worker is never touched by this mode. */
+const STAGING_WORKER = "kaal-edition-staging";
+async function staging() {
+  if (!/^rzp_test_/.test(env.RAZORPAY_TEST_KEY_ID)) stop("RAZORPAY_TEST_KEY_ID does not start with rzp_test_. Staging only ever takes Razorpay TEST keys: Razorpay dashboard, switch to Test Mode, Account & Settings, API Keys.");
+  step("Staging 1. Database and store");
+  let toml = readFileSync(TOML, "utf8");
+  const zeroD1 = 'database_id = "00000000-0000-0000-0000-000000000000"', zeroKV = 'id = "00000000000000000000000000000000"';
+  if (toml.includes(zeroD1)) {
+    const list = await cf(`/accounts/${account}/d1/database?name=kaal-registry-staging`);
+    let db = ((list.json && list.json.result) || []).find(d => d.name === "kaal-registry-staging");
+    if (!db) {
+      const made = await cf(`/accounts/${account}/d1/database`, { method: "POST", body: { name: "kaal-registry-staging" } });
+      if (!made.ok) stop(`Could not create the staging database: ${made.text.slice(0, 200)}. The token needs "D1: Edit" as well as "Workers Scripts: Edit".`);
+      db = made.json.result; good("staging database created");
+    } else good("staging database found; reusing it");
+    toml = toml.replace(zeroD1, `database_id = "${db.uuid}"`);
+  } else good("staging database already bound in wrangler.toml");
+  if (toml.includes(zeroKV)) {
+    const list = await cf(`/accounts/${account}/storage/kv/namespaces?per_page=100`);
+    let ns = ((list.json && list.json.result) || []).find(n => n.title === "kaal-edition-staging-KAAL_STATE");
+    if (!ns) {
+      const made = await cf(`/accounts/${account}/storage/kv/namespaces`, { method: "POST", body: { title: "kaal-edition-staging-KAAL_STATE" } });
+      if (!made.ok) stop(`Could not create the staging store: ${made.text.slice(0, 200)}`);
+      ns = made.json.result; good("staging store created");
+    } else good("staging store found; reusing it");
+    toml = toml.replace(zeroKV, `id = "${ns.id}"`);
+  } else good("staging store already bound in wrangler.toml");
+  writeFileSync(TOML, toml);
+
+  step("Staging 2. The schema (migrations/)");
+  const m = wrangler(["d1", "migrations", "apply", "DB", "--env", "staging", "--remote"]);
+  if (!m.ok) stop(`Migrations failed:\n${m.out.split("\n").slice(-20).join("\n")}`);
+  good(/No migrations to apply/i.test(m.out) ? "already up to date" : "applied");
+
+  step("Staging 3. Deploy");
+  const d = wrangler(["deploy", "--env", "staging"]);
+  if (!d.ok) stop(`Staging deploy failed:\n${d.out.split("\n").slice(-25).join("\n")}`);
+  good("deployed");
+
+  step("Staging 4. Secrets (TEST keys only)");
+  const put = async (name, value) => {
+    const r = await cf(`/accounts/${account}/workers/scripts/${STAGING_WORKER}/secrets`, { method: "PUT", body: { name, text: value, type: "secret_text" } });
+    if (!r.ok) stop(`Could not set ${name} on staging: ${r.text.slice(0, 200)}`);
+    good(`${name} set`);
+  };
+  await put("RAZORPAY_KEY_ID", env.RAZORPAY_TEST_KEY_ID);
+  await put("RAZORPAY_KEY_SECRET", env.RAZORPAY_TEST_KEY_SECRET);
+  await put("RAZORPAY_WEBHOOK_SECRET", env.RAZORPAY_TEST_WEBHOOK_SECRET);
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE"]) if (env[k]) await put(k, env[k]);
+
+  const url = `https://${STAGING_WORKER}.kaal-edition-hq.workers.dev`;
+  step("Done. Two things left, both in Razorpay TEST mode");
+  say(`  1. Razorpay dashboard → switch to Test Mode → Account & Settings → Webhooks → Add New Webhook`);
+  say(`       URL:     ${url}/`);
+  say(`       Secret:  the same value as the RAZORPAY_TEST_WEBHOOK_SECRET repository secret`);
+  say(`       Events:  payment.captured and refund.processed`);
+  say(`  2. Open ${url}/staging on your phone and buy a number with a test card.`);
 }
 
 /* ── 2. Deploy, and 4. ask the live worker ── */
@@ -362,6 +431,7 @@ async function ensureDesk(verified) {
   say(`KAAL email setup (${mode})`);
   if (mode === "test") { await testEmails(); return; }
   await cloudflareAccount();
+  if (mode === "staging") { await staging(); return; }
   await ensureKV();
   if (mode === "deploy") { await deploy(); await ensureMeta(); await liveCheck(); step("Done"); return; }
   /* Deploy before the secrets: the new wrangler.toml no longer defines

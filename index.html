@@ -5563,6 +5563,10 @@ function openRzp(order, n, el, done, g, buyer){
       } }
     };
     if(API2) opts.callback_url = KAAL.api.replace(/\/+$/, "") + "/callback";
+    /* The worker's registry holds a number for ten minutes; when it says
+       so, the payment window closes just before the hold does, so nobody
+       starts paying for a number that has already been let go. */
+    if(order.checkout_timeout > 60) opts.timeout = order.checkout_timeout;
     /* Given once on this page, so the payment window does not ask again. */
     if(buyer) opts.prefill = { name: buyer.name, email: buyer.email, contact: e164(buyer.phone) };
     var rzp = new window.Razorpay(opts);

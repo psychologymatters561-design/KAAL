@@ -128,7 +128,7 @@ export default {
     /* The registry's control room, its sign-in and the pieces' photographs
        (worker/control.js). Same origin as the page, so no CORS here. */
     if (path === "/control" || path.startsWith("/control/") || path.startsWith("/auth/") || path.startsWith("/photo/")) {
-      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold });
+      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid });
     }
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
@@ -153,6 +153,8 @@ export default {
     /* The registry's outbox: what failed is tried again, with backoff. */
     if (registryOn(env)) ctx.waitUntil(flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html))
       .catch(e => console.log("Outbox run failed:", String(e).slice(0, 160))));
+    /* The first run after the registry goes live brings in the paid orders. */
+    if (registryOn(env)) ctx.waitUntil(autoImport(env));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
@@ -1069,6 +1071,82 @@ async function duplicatePayment(env, entity, n, fate) {
   console.log(`Duplicate payment ${entity.id} for No. ${pad2(n)}: refund failed (${error}).`);
   if (fate.fresh) await sendEmail(env, ownerInbox(env), toOwner.subject, toOwner.text, toOwner.html);
   return new Response("Duplicate payment: the refund failed; deliver again.", { status: 502 });
+}
+
+/* ══════════ 3f. INTO THE REGISTRY ══════════
+
+   Going live: every paid order Razorpay already holds becomes an order in
+   the registry, so the control room starts with the real shop in it.
+   Nothing is emailed to anyone; it only writes down what already happened.
+
+     a captured, full-price payment for a number      placed (recordPayment,
+                                                      the same idempotent path
+                                                      as the webhook)
+     ...that the old desk had marked dispatched       dispatched, with its
+                                                      courier and tracking
+     a number the owner keeps off sale (No. 09)       left withheld
+     refunded in full, or below the price             left out
+     a number the live site lists as sold with no     marked placed and named,
+     payment Razorpay knows of (Nos. 01 and 02)       to be recorded by hand
+                                                      ("Record a past sale")
+     two captured payments for one number             reported, never refunded
+                                                      here: that is a person's
+                                                      decision
+
+   Running it again changes nothing that is already in. */
+async function importPaid(env) {
+  if (!registryOn(env)) return { ok: false, reason: "off" };
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) return { ok: false, reason: "razorpay" };
+  const now = Math.floor(Date.now() / 1000);
+  const pays = await listPayments(env, now - 400 * 86400, now + 60, 2000);
+  if (!pays) return { ok: false, reason: "razorpay" };
+  const price = parseInt(env.PRICE_PAISE || "0", 10), edition = parseInt(env.EDITION || "20", 10);
+  const currency = String(env.CURRENCY || "INR").toUpperCase();
+  const r = { ok: true, imported: [], already: [], dispatched: [], withheld: [], duplicates: [], needsRecord: [], skipped: 0 };
+  for (const p of pays.sort((a, b) => a.created_at - b.created_at)) {
+    if (p.status !== "captured" || (p.amount || 0) < price || String(p.currency || "INR").toUpperCase() !== currency) { r.skipped++; continue; }
+    const order = p.order_id ? await readOrder(env, p.order_id) : null;
+    const n = parseInt((order && order.notes && order.notes.kaal_no) || (p.notes && p.notes.kaal_no), 10);
+    if (!(n >= 1 && n <= edition)) { r.skipped++; continue; }
+    const piece = await env.DB.prepare("SELECT status, order_ref FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
+    if (piece && piece.status === "withheld") { r.withheld.push(n); continue; }
+    const fate = await recordPayment(env, await paymentRecord(env, p, n, order));
+    if (fate.outcome === "duplicate") { r.duplicates.push({ n, payment: p.id }); continue; }
+    if (fate.outcome !== "placed") { r.already.push(n); continue; }
+    r.imported.push(n);
+    /* What the old desk already knew: it was sent, with this courier. */
+    const sent = env.KAAL_STATE && p.order_id ? await env.KAAL_STATE.get("sent:" + p.order_id, "json").catch(() => null) : null;
+    if (sent && sent.at) {
+      await env.DB.prepare(`UPDATE orders SET status = 'dispatched', courier = ?1, tracking_number = ?2, tracking_url = ?3, dispatched_at = ?4, updated_at = ?5
+        WHERE id = ?6 AND status = 'placed'`).bind(sent.courier || null, sent.tracking || null, sent.url || null, sent.at, new Date().toISOString(), fate.order.id).run();
+      r.dispatched.push(n);
+    }
+  }
+  /* Sold on the live site, unknown to Razorpay: never "available" here. */
+  const listed = (await readSold(env)) || (await readSoldFromGitHub(env)) || [];
+  for (const n of listed) {
+    const pc = await env.DB.prepare("SELECT id, status, order_ref FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
+    if (!pc || pc.order_ref || pc.status === "withheld") continue;
+    if (pc.status === "available" || pc.status === "held") {
+      await env.DB.prepare("UPDATE pieces SET status = 'placed', notes = COALESCE(notes, ?1), held_by = NULL, held_until = NULL, updated_at = ?2 WHERE id = ?3")
+        .bind("Sold before the registry: record its sale (Orders, Record a past sale).", new Date().toISOString(), pc.id).run();
+    }
+    r.needsRecord.push(n);
+  }
+  await auditRegistry(env, "registry.import", r);
+  if (env.KAAL_STATE) await env.KAAL_STATE.put("registry:imported", JSON.stringify({ at: new Date().toISOString(), r })).catch(() => null);
+  console.log("Registry import:", JSON.stringify(r).slice(0, 300));
+  return r;
+}
+async function autoImport(env) {
+  try {
+    if (!env.KAAL_STATE || await env.KAAL_STATE.get("registry:imported").catch(() => "x")) return;
+    await importPaid(env);
+  } catch (e) { console.log("Registry import threw:", String(e).slice(0, 160)); }
+}
+async function auditRegistry(env, action, after) {
+  try { await env.DB.prepare("INSERT INTO audit_log (actor, action, target, after, series) VALUES ('system:import', ?1, 'registry', ?2, ?3)").bind(action, JSON.stringify(after), SERIES).run(); }
+  catch (e) { console.log("Audit write failed:", String(e).slice(0, 120)); }
 }
 
 /* A full refund through Razorpay, with the reason in its notes (recordRefund

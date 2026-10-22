@@ -26,7 +26,10 @@
 export const HOLD_MS = 10 * 60 * 1000;
 export const SERIES = "S01";
 
-export const registryOn = (env) => !!(env && env.DB && typeof env.DB.prepare === "function");
+/* On when the database is bound, unless REGISTRY = "off" (wrangler.toml, or
+   the Cloudflare dashboard for an instant change): the off switch. Off,
+   the worker runs exactly as it did before the registry, nothing deleted. */
+export const registryOn = (env) => !!(env && env.DB && typeof env.DB.prepare === "function" && String(env.REGISTRY || "on").toLowerCase() !== "off");
 export const pieceId = (series, n) => `${series}-${n < 10 ? "0" + n : n}`;
 const now = () => new Date().toISOString();
 

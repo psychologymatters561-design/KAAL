@@ -51,7 +51,8 @@ Two watches sold from the Meta campaign (No. 10 on 20 October, No. 07 on
    **Secrets and variables** → **Actions** → **New repository secret**.
    Name: `META_CAPI_TOKEN`. Value: the token.
 3. **Put it on the worker.** The repository → **Actions** → **setup-worker**
-   → **Run workflow** → mode **deploy** → Run. It deploys the worker and
+   → **Run workflow** → mode **deploy** (or **live**, which also switches
+   on the registry: docs/registry-live.md) → Run. It deploys the worker and
    sets the token. The log says "META_CAPI_TOKEN set on the worker".
 4. **Check.** Within half an hour, Events Manager → the dataset →
    **Overview** shows Purchase events with "Server" as a source, and the

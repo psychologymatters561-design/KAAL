@@ -48,3 +48,6 @@ jobs:
 
       - name: Test the control room (sign-in, authenticator, stages and their emails, refunds, outbox)
         run: node --no-warnings tools/test-control.mjs
+
+      - name: Test going live (the import, past sales, the off switch)
+        run: node --no-warnings tools/test-live.mjs

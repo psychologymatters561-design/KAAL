@@ -7,6 +7,10 @@
      node tools/setup-email.mjs --test     send the sample emails to the owner
      node tools/setup-email.mjs --deploy   only deploy the worker again (after a change
                                            to worker/); needs only CLOUDFLARE_API_TOKEN
+     node tools/setup-email.mjs --live     the registry on the LIVE worker: its database,
+                                           migrations/, AUTH_SECRET once, then a deploy
+                                           (and the Meta token if given); see
+                                           docs/registry-live.md
      node tools/setup-email.mjs --staging  the registry's staging worker: its database and
                                            store, migrations/, Razorpay TEST keys, deploy
                                            (needs RAZORPAY_TEST_KEY_ID, RAZORPAY_TEST_KEY_SECRET,
@@ -68,7 +72,8 @@ const WORKER_URL = process.env.KAAL_SETUP_WORKER_URL || "https://kaal-edition.ka
 const CF = process.env.KAAL_SETUP_CF_API || "https://api.cloudflare.com/client/v4";
 const RS = process.env.KAAL_SETUP_RESEND_API || "https://api.resend.com";
 const mode = process.argv.includes("--check") ? "check" : process.argv.includes("--test") ? "test"
-  : process.argv.includes("--deploy") ? "deploy" : process.argv.includes("--staging") ? "staging" : "all";
+  : process.argv.includes("--deploy") ? "deploy" : process.argv.includes("--staging") ? "staging"
+  : process.argv.includes("--live") ? "live" : "all";
 
 const say = (s = "") => console.log(s);
 const step = (s) => console.log(`\n── ${s} ${"─".repeat(Math.max(0, 60 - s.length))}`);
@@ -77,7 +82,7 @@ const todo = (s) => console.log(`  • ${s}`);
 const stop = (s) => { console.log(`\n  ✗ ${s}\n`); process.exit(1); };
 
 const env = process.env;
-const missing = (mode === "deploy" ? ["CLOUDFLARE_API_TOKEN"]
+const missing = (mode === "deploy" || mode === "live" ? ["CLOUDFLARE_API_TOKEN"]
   : mode === "staging" ? ["CLOUDFLARE_API_TOKEN", "RAZORPAY_TEST_KEY_ID", "RAZORPAY_TEST_KEY_SECRET", "RAZORPAY_TEST_WEBHOOK_SECRET"]
   : ["CLOUDFLARE_API_TOKEN", "RESEND_API_KEY"]).filter(k => !env[k]);
 /* On GitHub (the setup-worker workflow) the keys are repository secrets,
@@ -296,6 +301,64 @@ async function staging() {
   say(`  3. The control room: ${url}/control. Sign in with ${env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0]}; the first time, it asks you to add KAAL to an authenticator app.`);
 }
 
+/* ── The registry on the live worker ──
+   Its D1 database, found by name or made, bound in wrangler.toml above the
+   staging section; migrations/ applied before the code that needs them;
+   AUTH_SECRET made once and never replaced (a new one would lock the admin
+   out); then the same deploy as --deploy, with the Meta token if given.
+   REGISTRY = "off" in wrangler.toml switches it all off again. */
+async function live() {
+  step("Live 1. The registry's database");
+  let toml = readFileSync(TOML, "utf8");
+  const bound = /^\[\[d1_databases\]\]\s*\nbinding\s*=\s*"DB"\s*\ndatabase_name\s*=\s*"kaal-registry"\s*\ndatabase_id\s*=\s*"([0-9a-f-]{36})"/m.exec(toml);
+  if (bound) good(`already bound in wrangler.toml (${bound[1].slice(0, 8)}…)`);
+  else {
+    const list = await cf(`/accounts/${account}/d1/database?name=kaal-registry`);
+    if (!list.ok) stop(`Cloudflare would not list D1 databases (${list.status}). The token needs "D1: Edit" as well as "Workers Scripts: Edit" (docs/registry-live.md, step 1).`);
+    let db = ((list.json && list.json.result) || []).find(d => d.name === "kaal-registry");
+    if (!db) {
+      const made = await cf(`/accounts/${account}/d1/database`, { method: "POST", body: { name: "kaal-registry" } });
+      if (!made.ok) stop(`Could not create the database: ${made.text.slice(0, 200)}. The token needs "D1: Edit".`);
+      db = made.json.result; good("created");
+    } else good("found; reusing it");
+    const block = `# The registry's database (docs/registry-live.md), bound by setup-worker\n# in mode live. REGISTRY in [vars] above is its off switch.\n[[d1_databases]]\nbinding = "DB"\ndatabase_name = "kaal-registry"\ndatabase_id = "${db.uuid}"\nmigrations_dir = "migrations"\n\n`;
+    const at = toml.indexOf("# ══════════════════════════════════════════════════════════════════════\n# STAGING");
+    toml = at > -1 ? toml.slice(0, at) + block + toml.slice(at) : toml + "\n" + block;
+    writeFileSync(TOML, toml);
+    good("bound in wrangler.toml (committed back by the workflow)");
+  }
+
+  step("Live 2. The schema (migrations/)");
+  const m = wrangler(["d1", "migrations", "apply", "DB", "--remote"]);
+  if (!m.ok) stop(`Migrations failed; nothing else was changed:\n${m.out.split("\n").slice(-20).join("\n")}`);
+  good(/No migrations to apply/i.test(m.out) ? "already up to date" : "applied");
+
+  step("Live 3. The control room's key");
+  const have = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`);
+  const names = new Set(((have.json && have.json.result) || []).map(x => x.name));
+  const put = async (name, value) => {
+    const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name, text: value, type: "secret_text" } });
+    if (!r.ok) stop(`Could not set ${name}: ${r.text.slice(0, 200)}`);
+    good(`${name} set`);
+  };
+  if (names.has("AUTH_SECRET")) good("AUTH_SECRET already set (kept)");
+  else await put("AUTH_SECRET", randomBytes(48).toString("base64url"));
+  for (const k of ["ADMIN_EMAIL", "OWNER_EMAIL", "RESEND_API_KEY", "DESK_PASSCODE"]) if (env[k]) await put(k, env[k]);
+
+  await deploy();
+  await ensureMeta();
+  await liveCheck();
+  const who = env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0];
+  step("Done. The registry is live");
+  say(`  1. Open ${WORKER_URL}/control on your phone and sign in with ${who}.`);
+  say("     The first time, add KAAL to your authenticator app when it asks. Do it now: the first");
+  say("     person to sign in with that address sets it up.");
+  say("  2. Overview: the paid orders come in on their own within half an hour, or tap");
+  say("     \"Bring in paid orders from Razorpay\".");
+  say("  3. Orders, \"Record a past sale\", for each number it lists as sold before the registry.");
+  say('  Off switch: REGISTRY = "off" in wrangler.toml, then this workflow in mode deploy.');
+}
+
 /* ── 2. Deploy, and 4. ask the live worker ── */
 async function deploy() {
   step("2. Deploy the worker");
@@ -442,6 +505,7 @@ async function ensureDesk(verified) {
   await cloudflareAccount();
   if (mode === "staging") { await staging(); return; }
   await ensureKV();
+  if (mode === "live") { await live(); return; }
   if (mode === "deploy") { await deploy(); await ensureMeta(); await liveCheck(); step("Done"); return; }
   /* Deploy before the secrets: the new wrangler.toml no longer defines
      OWNER_EMAIL as a plain setting, so the secret can never collide with

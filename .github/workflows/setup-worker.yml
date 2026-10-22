@@ -9,6 +9,9 @@
 #   RESEND_API_KEY         Resend key with Full access
 #   DESK_PASSCODE          optional; without it, one is made and emailed
 #                          to connect@thekaal.co
+#   META_CAPI_TOKEN        optional; Meta Conversions API token, so every
+#                          paid order reaches the ad account from the
+#                          worker (docs/meta.md). Modes deploy and all set it
 #   CLOUDFLARE_ACCOUNT_ID  optional; only if the token sees several accounts
 #
 # It runs only when someone with write access presses "Run workflow" (or
@@ -54,6 +57,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
+          META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           MODE: ${{ inputs.mode }}
         run: |

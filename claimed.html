@@ -315,6 +315,7 @@ form.addEventListener("submit", function(e){
     .then(function(r){ return r.json().catch(function(){ return null; }); })
     .then(function(d){
       if(d && d.ok){ shipDone("Received. A copy is on its way to your email, so you can check every line."); return; }
+      if(d && d.reason === "exists"){ shipDone("We have your delivery address. To change it, reply to your confirmation email."); return; }
       $("shipMsg").textContent = (d && d.reason === "incomplete") ? "Every line except the landmark is needed, and a six digit PIN code."
         : "That did not reach us. Try again, or reply to your confirmation email with the address.";
     }, function(){ $("shipMsg").textContent = "That did not reach us. Try again, or reply to your confirmation email with the address."; })

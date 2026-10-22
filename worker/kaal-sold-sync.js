@@ -109,6 +109,9 @@ export default {
     if (request.method === "OPTIONS") return preflight(request, env);
 
     if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
+    if (RATE_LIMITS[path] && overRate(request, path, RATE_LIMITS[path])) {
+      return json(request, env, { ok: false, reason: "rate" }, { "Retry-After": "600" }, 429);
+    }
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
@@ -128,10 +131,45 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(followUps(env));
     ctx.waitUntil(refundWatch(env));
+    ctx.waitUntil(metaCatchUp(env));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
 };
+
+/* ══════════ 0. A CEILING PER ADDRESS ══════════
+
+   /order and /hold put a number on hold for twelve minutes for whoever
+   asks, and nothing used to stop one script asking for all twenty, every
+   eleven minutes: the shop shut with nothing sold, during the ads. /receipt
+   and /shipping each cost two Razorpay calls. So each has a ceiling per IP
+   address over ten minutes, far above what a person buying a watch does
+   (opening checkout twelve times is already a bad afternoon).
+
+   Kept in memory, per running copy of the worker, on purpose: KV allows a
+   thousand writes a day on this plan and the holds and sales need them.
+   It is a ceiling, not a wall: an attacker spread across many addresses
+   or many of Cloudflare's machines gets further, and a request without an
+   address is never counted. What stops a stolen number is still /order
+   refusing a sold or held one; this stops the cheap way to empty the shop. */
+const RATE_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60 };
+const RATE = new Map();
+function overRate(request, route, max) {
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  if (!ip) return false;
+  const now = Date.now(), key = route + "|" + ip;
+  const seen = (RATE.get(key) || []).filter(t => now - t >= 0 && now - t < RATE_WINDOW_MS);
+  const over = seen.length >= max;
+  if (!over) seen.push(now);
+  RATE.set(key, seen);
+  if (RATE.size > 5000) {
+    for (const [k, v] of RATE) if (!v.length || now - v[v.length - 1] >= RATE_WINDOW_MS) RATE.delete(k);
+    if (RATE.size > 5000) RATE.clear();
+  }
+  if (over) console.log(`Rate ceiling on ${route} for one address (${max} in ten minutes).`);
+  return over;
+}
 
 /* ══════════ 1. WHAT THE PAGE ASKS ══════════ */
 
@@ -577,10 +615,20 @@ async function postShipping(request, env, ctx) {
   const good = pays.find(p => p.status === "captured" || p.status === "authorized");
   if (order.status !== "paid" && !good) return json(request, env, { ok: false, reason: "not-paid" }, {}, 409);
 
-  let updated = false;
+  /* The first address is the address. An order id is not a secret: it sits
+     in the thank-you page's address, in the buyer's email link, and in what
+     that page's analytics see. Accepting a second address here let anyone
+     holding one reroute a paid watch, and the owner's email said to "use
+     this address, not the earlier one". A buyer who needs to change it
+     replies to their confirmation, which the page already tells them, and
+     a person checks it. */
+  const updated = false;
   if (env.KAAL_STATE) {
     try {
-      updated = !!(await env.KAAL_STATE.get("ship:" + orderId));
+      if (await env.KAAL_STATE.get("ship:" + orderId)) {
+        console.log("Second address refused for", orderId);
+        return json(request, env, { ok: false, reason: "exists" }, {}, 409);
+      }
       await env.KAAL_STATE.put("ship:" + orderId, JSON.stringify(Object.assign({ at: new Date().toISOString() }, a)));
     } catch (e) { console.log("Shipping KV write failed:", String(e).slice(0, 120)); }
   }
@@ -773,6 +821,16 @@ async function webhook(request, env, ctx) {
   const mail = notifySale(env, entity, chosen, short);
   if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
 
+  /* Meta hears now too, for the same reason, and whatever the commit then
+     says (section 3b). A retry that finds the sale already recorded used to
+     return before this line was reached, and Meta never heard at all. */
+  const edition = parseInt(env.EDITION || "20", 10);
+  let told = null;
+  if (!short && chosen >= 1 && chosen <= edition) {
+    told = sendPurchaseToMeta(env, entity, chosen, order || undefined);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(told);
+  }
+
   if (short) {
     if (!(ctx && ctx.waitUntil)) await mail;
     return new Response("Captured, but not the price: not recorded as a sale.", { status: 200 });
@@ -801,8 +859,7 @@ async function webhook(request, env, ctx) {
 
   console.log(`Number ${chosen} marked sold. GitHub Pages will rebuild shortly.`);
   liveTell(env, ctx, { e: "paid", no: pad2(chosen), dial: DIAL_OF(env, chosen), paise: entity.amount || 0, o: entity.order_id || "" });
-  await sendPurchaseToMeta(env, entity, chosen);
-  if (!(ctx && ctx.waitUntil)) await mail;
+  if (!(ctx && ctx.waitUntil)) { await mail; if (told) await told; }
   return new Response(`OK — number ${chosen} recorded as sold.`, { status: 200 });
 }
 
@@ -2205,8 +2262,9 @@ async function deskData(env) {
   const leads = await leadsBetween(env, 0, now + 60);
 
   const held = [];
-  let lastHook = null, lastDigest = null, lastRun = null;
+  let lastHook = null, lastDigest = null, lastRun = null, lastMeta = null;
   if (env.KAAL_STATE) {
+    lastMeta = await env.KAAL_STATE.get("meta:last", "json").catch(() => null);
     try {
       for (const k of (await env.KAAL_STATE.list({ prefix: HOLD_PREFIX })).keys) {
         const n = parseInt(k.name.slice(HOLD_PREFIX.length), 10);
@@ -2264,6 +2322,11 @@ async function deskData(env) {
       { ok: !!lastHook || !live.length, label: "Payment webhook", detail: lastHook ? `Last heard from Razorpay ${indiaTime(new Date(lastHook))}.` : "Not heard from since this desk was switched on. It is heard at the next payment." },
       { ok: !!env.KAAL_STATE, label: "Store", detail: env.KAAL_STATE ? "Holds, addresses, dispatches and the Series 02 list are kept." : "Not connected: addresses, holds and the Series 02 list are not kept." },
       { ok: !!env.STATS, label: "Visitor count", detail: env.STATS ? `${(counts[today] || {}).visit || 0} page visits counted today, without cookies.` : "Not connected: the daily report has no visitor numbers." },
+      { ok: metaOn(env) && !(lastMeta && !lastMeta.ok), label: "Meta (sales to the ad account)",
+        detail: !metaOn(env) ? "Off: META_CAPI_TOKEN is not set, so Meta only hears of a sale if the buyer's browser reaches the thank-you page with tracking allowed. docs/meta.md sets it from a phone."
+          : !lastMeta ? "On. Each paid order is sent to Meta as a Purchase; the first one shows here."
+          : lastMeta.ok ? `On. Last sale sent ${indiaTime(new Date(lastMeta.at))}${lastMeta.n ? ` (No. ${pad2(lastMeta.n)})` : ""}.`
+          : `Meta refused the last one (${indiaTime(new Date(lastMeta.at))}): ${lastMeta.why}. It is tried again every half hour for six days; check the token (docs/meta.md).` },
       { ok: !!(env.GITHUB_TOKEN && env.GITHUB_OWNER), label: "Sold list", detail: env.GITHUB_TOKEN ? "Each sale is written to the site within a minute." : "No GITHUB_TOKEN: sales are not written to the site." },
       { ok: !!lastRun && !lastRun.bad, label: "Emails sent on their own", detail: lastRun ? `Last run ${indiaTime(new Date(lastRun.at))}: ${lastRun.msg}`
         : "No run yet. The worker runs every half hour, 10:00 to 20:00 India time." },
@@ -2606,69 +2669,155 @@ async function numberFromOrder(env, orderId) {
    the money is real. Both carry the Razorpay payment id as the event id,
    so Meta counts the pair as one sale rather than two.
 
-   Entirely optional. Without META_PIXEL_ID and META_CAPI_TOKEN it returns
-   before doing anything, and nothing it does can fail a sale: it runs
-   after the sale is recorded and swallows its own errors.
+   Optional. The pixel id is META_PIXEL in wrangler.toml (META_PIXEL_ID,
+   if that secret was set by hand, wins); the access token is the secret
+   META_CAPI_TOKEN. Without the token it returns before doing anything,
+   and nothing it does can fail a sale: it swallows its own errors.
 
-   Email and phone are hashed (SHA-256) before they leave this worker, as
-   Meta requires; nothing is sent in the clear. */
-async function sendPurchaseToMeta(env, entity, chosen) {
-  if (!env.META_PIXEL_ID || !env.META_CAPI_TOKEN) return;
+   October 2026: two sales from a Meta campaign never reached the ad
+   account. The token had never been set, and even with it this ran only
+   after the GitHub commit, so a webhook that timed out on the commit and
+   came back as a retry ("already recorded") never told Meta at all. Now
+   the webhook sends it beside the commit, not after it, and a payment
+   Meta has accepted is marked (meta:<payment id>); the half-hourly run
+   (metaCatchUp) sends every paid order of the last six and a half days
+   that is not marked. Meta takes a purchase up to seven days late and
+   still credits the ad, and counts a resend with the same event id once.
+
+   Email, phone and name are hashed (SHA-256) before they leave this
+   worker, as Meta requires; nothing is sent in the clear, and never the
+   address or the gift note (legal.html#privacy says exactly this). */
+const META_KEY = "meta:";
+const META_LOOKBACK = 6 * 86400 + 12 * 3600;
+const META_PER_RUN = 8;
+function metaPixel(env) { return String(env.META_PIXEL_ID || env.META_PIXEL || "").replace(/\D/g, ""); }
+const metaOn = (env) => !!(metaPixel(env) && env.META_CAPI_TOKEN);
+
+/* Meta's normalising for a name: lower case, letters only. */
+const metaName = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-zऀ-ॿ]/g, "");
+
+/* "sent" when Meta has it (now, or on an earlier run), "skip" when there is
+   nothing that could be sent, "failed" when it should be tried again.
+   `order` is passed when the caller has already read it from Razorpay. */
+async function sendPurchaseToMeta(env, entity, chosen, order) {
+  if (!metaOn(env) || !entity || !entity.id) return "skip";
+  const id = String(entity.id);
   try {
-    let m = entity.notes || {};
-    if (!m.ua && entity.order_id) {
-      const order = await readOrder(env, entity.order_id);
-      m = (order && order.notes) || m;
-    }
+    if (env.KAAL_STATE && await env.KAAL_STATE.get(META_KEY + id).catch(() => null)) return "sent";
+    if (order === undefined) order = entity.order_id ? await readOrder(env, entity.order_id) : null;
+    const m = Object.assign({}, entity.notes || {}, (order && order.notes) || {});
     /* Meta rejects a "website" event without the browser's user agent.
-       The hosted Payment Page route never passes through /order, so it
-       has none; the browser Pixel is its only record. */
-    if (!m.ua) { console.log("Meta CAPI skipped: no user agent on the order."); return; }
+       Every order this worker priced has one (metaMatch, at /order); the
+       old hosted Payment Page never passed through /order, and the browser
+       Pixel is its only record. */
+    if (!m.ua) { console.log("Meta CAPI skipped: no user agent on the order", id); return "skip"; }
 
     const user = { client_user_agent: m.ua, country: [await sha256hex("in")] };
     if (m.ip)  user.client_ip_address = m.ip;
     if (m.fbp) user.fbp = m.fbp;
     if (m.fbc) user.fbc = m.fbc;
     const email = String(entity.email || "").trim().toLowerCase();
-    if (email) user.em = [await sha256hex(email)];
+    if (validEmail(email)) user.em = [await sha256hex(email)];
     let phone = String(entity.contact || "").replace(/\D/g, "");
     if (phone.length === 10) phone = "91" + phone;
-    if (phone) user.ph = [await sha256hex(phone)];
+    if (phone.length >= 11) user.ph = [await sha256hex(phone)];
+    /* The name the buyer gave at checkout, when they gave one. */
+    if (env.KAAL_STATE && entity.order_id) {
+      const ship = await env.KAAL_STATE.get("ship:" + entity.order_id, "json").catch(() => null);
+      const parts = String((ship && ship.buyer && ship.buyer.name) || (ship && ship.name) || "").trim().split(/\s+/).map(metaName).filter(Boolean);
+      if (parts.length) user.fn = [await sha256hex(parts[0])];
+      if (parts.length > 1) user.ln = [await sha256hex(parts[parts.length - 1])];
+    }
 
+    const value = (entity.amount || 0) / 100;
     const payload = {
       data: [{
         event_name: "Purchase",
         event_time: entity.created_at || Math.floor(Date.now() / 1000),
-        event_id: String(entity.id),
+        event_id: id,
         action_source: "website",
-        event_source_url: "https://thekaal.co/claimed.html",
+        event_source_url: siteUrl(env) + "/claimed.html",
         user_data: user,
         custom_data: {
           currency: entity.currency || "INR",
-          value: (entity.amount || 0) / 100,
+          value,
           content_ids: ["KAAL-" + pad2(chosen)],
-          content_type: "product"
+          content_type: "product",
+          contents: [{ id: "KAAL-" + pad2(chosen), quantity: 1, item_price: value }],
+          num_items: 1,
+          order_id: String(entity.order_id || id)
         }
       }]
     };
     if (env.META_TEST_EVENT_CODE) payload.test_event_code = env.META_TEST_EVENT_CODE;
 
     const ver = env.META_API_VERSION || "v23.0";
-    const res = await fetch(`https://graph.facebook.com/${ver}/${encodeURIComponent(env.META_PIXEL_ID)}/events?access_token=${encodeURIComponent(env.META_CAPI_TOKEN)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) console.log("Meta CAPI refused the purchase:", res.status, (await res.text()).slice(0, 300));
+    const url = `https://graph.facebook.com/${ver}/${metaPixel(env)}/events?access_token=${encodeURIComponent(env.META_CAPI_TOKEN)}`;
+    let res = null, why = "";
+    /* Once more on a network error or a 5xx; a 4xx is Meta saying no, and
+       the next half-hourly run is the retry for that. */
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (res.status < 500) break;
+        why = "HTTP " + res.status;
+      } catch (e) { res = null; why = String(e).slice(0, 120); }
+    }
+    const ok = !!(res && res.ok);
+    if (!ok && res) why = `HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`;
+    if (env.KAAL_STATE) {
+      if (ok) await env.KAAL_STATE.put(META_KEY + id, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => null);
+      /* For the desk's health list, never the token or the buyer. Written on
+         every success (one a sale) but a repeated refusal only every six
+         hours: a wrong token retried each half hour must not spend the KV
+         writes the holds and the sales need (a thousand a day, free plan). */
+      const prev = ok ? null : await env.KAAL_STATE.get("meta:last", "json").catch(() => null);
+      const quiet = prev && !prev.ok && prev.why === why && Date.now() - Date.parse(prev.at) < 6 * 3600 * 1000;
+      if (!quiet) await env.KAAL_STATE.put("meta:last", JSON.stringify({ at: new Date().toISOString(), ok, n: chosen, why: ok ? "" : why })).catch(() => null);
+    }
+    if (ok) { console.log(`Meta told: purchase of No. ${pad2(chosen)} (${id}).`); return "sent"; }
+    console.log("Meta CAPI refused the purchase:", id, why);
+    return "failed";
   } catch (e) {
     console.log("Meta CAPI call threw:", String(e).slice(0, 160));
+    return "failed";
   }
+}
+
+/* Every full-price KAAL payment of the last six and a half days that Meta
+   has not accepted yet, a few a run. This is what tells Meta about a sale
+   whose webhook never got as far as telling it, and, the first time the
+   token is set, about the sales made before it was. */
+async function metaCatchUp(env) {
+  try {
+    if (!metaOn(env) || !env.KAAL_STATE || !env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) return;
+    const now = Math.floor(Date.now() / 1000);
+    const pays = await listPayments(env, now - META_LOOKBACK, now + 60, 300);
+    if (!pays) return;
+    const price = parseInt(env.PRICE_PAISE || "0", 10), edition = parseInt(env.EDITION || "20", 10);
+    const currency = String(env.CURRENCY || "INR").toUpperCase();
+    let tried = 0;
+    for (const p of pays.sort((a, b) => a.created_at - b.created_at)) {
+      if (tried >= META_PER_RUN) return;
+      /* Captured and still kept. One already refunded before Meta heard of
+         it is a return, not a sale to teach the ads. */
+      if (p.status !== "captured" || (p.amount_refunded || 0) > 0) continue;
+      if (!p.order_id || (p.amount || 0) < price || String(p.currency || "INR").toUpperCase() !== currency) continue;
+      if (await env.KAAL_STATE.get(META_KEY + p.id).catch(() => null)) continue;
+      const order = await readOrder(env, p.order_id);
+      const n = parseInt(order && order.notes && order.notes.kaal_no, 10);
+      if (!(n >= 1 && n <= edition) || (order.amount || 0) < price) continue;
+      tried++;
+      await sendPurchaseToMeta(env, p, n, order);
+    }
+  } catch (e) { console.log("Meta catch-up threw:", String(e).slice(0, 160)); }
 }
 
 /* The browser half of the match, taken at /order. _fbp and _fbc are the
    Pixel's own first-party cookies, passed up by the page; the user agent
    and IP are read off the request itself. Each is capped to fit a
-   Razorpay note. */
+   Razorpay note. Meta's own libraries may add a short suffix after the
+   last part (".Bg"), which is kept, not refused. */
 function metaMatch(request, body) {
   const out = {};
   const ua = request.headers.get("user-agent") || "";
@@ -2676,8 +2825,8 @@ function metaMatch(request, body) {
   if (ua) out.ua = ua.slice(0, 250);
   if (ip) out.ip = ip.slice(0, 64);
   const fbp = cleanNote(body && body.fbp, 120), fbc = cleanNote(body && body.fbc, 250);
-  if (/^fb\.\d\.\d+\.\d+$/.test(fbp)) out.fbp = fbp;
-  if (/^fb\.\d\.\d+\.[\w-]+$/.test(fbc)) out.fbc = fbc;
+  if (/^fb\.\d\.\d{10,13}\.[\w.-]+$/.test(fbp)) out.fbp = fbp;
+  if (/^fb\.\d\.\d{10,13}\.[\w.-]+$/.test(fbc)) out.fbc = fbc;
   return out;
 }
 

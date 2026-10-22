@@ -144,10 +144,18 @@ rather than displays.
 
 ### 4. Meta pixel
 
-There is no pixel in the page yet. Twenty pieces is far below Meta's
-learning-phase threshold of roughly fifty conversions per week, so you will
-never optimise for Purchase. Optimise on an upper-funnel event that has volume,
-or buy manually.
+The Pixel (dataset `1607748840888926`) is in every page through
+`assets/tags.js`, and the worker sends each paid order to the same dataset
+through the Conversions API once `META_CAPI_TOKEN` is set. **That token is
+the one step that is yours: `docs/meta.md`, about five minutes from a
+phone.** Until it is set, Meta only hears of a sale when the buyer's browser
+makes it back to `claimed.html`, which a UPI app switch often prevents. That
+is why the first two campaign sales never showed in Ads Manager.
+
+Twenty pieces is far below Meta's learning-phase threshold of roughly fifty
+conversions per week, so you will never optimise for Purchase. Optimise on
+AddToCart or InitiateCheckout, which carry volume, and judge the money by
+Purchase.
 
 ### 5. Getting found
 

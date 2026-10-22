@@ -1091,5 +1091,143 @@ const person = (s) => sha(s).slice(0, 32);
   globalThis.fetch = base; Date.now = realNow;
 }
 
+/* ── 15. Meta hears of every sale (October 2026: two sales it never did) ── */
+{
+  const base = globalThis.fetch, realNow = Date.now;
+  const sha = (s) => createHash("sha256").update(s).digest("hex");
+  const sent = [];
+  let metaStatus = 200, catchPays = [];
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (url.startsWith("https://graph.facebook.com/")) { sent.push({ url, body: JSON.parse(init.body) }); return new Response(metaStatus === 200 ? '{"events_received":1}' : '{"error":{"message":"Invalid OAuth access token"}}', { status: metaStatus }); }
+    if (/\/v1\/payments\?from=/.test(url)) return new Response(JSON.stringify({ items: /skip=0/.test(url) ? catchPays : [] }));
+    if (/\/v1\/(orders|refunds)\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+    const m = /\/orders\/(order_M\w+)$/.exec(url);
+    if (m) return new Response(JSON.stringify({ id: m[1], status: "paid", amount: m[1] === "order_MSHORT" ? 100 : 599900, currency: "INR", created_at: 1790000000,
+      notes: { kaal_no: m[1] === "order_MNONE" ? "" : "07", ua: "Mozilla/5.0 (iPhone)", ip: "203.0.113.9", fbp: "fb.1.1790000000000.123456789", fbc: "fb.1.1790000000000.IwAR0abc-_x.Bg" } }));
+    return base(url, init);
+  };
+  const envM = Object.assign({}, env, { META_PIXEL: "1607748840888926", META_CAPI_TOKEN: "EAAsecretTOKEN42" });
+  for (const k of [...KV.store.keys()]) if (/^(meta|mailed):/.test(k)) KV.store.delete(k);
+  KV.store.set("ship:order_MAIN1", JSON.stringify({ src: "checkout", name: "Rahul Sharma", line1: "1 Road", city: "Delhi", state: "Delhi", pin: "110001", phone: "+919999999999", buyer: { name: "Rahul K. Sharma", email: "rahul.sharma@example.com", phone: "+919999999999" } }));
+  ghSold = "[1, 2, 7]";   /* the commit finds it already recorded: the retry that used to skip Meta */
+  const pay = { id: "pay_META1", order_id: "order_MAIN1", amount: 599900, currency: "INR", email: "Rahul.Sharma@example.com", contact: "9999999999", created_at: 1790000000, notes: { kaal_no: "07" } };
+  const mb = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: pay } } });
+  r = await hook(mb, envM);
+  ok(/already recorded/.test(await r.text()) && sent.length === 1, "meta: a sale is sent even when the commit finds it already recorded");
+  const ev = sent[0] && sent[0].body.data[0], u = ev && ev.user_data;
+  ok(sent[0] && /\/v23\.0\/1607748840888926\/events\?access_token=EAAsecretTOKEN42$/.test(sent[0].url), "meta: to the pixel in wrangler.toml, with the token");
+  ok(ev && ev.event_name === "Purchase" && ev.event_id === "pay_META1" && ev.action_source === "website" && ev.event_time === 1790000000 && ev.event_source_url === "https://thekaal.co/claimed.html",
+    "meta: Purchase, deduplicated against the browser by the payment id, at the time of payment");
+  ok(ev && ev.custom_data.value === 5999 && ev.custom_data.currency === "INR" && ev.custom_data.content_ids[0] === "KAAL-07" && ev.custom_data.order_id === "order_MAIN1",
+    "meta: the price, the currency and the number, as the browser sends them");
+  ok(u && u.em[0] === sha("rahul.sharma@example.com") && u.ph[0] === sha("919999999999") && u.fn[0] === sha("rahul") && u.ln[0] === sha("sharma") && u.country[0] === sha("in"),
+    "meta: email, phone (with 91) and name hashed, normalised the way Meta asks");
+  ok(u && u.client_user_agent === "Mozilla/5.0 (iPhone)" && u.client_ip_address === "203.0.113.9" && u.fbp === "fb.1.1790000000000.123456789" && u.fbc === "fb.1.1790000000000.IwAR0abc-_x.Bg",
+    "meta: the browser's match keys from the order, the click id's suffix kept");
+  const raw = JSON.stringify(sent[0].body);
+  ok(!/rahul|9999999999|1 Road|110001|Delhi/i.test(raw), "meta: nothing about the buyer leaves in the clear, and never the address");
+  ok(KV.store.has("meta:pay_META1") && JSON.parse(KV.store.get("meta:last")).ok === true, "meta: an accepted sale is marked, and the desk can say so");
+  sent.length = 0; await hook(mb, envM);
+  ok(sent.length === 0, "meta: a webhook retry does not send it twice");
+
+  /* Without the token, nothing goes to Meta at all. */
+  KV.store.delete("meta:pay_META1"); sent.length = 0;
+  await hook(mb, Object.assign({}, envM, { META_CAPI_TOKEN: "" }));
+  ok(sent.length === 0, "meta: no token, nothing sent");
+
+  /* The half-hourly run: what the webhook did not get through. */
+  const at = (iso) => Math.floor(Date.parse(iso) / 1000);
+  Date.now = () => Date.parse("2026-10-22T12:00:00Z");
+  catchPays = [
+    Object.assign({}, pay, { id: "pay_C_OLD", created_at: at("2026-10-14T09:00:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_10", created_at: at("2026-10-20T08:54:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_07", created_at: at("2026-10-22T08:55:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_DONE", created_at: at("2026-10-21T08:55:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_FAIL", created_at: at("2026-10-21T09:00:00Z"), status: "failed" }),
+    Object.assign({}, pay, { id: "pay_C_RS1", amount: 100, created_at: at("2026-10-21T09:05:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_SHORT", order_id: "order_MSHORT", created_at: at("2026-10-21T09:10:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_NONE", order_id: "order_MNONE", created_at: at("2026-10-21T09:15:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_NOORD", order_id: undefined, created_at: at("2026-10-21T09:20:00Z"), status: "captured" }),
+    Object.assign({}, pay, { id: "pay_C_RETURNED", created_at: at("2026-10-21T09:25:00Z"), status: "refunded", amount_refunded: 599900 })
+  ];
+  catchPays = catchPays.filter(p => p.created_at >= at("2026-10-22T12:00:00Z") - (6 * 86400 + 12 * 3600));
+  KV.store.set("meta:pay_C_DONE", "x");
+  sent.length = 0;
+  let k = ctx(); await w.scheduled({}, envM, k); await k.done();
+  const ids = sent.map(s => s.body.data[0].event_id).sort();
+  ok(ids.join() === "pay_C_07,pay_C_10", "meta catch-up: the two unsent sales of the week go, nothing else (done, failed, ₹1, short order, no number, no order, returned)");
+  sent.length = 0; k = ctx(); await w.scheduled({}, envM, k); await k.done();
+  ok(sent.length === 0, "meta catch-up: once Meta has them, never again");
+
+  /* Meta says no: told on the desk, tried again next run. */
+  KV.store.delete("meta:pay_C_07"); metaStatus = 400; sent.length = 0;
+  k = ctx(); await w.scheduled({}, envM, k); await k.done();
+  const last = JSON.parse(KV.store.get("meta:last") || "{}");
+  ok(sent.length === 1 && !KV.store.has("meta:pay_C_07") && last.ok === false && /HTTP 400 .*Invalid OAuth/.test(last.why) && !/EAAsecretTOKEN42/.test(last.why), "meta: a refusal is kept for the desk (never the token) and not marked sent");
+  const firstAt = last.at;
+  Date.now = () => Date.parse("2026-10-22T12:30:00Z");
+  k = ctx(); await w.scheduled({}, envM, k); await k.done();
+  ok(JSON.parse(KV.store.get("meta:last")).at === firstAt, "meta: the same refusal half an hour later spends no KV write");
+  metaStatus = 200; sent.length = 0;
+  k = ctx(); await w.scheduled({}, envM, k); await k.done();
+  ok(sent.length === 1 && KV.store.has("meta:pay_C_07"), "meta: and goes through on the next run once Meta accepts it");
+
+  /* /order keeps the browser's keys for the webhook, and only real ones. */
+  let orderNotes = null;
+  const fetch2 = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (/\/v1\/orders$/.test(String(url)) && init && init.method === "POST") { orderNotes = JSON.parse(init.body).notes; return new Response(JSON.stringify({ id: "order_NEWONE1", amount: 599900, currency: "INR" })); }
+    return fetch2(url, init);
+  };
+  const order = (b, h) => w.fetch(new Request("https://w/order", { method: "POST", headers: Object.assign({ "Content-Type": "application/json", "User-Agent": "UA/1", "cf-connecting-ip": "198.51.100.1" }, h || {}), body: JSON.stringify(Object.assign({ n: 11, by: "abc123def" }, b)) }), envM, ctx());
+  KV.store.delete("hold:11");
+  await order({ fbp: "fb.1.1790000000000.987654321.AQ", fbc: "fb.1.1790000000000.IwZXh0bgNhZW0" });
+  ok(orderNotes && orderNotes.fbp === "fb.1.1790000000000.987654321.AQ" && orderNotes.fbc === "fb.1.1790000000000.IwZXh0bgNhZW0" && orderNotes.ua === "UA/1" && orderNotes.ip === "198.51.100.1", "order: the Pixel's cookies, user agent and address kept for Meta");
+  KV.store.delete("hold:11");
+  await order({ fbp: "<script>", fbc: "fb.1.x.y" });
+  ok(orderNotes && !("fbp" in orderNotes) && !("fbc" in orderNotes), "order: anything that is not a Meta cookie is dropped");
+
+  /* The ceiling per address: the twenty cannot be held by one script. */
+  let last429 = null, okCount = 0;
+  for (let i = 0; i < 14; i++) {
+    KV.store.delete("hold:" + (i % 20 + 1));
+    const res = await w.fetch(new Request("https://w/order", { method: "POST", headers: { "Content-Type": "application/json", "cf-connecting-ip": "192.0.2.77" }, body: JSON.stringify({ n: (i % 20) + 1, by: "bot" + i }) }), envM, ctx());
+    if (res.status === 429) last429 = await res.json(); else okCount++;
+  }
+  ok(okCount === 12 && last429 && last429.reason === "rate", "rate: one address gets twelve checkouts in ten minutes, then 429");
+  r = await w.fetch(new Request("https://w/order", { method: "POST", headers: { "Content-Type": "application/json", "cf-connecting-ip": "192.0.2.78" }, body: JSON.stringify({ n: 15, by: "person" }) }), envM, ctx());
+  ok(r.status !== 429, "rate: somebody else is not affected");
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) KV.store.delete("hold:" + n);
+  globalThis.fetch = fetch2;
+
+  /* The desk shows whether Meta is hearing. */
+  const deskEnv = Object.assign({}, envM, { DESK_PASSCODE: "correct horse battery" });
+  const expMs = String(Date.now() + 86400000);
+  const cookie = `kaal_desk=${expMs}.${createHmac("sha256", `kaal-desk|correct horse battery|sek`).update("desk|" + expMs).digest("hex")}`;
+  r = await w.fetch(new Request("https://w/desk/data", { headers: { Cookie: cookie } }), deskEnv, ctx());
+  const dd = await r.json();
+  const mh = dd.health && dd.health.find(h => /^Meta/.test(h.label));
+  ok(mh && mh.ok === true && /^On\. Last sale sent .*No\. 07/.test(mh.detail), "desk: Health says Meta is on, and when it last heard");
+  r = await w.fetch(new Request("https://w/desk/data", { headers: { Cookie: cookie } }), Object.assign({}, deskEnv, { META_CAPI_TOKEN: "" }), ctx());
+  const mh2 = (await r.json()).health.find(h => /^Meta/.test(h.label));
+  ok(mh2 && mh2.ok === false && /META_CAPI_TOKEN is not set/.test(mh2.detail), "desk: and says plainly when it is off");
+
+  globalThis.fetch = base; Date.now = realNow;
+}
+
+/* ── 16. The first address is the address ── */
+{
+  mails.length = 0; orderStatus = "paid"; payStatus = "captured";
+  KV.store.set("ship:order_TESTORDER1", JSON.stringify({ at: "2026-10-20T10:00:00Z", name: "Ravi Kumar", line1: "12 Park Street", city: "Kolkata", state: "West Bengal", pin: "700016", phone: "+919876543210" }));
+  const thief = { o: "order_TESTORDER1", name: "Someone Else", phone: "+91 90000 00000", line1: "9 Other Road", line2: "", city: "Mumbai", state: "Maharashtra", pin: "400001" };
+  r = await w.fetch(new Request("https://w/shipping", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(thief) }), env, ctx());
+  const j = await r.json();
+  ok(r.status === 409 && j.reason === "exists" && JSON.parse(KV.store.get("ship:order_TESTORDER1")).pin === "700016" && mails.length === 0,
+    "shipping: a second address for a paid order is refused, the first stays, nobody is emailed 'use this one instead'");
+  const thanks = (await import("node:fs")).readFileSync(new URL("../claimed.html", import.meta.url), "utf8");
+  ok(/reason === "exists"/.test(thanks), "claimed.html: says the address is already in, and how to change it");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

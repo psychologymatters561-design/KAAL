@@ -20,6 +20,10 @@
                             at least 10 characters. Without it, and with no
                             passcode on the worker yet, one is made and emailed
                             to the owner; it is never printed
+     META_CAPI_TOKEN        optional: Meta Conversions API access token, so every
+                            paid order reaches the ad account from the worker
+                            (docs/meta.md). Set on every run that has it,
+                            --deploy included
 
    In order, skipping whatever is already done:
      1. the KAAL_STATE store the worker keeps holds, receipts and the
@@ -175,14 +179,43 @@ async function ensureSecrets() {
     have.has("RESEND_API_KEY") ? good("RESEND_API_KEY is set") : todo("RESEND_API_KEY not set yet");
     have.has("OWNER_EMAIL") ? good("OWNER_EMAIL is set") : good("OWNER_EMAIL not set: orders and the morning report go to connect@thekaal.co");
     have.has("DESK_PASSCODE") ? good(`DESK_PASSCODE is set: the desk is open at ${WORKER_URL}/desk`) : todo("DESK_PASSCODE not set: the desk stays shut");
+    have.has("META_CAPI_TOKEN") ? good("META_CAPI_TOKEN is set: every paid order is sent to Meta from the worker") : todo("META_CAPI_TOKEN not set: Meta hears of a sale only from the buyer's browser (docs/meta.md)");
+    have.has("META_TEST_EVENT_CODE") ? todo("META_TEST_EVENT_CODE is set: sales go to Meta's Test events tab, NOT to the ad account. Remove it after testing.") : null;
     return;
   }
   deskWasSet = have.has("DESK_PASSCODE");
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE"].filter(k => env[k])) {
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "META_CAPI_TOKEN"].filter(k => env[k])) {
     const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: k, text: env[k], type: "secret_text" } });
     if (!r.ok) stop(`Could not set ${k}: ${r.text.slice(0, 200)}`);
     good(`${k} ${have.has(k) ? "updated" : "set"}`);
   }
+}
+
+/* The Meta token on its own, for --deploy: a token pasted into the
+   repository secret reaches the worker on the next deploy, with nothing
+   else touched. It is shown to Meta first (the token never appears in the
+   output), so a mistyped one is reported here rather than on a sale. */
+async function ensureMeta() {
+  if (!env.META_CAPI_TOKEN) return;
+  step("Meta Conversions API token");
+  const pixel = (/^\s*META_PIXEL\s*=\s*"(\d+)"/m.exec(readFileSync(TOML, "utf8")) || [])[1];
+  if (pixel && !process.env.KAAL_SETUP_CF_API) {
+    try {
+      const r = await fetch(`https://graph.facebook.com/v23.0/${pixel}?fields=id,name&access_token=${encodeURIComponent(env.META_CAPI_TOKEN)}`);
+      const j = await r.json().catch(() => null);
+      /* A warning, not a stop: some tokens may send events without being
+         allowed to read the dataset's name, and a refusal here must never
+         keep a good token off the worker. The desk's Health shows whether
+         Meta takes the first real sale. */
+      if (!r.ok) todo(`Meta would not show dataset ${pixel} to this token (${r.status}${j && j.error ? ": " + String(j.error.message).slice(0, 160) : ""}). Setting it anyway; if the desk's Health later says Meta refused a sale, generate the token again from that dataset's Settings (docs/meta.md).`);
+      else good(`Meta accepts the token for dataset ${pixel}${j && j.name ? ` (${j.name})` : ""}`);
+    } catch (e) {
+      todo(`could not reach graph.facebook.com to check the token (${e.cause ? e.cause.code : e.message}); setting it anyway`);
+    }
+  }
+  const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: "META_CAPI_TOKEN", text: env.META_CAPI_TOKEN, type: "secret_text" } });
+  if (!r.ok) stop(`Could not set META_CAPI_TOKEN: ${r.text.slice(0, 200)}`);
+  good("META_CAPI_TOKEN set on the worker. Paid orders of the last six days reach Meta within half an hour.");
 }
 
 /* ── 2. Deploy, and 4. ask the live worker ── */
@@ -330,7 +363,7 @@ async function ensureDesk(verified) {
   if (mode === "test") { await testEmails(); return; }
   await cloudflareAccount();
   await ensureKV();
-  if (mode === "deploy") { await deploy(); await liveCheck(); step("Done"); return; }
+  if (mode === "deploy") { await deploy(); await ensureMeta(); await liveCheck(); step("Done"); return; }
   /* Deploy before the secrets: the new wrangler.toml no longer defines
      OWNER_EMAIL as a plain setting, so the secret can never collide with
      one left on an older deploy. */

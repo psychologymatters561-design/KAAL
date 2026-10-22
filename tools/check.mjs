@@ -89,6 +89,18 @@ if (payMode !== "standard" && !cfg.checkout)
   const hist = tags.match(/var HISTORY = "([^"]*)"/)?.[1];
   if (hist !== undefined && hist && hist !== apiUrl)
     bad(`assets/tags.js sends the other pages' visits to ${hist}, but KAAL.api is ${apiUrl || "empty"} — they must agree`);
+  /* The pixel id, written down twice: the browser's Purchase (tags.js) and
+     the worker's copy of it (META_PIXEL) only count as one sale when they
+     are sent to the same dataset. Two ids is two half-measured sales. */
+  const pixel = tags.match(/pixel:\s*"(\d*)"/)?.[1] ?? "";
+  const tomlPx = existsSync(join(root, "wrangler.toml")) ? readFileSync(join(root, "wrangler.toml"), "utf8").match(/^\s*META_PIXEL\s*=\s*"(\d*)"/m)?.[1] : undefined;
+  if (tomlPx !== undefined && tomlPx !== pixel)
+    bad(`assets/tags.js fires the Pixel ${pixel || "(none)"}, but wrangler.toml META_PIXEL is ${tomlPx || "(none)"} — they must agree, or Meta counts each sale in two places`);
+  for (const p of ["index.html", "about.html", "manifesto.html", "movement.html", "provenance.html", "legal.html", "claimed.html", "404.html"]) {
+    if (!existsSync(join(root, p))) continue;
+    const ns = readFileSync(join(root, p), "utf8").match(/facebook\.com\/tr\?id=(\d+)/);
+    if (ns && ns[1] !== pixel) bad(`${p}'s <noscript> Pixel is ${ns[1]}, but assets/tags.js fires ${pixel || "(none)"}`);
+  }
 }
 
 if (existsSync(join(root, "wrangler.toml"))) {

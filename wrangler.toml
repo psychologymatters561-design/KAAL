@@ -68,6 +68,12 @@ DIGEST_HOUR_IST = "0"
 # The buyer's own confirmation always goes. "off" leaves only the daily report.
 ORDER_ALERT     = "on"
 
+# The Meta Pixel (dataset) id, the same one assets/tags.js fires in every
+# browser. Not a secret: it is in every page. tools/check.mjs fails the
+# build if the two differ. The token that lets the worker write to it is
+# the secret META_CAPI_TOKEN (below); without it nothing is sent to Meta.
+META_PIXEL      = "1607748840888926"
+
 # Refunds are found on their own: every half hour the worker asks Razorpay
 # (at once, if the Razorpay webhook also sends refund.processed), records
 # each one once and emails the owner. A full refund never puts the number
@@ -93,13 +99,15 @@ REFUND_EMAIL    = "on"
 #   wrangler secret put RAZORPAY_WEBHOOK_SECRET
 #   wrangler secret put GITHUB_TOKEN
 #
-# Optional — Meta Conversions API. With both set, every captured payment is
-# also sent to Meta server-side as a Purchase, de-duplicated against the
-# browser Pixel by the Razorpay payment id. Without them nothing is sent.
-#   wrangler secret put META_PIXEL_ID          same ID as assets/tags.js
-#   wrangler secret put META_CAPI_TOKEN        Events Manager → Settings →
-#                                              Conversions API → Generate
-#                                              access token
+# Meta Conversions API (docs/meta.md). With the token set, every paid order
+# is also sent to Meta from here as a Purchase, de-duplicated against the
+# browser Pixel by the Razorpay payment id, and re-sent every half hour
+# until Meta accepts it. Without the token nothing is sent. The pixel id is
+# META_PIXEL below, in the open, because it is already in every page.
+#   wrangler secret put META_CAPI_TOKEN        Events Manager → the dataset →
+#                                              Settings → Conversions API →
+#                                              Generate access token
+#   (or the META_CAPI_TOKEN repository secret and the setup-worker workflow)
 # The order emails (docs/setup-email.md). tools/setup-email.sh sets both:
 #   wrangler secret put RESEND_API_KEY         sends every email the shop sends
 #   wrangler secret put OWNER_EMAIL            where new orders and addresses

@@ -2847,6 +2847,18 @@ if((navigator.deviceMemory && navigator.deviceMemory < 4) ||
 }
 var qs = new URLSearchParams(location.search);
 
+/* The ad click, kept. A visit opened from a Meta ad carries ?fbclid=, and
+   the Pixel turns it into its _fbc cookie, which is what ties a sale back
+   to the ad. Safari keeps that cookie as little as a day, a blocked Pixel
+   never writes it, and a buyer who comes back on day three to pay has lost
+   it. So the click is also kept here, in Meta's own format, and checkout
+   sends whichever exists (fbcNow, at /order). Nothing else reads it. */
+(function keepClick(){
+  var id = (qs.get("fbclid") || "").replace(/[^\w-]/g, "").slice(0, 200);
+  if(!id) return;
+  try{ localStorage.setItem("kaal_fbc", "fb.1." + Date.now() + "." + id); }catch(e){}
+})();
+
 /* The switches, applied before anything below looks for what they remove.
    Off means absent, not hidden: the element leaves the document, so no
    count, listener or observer further down ever finds it. */
@@ -5449,7 +5461,7 @@ function startCheckout(n, el, buyer){
       method:"POST", mode:"cors", credentials:"omit",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ n:n, by:clientToken, gift:g.on, gift_note:g.note,
-                             fbp:cookie("_fbp"), fbc:cookie("_fbc"),
+                             fbp:cookie("_fbp"), fbc:fbcNow(),
                              buyer: buyer || undefined })
     });
   }).then(function(r){
@@ -5487,6 +5499,15 @@ function startCheckout(n, el, buyer){
 function cookie(name){
   var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
   return m ? decodeURIComponent(m[1]) : "";
+}
+/* The Pixel's own click cookie when it still has one, else the click this
+   page kept (keepClick, above). Older than Meta's 28-day window, neither. */
+function fbcNow(){
+  var c = cookie("_fbc"), k = "";
+  if(c) return c;
+  try{ k = localStorage.getItem("kaal_fbc") || ""; }catch(e){ k = ""; }
+  var t = /^fb\.1\.(\d{13})\./.exec(k);
+  return t && Date.now() - (+t[1]) < 28 * 86400000 ? k : "";
 }
 
 /* The gift rides on the payment beside kaal_no. The worker writes the

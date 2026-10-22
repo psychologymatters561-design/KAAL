@@ -48,11 +48,27 @@ async function body(request) { try { return await request.json(); } catch (e) { 
    days, at 23:59:59 India time, as an instant. */
 function windowEnds(day, days) { return iso(Date.parse(`${day}T23:59:59.000+05:30`) + days * 86400000); }
 
+/* What a visitor sees when the registry is not switched on here, said in
+   the words of what is actually missing and the one button that fixes it.
+   A browser gets a page, anything else gets the same facts as JSON. */
+function offReply(request, env, path) {
+  const mode = env.STAGING === "on" ? "staging" : "live";
+  let why;
+  if (String(env.REGISTRY || "on").toLowerCase() === "off") why = "The registry is switched off (REGISTRY is \"off\"). Set it back to \"on\" in wrangler.toml, then run setup-worker in mode " + mode + ".";
+  else if (!(env.DB && typeof env.DB.prepare === "function")) why = "This worker has no registry database yet. Run the setup-worker workflow in mode " + mode + " (GitHub, Actions, setup-worker, Run workflow). Mode deploy does not create it.";
+  else why = "The control room's sign-in key is not set (AUTH_SECRET). Run the setup-worker workflow in mode " + mode + ".";
+  if (request.method === "GET" && path === "/control" && String(request.headers.get("Accept") || "").includes("text/html")) {
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>KAAL control room</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f3ee;color:#1a1814;font:16px/1.55 system-ui,sans-serif}main{max-width:30rem;padding:2rem 1.25rem}h1{font:600 1.1rem system-ui;letter-spacing:.08em;text-transform:uppercase}p{margin:.8rem 0}</style></head><body><main><h1>The control room is not switched on</h1><p>The worker is running, but ${why.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p><p>Steps: docs/registry-live.md in the repository.</p></main></body></html>`;
+    return new Response(html, { status: 503, headers: headers({ "Content-Type": "text/html; charset=utf-8" }) });
+  }
+  return out({ ok: false, reason: "off", why }, 503);
+}
+
 export async function control(request, env, ctx, path, T) {
   const method = request.method;
   if (!registryOn(env) || !authOn(env)) {
     if (path.startsWith("/photo/")) return new Response("Not found", { status: 404 });
-    return out({ ok: false, reason: "off", why: "The control room needs the registry database (DB) and AUTH_SECRET. Run setup-worker in mode staging." }, 503);
+    return offReply(request, env, path);
   }
 
   /* ── Public: a piece's own photograph ── */

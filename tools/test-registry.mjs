@@ -11,44 +11,13 @@
    Exits non-zero if anything fails. CI runs it on every pull request.
    ══════════════════════════════════════════════════════════════════ */
 import { createHmac } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import w from "../worker/kaal-sold-sync.js";
+import { d1, kv, ctx } from "./d1-shim.mjs";
 import * as R from "../worker/registry.js";
 
 let failed = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed++; };
-
-/* D1, as far as the worker uses it, on top of one in-memory SQLite. */
-function d1() {
-  const db = new DatabaseSync(":memory:");
-  for (const f of readdirSync(new URL("../migrations/", import.meta.url)).filter(f => /^\d+_.*\.sql$/.test(f)).sort()) {
-    db.exec(readFileSync(new URL("../migrations/" + f, import.meta.url), "utf8"));
-  }
-  const plain = (r) => (r ? Object.assign({}, r) : null);
-  return {
-    raw: db,
-    prepare(sql) {
-      const st = db.prepare(sql);
-      let args = [];
-      const s = {
-        bind(...a) { args = a.map(v => (v === undefined ? null : typeof v === "boolean" ? (v ? 1 : 0) : v)); return s; },
-        async first() { return plain(st.get(...args)); },
-        async all() { return { results: st.all(...args).map(plain) }; },
-        async run() { const r = st.run(...args); return { success: true, meta: { changes: r.changes } }; }
-      };
-      return s;
-    }
-  };
-}
-function kv() {
-  const store = new Map();
-  return { store,
-    async get(k, t) { const v = store.has(k) ? store.get(k) : null; return v === null ? null : (t === "json" ? JSON.parse(v) : v); },
-    async put(k, v) { store.set(k, v); }, async delete(k) { store.delete(k); },
-    async list({ prefix }) { return { keys: [...store.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })) }; } };
-}
-function ctx() { const jobs = []; return { waitUntil: p => jobs.push(p), done: () => Promise.all(jobs) }; }
 
 /* ── 1. The data layer on its own ── */
 {

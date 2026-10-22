@@ -59,9 +59,45 @@ To see a webhook delivered twice: Razorpay test dashboard → Webhooks → the
 staging webhook → a delivered `payment.captured` → **Resend**. The order
 list on `/staging` does not change.
 
+## Phase 2: the control room
+
+**https://kaal-edition-staging.kaal-edition-hq.workers.dev/control**, on
+your phone. It lives on the worker rather than on thekaal.co so that its
+sign-in cookie is first party and locked (HttpOnly, SameSite=Strict); a
+page on thekaal.co cannot keep a cookie for a workers.dev address. (Moving
+the domain's DNS to Cloudflare later would let it live at
+`control.thekaal.co`.)
+
+**Signing in.** Your email (`ADMIN_EMAIL`, else the first `OWNER_EMAIL`)
+gets a six-digit code, valid once for ten minutes. The first time, the page
+shows a link and a key: tap the link and your authenticator app (Google
+Authenticator, 1Password, Authy) adds KAAL. After that, every sign-in asks
+for the app's six digits as well. A session lasts twelve hours. Five wrong
+app codes end the session.
+
+| Screen | What it does |
+|---|---|
+| Overview | The twenty as a strip, sold of twenty, revenue, orders waiting at each stage, deliveries still inside their return window with days left, open approvals, failed emails, health, and any order breaking a promise (48 hours without inspection, not dispatched by day 4, dispatched 7 days without delivery) |
+| Orders | Each order with its stage. **One tap** marks the next stage; a **ten second Undo** holds it back; then it saves and the buyer's email goes (the brief's words, exactly). Dispatched asks for courier, tracking number and link. Delivered asks for the date (today by default) and sets the return window to 23:59:59 India time seven days later. **Change without email** corrects a status with a reason. **Mark returned** works only inside the window and blocks that buyer from buying again. **Refund** refunds in full through Razorpay after you type the number |
+| Pieces | The twenty: a photograph of each exact watch (JPEG, PNG or WebP, up to 3 MB), status override with a reason, colourway, private notes. Back to "available" also takes it off the live site's sold list |
+| Owners | Search, the ownership chain, contact changes on the owner's request (a new email signs them out everywhere), sign out every device |
+| Approvals | The queue. Decisions arrive with the claim, transfer, stolen and recovery flows (Phase 6) |
+| Emails | Every template, previewed; a test sent to you; the outbox with each email's state and a Retry |
+| Settings | Stage emails on or off, transfers need approval (on), sender name, warranty terms (held until rain is decided), return days and warranty months, blocked buyers |
+| Audit | Every action with who, when, before and after; CSV of orders, owners and pieces; **Backup now** (everything except sign-in codes, sessions and the authenticator secret) |
+
+Keyboard: 1 to 8 switch screens, u undoes, r refreshes, Esc closes.
+
+The Delivered email carries the registration link, which arrives in
+Phase 4; until then Delivered sets the dates and the email is shown in
+Preview but not sent. The order confirmation at payment stays the current
+"No. 07 is yours" until Phase 3 replaces it with the brief's "No. 07 is
+spoken for".
+
 ## What staging does not have yet
 
-The control room, the stage emails, `/track`, registration, the owner
-dashboard, the public registry page, transfers and claims are Phases 2
-to 6. Production gets its own database at go-live (Phase 7), when Nos. 01,
+The brief's other emails, `/track`, Shiprocket, the SLA emails to you
+(Phase 3); registration and the owner dashboard (Phase 4); the public
+registry page and the shop reading it (Phase 5); transfers, claims, stolen
+and recovery (Phase 6). Production gets its own database at go-live (Phase 7), when Nos. 01,
 02, 07 and 10 are entered with their real orders and delivery dates.

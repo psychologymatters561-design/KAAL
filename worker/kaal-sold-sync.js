@@ -90,6 +90,8 @@ import { buyerConfirmation, buyerNearlyBought, nearlyWhatsApp, seriesTwoNote, af
 import { deskPage } from "./desk.js";
 import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlocked, recordPayment, claimRefund, refundDone, refundFailed, paymentFate } from "./registry.js";
 import { buyerDuplicate, ownerDuplicate, esc } from "./mail.js";
+import { control } from "./control.js";
+import { flushOutbox } from "./outbox.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -123,6 +125,11 @@ export default {
     if (RATE_LIMITS[path] && overRate(request, path, RATE_LIMITS[path])) {
       return json(request, env, { ok: false, reason: "rate" }, { "Retry-After": "600" }, 429);
     }
+    /* The registry's control room, its sign-in and the pieces' photographs
+       (worker/control.js). Same origin as the page, so no CORS here. */
+    if (path === "/control" || path.startsWith("/control/") || path.startsWith("/auth/") || path.startsWith("/photo/")) {
+      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold });
+    }
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
@@ -143,6 +150,9 @@ export default {
     ctx.waitUntil(followUps(env));
     ctx.waitUntil(refundWatch(env));
     ctx.waitUntil(metaCatchUp(env));
+    /* The registry's outbox: what failed is tried again, with backoff. */
+    if (registryOn(env)) ctx.waitUntil(flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html))
+      .catch(e => console.log("Outbox run failed:", String(e).slice(0, 160))));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
@@ -164,7 +174,8 @@ export default {
    address is never counted. What stops a stolen number is still /order
    refusing a sold or held one; this stops the cheap way to empty the shop. */
 const RATE_WINDOW_MS = 10 * 60 * 1000;
-const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60 };
+const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60,
+  "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5 };
 const RATE = new Map();
 function overRate(request, route, max) {
   const ip = request.headers.get("cf-connecting-ip") || "";
@@ -1040,18 +1051,7 @@ async function duplicatePayment(env, entity, n, fate) {
   if (o.refund_id) return new Response(`Duplicate payment for No. ${pad2(n)}: already refunded.`, { status: 200 });
   if (!(await claimRefund(env, o.id))) return new Response(`Duplicate payment for No. ${pad2(n)}: refund in progress.`, { status: 200 });
 
-  let refundId = "", error = "";
-  try {
-    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(entity.id)}/refund`, {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, razorpayAuth(env)),
-      body: JSON.stringify({ amount: entity.amount, speed: "normal", receipt: ("dup-" + entity.id).slice(0, 40),
-        notes: { reason: "duplicate", kaal_no: pad2(n) } })
-    });
-    const j = await res.json().catch(() => null);
-    if (res.ok && j && j.id) refundId = j.id;
-    else error = `HTTP ${res.status}${j && j.error && j.error.description ? ": " + String(j.error.description).slice(0, 160) : ""}`;
-  } catch (e) { error = String(e).slice(0, 160); }
+  const { id: refundId, error } = await refundPayment(env, entity.id, entity.amount, "duplicate", n, "dup-");
 
   const buyer = String(entity.email || "").trim();
   const buyerOk = buyer && validEmail(buyer.toLowerCase());
@@ -1071,6 +1071,22 @@ async function duplicatePayment(env, entity, n, fate) {
   return new Response("Duplicate payment: the refund failed; deliver again.", { status: 502 });
 }
 
+/* A full refund through Razorpay, with the reason in its notes (recordRefund
+   reads "duplicate"). { id } or { error }, never a throw. */
+async function refundPayment(env, paymentId, amount, reason, n, prefix) {
+  try {
+    const res = await fetch(`${RZP_API}/payments/${encodeURIComponent(paymentId)}/refund`, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, razorpayAuth(env)),
+      body: JSON.stringify({ amount, speed: "normal", receipt: ((prefix || "kaal-") + paymentId).slice(0, 40),
+        notes: { reason, kaal_no: n ? pad2(n) : "" } })
+    });
+    const j = await res.json().catch(() => null);
+    if (res.ok && j && j.id) return { id: j.id, error: "" };
+    return { id: "", error: `HTTP ${res.status}${j && j.error && j.error.description ? ": " + String(j.error.description).slice(0, 160) : ""}` };
+  } catch (e) { return { id: "", error: String(e).slice(0, 160) }; }
+}
+
 /* Read, modify, write — and mean it. Two webhooks landing together both
    read the same blob sha, and the second PUT is rejected with a 409. The
    old build returned 502 and left it to Razorpay's retry schedule, which
@@ -1081,6 +1097,8 @@ async function duplicatePayment(env, entity, n, fate) {
    away (releaseSold). `change` reads the current list and the edition and
    returns either { next } or a { status } that ends it without writing. */
 async function rewriteSold(env, change, message) {
+  /* Staging never writes the live site's sold list, either way. */
+  if (staging(env)) return { status: "skipped" };
   const owner  = env.GITHUB_OWNER, repo = env.GITHUB_REPO;
   const branch = env.GITHUB_BRANCH || "main";
   const api    = `https://api.github.com/repos/${owner}/${repo}/contents/index.html`;
@@ -1150,7 +1168,7 @@ async function commitSold(env, chosen, paymentId) {
 async function releaseSold(env, n, why) {
   const r = await rewriteSold(env, (current) => current.indexOf(n) < 0 ? { status: "already" } : { next: current.filter(x => x !== n) },
     `Auto: number ${n} back on sale (${why})`);
-  if ((r.status === "ok" || r.status === "already") && env.KAAL_STATE) {
+  if ((r.status === "ok" || r.status === "already" || r.status === "skipped") && env.KAAL_STATE) {
     try {
       const kv = (await readSold(env)) || [];
       await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(kv.filter(x => x !== n)));

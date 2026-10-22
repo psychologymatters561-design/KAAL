@@ -276,7 +276,15 @@ async function staging() {
   await put("RAZORPAY_KEY_ID", env.RAZORPAY_TEST_KEY_ID);
   await put("RAZORPAY_KEY_SECRET", env.RAZORPAY_TEST_KEY_SECRET);
   await put("RAZORPAY_WEBHOOK_SECRET", env.RAZORPAY_TEST_WEBHOOK_SECRET);
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE"]) if (env[k]) await put(k, env[k]);
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "ADMIN_EMAIL"]) if (env[k]) await put(k, env[k]);
+  /* The control room's own key: signs sign-in codes and seals the
+     authenticator secret. Made here once and never shown. Never replaced
+     on a later run: a new one would lock the admin out of /control (the
+     sealed authenticator secret could no longer be read). */
+  const have = await cf(`/accounts/${account}/workers/scripts/${STAGING_WORKER}/secrets`);
+  const names = new Set(((have.json && have.json.result) || []).map(x => x.name));
+  if (names.has("AUTH_SECRET")) good("AUTH_SECRET already set (kept)");
+  else await put("AUTH_SECRET", randomBytes(48).toString("base64url"));
 
   const url = `https://${STAGING_WORKER}.kaal-edition-hq.workers.dev`;
   step("Done. Two things left, both in Razorpay TEST mode");
@@ -285,6 +293,7 @@ async function staging() {
   say(`       Secret:  the same value as the RAZORPAY_TEST_WEBHOOK_SECRET repository secret`);
   say(`       Events:  payment.captured and refund.processed`);
   say(`  2. Open ${url}/staging on your phone and buy a number with a test card.`);
+  say(`  3. The control room: ${url}/control. Sign in with ${env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0]}; the first time, it asks you to add KAAL to an authenticator app.`);
 }
 
 /* ── 2. Deploy, and 4. ask the live worker ── */

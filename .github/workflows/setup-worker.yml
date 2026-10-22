@@ -19,6 +19,8 @@
 #   RAZORPAY_TEST_KEY_SECRET      shown once beside it
 #   RAZORPAY_TEST_WEBHOOK_SECRET  any long random text; the same goes into the
 #                                 Razorpay TEST webhook
+#   ADMIN_EMAIL                   optional: who may sign in to /control (else the
+#                                 first OWNER_EMAIL, else connect@thekaal.co)
 # and a CLOUDFLARE_API_TOKEN that can also edit D1.
 #
 # It runs only when someone with write access presses "Run workflow" (or
@@ -65,6 +67,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
           RAZORPAY_TEST_KEY_ID: ${{ secrets.RAZORPAY_TEST_KEY_ID }}
           RAZORPAY_TEST_KEY_SECRET: ${{ secrets.RAZORPAY_TEST_KEY_SECRET }}
           RAZORPAY_TEST_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_TEST_WEBHOOK_SECRET }}

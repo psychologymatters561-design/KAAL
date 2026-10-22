@@ -558,6 +558,34 @@ if (existsSync(join(root, "llms.txt"))) {
     bad("checkout is a hosted Payment Page but llms.txt does not say so");
 }
 
+/* ── 6h. The copy gate (the brief, section 13). No em dash anywhere a
+      reader or a search engine sees, and none of the words that make
+      copy sound written by a committee. Comments are the code's own and
+      are left alone: HTML comments, and block and line comments inside
+      scripts, are removed before looking. Everything else counts,
+      including what scripts build (the product names in the structured
+      data are a script's strings). ──────────────────────────────── */
+{
+  const BANNED = /\b(leverage|seamless|empower|unlock|robust|actionable|data-driven|solutions|testament|landscape|delve|elevate)\w*/i;
+  const strip = (t) => t
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m, css) => "<style>" + css.replace(/\/\*[\s\S]*?\*\//g, " ") + "</style>")
+    .replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (m, a, js) => /ld\+json/.test(a) ? m
+      : "<script>" + js.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[\s;{}(,])\/\/[^\n]*/g, "$1") + "</script>")
+    /* "landscape" is a banned word in copy and a CSS media feature in code. */
+    .replace(/orientation\s*:\s*landscape/gi, "orientation:wide");
+  for (const f of ["index.html", "about.html", "manifesto.html", "movement.html", "provenance.html", "legal.html", "claimed.html", "404.html", "llms.txt"]) {
+    if (!existsSync(join(root, f))) continue;
+    const t = f.endsWith(".txt") ? readFileSync(join(root, f), "utf8") : strip(readFileSync(join(root, f), "utf8"));
+    const lines = t.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const w = BANNED.exec(lines[i]);
+      if (lines[i].includes("—")) bad(`${f}: an em dash in copy: "${lines[i].trim().slice(0, 90)}" (the brief bans them; use a comma, colon or full stop)`);
+      else if (w) bad(`${f}: "${w[0]}" in copy (the brief's banned list): "${lines[i].trim().slice(0, 90)}"`);
+    }
+  }
+}
+
 /* ── 7. Nothing that looks like a credential. ───────────────────── */
 for (const f of [...pages, "worker/kaal-sold-sync.js"]) {
   if (!existsSync(join(root, f))) continue;

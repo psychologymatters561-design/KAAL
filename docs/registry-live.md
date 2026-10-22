@@ -69,7 +69,10 @@ Change `wrangler.toml` too, or the next deploy turns it back on.
 
 ## If something looks wrong
 
-- **The control room says "off"**: step 3 has not run, or `REGISTRY` is off.
+- **The control room says "not switched on"** (or answers `reason: "off"`):
+  the worker is deployed but has no database. Mode **deploy** does not
+  create one; only mode **live** does. Run Actions → setup-worker → mode
+  **live** (step 3), or check that `REGISTRY` is not `"off"`.
 - **No sign-in email**: check spam; the sender is connect@thekaal.co. Three
   codes per address per quarter hour.
 - **"Too many wrong codes"**: sign in again from the email step.

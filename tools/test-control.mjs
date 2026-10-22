@@ -278,6 +278,15 @@ let oid;
   ok(r.status === 401, "authenticator: five wrong codes end the session");
   const off = await w.fetch(new Request(ORIGIN + "/control"), Object.assign({}, env, { DB: undefined }), ctx());
   ok(off.status === 503, "production without the registry: the control room is not there");
+  const offJ = await off.json();
+  ok(/mode live/.test(offJ.why) && !/mode staging/.test(offJ.why) && /Mode deploy does not create it/.test(offJ.why), "production without the registry: the reply names mode live, and says deploy is not enough");
+  const offPage = await w.fetch(new Request(ORIGIN + "/control", { headers: { Accept: "text/html" } }), Object.assign({}, env, { DB: undefined }), ctx());
+  const offHtml = await offPage.text();
+  ok(offPage.status === 503 && /text\/html/.test(offPage.headers.get("content-type")) && /not switched on/.test(offHtml) && /mode live/.test(offHtml), "a browser sees a page, not raw JSON, and it says what to run");
+  const offStg = await (await w.fetch(new Request(ORIGIN + "/control"), Object.assign({}, env, { DB: undefined, STAGING: "on" }), ctx())).json();
+  ok(/mode staging/.test(offStg.why), "staging without the registry: the reply names mode staging");
+  const offSw = await (await w.fetch(new Request(ORIGIN + "/control"), Object.assign({}, env, { REGISTRY: "off" }), ctx())).json();
+  ok(/REGISTRY is "off"/.test(offSw.why), "the off switch is named when it is the reason");
 }
 
 /* ── 9. The letters are the brief's ── */

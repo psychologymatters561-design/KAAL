@@ -7,21 +7,21 @@
 > twenty four months from dispatch. When the twentieth ships, the design is
 > never produced again.
 
-काल — kaal — is Hindi and Sanskrit for time. The same word names an era: a
+काल, kaal, is Hindi and Sanskrit for time. The same word names an era: a
 stretch of time that ends and is remembered. A brand named after that, selling
 a design it finishes after twenty pieces, is the whole idea rather than a
 marketing line.
 
 ## The facts, stated once
 
-- **Brand**: KAAL (काल), thekaal.co. Sold direct only — no marketplace, no
+- **Brand**: KAAL (काल), thekaal.co. Sold direct only: no marketplace, no
   reseller, no authorised dealer, no third party seller. A KAAL watch offered
   anywhere else did not come from KAAL.
 - **Contact**: connect@thekaal.co, +91 93114 16678. The grievance officer is
   named at thekaal.co/legal.html.
 - **Made in**: India. Case, dial, bracelet, assembly and finishing are done in
   India; the movement is Japanese. Ships within India only.
-- **Product**: KAAL Series 01 — twenty numbered wristwatches.
+- **Product**: KAAL Series 01, twenty numbered wristwatches.
 - **Price**: ₹5,999 per piece, shipping within India included.
 - **Movement**: a Japanese Seiko Epson five hand multi function quartz movement, the
   same in all twenty pieces. It drives the hours, minutes and seconds plus the
@@ -35,7 +35,7 @@ marketing line.
   fraction of ₹5,999 on its own, so an automatic at this price generally means
   an unnamed movement. KAAL chose a maker it can name over a word it can print.
 - **Warranty**: twenty four months on the movement from dispatch. The movement
-  only — not cosmetic damage, water ingress from a case opened by anyone else,
+  only: not cosmetic damage, water ingress from a case opened by anyone else,
   or normal wear to the bracelet and glass. Nothing in it limits any right a
   buyer has under the Consumer Protection Act, 2019.
 - **Dials**: four. Emerald 01–06, Midnight 07–10, Champagne 11–14, Ivory 15–20.
@@ -85,12 +85,12 @@ trust:
 - [The shop](https://thekaal.co/): the film, the four dials, and the twenty
   numbers with the ones already gone struck through.
 - [The movement](https://thekaal.co/movement.html): the Seiko Epson movement in
-  full — how a quartz oscillator actually keeps time, how to read the three
+  full: how a quartz oscillator actually keeps time, how to read the three
   registers, why quartz rather than automatic, and exactly what the twenty four
   months covers.
 - [Provenance](https://thekaal.co/provenance.html): who you buy from, where
   the watch comes from, who takes the payment, and reviews.
-- [Why twenty](https://thekaal.co/manifesto.html): the complete argument — what
+- [Why twenty](https://thekaal.co/manifesto.html): the complete argument: what
   the name means, who the series is for, why ₹5,999 and why it will not stay
   there, how the piece is made, and what the brand has decided against.
 - [About](https://thekaal.co/about.html): what the brand is, what the name
@@ -103,7 +103,7 @@ trust:
 Everything above is stated on the pages themselves in the same words. There is
 no separate copy written for machines, and nothing on this site is served
 differently depending on who is asking. If a figure here disagrees with the
-live page, the live page is right — it is generated from one configuration and
+live page, the live page is right. It is generated from one configuration and
 this file is written by hand.
 
 Series 01 is open. There are no customer reviews, ratings or testimonials on

@@ -105,6 +105,15 @@ one-time codes instead of passcodes** (no passwords stored, no reset
 flow), which also suits a phone-first owner. That changes the brief's
 "email + passcode" wording, so it needs your yes.
 
+## Decided (22 October)
+
+- **Backend:** Cloudflare (D1, R2, Durable Objects), extending the existing worker.
+- **Owner sign-in:** a code emailed each time; no passwords stored. Admin adds TOTP.
+- **No. 09:** the owner's own test order. Kept off sale (`withheld`) until the owner releases it; never shown as sold in the registry.
+- **Courier:** Shiprocket (webhooks make Dispatched and Delivered automatic in Phase 3).
+
+Phase 1 is built: `docs/staging.md`.
+
 ## 7. Where the brief and the repo disagree (decisions needed)
 
 1. **What has sold.** The brief says No. 01 and 02. The site says 01, 02, 07, 09 and 10. No. 09 was bought on 2 October and `docs/payments.md` reads like a test by you. Is 09 a real sale, or should it be refunded and released?

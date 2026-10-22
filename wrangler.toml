@@ -168,3 +168,57 @@ crons = ["*/30 * * * *"]
 # the Cloudflare dashboard: Workers & Pages → kaal-edition → Logs.
 [observability]
 enabled = true
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGING (the registry build, docs/phase-0-audit.md). A second worker,
+# kaal-edition-staging, with Razorpay TEST keys, its own database, store
+# and counter. It never writes the live site's sold list, never sends a
+# purchase to Meta, and every email it sends goes to the owner only, with
+# "[Staging, for <who>]" in the subject. The staging checkout is at
+#   https://kaal-edition-staging.kaal-edition-hq.workers.dev/staging
+#
+# Set up with one button: Actions → setup-worker → mode "staging" (it
+# creates the database and the store, writes their ids below, applies
+# migrations/, sets the test keys and deploys). By hand:
+#   wrangler d1 migrations apply DB --env staging --remote
+#   wrangler deploy --env staging
+# The zeros below are placeholders the setup replaces; a deploy before it
+# fails, which is the safe way to fail.
+# ══════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "kaal-edition-staging"
+
+[env.staging.vars]
+STAGING       = "on"
+EDITION       = "20"
+CURRENCY      = "INR"
+PRICE_PAISE   = "599900"
+ALLOW_ORIGIN  = "https://kaal-edition-staging.kaal-edition-hq.workers.dev"
+MAIL_FROM     = "KAAL <connect@thekaal.co>"
+MAIL_REPLY_TO = "connect@thekaal.co"
+SITE_URL      = "https://thekaal.co"
+WORKER_URL    = "https://kaal-edition-staging.kaal-edition-hq.workers.dev"
+DIALS = '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald","6":"Emerald","7":"Midnight","8":"Midnight","9":"Midnight","10":"Midnight","11":"Champagne","12":"Champagne","13":"Champagne","14":"Champagne","15":"Ivory","16":"Ivory","17":"Ivory","18":"Ivory","19":"Ivory","20":"Ivory"}'
+ABANDON_EMAIL  = "off"
+SERIES02_EMAIL = "off"
+ARRIVAL_EMAIL  = "off"
+SETTLED_EMAIL  = "off"
+YEAR_EMAIL     = "off"
+DIGEST         = "off"
+ORDER_ALERT    = "on"
+REFUND_EMAIL   = "on"
+# No META_PIXEL here, on purpose: a test payment is never a sale to Meta.
+
+[[env.staging.kv_namespaces]]
+binding = "KAAL_STATE"
+id = "00000000000000000000000000000000"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "kaal-registry-staging"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[env.staging.durable_objects.bindings]]
+name = "STATS"
+class_name = "Stats"

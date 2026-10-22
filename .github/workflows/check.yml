@@ -38,10 +38,13 @@ jobs:
         run: node tools/check.mjs
 
       - name: Validate the worker parses
-        run: node --check worker/kaal-sold-sync.js && node --check worker/mail.js && node --check worker/desk.js && node --check worker/registry.js
+        run: node --check worker/kaal-sold-sync.js && node --check worker/mail.js && node --check worker/desk.js && node --check worker/registry.js && node --check worker/auth.js && node --check worker/control.js && node --check worker/control-page.js && node --check worker/letters.js && node --check worker/outbox.js
 
       - name: Test the money path (payment return, receipt, address, emails, the desk)
         run: node tools/test-worker.mjs
 
       - name: Test the registry (migrations/, holds, a payment twice, a duplicate's refund, staging)
         run: node --no-warnings tools/test-registry.mjs
+
+      - name: Test the control room (sign-in, authenticator, stages and their emails, refunds, outbox)
+        run: node --no-warnings tools/test-control.mjs

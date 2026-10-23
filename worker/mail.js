@@ -234,7 +234,7 @@ export function buyerConfirmation(d) {
     steps("What happens now", next),
     say(esc(d.gift ? WELCOME_RETURN_GIFT : WELCOME_RETURN)),
     say(esc(WELCOME_CLOSE)),
-    say(`Questions before it arrives? Reply here, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>. A person answers.`),
+    say(`Questions before it arrives? Reply here. A person answers.`),
     say("KAAL", { pad: "0 32px 0" })
   ].join("\n");
 
@@ -254,7 +254,7 @@ export function buyerConfirmation(d) {
     ...next.map(([k, v], i) => `${i + 1}. ${k}: ${/^No\. /.test(v) ? v : v.charAt(0).toLowerCase() + v.slice(1)}`), "",
     d.gift ? WELCOME_RETURN_GIFT : WELCOME_RETURN, "",
     WELCOME_CLOSE, "",
-    `Questions before it arrives? Reply here, or call or WhatsApp ${PHONE}. A person answers.`, "",
+    `Questions before it arrives? Reply here. A person answers.`, "",
     "KAAL"
   ].filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n");
 
@@ -376,13 +376,13 @@ export function buyerShip(d) {
     card("", [
       ["Arrives by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Tracking comes to this email the day it leaves</span>`]
     ], { pad: "0 32px 22px" }),
-    para(`Questions? Reply to this email, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>.`, { size: 14, lh: 22, pad: "0 32px 0" })
+    para(`Questions? Reply to this email.`, { size: 14, lh: 22, pad: "0 32px 0" })
   ].join("\n");
   const text = [
     `No. ${n} will come to you here:`, "", addressText(a), "",
     `Arrives by ${d.arriveBy}. Tracking comes to this email the day it leaves.`, "",
     "If anything in the address is wrong, reply to this email before it is dispatched and we will correct it.", "",
-    `Questions? Call or WhatsApp ${PHONE}.`, "", "KAAL · thekaal.co"
+    `Questions? Reply to this email.`, "", "KAAL · thekaal.co"
   ].join("\n");
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
@@ -408,7 +408,7 @@ export function buyerDispatched(d) {
       d.address ? ["Going to", addressBlock(d.address)] : null
     ], { pad: "0 32px 22px" }),
     para("When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", { size: 14, lh: 22 }),
-    para(`Questions? Reply to this email, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>.`, { size: 14, lh: 22, pad: "0 32px 0" })
+    para(`Questions? Reply to this email.`, { size: 14, lh: 22, pad: "0 32px 0" })
   ].join("\n");
   const text = [
     `No. ${n} is on its way.`, "",
@@ -419,7 +419,7 @@ export function buyerDispatched(d) {
     d.arriveBy ? `Arrives by: ${d.arriveBy}` : null,
     d.address ? `Going to:\n${addressText(d.address)}` : null, "",
     "When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", "",
-    `Questions? Reply to this email, or call or WhatsApp ${PHONE}.`, "", "KAAL · thekaal.co"
+    `Questions? Reply to this email.`, "", "KAAL · thekaal.co"
   ].filter(x => x !== null).join("\n");
   return { subject, html: frame({ title: subject, preheader, body, site }), text };
 }
@@ -441,13 +441,13 @@ export function buyerRefund(d) {
       ["Payment reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.paymentId)}</span>`],
       ["Refund reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.refundId)}</span>`]
     ], { pad: "0 32px 22px" }),
-    para(`If it has not reached you after seven working days, reply to this email with the refund reference, or call or WhatsApp <a href="tel:${PHONE_TEL}" style="color:${C.goldLit};">${PHONE}</a>. A person answers.`, { size: 14, lh: 22, pad: "0 32px 0" })
+    para(`If it has not reached you after seven working days, reply to this email with the refund reference. A person answers.`, { size: 14, lh: 22, pad: "0 32px 0" })
   ].join("\n");
   const text = [
     "Your refund is on its way.", "",
     `${d.amount}${what} has been sent back to the account you paid from. Razorpay processed it on ${d.when}; most banks show it within 5 to 7 working days.`, "",
     `Refunded: ${d.amount}`, `Payment reference: ${d.paymentId}`, `Refund reference: ${d.refundId}`, "",
-    `If it has not reached you after seven working days, reply to this email with the refund reference, or call or WhatsApp ${PHONE}. A person answers.`, "",
+    `If it has not reached you after seven working days, reply to this email with the refund reference. A person answers.`, "",
     "KAAL · thekaal.co"
   ].join("\n");
   return { subject, html: frame({ title: subject, preheader, body, site }), text };

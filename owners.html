@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAAL &middot; Owners</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#080908">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' https://kaal-edition.kaal-edition-hq.workers.dev data:; connect-src https://kaal-edition.kaal-edition-hq.workers.dev; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/InstrumentSerif-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/owners.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to your piece</a>
+<main id="main">
+  <div class="wrap">
+    <div class="bar noprint"><p class="mark"><a href="/">KAAL</a></p><button class="linkbtn" id="out" type="button" hidden>Sign out</button></div>
+
+    <section id="boot" aria-live="polite"><p class="center muted">One moment.</p></section>
+
+    <!-- Signing in: an emailed code, no password -->
+    <section id="gate" hidden>
+      <h1>Owners</h1>
+      <p class="muted" id="gateLead">Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember.</p>
+      <form id="fEmail" novalidate>
+        <label for="email">Email</label>
+        <input id="email" type="email" inputmode="email" autocomplete="email" required>
+        <p class="err" id="eErr" role="alert"></p>
+        <button class="btn block" type="submit" id="eGo">Send me a code</button>
+      </form>
+      <form id="fCode" hidden novalidate>
+        <label for="code">The six digits we emailed you</label>
+        <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required>
+        <p class="hint">It works once, for ten minutes. Check your spam folder if it has not come.</p>
+        <p class="err" id="cErr" role="alert"></p>
+        <button class="btn block" type="submit" id="cGo">Sign in</button>
+        <p class="center"><button class="linkbtn" id="back" type="button">Use another email</button></p>
+      </form>
+      <p class="hint center">Not registered yet? Open the link in the email we sent when your piece was delivered.</p>
+    </section>
+
+    <!-- The dossier -->
+    <section id="app" hidden>
+      <div class="tabs noprint" id="tabs" role="group" aria-label="Your pieces"></div>
+      <div id="dossier"></div>
+    </section>
+
+    <!-- The certificate and the receipt, as paper -->
+    <section id="paper" hidden></section>
+
+    <footer class="fine noprint">Questions: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></footer>
+  </div>
+</main>
+<script src="assets/owners.js"></script>
+<script src="assets/dashboard.js"></script>
+</body>
+</html>

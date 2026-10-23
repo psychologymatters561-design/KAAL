@@ -96,6 +96,7 @@ import { queuePlaced, queueAddressAsk } from "./orders.js";
 import { shiprocket } from "./courier.js";
 import { sweeps } from "./sla.js";
 import { trackRoute } from "./track.js";
+import { ownersRoute } from "./owners.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -136,6 +137,8 @@ export default {
     }
     /* The order's page (thekaal.co/track) and the courier's tracking events. */
     if (path.startsWith("/track/")) return trackRoute(request, env, ctx, path, regDeps(env, ctx));
+    /* The owners' pages (thekaal.co/claim and /owners): registration and the dossier. */
+    if (path.startsWith("/o/")) return ownersRoute(request, env, ctx, path, regDeps(env, ctx));
     if (request.method === "POST" && path === "/ship/shiprocket") return shiprocket(request, env, ctx, regDeps(env, ctx));
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
@@ -175,7 +178,8 @@ export default {
 function regDeps(env, ctx) {
   const flush = (ids) => flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html), ids)
     .catch(e => console.log("Outbox flush failed:", String(e).slice(0, 160)));
-  return { json, siteUrl, workerUrl, kickNow: flush, kick: (ids) => { const j = flush(ids); if (ctx && ctx.waitUntil) ctx.waitUntil(j); } };
+  const later = (p) => { const j = Promise.resolve(p).catch(e => console.log("Background job failed:", String(e).slice(0, 160))); if (ctx && ctx.waitUntil) ctx.waitUntil(j); };
+  return { json, siteUrl, workerUrl, sendEmail, kickNow: flush, kick: (ids) => later(flush(ids)), kick0: later };
 }
 
 /* ══════════ 0. A CEILING PER ADDRESS ══════════
@@ -196,7 +200,8 @@ function regDeps(env, ctx) {
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60,
   "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5,
-  "/track/data": 60, "/track/lookup": 20, "/track/register": 10, "/track/email-link": 5, "/ship/shiprocket": 600 };
+  "/track/data": 60, "/track/lookup": 20, "/track/register": 10, "/track/email-link": 5, "/ship/shiprocket": 600,
+  "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120 };
 const RATE = new Map();
 function overRate(request, route, max) {
   const ip = request.headers.get("cf-connecting-ip") || "";

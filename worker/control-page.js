@@ -242,6 +242,7 @@ RENDER.orders = function(j){
     var prev = o.next ? '<button class="btn ghost" data-act="preview" data-id="' + o.id + '" data-to="' + o.next + '">Preview email</button>' : "";
     var ret = o.returnOpen ? '<button class="btn warn" data-act="returned" data-id="' + o.id + '">Mark returned</button>' : "";
     var refund = !o.refund_id && o.status !== "registered" && !/^manual:/.test(o.razorpay_payment_id || "") ? '<button class="btn warn ghost" data-act="refund" data-id="' + o.id + '" data-n="' + pad(o.number) + '">Refund</button>' : "";
+    var link = o.status === "delivered" && o.email ? '<button class="btn ghost" data-act="link" data-id="' + o.id + '" data-mode="send">Send registration link</button><button class="btn ghost" data-act="link" data-id="' + o.id + '" data-mode="regenerate">New link, cancel old</button>' : "";
     var addr = [o.address_line1, o.address_line2, o.city, o.state, o.pincode].filter(Boolean).join(", ");
     return '<div class="card"><div class="row"><b class="num">No. ' + pad(o.number) + '</b><span class="muted">' + esc(o.colorway) + '</span><span class="sp"></span><span class="pill' + (o.status === "cancelled" || o.status === "returned" ? " bad" : "") + '">' + esc(o.status) + (o.cancel_reason ? " · " + esc(o.cancel_reason) : "") + "</span></div>" +
       '<div class="stages">' + bars + "</div>" +
@@ -249,7 +250,7 @@ RENDER.orders = function(j){
       (addr ? '<div class="small muted">' + esc(addr) + "</div>" : "") +
       (o.gift ? '<div class="small"><span class="pill warn">gift</span> ' + esc(o.gift_note || "") + "</div>" : "") +
       '<div class="small faint">Paid ' + esc(when(o.paid_at)) + " · " + rupees(o.amount_paise) + (o.tracking_number ? " · " + esc(o.courier) + " " + esc(o.tracking_number) : "") + (o.delivered_on ? " · delivered " + esc(o.delivered_on) : "") + (o.refund_id ? " · refunded " + esc(o.refund_id) : "") + "</div>" +
-      '<div class="row" style="margin-top:10px">' + next + prev + '<button class="btn ghost" data-act="correct" data-id="' + o.id + '">Change without email</button>' + ret + refund + "</div></div>";
+      '<div class="row" style="margin-top:10px">' + next + prev + '<button class="btn ghost" data-act="correct" data-id="' + o.id + '">Change without email</button>' + link + ret + refund + "</div></div>";
   }).join("");
 };
 
@@ -352,7 +353,8 @@ RENDER.settings = function(j){
     '<div class="card"><div class="check"><input type="checkbox" id="s1"' + (s.stage_emails === "1" ? " checked" : "") + '><label for="s1" style="margin:0">Every stage change emails the buyer</label></div>' +
     '<div class="check"><input type="checkbox" id="s2"' + (s.transfers_need_approval === "1" ? " checked" : "") + '><label for="s2" style="margin:0">Transfers wait for my approval</label></div>' +
     '<label for="s3">Sender name</label><input id="s3" value="' + esc(s.sender_name) + '"><p class="muted small">Sends from ' + esc(j.sender) + ". Admin: " + esc(j.admin) + ".</p>" +
-    '<label for="s4">Warranty terms (published once rain coverage is decided)</label><textarea id="s4">' + esc(s.warranty_terms) + "</textarea>" +
+    '<label for="s4">Warranty terms (your own note; the public terms are on legal.html)</label><textarea id="s4">' + esc(s.warranty_terms) + "</textarea>" +
+    '<label for="s7">Setting guide video link (https, shown to owners on their page; leave empty for none)</label><input id="s7" type="url" placeholder="https://" value="' + esc(s.guide_video_url || "") + '">' +
     "<h2>" + esc(se.name || "Series") + '</h2><div class="row"><div class="sp"><label for="s5">Return days</label><input id="s5" type="number" min="7" max="30" value="' + esc(se.return_days) + '"></div><div class="sp"><label for="s6">Warranty months</label><input id="s6" type="number" min="12" max="60" value="' + esc(se.warranty_months) + '"></div></div>' +
     '<p class="err" id="setErr"></p><button class="btn go" data-act="saveSettings" data-code="' + esc(se.code) + '">Save settings</button></div>' +
     "<h2>Blocked buyers</h2>" + (j.blocked.length ? '<div class="card"><table>' + j.blocked.map(function(b){ return "<tr><td>" + esc(b.email || "") + "<br>" + esc(b.phone || "") + '</td><td class="muted small">' + esc(b.reason) + '</td><td><button class="btn ghost small" data-act="unblock" data-id="' + b.id + '">Remove</button></td></tr>'; }).join("") + "</table></div>" : "") +
@@ -409,6 +411,9 @@ document.addEventListener("click", function(e){
   }
   else if(a === "pastSaleGo") api("POST", "/control/api/orders/manual", { n:$("ms").value, name:$("mn").value, email:$("me").value, phone:$("mp").value, line1:$("ma").value, city:$("mc").value, state:$("mt").value,
       pin:$("mz").value, paid_on:$("mpd").value, delivered_on:$("mdd").value, amount_rupees:$("mr").value }).then(function(j){ if(j.ok){ closeSheet(); say("Recorded."); load("orders"); } else $("sheetErr").textContent = j.why || "Not recorded."; });
+  else if(a === "link"){ var mode = el.getAttribute("data-mode"); var o2 = order(id);
+    if(mode === "regenerate" && !confirm("Cancel every earlier registration link for No. " + pad(o2.number) + " and email a new one to " + (o2.email || "the buyer") + "?")) return;
+    api("POST", "/control/api/orders/" + id + "/link", { mode:mode }).then(function(j){ say(j.ok ? "A registration link is on its way to " + j.to + "." : (j.why || "Not sent."), !j.ok); load("orders"); }); }
   else if(a === "returned"){ var r = prompt("Mark No. " + pad(order(id).number) + " returned? The buyer will never be sold to again. Reason:"); if(r === null) return;
     api("POST", "/control/api/orders/" + id + "/returned", { reason:r }).then(function(j){ say(j.ok ? "Marked returned. Refund it next if you have not." : (j.why || "Not changed."), !j.ok); load("orders"); }); }
   else if(a === "refund"){ var n = el.getAttribute("data-n"); var c = prompt("Refund the full amount through Razorpay? This cannot be undone. Type " + n + " to confirm."); if(c === null) return;
@@ -425,7 +430,7 @@ document.addEventListener("click", function(e){
   else if(a === "tpl") frame("/control/preview?t=" + encodeURIComponent(el.getAttribute("data-t")));
   else if(a === "test") api("POST", "/control/api/emails/test", { template: el.getAttribute("data-t") }).then(function(j){ say(j.ok ? "A test is on its way to " + j.to + "." : "Not sent.", !j.ok); setTimeout(function(){ load("emails"); }, 1500); });
   else if(a === "retry") api("POST", "/control/api/emails/" + id + "/retry", {}).then(function(j){ say(j.ok ? "Queued again." : "Not queued.", !j.ok); setTimeout(function(){ load("emails"); }, 1500); });
-  else if(a === "saveSettings") api("POST", "/control/api/settings", { settings:{ stage_emails: $("s1").checked ? "1" : "0", transfers_need_approval: $("s2").checked ? "1" : "0", sender_name: $("s3").value, warranty_terms: $("s4").value },
+  else if(a === "saveSettings") api("POST", "/control/api/settings", { settings:{ stage_emails: $("s1").checked ? "1" : "0", transfers_need_approval: $("s2").checked ? "1" : "0", sender_name: $("s3").value, warranty_terms: $("s4").value, guide_video_url: $("s7").value.trim() },
     series:{ code: el.getAttribute("data-code"), return_days: $("s5").value, warranty_months: $("s6").value } }).then(function(j){ if(j.ok){ say(j.changed.length ? "Saved." : "Nothing changed."); load("settings"); } else $("setErr").textContent = j.why || "Not saved."; });
   else if(a === "block") api("POST", "/control/api/blocked", { email:$("b1").value, phone:$("b2").value, reason:$("b3").value }).then(function(j){ if(j.ok){ say("Blocked."); load("settings"); } else $("blkErr").textContent = j.why || "Not saved."; });
   else if(a === "unblock"){ if(!confirm("Remove this block?")) return; api("POST", "/control/api/blocked", { remove:id }).then(function(){ load("settings"); }); }

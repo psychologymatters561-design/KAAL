@@ -79,6 +79,14 @@ export async function startLogin(env, email) {
   const known = e === adminEmail(env) ||
     !!(await env.DB.prepare("SELECT 1 AS x FROM owners WHERE email = ?1 AND deleted_at IS NULL").bind(e).first());
   if (!known) return { send: null, reason: "unknown" };
+  return issueCode(env, e);
+}
+
+/* A code for any valid address, at most three a quarter hour. Registration
+   uses it to confirm an email that is not the one on the order. */
+export async function issueCode(env, email) {
+  const e = normEmail(email);
+  if (!validEmail(e)) return { send: null, reason: "invalid" };
   const recent = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_codes WHERE email = ?1 AND created_at > ?2")
     .bind(e, iso(Date.now() - CODE_WINDOW_MS)).first();
   if (recent && recent.c >= CODES_PER_WINDOW) return { send: null, reason: "rate" };
@@ -88,10 +96,10 @@ export async function startLogin(env, email) {
   return { send: { to: e, code } };
 }
 
-/* The newest live code for that address, tried once more. On success the
-   code is spent, an owner row exists (the admin's is made on first sign-in)
-   and a session is opened. Returns { ok, token, owner, mfa } or { ok:false, reason }. */
-export async function verifyLogin(env, email, code, userAgent) {
+/* The newest live code for that address, tried once. On success it is
+   spent (by exactly one caller) and every other code out for that address
+   dies with it. */
+export async function spendCode(env, email, code) {
   const e = normEmail(email), c = String(code || "").replace(/\D/g, "");
   if (!validEmail(e) || c.length !== 6) return { ok: false, reason: "invalid" };
   const row = await env.DB.prepare(
@@ -104,11 +112,28 @@ export async function verifyLogin(env, email, code, userAgent) {
     await env.DB.prepare("UPDATE login_codes SET attempts = attempts + 1 WHERE id = ?1").bind(row.id).run();
     return { ok: false, reason: row.attempts + 1 >= CODE_TRIES ? "tries" : "wrong" };
   }
-  /* Spent by exactly one caller: two tabs racing the same code cannot both sign in. */
   const spent = await env.DB.prepare("UPDATE login_codes SET used_at = ?1 WHERE id = ?2 AND used_at IS NULL RETURNING id").bind(iso(), row.id).first();
   if (!spent) return { ok: false, reason: "expired" };
-  /* One code signed in: every other code still out for that address dies with it. */
   await env.DB.prepare("UPDATE login_codes SET used_at = ?1 WHERE email = ?2 AND used_at IS NULL").bind(iso(), e).run();
+  return { ok: true };
+}
+
+/* A session for an owner: the token is shown once, only its hash is kept. */
+export async function openSession(env, owner, userAgent) {
+  const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const life = owner.role === "admin" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
+  await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent) VALUES (?1, ?2, ?3, ?4)")
+    .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200)).run();
+  return { token, maxAge: Math.floor(life / 1000) };
+}
+
+/* A code, and the sign-in it opens: an owner row exists (the admin's is
+   made on first sign-in) and a session is opened. Returns
+   { ok, token, owner, mfa } or { ok:false, reason }. */
+export async function verifyLogin(env, email, code, userAgent) {
+  const e = normEmail(email);
+  const spent = await spendCode(env, e, code);
+  if (!spent.ok) return spent;
 
   const isAdmin = e === adminEmail(env);
   let owner = await env.DB.prepare("SELECT * FROM owners WHERE email = ?1 AND deleted_at IS NULL").bind(e).first();
@@ -119,19 +144,20 @@ export async function verifyLogin(env, email, code, userAgent) {
   }
   if (!owner) return { ok: false, reason: "unknown" };
 
-  const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  const life = owner.role === "admin" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
-  await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent) VALUES (?1, ?2, ?3, ?4)")
-    .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200)).run();
-  return { ok: true, token, owner, maxAge: Math.floor(life / 1000), mfa: owner.role !== "admin" || !twoFactorOn(env) ? "none" : owner.totp_confirmed_at ? "needed" : "enroll" };
+  const { token, maxAge } = await openSession(env, owner, userAgent);
+  return { ok: true, token, owner, maxAge, mfa: owner.role !== "admin" || !twoFactorOn(env) ? "none" : owner.totp_confirmed_at ? "needed" : "enroll" };
 }
 
 /* The session behind a request's cookie, or null. `mfa` is true when the
    admin has given the authenticator's code on this session, or when the
    authenticator is not required (ADMIN_2FA off). */
-export async function sessionOf(env, request) {
+export async function sessionOf(env, request, opts) {
   if (!authOn(env)) return null;
-  const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]{40,60})`).exec(request.headers.get("Cookie") || "");
+  /* The control room's session is a cookie; the owners' pages, which live on
+     another origin, hold theirs as a bearer token (opts.bearer). */
+  const m = opts && opts.bearer
+    ? /^Bearer ([A-Za-z0-9_-]{40,60})$/.exec(request.headers.get("Authorization") || "")
+    : new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]{40,60})`).exec(request.headers.get("Cookie") || "");
   if (!m) return null;
   const s = await env.DB.prepare(
     `SELECT s.id AS sid, s.mfa_at, s.expires_at, s.totp_failures, o.* FROM sessions s JOIN owners o ON o.id = s.owner_id

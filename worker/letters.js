@@ -163,6 +163,14 @@ export const LETTERS = {
       { button: ["Open the control room", d.controlUrl] }
     ], { preheader: d.why });
   },
+  linkRequested(d) {
+    const n = pad2(d.n);
+    return render(`A new registration link was asked for: No. ${n}`, [
+      `Someone opened a registration link for No. ${n} that has expired, been used or been replaced, and asked for a new one.`,
+      `The order's email is ${d.email}. If it is the owner, send them a fresh link from the order in the control room.`,
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: `No. ${n}` });
+  },
   courierAlert(d) {
     const head = d.n ? `No. ${pad2(d.n)}: the courier reports ${d.status}` : `A courier update could not be matched to an order`;
     return render(`${head}`, [
@@ -177,11 +185,11 @@ export const LETTERS = {
 export const STAGE_LETTER = { inspected: "inspected", packed: "packed", dispatched: "dispatched", delivered: "delivered" };
 
 /* Letters that go to the shop, not to a customer. */
-export const STAFF_LETTERS = ["sla", "courierAlert"];
+export const STAFF_LETTERS = ["sla", "courierAlert", "linkRequested"];
 
 export function sample(name, site) {
   const d = { site, n: 7, size: 20, courier: "Delhivery", tracking: "SAMPLE123456", trackingUrl: "https://www.delhivery.com/track/package/SAMPLE123456",
     claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, shipUrl: `${site}/claimed.html`,
-    why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
+    email: "owner@example.com", why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
   return LETTERS[name] ? LETTERS[name](d) : null;
 }

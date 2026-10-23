@@ -157,6 +157,15 @@ let oid;
   const tok = del && (/claim\?t=([A-Za-z0-9_-]{43})/.exec(del.text) || [])[1];
   ok(tok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND used_at IS NULL").get(oid).c === 1, "Delivered: the registration link goes in the email, and only its hash is kept");
   ok(tok && !DB.raw.prepare("SELECT payload FROM email_outbox WHERE dedupe_key = ?").get(`stage:${oid}:delivered`).payload.includes(tok), "Delivered: once sent, the link is scrubbed from the outbox");
+  mails.length = 0;
+  r = await call("POST", `/control/api/orders/${oid}/link`, { mode: "send" });
+  const again = mails.find(m => m.subject === "No. 07 is with you. One step makes it yours.");
+  ok(r.j.ok && again && /claim\?t=[A-Za-z0-9_-]{43}/.test(again.text) && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 2,
+    "link: 'Send registration link' emails a fresh one and leaves the earlier working");
+  r = await call("POST", `/control/api/orders/${oid}/link`, { mode: "regenerate" });
+  ok(r.j.ok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 1, "link: 'New link, cancel old' leaves exactly one that works");
+  r = await call("POST", "/control/api/orders/999/link", { mode: "send" });
+  ok(r.status === 404, "link: an unknown order is refused");
   ok(DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-07'").get().status === "delivered", "Delivered: the piece is delivered");
 
   /* Corrections, without email, and never a second stage email. */

@@ -39,6 +39,22 @@ export async function seriesSize(env, code) {
   return r ? r.size : 20;
 }
 
+/* ── The warranty clock (the brief, section 5) ──
+   Starts at 00:00 India time on the delivery day. Ends the same day of the
+   month `months` later at 23:59:59 India time (a 29th to 31st that the
+   month lacks ends on the month's last day). It never resets on a transfer. */
+export function warrantyWindow(deliveredOn, months) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(deliveredOn || ""));
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const total = mo - 1 + (months || 24), y2 = y + Math.floor(total / 12), m2 = (total % 12) + 1;
+  const last = new Date(Date.UTC(y2, m2, 0)).getUTCDate();
+  const endDay = `${y2}-${String(m2).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+  return { startMs: Date.parse(`${deliveredOn}T00:00:00.000+05:30`), endMs: Date.parse(`${endDay}T23:59:59.000+05:30`), endDay };
+}
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+export const longDay = (day) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day || ""); return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : ""; };
+
 /* ── The order's page link ── */
 export async function trackSig(env, orderId) { return env.AUTH_SECRET ? (await hmac(String(env.AUTH_SECRET), "track|" + orderId)).slice(0, 24) : ""; }
 /* Without AUTH_SECRET there is no link (an email simply omits the quiet line). */
@@ -62,6 +78,18 @@ export async function nextOwnerNo(env, pieceId) {
 async function letterVars(env, site, o, extra) {
   return Object.assign({ site, n: o.number, size: await seriesSize(env, o.series), courier: o.courier, tracking: o.tracking_number,
     trackingUrl: o.tracking_url, trackUrl: await trackUrl(env, site, o.id) }, extra || {});
+}
+
+/* The Delivered letter with a registration link made for it: when the order
+   is delivered, when the owner of the shop sends it again, and when a buyer
+   asks for it by email. Returns the outbox row id, or 0 if this dedupe key
+   was already queued. */
+export async function queueDelivered(env, site, order, dedupe) {
+  if (!order || !order.email) return 0;
+  const o = Object.assign({}, order, { number: order.number || parseInt(String(order.piece_id).split("-")[1], 10) });
+  const token = await mintClaim(env, o);
+  return queueLetter(env, { template: "delivered", to: o.email, series: o.series, dedupe,
+    vars: await letterVars(env, site, o, { claimUrl: `${site}/claim?t=${token}`, ownerNo: await nextOwnerNo(env, o.piece_id) }) });
 }
 
 /* The Placed letter: from the verified payment, with nobody pressing
@@ -143,12 +171,9 @@ export async function moveOrder(env, deps, actor, id, b, opts) {
   const on = await setting(env, "stage_emails", "1");
   if (!silent && !quiet && on === "1" && o.email && STAGE_LETTER[to]) {
     const merged = Object.assign({}, o, set);
-    const extra = {};
-    if (to === "delivered") {
-      extra.claimUrl = `${site}/claim?t=${await mintClaim(env, o)}`;
-      extra.ownerNo = await nextOwnerNo(env, o.piece_id);
-    }
-    const q = await queueLetter(env, { template: STAGE_LETTER[to], to: o.email, dedupe: `stage:${o.id}:${to}`, series: o.series, vars: await letterVars(env, site, merged, extra) });
+    const q = to === "delivered"
+      ? await queueDelivered(env, site, merged, `stage:${o.id}:delivered`)
+      : await queueLetter(env, { template: STAGE_LETTER[to], to: o.email, dedupe: `stage:${o.id}:${to}`, series: o.series, vars: await letterVars(env, site, merged) });
     letter = q ? "queued" : "already";
     if (q) deps.kick([q]);
   }

@@ -24,8 +24,7 @@
    Never in the answer: name, email, phone, address, payment id.
    ══════════════════════════════════════════════════════════════════ */
 import { registryOn, normEmail, SERIES } from "./registry.js";
-import { trackOk, mintClaim, nextOwnerNo, seriesSize, setting } from "./orders.js";
-import { queueLetter } from "./outbox.js";
+import { trackOk, mintClaim, queueDelivered, seriesSize, setting } from "./orders.js";
 import { same } from "./auth.js";
 
 const LABEL = { placed: "Placed", inspected: "Inspected", packed: "Packed", dispatched: "Dispatched", delivered: "Delivered" };
@@ -107,9 +106,7 @@ export async function trackRoute(request, env, ctx, path, deps) {
       if (o && o.status === "delivered" && (await setting(env, "stage_emails", "1")) === "1") {
         /* One an hour per order: asking again is not a way to flood an inbox. */
         const hour = new Date().toISOString().slice(0, 13);
-        const n = parseInt(String(o.piece_id).split("-")[1], 10);
-        const q = await queueLetter(env, { template: "delivered", to: o.email, series: o.series, dedupe: `asked:${o.id}:${hour}`,
-          vars: { site: deps.siteUrl(env), n, size: await seriesSize(env, o.series), claimUrl: `${deps.siteUrl(env)}/claim?t=${await mintClaim(env, o)}`, ownerNo: await nextOwnerNo(env, o.piece_id) } });
+        const q = await queueDelivered(env, deps.siteUrl(env), o, `asked:${o.id}:${hour}`);
         if (q) deps.kick([q]);
       }
       return J({ ok: true });

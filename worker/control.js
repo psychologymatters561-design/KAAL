@@ -17,7 +17,7 @@
    ══════════════════════════════════════════════════════════════════ */
 import { authOn, adminEmail, startLogin, verifyLogin, sessionOf, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail } from "./auth.js";
 import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
-import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder } from "./orders.js";
+import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
 import { lateOrders } from "./sla.js";
@@ -107,7 +107,9 @@ export async function control(request, env, ctx, path, T) {
       return out(r, r.ok ? 200 : 502);
     }
     if (method === "POST" && route === "/orders/manual") return pastSale(env, actor, await body(request) || {});
-    let m = /^\/orders\/(\d+)\/(stage|returned|refund)$/.exec(route);
+    let m = /^\/orders\/(\d+)\/link$/.exec(route);
+    if (method === "POST" && m) return claimLink(env, ctx, T, actor, +m[1], await body(request) || {});
+    m = /^\/orders\/(\d+)\/(stage|returned|refund)$/.exec(route);
     if (method === "POST" && m) {
       const b = await body(request) || {};
       if (m[2] === "stage") return stage(env, ctx, T, actor, +m[1], b);
@@ -253,6 +255,22 @@ async function listOrders(env) {
 async function stage(env, ctx, T, actor, id, b) {
   const r = await moveOrder(env, { siteUrl: T.siteUrl, kick: (ids) => kick(env, ctx, T, ids) }, actor, id, b);
   return out(r.body, r.http);
+}
+
+/* "Resend registration link" mails the owner a fresh link and leaves the
+   earlier ones working; "Regenerate" first revokes every unused one (for a
+   link that went astray). Only for a delivered, unregistered piece. */
+async function claimLink(env, ctx, T, actor, id, b) {
+  const o = await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.id = ?1").bind(id).first();
+  if (!o) return out({ ok: false, reason: "unknown-order" }, 404);
+  if (o.status !== "delivered") return out({ ok: false, reason: "state", why: o.status === "registered" ? "This piece is already registered." : "A registration link is for a delivered piece. Mark it delivered first." }, 409);
+  if (!o.email) return out({ ok: false, reason: "email", why: "This order has no email address to send it to." }, 400);
+  const regen = b.mode === "regenerate";
+  if (regen) await env.DB.prepare("UPDATE claim_tokens SET revoked_at = ?1 WHERE order_id = ?2 AND used_at IS NULL AND revoked_at IS NULL").bind(iso(), id).run();
+  const q = await queueDelivered(env, T.siteUrl(env), o, `link:${id}:${Date.now()}`);
+  if (q) kick(env, ctx, T, [q]);
+  await audit(env, actor, regen ? "order.link.regenerate" : "order.link.resend", "order:" + id, { status: o.status }, { to: o.email, queued: !!q }, o.series);
+  return out({ ok: true, to: o.email });
 }
 
 /* A sale made before the registry (Nos. 01 and 02): typed in once, from
@@ -490,7 +508,7 @@ async function settings(env) {
   const blocked = (await env.DB.prepare("SELECT id, email, phone, reason, created_at FROM blocked_buyers ORDER BY id DESC").all()).results || [];
   return { ok: true, settings: Object.fromEntries(rows.map(r => [r.key, r.value])), series, blocked, sender: "connect@thekaal.co", admin: adminEmail(env) };
 }
-const SETTING_KEYS = { transfers_need_approval: /^[01]$/, stage_emails: /^[01]$/, sender_name: /^.{1,40}$/, warranty_terms: /^[\s\S]{0,4000}$/ };
+const SETTING_KEYS = { transfers_need_approval: /^[01]$/, stage_emails: /^[01]$/, sender_name: /^.{1,40}$/, warranty_terms: /^[\s\S]{0,4000}$/, guide_video_url: /^(https:\/\/[^\s"'<>]{4,300})?$/ };
 async function saveSettings(env, actor, b) {
   const changed = {};
   for (const k of Object.keys(b.settings || {})) {

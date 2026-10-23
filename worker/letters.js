@@ -35,6 +35,7 @@ function render(subject, blocks, opts) {
   const html = [];
   const text = [];
   for (const b of blocks) {
+    if (b === undefined || b === null || b === "") continue;            /* a field the caller did not have: no empty paragraph, no crash */
     if (typeof b === "string") {
       html.push(`<p style="margin:0 0 18px;font-size:16px;line-height:1.65;color:${C.ink}">${esc(b)}</p>`);
       text.push(b, "");
@@ -125,6 +126,24 @@ export const LETTERS = {
       "KAAL"
     ], { preheader: "Its place in the registry is still empty." });
   },
+  outForDelivery(d) {
+    const n = pad2(d.n);
+    const who = d.courier ? `${d.courier}'s rider` : "the courier's rider";
+    return render(`No. ${n} is out for delivery`, [
+      "Owner,",
+      `No. ${n} is out for delivery. It is with ${who} today. Keep your phone close; the rider may call.`,
+      "KAAL", ...journey(d)
+    ], { preheader: "It should reach you today." });
+  },
+  addressNeeded(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} needs somewhere to go`, [
+      "Owner,",
+      `Your payment is received and No. ${n} of ${d.size} is set aside for you. One thing is left: tell us where to send it.`,
+      { button: ["Add delivery address", d.shipUrl] },
+      "KAAL"
+    ], { preheader: "One thing is left: where to send it." });
+  },
   registered(d) {
     const n = pad2(d.n);
     return render(`No. ${n} is recorded in your name`, [
@@ -134,16 +153,199 @@ export const LETTERS = {
       "Kaal does not wait. Wear it well.",
       "KAAL"
     ], { preheader: `You are Owner ${roman(d.ownerNo || 1)} of No. ${n}.` });
+  },
+
+  /* ── The other emails (the brief's section 7, written in its voice; the
+        owner of the shop approves their wording). Short, plain, no sales. ── */
+  claimReceived(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: your claim is with us`, [
+      "Owner,",
+      `We have your warranty claim for No. ${n}. We answer within forty eight hours, and you will hear from us here.`,
+      "KAAL"
+    ], { preheader: "We answer within forty eight hours." });
+  },
+  claimApproved(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: your claim is approved`, [
+      "Owner,",
+      `Your claim for No. ${n} is approved. Its movement will be replaced, and your warranty stays exactly as it was.`,
+      d.pickup ? `Pickup: ${d.pickup}` : "We will send you the pickup details shortly.",
+      "Please send it in its box, with its letter.",
+      "KAAL"
+    ], { preheader: "The movement will be replaced." });
+  },
+  moreInfo(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: we need a little more`, [
+      "Owner,",
+      `To decide your claim for No. ${n} we need a little more from you:`,
+      d.message,
+      "Reply to this email with it, and we will carry on.",
+      "KAAL"
+    ], { preheader: "A little more, and we can decide." });
+  },
+  claimDeclined(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: about your claim`, [
+      "Owner,",
+      `We have looked closely at your claim for No. ${n}, and we are not able to approve it under the warranty.`,
+      d.reason,
+      "If it still needs work, we will service it for a fee. Reply to this email and we will quote it before anything is done.",
+      "KAAL"
+    ], { preheader: "We could not approve it under the warranty." });
+  },
+  serviceReturned(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is on its way back to you`, [
+      "Owner,",
+      `No. ${n} has its new movement and has been tested. It is on its way back to you${d.tracking ? `, with ${d.courier || "the courier"}, tracking number ${d.tracking}` : ""}.`,
+      d.warrantyEnd ? `Your warranty is unchanged. It still runs until ${d.warrantyEnd}.` : "Your warranty is unchanged.",
+      "KAAL"
+    ], { preheader: "New movement, tested." });
+  },
+  transferStarted(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: a transfer has begun`, [
+      "Owner,",
+      `You have started to pass No. ${n} to someone else. The code was shown to you once, on your owner page. Give it to them with the watch and its letter. It works for seven days.`,
+      `Until they accept it, No. ${n} is still yours, and you can cancel from your owner page. If you did not keep the code, cancel and start again.`,
+      "KAAL"
+    ], { preheader: "Until they accept, it is still yours." });
+  },
+  transferInvite(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is being passed to you`, [
+      "Owner,",
+      `Its owner has started to pass No. ${n} of ${d.size} to you. When you have it in your hands, open the page below and enter the code that came with it.`,
+      { button: [`Accept No. ${n}`, d.inviteUrl] },
+      "The code works for seven days from today. Until you accept, nothing changes.",
+      "KAAL"
+    ], { preheader: "Enter the code that came with it." });
+  },
+  transferComplete(d) {
+    const n = pad2(d.n);
+    return d.role === "from"
+      ? render(`No. ${n} has passed on`, [
+          "Owner,",
+          `No. ${n} is now recorded in the name of its next owner. Your time with it, as Owner ${roman(d.ownerNo)}, is written into its history from ${d.fromYear} to ${d.toYear}.`,
+          "Thank you for keeping it.",
+          "KAAL"
+        ], { preheader: "Your time with it is part of its history." })
+      : render(`No. ${n} is recorded in your name`, [
+          "Owner,",
+          `It is done. You are Owner ${roman(d.ownerNo)} of No. ${n}. Its warranty is unchanged and runs until ${d.warrantyEnd}.`,
+          "Your dashboard is at thekaal.co/owners, signed in with this email.",
+          "Kaal does not wait. Wear it well.",
+          "KAAL"
+        ], { preheader: `You are Owner ${roman(d.ownerNo)} of No. ${n}.` });
+  },
+  transferRejected(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: the transfer was not approved`, [
+      "Owner,",
+      `The transfer of No. ${n} was not approved, and it stays with its current owner. If you would like to know why, reply to this email.`,
+      "KAAL"
+    ], { preheader: "It stays with its current owner." });
+  },
+  stolenConfirmed(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is flagged as stolen`, [
+      "Owner,",
+      `We have confirmed your report. No. ${n} is now shown as stolen in the public registry, and it cannot be transferred. If it is found, write to us and we will clear it.`,
+      "KAAL"
+    ], { preheader: "It cannot be transferred." });
+  },
+  stolenCleared(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is cleared`, [
+      "Owner,",
+      `The stolen flag on No. ${n} is cleared. It is shown in the registry as it was, and it can be transferred again.`,
+      "KAAL"
+    ], { preheader: "The flag is cleared." });
+  },
+  accessReset(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: your access is restored`, [
+      "Owner,",
+      `We have checked your record for No. ${n} and moved your sign-in to this address. Every earlier sign-in has been closed.`,
+      { button: ["Sign in to Owners", d.signInUrl] },
+      "We will email you a six digit code each time you sign in.",
+      "KAAL"
+    ], { preheader: "Your sign-in is moved to this address." });
+  },
+  recoveryDeclined(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: about your request`, [
+      "Owner,",
+      `We could not verify your request for No. ${n}, and we have changed nothing.`,
+      d.reason,
+      "Reply to this email with a photograph of the caseback and of the letter that came with it, and we will look again.",
+      "KAAL"
+    ], { preheader: "We could not verify it yet." });
+  },
+  returnProcessed(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n}: your return is processed`, [
+      "Owner,",
+      `We have received No. ${n} back, and your return is processed. ${d.amount ? `${d.amount} is on its way back to the way you paid, and can take up to seven working days to show.` : "Your refund is on its way back to the way you paid."}`,
+      "Thank you for trying it.",
+      "KAAL"
+    ], { preheader: "Your refund is on its way." });
+  },
+
+  /* ── For the shop's own inbox, never a customer's. Plain and short. ── */
+  sla(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is late: ${d.why}`, [
+      `No. ${n}: ${d.why}.`,
+      `Paid ${d.paidOn}. It is ${d.status} now. The promise is five days from payment to dispatch.`,
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: d.why });
+  },
+  requestNew(d) {
+    const n = pad2(d.n);
+    const what = { warranty: "A warranty claim", stolen: "A stolen report", contact: "A contact change", service: "A service request", recovery: "A recovery request", transfer: "A transfer" }[d.type] || "A request";
+    return render(`[KAAL] ${what} for No. ${n} needs you`, [
+      `${what} for No. ${n} is waiting${d.type === "warranty" ? ". The promise is an answer within forty eight hours" : ""}.`,
+      d.summary || "",
+      { button: ["Open Approvals", d.controlUrl] }
+    ].filter(Boolean), { preheader: what });
+  },
+  requestLate(d) {
+    const n = pad2(d.n);
+    return render(`[KAAL] No. ${n}: a claim has waited 36 hours`, [
+      `The warranty claim for No. ${n} has waited thirty six hours. The promise is an answer within forty eight.`,
+      { button: ["Open Approvals", d.controlUrl] }
+    ], { preheader: "Twelve hours left." });
+  },
+  linkRequested(d) {
+    const n = pad2(d.n);
+    return render(`A new registration link was asked for: No. ${n}`, [
+      `Someone opened a registration link for No. ${n} that has expired, been used or been replaced, and asked for a new one.`,
+      `The order's email is ${d.email}. If it is the owner, send them a fresh link from the order in the control room.`,
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: `No. ${n}` });
+  },
+  courierAlert(d) {
+    const head = d.n ? `No. ${pad2(d.n)}: the courier reports ${d.status}` : `A courier update could not be matched to an order`;
+    return render(`${head}`, [
+      d.n ? `The courier reports "${d.status}" for No. ${pad2(d.n)} (tracking ${d.awb}). Nothing was changed.` : `The courier reports "${d.status}" for tracking ${d.awb}, and no order carries that number or a KAAL number in its order reference. Nothing was changed.`,
+      "Check it in Shiprocket and, if it needs a move, in the control room.",
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: d.status });
   }
 };
 
-/* Which letter a stage sends. Placed is the webhook's (Phase 3 replaces
-   the current confirmation with it); delivered waits for registration
-   links (Phase 4) and is previewed, not sent, until then. */
+/* Which letter a stage sends. Placed is the webhook's, not a tap's. */
 export const STAGE_LETTER = { inspected: "inspected", packed: "packed", dispatched: "dispatched", delivered: "delivered" };
+
+/* Letters that go to the shop, not to a customer. */
+export const STAFF_LETTERS = ["sla", "courierAlert", "linkRequested", "requestNew", "requestLate"];
 
 export function sample(name, site) {
   const d = { site, n: 7, size: 20, courier: "Delhivery", tracking: "SAMPLE123456", trackingUrl: "https://www.delhivery.com/track/package/SAMPLE123456",
-    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: "" };
+    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, shipUrl: `${site}/claimed.html`,
+    pickup: "A courier will collect it on 28 October, between 10 am and 1 pm. Keep it in its box.", message: "A photograph of the caseback, and of the dial in daylight.", reason: "The movement is working as it should; the time it shows is a setting, not a fault.", inviteUrl: `${site}/claim/transfer`, signInUrl: `${site}/owners`, role: "to", fromYear: "2026", toYear: "2029", amount: "\u20b95,999", type: "warranty", summary: "The watch stops after an hour.", email: "owner@example.com", why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
   return LETTERS[name] ? LETTERS[name](d) : null;
 }

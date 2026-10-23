@@ -38,7 +38,7 @@ jobs:
         run: node tools/check.mjs
 
       - name: Validate the worker parses
-        run: node --check worker/kaal-sold-sync.js && node --check worker/mail.js && node --check worker/desk.js && node --check worker/registry.js && node --check worker/auth.js && node --check worker/control.js && node --check worker/control-page.js && node --check worker/letters.js && node --check worker/outbox.js
+        run: for f in worker/*.js; do node --check "$f" || exit 1; done
 
       - name: Test the money path (payment return, receipt, address, emails, the desk)
         run: node tools/test-worker.mjs
@@ -51,3 +51,12 @@ jobs:
 
       - name: Test going live (the import, past sales, the off switch)
         run: node --no-warnings tools/test-live.mjs
+
+      - name: Test orders in motion (the Placed letter, /track, the courier, late orders and the reminder)
+        run: node --no-warnings tools/test-ops.mjs
+
+      - name: Test owners (registering, signing in, the dossier, the public registry)
+        run: node --no-warnings tools/test-owners.mjs
+
+      - name: Test what owners ask for (claims, uploads, stolen, transfers, recovery, Approvals)
+        run: node --no-warnings tools/test-requests.mjs

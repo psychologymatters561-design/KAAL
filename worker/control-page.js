@@ -217,6 +217,7 @@ RENDER.overview = function(j){
   var waiting = ["placed","inspected","packed","dispatched"].map(function(s){ return '<div class="card stat"><b>' + (st[s] || 0) + '</b><span class="muted small">' + s + "</span></div>"; }).join("");
   var wins = j.returnWindows.length ? j.returnWindows.map(function(w){ return "<tr><td>" + esc(w.piece) + '</td><td class="num">' + esc(w.delivered) + '</td><td class="num">' + w.daysLeft + " days left</td></tr>"; }).join("") : '<tr><td class="muted">None open.</td></tr>';
   var late = j.late.length ? j.late.map(function(o){ return '<div class="card"><span class="pill bad">late</span> ' + esc(o.piece) + " · " + esc(o.why) + "</div>"; }).join("") : "";
+  late += (j.courier || []).map(function(c){ return '<div class="card"><span class="pill bad">courier</span> ' + esc(c.status) + " · tracking " + esc(c.awb) + (c.outcome === "unmatched" ? " · matched to no order" : "") + "</div>"; }).join("");
   var im = j.imported, imp = im && im.r ? im.r : null;
   var importCard = '<div class="card">' + (imp ? '<p class="small">Paid orders brought in from Razorpay ' + esc(when(im.at)) + ": " + (imp.imported || []).length + " new" +
       ((imp.needsRecord || []).length ? '. <b>To record by hand</b> (Orders, Record a past sale): No. ' + imp.needsRecord.map(pad).join(", No. ") : "") +
@@ -241,6 +242,7 @@ RENDER.orders = function(j){
     var prev = o.next ? '<button class="btn ghost" data-act="preview" data-id="' + o.id + '" data-to="' + o.next + '">Preview email</button>' : "";
     var ret = o.returnOpen ? '<button class="btn warn" data-act="returned" data-id="' + o.id + '">Mark returned</button>' : "";
     var refund = !o.refund_id && o.status !== "registered" && !/^manual:/.test(o.razorpay_payment_id || "") ? '<button class="btn warn ghost" data-act="refund" data-id="' + o.id + '" data-n="' + pad(o.number) + '">Refund</button>' : "";
+    var link = o.status === "delivered" && o.email ? '<button class="btn ghost" data-act="link" data-id="' + o.id + '" data-mode="send">Send registration link</button><button class="btn ghost" data-act="link" data-id="' + o.id + '" data-mode="regenerate">New link, cancel old</button>' : "";
     var addr = [o.address_line1, o.address_line2, o.city, o.state, o.pincode].filter(Boolean).join(", ");
     return '<div class="card"><div class="row"><b class="num">No. ' + pad(o.number) + '</b><span class="muted">' + esc(o.colorway) + '</span><span class="sp"></span><span class="pill' + (o.status === "cancelled" || o.status === "returned" ? " bad" : "") + '">' + esc(o.status) + (o.cancel_reason ? " · " + esc(o.cancel_reason) : "") + "</span></div>" +
       '<div class="stages">' + bars + "</div>" +
@@ -248,7 +250,7 @@ RENDER.orders = function(j){
       (addr ? '<div class="small muted">' + esc(addr) + "</div>" : "") +
       (o.gift ? '<div class="small"><span class="pill warn">gift</span> ' + esc(o.gift_note || "") + "</div>" : "") +
       '<div class="small faint">Paid ' + esc(when(o.paid_at)) + " · " + rupees(o.amount_paise) + (o.tracking_number ? " · " + esc(o.courier) + " " + esc(o.tracking_number) : "") + (o.delivered_on ? " · delivered " + esc(o.delivered_on) : "") + (o.refund_id ? " · refunded " + esc(o.refund_id) : "") + "</div>" +
-      '<div class="row" style="margin-top:10px">' + next + prev + '<button class="btn ghost" data-act="correct" data-id="' + o.id + '">Change without email</button>' + ret + refund + "</div></div>";
+      '<div class="row" style="margin-top:10px">' + next + prev + '<button class="btn ghost" data-act="correct" data-id="' + o.id + '">Change without email</button>' + link + ret + refund + "</div></div>";
   }).join("");
 };
 
@@ -265,7 +267,7 @@ function nextStage(id, to){
   }
   if(to === "delivered"){
     sheet("No. " + pad(o.number) + " delivered", '<label for="dd">Delivered on</label><input id="dd" type="date" value="' + esc(DATA.orders.today) + '" max="' + esc(DATA.orders.today) + '">' +
-      '<p class="muted small">This starts the warranty and the seven day return window. The registration email follows once registration is live (Phase 4).</p>' +
+      '<p class="muted small">This starts the warranty and the seven day return window. The owner is emailed the registration link at once.</p>' +
       '<p class="err" id="sheetErr"></p><button class="btn go" data-act="deliverGo" data-id="' + id + '">Mark delivered</button>');
     return;
   }
@@ -285,7 +287,7 @@ function commit(keepalive){
   var o = { method:"POST", credentials:"same-origin", keepalive: !!keepalive, headers:{ "X-KAAL":"1", "Content-Type":"application/json" }, body: JSON.stringify(p.payload) };
   fetch("/control/api/orders/" + p.id + "/stage", o).then(function(r){ return r.json(); }).then(function(j){
     if(!j.ok){ say(j.why || "That did not save. Nothing was sent.", true); load("orders"); return; }
-    say(j.letter === "queued" ? "Saved. The email is on its way." : j.letter === "phase4" ? "Saved. Delivery date and return window set." : "Saved.");
+    say(j.letter === "queued" ? "Saved. The email is on its way." : "Saved.");
     load(VIEW);
   }).catch(function(){ say("That did not reach the server. Nothing was sent; try again.", true); });
 }
@@ -331,10 +333,33 @@ function ownerSheet(id){
   });
 }
 
+var TYPENAME = { warranty:"Warranty claim", stolen:"Stolen report", contact:"Contact change", service:"Paid service", recovery:"Recovery" };
 RENDER.approvals = function(j){
-  var r = j.requests.map(function(x){ return '<div class="card"><span class="pill warn">' + esc(x.type) + "</span> " + esc(x.piece_id) + ' <span class="muted small">' + esc(when(x.created_at)) + '</span><p class="small">' + esc(x.description) + "</p></div>"; }).join("");
-  var t = j.transfers.map(function(x){ return '<div class="card"><span class="pill">transfer</span> ' + esc(x.piece_id) + " · " + esc(x.status) + "</div>"; }).join("");
-  sec("approvals").innerHTML = "<h1>Approvals</h1>" + (r + t || '<div class="card muted">Nothing waiting.</div>') + '<p class="muted small">Warranty claims, transfers, stolen reports and recovery requests are decided here once those flows are live (Phase 6).</p>';
+  function mediaLinks(x){ return (x.media || []).map(function(k, i){ return '<a class="btn ghost small" target="_blank" rel="noopener" href="/control/api/media?k=' + encodeURIComponent(k) + '">File ' + (i + 1) + "</a>"; }).join(" "); }
+  function btn(act, id, doIt, label, cls){ return '<button class="btn ' + (cls || "ghost") + '" data-act="decide" data-kind="' + act + '" data-id="' + id + '" data-do="' + doIt + '">' + label + "</button>"; }
+  function actions(x){
+    var id = x.id;
+    if(x.type === "warranty") return x.status === "approved" ? btn("req", id, "serviced", "Mark serviced", "go") : btn("req", id, "approve", "Approve", "go") + btn("req", id, "info", "Ask for more") + btn("req", id, "decline", "Decline", "warn");
+    if(x.type === "stolen") return x.status === "approved" ? btn("req", id, "clear", "Clear the flag") : btn("req", id, "confirm", "Confirm: flag it", "go") + btn("req", id, "dismiss", "Dismiss");
+    if(x.type === "recovery") return btn("req", id, "verify", "Verify: move their sign-in", "go") + btn("req", id, "decline", "Decline", "warn");
+    if(x.type === "contact") return btn("req", id, "done", "Done (changed in Owners)", "go");
+    return btn("req", id, "close", "Close");
+  }
+  var r = j.requests.map(function(x){
+    return '<div class="card"><div class="row"><b class="num">No. ' + pad(x.number) + '</b><span class="pill warn">' + esc(TYPENAME[x.type] || x.type) + '</span><span class="pill' + (x.status === "approved" ? " ok" : "") + '">' + esc(x.status.replace("_", " ")) + '</span><span class="sp"></span><span class="muted small">' + esc(when(x.created_at)) + "</span></div>" +
+      '<div class="small">' + esc(x.name || "") + ' <span class="muted">' + esc(x.email || "") + " " + esc(x.phone || "") + "</span></div>" +
+      '<p class="small" style="white-space:pre-wrap">' + esc(x.description || "") + "</p>" +
+      (x.media.length ? '<div class="row">' + mediaLinks(x) + "</div>" : "") +
+      '<div class="row" style="margin-top:10px">' + actions(x) + "</div></div>";
+  }).join("");
+  var t = j.transfers.map(function(x){
+    return '<div class="card"><div class="row"><b class="num">No. ' + pad(x.number) + '</b><span class="pill warn">Transfer</span><span class="pill">' + esc(x.status === "accepted" ? "accepted, waiting for you" : "code out, not accepted yet") + '</span><span class="sp"></span><span class="muted small">' + esc(when(x.created_at)) + "</span></div>" +
+      '<div class="small">From ' + esc(x.from_name || "") + ' <span class="muted">' + esc(x.from_email) + "</span></div>" +
+      (x.to_email ? '<div class="small">To ' + esc(x.to_name || "") + ' <span class="muted">' + esc(x.to_email) + "</span></div>" : '<div class="small muted">Nobody has accepted yet. The code expires ' + esc(when(x.expires_at)) + ".</div>") +
+      (x.status === "accepted" ? '<div class="row" style="margin-top:10px">' + btn("tr", x.id, "approve", "Approve", "go") + btn("tr", x.id, "reject", "Reject", "warn") + "</div>" : "") + "</div>";
+  }).join("");
+  sec("approvals").innerHTML = "<h1>Approvals</h1>" + (r + t || '<div class="card muted">Nothing waiting.</div>') +
+    '<p class="muted small">A claim is promised an answer within 48 hours. Every decision emails the owner in the brief\'s words and is written to the audit log.</p>';
 };
 
 RENDER.emails = function(j){
@@ -351,7 +376,8 @@ RENDER.settings = function(j){
     '<div class="card"><div class="check"><input type="checkbox" id="s1"' + (s.stage_emails === "1" ? " checked" : "") + '><label for="s1" style="margin:0">Every stage change emails the buyer</label></div>' +
     '<div class="check"><input type="checkbox" id="s2"' + (s.transfers_need_approval === "1" ? " checked" : "") + '><label for="s2" style="margin:0">Transfers wait for my approval</label></div>' +
     '<label for="s3">Sender name</label><input id="s3" value="' + esc(s.sender_name) + '"><p class="muted small">Sends from ' + esc(j.sender) + ". Admin: " + esc(j.admin) + ".</p>" +
-    '<label for="s4">Warranty terms (published once rain coverage is decided)</label><textarea id="s4">' + esc(s.warranty_terms) + "</textarea>" +
+    '<label for="s4">Warranty terms (your own note; the public terms are on legal.html)</label><textarea id="s4">' + esc(s.warranty_terms) + "</textarea>" +
+    '<label for="s7">Setting guide video link (https, shown to owners on their page; leave empty for none)</label><input id="s7" type="url" placeholder="https://" value="' + esc(s.guide_video_url || "") + '">' +
     "<h2>" + esc(se.name || "Series") + '</h2><div class="row"><div class="sp"><label for="s5">Return days</label><input id="s5" type="number" min="7" max="30" value="' + esc(se.return_days) + '"></div><div class="sp"><label for="s6">Warranty months</label><input id="s6" type="number" min="12" max="60" value="' + esc(se.warranty_months) + '"></div></div>' +
     '<p class="err" id="setErr"></p><button class="btn go" data-act="saveSettings" data-code="' + esc(se.code) + '">Save settings</button></div>' +
     "<h2>Blocked buyers</h2>" + (j.blocked.length ? '<div class="card"><table>' + j.blocked.map(function(b){ return "<tr><td>" + esc(b.email || "") + "<br>" + esc(b.phone || "") + '</td><td class="muted small">' + esc(b.reason) + '</td><td><button class="btn ghost small" data-act="unblock" data-id="' + b.id + '">Remove</button></td></tr>'; }).join("") + "</table></div>" : "") +
@@ -367,6 +393,34 @@ RENDER.audit = function(j){
 function sheet(title, html){ $("sheetT").textContent = title; $("sheetB").innerHTML = html; $("sheet").hidden = false; var f = $("sheetB").querySelector("input,select,textarea,button"); if(f) f.focus(); }
 function closeSheet(){ $("sheet").hidden = true; $("sheetB").innerHTML = ""; }
 function frame(src){ sheet("Preview", '<iframe src="' + esc(src) + '" title="Email preview"></iframe><p><a href="' + esc(src) + '&format=text" target="_blank" rel="noopener">The plain-text version</a></p>'); }
+
+/* ── Approvals: each decision's sheet ── */
+function decideSheet(kind, id, doIt){
+  function go(label, cls){ return '<p class="err" id="sheetErr"></p><button class="btn ' + (cls || "go") + '" data-act="decideGo" data-kind="' + kind + '" data-id="' + id + '" data-do="' + doIt + '">' + label + "</button>"; }
+  function area(fid, label, hint){ return '<label for="d_' + fid + '">' + label + '</label><textarea id="d_' + fid + '"></textarea>' + (hint ? '<p class="muted small">' + hint + "</p>" : ""); }
+  var x = (DATA.approvals && DATA.approvals.requests || []).filter(function(q){ return q.id === id; })[0];
+  if(kind === "tr"){
+    sheet(doIt === "approve" ? "Approve this transfer" : "Reject this transfer", '<p class="muted small">' + (doIt === "approve" ? "The old ownership closes today and the new owner becomes the next Owner. The warranty does not move. Both are emailed." : "It stays with its current owner. Both are emailed.") + "</p>" +
+      '<label for="d_note">A note for the log (optional)</label><input id="d_note">' + go(doIt === "approve" ? "Approve the transfer" : "Reject the transfer", doIt === "approve" ? "go" : "warn"));
+    return;
+  }
+  if(doIt === "approve") sheet("Approve the claim", area("pickup", "Pickup details, emailed to the owner", "Who collects it and when. For example: A courier collects it on 28 October between 10 and 1. Keep it in its box.") + go("Approve and email them"));
+  else if(doIt === "info") sheet("Ask for more", area("message", "What you need from them", "Emailed as it is written.") + go("Send the question"));
+  else if(doIt === "decline") sheet("Decline", area("reason", "The reason, said kindly and plainly", "They are sent it, with the offer of a paid service.") + go("Decline and email them", "warn"));
+  else if(doIt === "serviced") sheet("Mark serviced", '<label for="d_work_done">What was done (private)</label><input id="d_work_done" placeholder="Replaced the movement, serial 4471">' +
+    '<label for="d_public_line">A line for the public registry (optional)</label><input id="d_public_line" placeholder="Movement replaced under warranty"><label for="d_date">Date</label><input id="d_date" type="date" value="' + esc(DATA.overview ? DATA.overview.today : "") + '">' +
+    '<label for="d_courier">Courier back to the owner (optional)</label><input id="d_courier"><label for="d_tracking">Tracking number (optional)</label><input id="d_tracking">' + go("Save, and email that it is on its way back"));
+  else if(doIt === "confirm") sheet("Confirm it is stolen", '<p class="muted small">' + (x ? "No. " + pad(x.number) : "The piece") + ' is shown as stolen in the public registry, open transfers are cancelled, and the owner is emailed. You can clear it later.</p>' + go("Confirm and flag it", "warn"));
+  else if(doIt === "dismiss") sheet("Dismiss the report", '<p class="muted small">Nothing changes on the piece, and nobody is emailed. Write to them yourself if you want to.</p>' + go("Dismiss", "warn"));
+  else if(doIt === "clear") sheet("Clear the flag", '<p class="muted small">The piece reads as sold again, transfers are allowed, and the owner is emailed.</p>' + go("Clear it"));
+  else if(doIt === "verify"){
+    var guess = x && /^Contact: (\S+)/.exec(x.description || ""); 
+    sheet("Verify and move their sign-in", '<p class="muted small">Check the order record, a caseback photograph and the letter first. Then their sign-in moves to the address below, every earlier sign-in closes, and the new address is emailed.</p>' +
+      '<label for="d_email">The address their sign-in moves to</label><input id="d_email" type="email" value="' + esc(guess ? guess[1] : "") + '">' + go("Verify and move it"));
+  }
+  else if(doIt === "done" || doIt === "close") sheet("Close this", '<label for="d_note">A note (optional)</label><input id="d_note">' + go("Close it"));
+  else sheet("Not available", "<p>Nothing to do here.</p>");
+}
 
 /* ── Every tap ── */
 document.addEventListener("click", function(e){
@@ -408,6 +462,9 @@ document.addEventListener("click", function(e){
   }
   else if(a === "pastSaleGo") api("POST", "/control/api/orders/manual", { n:$("ms").value, name:$("mn").value, email:$("me").value, phone:$("mp").value, line1:$("ma").value, city:$("mc").value, state:$("mt").value,
       pin:$("mz").value, paid_on:$("mpd").value, delivered_on:$("mdd").value, amount_rupees:$("mr").value }).then(function(j){ if(j.ok){ closeSheet(); say("Recorded."); load("orders"); } else $("sheetErr").textContent = j.why || "Not recorded."; });
+  else if(a === "link"){ var mode = el.getAttribute("data-mode"); var o2 = order(id);
+    if(mode === "regenerate" && !confirm("Cancel every earlier registration link for No. " + pad(o2.number) + " and email a new one to " + (o2.email || "the buyer") + "?")) return;
+    api("POST", "/control/api/orders/" + id + "/link", { mode:mode }).then(function(j){ say(j.ok ? "A registration link is on its way to " + j.to + "." : (j.why || "Not sent."), !j.ok); load("orders"); }); }
   else if(a === "returned"){ var r = prompt("Mark No. " + pad(order(id).number) + " returned? The buyer will never be sold to again. Reason:"); if(r === null) return;
     api("POST", "/control/api/orders/" + id + "/returned", { reason:r }).then(function(j){ say(j.ok ? "Marked returned. Refund it next if you have not." : (j.why || "Not changed."), !j.ok); load("orders"); }); }
   else if(a === "refund"){ var n = el.getAttribute("data-n"); var c = prompt("Refund the full amount through Razorpay? This cannot be undone. Type " + n + " to confirm."); if(c === null) return;
@@ -424,8 +481,16 @@ document.addEventListener("click", function(e){
   else if(a === "tpl") frame("/control/preview?t=" + encodeURIComponent(el.getAttribute("data-t")));
   else if(a === "test") api("POST", "/control/api/emails/test", { template: el.getAttribute("data-t") }).then(function(j){ say(j.ok ? "A test is on its way to " + j.to + "." : "Not sent.", !j.ok); setTimeout(function(){ load("emails"); }, 1500); });
   else if(a === "retry") api("POST", "/control/api/emails/" + id + "/retry", {}).then(function(j){ say(j.ok ? "Queued again." : "Not queued.", !j.ok); setTimeout(function(){ load("emails"); }, 1500); });
-  else if(a === "saveSettings") api("POST", "/control/api/settings", { settings:{ stage_emails: $("s1").checked ? "1" : "0", transfers_need_approval: $("s2").checked ? "1" : "0", sender_name: $("s3").value, warranty_terms: $("s4").value },
+  else if(a === "saveSettings") api("POST", "/control/api/settings", { settings:{ stage_emails: $("s1").checked ? "1" : "0", transfers_need_approval: $("s2").checked ? "1" : "0", sender_name: $("s3").value, warranty_terms: $("s4").value, guide_video_url: $("s7").value.trim() },
     series:{ code: el.getAttribute("data-code"), return_days: $("s5").value, warranty_months: $("s6").value } }).then(function(j){ if(j.ok){ say(j.changed.length ? "Saved." : "Nothing changed."); load("settings"); } else $("setErr").textContent = j.why || "Not saved."; });
+  else if(a === "decide") decideSheet(el.getAttribute("data-kind"), id, el.getAttribute("data-do"));
+  else if(a === "decideGo"){
+    var body = { action: el.getAttribute("data-do") };
+    ["pickup","message","reason","work_done","public_line","date","courier","tracking","email","note"].forEach(function(f){ var n = $("d_" + f); if(n) body[f] = n.value; });
+    api("POST", "/control/api/" + (el.getAttribute("data-kind") === "tr" ? "transfers" : "requests") + "/" + id + "/decide", body).then(function(j){
+      if(j.ok){ closeSheet(); say("Done. The owner has been emailed where it applies."); load("approvals"); } else $("sheetErr").textContent = j.why || "Not changed.";
+    });
+  }
   else if(a === "block") api("POST", "/control/api/blocked", { email:$("b1").value, phone:$("b2").value, reason:$("b3").value }).then(function(j){ if(j.ok){ say("Blocked."); load("settings"); } else $("blkErr").textContent = j.why || "Not saved."; });
   else if(a === "unblock"){ if(!confirm("Remove this block?")) return; api("POST", "/control/api/blocked", { remove:id }).then(function(){ load("settings"); }); }
 });

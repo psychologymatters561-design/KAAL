@@ -9,6 +9,7 @@ import w from "../worker/kaal-sold-sync.js";
 import * as R from "../worker/registry.js";
 import { totpAt, unbase32 } from "../worker/auth.js";
 import { LETTERS } from "../worker/letters.js";
+import { Script } from "node:vm";
 import { d1, kv, ctx } from "./d1-shim.mjs";
 
 let failed = 0;
@@ -114,6 +115,8 @@ let secret;
     "page: served with a nonce CSP that runs only its own script");
   ok(!r.text.includes("${") && (r.text.match(/<script/g) || []).length === 1, "page: no template left unfilled, one script");
   ok(!/—/.test(r.text), "page: no em dashes");
+  let parses = true; try { new Script(/<script nonce="[^"]+">([\s\S]*?)<\/script>/.exec(r.text)[1]); } catch (e) { parses = false; console.log(String(e)); }
+  ok(parses, "page: the script it carries parses (the template cannot hide a syntax error)");
 }
 
 /* ── 4. The orders pipeline ── */
@@ -131,8 +134,8 @@ let oid;
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "inspected" });
   const ins = mails.find(m => m.to.includes("asha@example.com"));
   ok(r.j.ok && r.j.letter === "queued" && ins && ins.subject === "No. 07 has passed inspection", "Inspected: saved, and the buyer's email goes at once");
-  ok(ins && ins.text.includes("Today it was No. 07's turn: the time, the day and date, the 24-hour hand, the crown, the bracelet, the finish. It passed.") && /^Owner,/.test(ins.text) && /\nKAAL\n?$/.test(ins.text),
-    "Inspected: the brief's words, verbatim, signed KAAL");
+  ok(ins && ins.text.includes("Today it was No. 07's turn: the time, the day and date, the 24-hour hand, the crown, the bracelet, the finish. It passed.") && /^Owner,/.test(ins.text) && /\nKAAL\n/.test(ins.text) && /\nFollow No\. 07's journey: https:\/\/thekaal\.co\/track\?o=\d+&s=[0-9a-f]{24}\n$/.test(ins.text),
+    "Inspected: the brief's words, verbatim, signed KAAL, ending with the quiet link to follow its journey");
   ok(ins && /background:#F4F1EA/.test(ins.html) && (ins.html.match(/<a /g) || []).length <= 1 && !/<img/.test(ins.html), "Inspected: the light layout, no image, one link at most");
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "inspected" });
   ok(r.status === 409 && mails.filter(m => /passed inspection/.test(m.subject)).length === 1, "Inspected twice: refused, and one email only");
@@ -152,7 +155,20 @@ let oid;
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "delivered", day: today });
   const row = DB.raw.prepare("SELECT delivered_on, return_window_ends_at FROM orders WHERE id = ?").get(oid);
   const want = new Date(Date.parse(today + "T23:59:59.000+05:30") + 7 * 86400000).toISOString();
-  ok(r.j.ok && r.j.letter === "phase4" && row.delivered_on === today && row.return_window_ends_at === want, "Delivered: the date, and the return window to 23:59:59 India time seven days on");
+  ok(r.j.ok && r.j.letter === "queued" && row.delivered_on === today && row.return_window_ends_at === want, "Delivered: the date, and the return window to 23:59:59 India time seven days on");
+  const del = mails.find(m => m.subject === "No. 07 is with you. One step makes it yours.");
+  const tok = del && (/claim\?t=([A-Za-z0-9_-]{43})/.exec(del.text) || [])[1];
+  ok(tok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND used_at IS NULL").get(oid).c === 1, "Delivered: the registration link goes in the email, and only its hash is kept");
+  ok(tok && !DB.raw.prepare("SELECT payload FROM email_outbox WHERE dedupe_key = ?").get(`stage:${oid}:delivered`).payload.includes(tok), "Delivered: once sent, the link is scrubbed from the outbox");
+  mails.length = 0;
+  r = await call("POST", `/control/api/orders/${oid}/link`, { mode: "send" });
+  const again = mails.find(m => m.subject === "No. 07 is with you. One step makes it yours.");
+  ok(r.j.ok && again && /claim\?t=[A-Za-z0-9_-]{43}/.test(again.text) && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 2,
+    "link: 'Send registration link' emails a fresh one and leaves the earlier working");
+  r = await call("POST", `/control/api/orders/${oid}/link`, { mode: "regenerate" });
+  ok(r.j.ok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 1, "link: 'New link, cancel old' leaves exactly one that works");
+  r = await call("POST", "/control/api/orders/999/link", { mode: "send" });
+  ok(r.status === 404, "link: an unknown order is refused");
   ok(DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-07'").get().status === "delivered", "Delivered: the piece is delivered");
 
   /* Corrections, without email, and never a second stage email. */

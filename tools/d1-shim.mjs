@@ -19,6 +19,16 @@ export function d1() {
   const plain = (r) => (r ? Object.assign({}, r) : null);
   return {
     raw: db,
+    /* D1's batch: the statements run together or not at all. */
+    async batch(list) {
+      db.exec("BEGIN");
+      try {
+        const out = [];
+        for (const st of list) out.push({ results: (await st.all()).results, success: true });
+        db.exec("COMMIT");
+        return out;
+      } catch (e) { db.exec("ROLLBACK"); throw e; }
+    },
     prepare(sql) {
       const st = db.prepare(sql);
       let args = [];

@@ -92,6 +92,12 @@ import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlo
 import { buyerDuplicate, ownerDuplicate, esc } from "./mail.js";
 import { control } from "./control.js";
 import { flushOutbox } from "./outbox.js";
+import { queuePlaced, queueAddressAsk } from "./orders.js";
+import { shiprocket } from "./courier.js";
+import { sweeps } from "./sla.js";
+import { trackRoute } from "./track.js";
+import { ownersRoute } from "./owners.js";
+import { registryRoute, since } from "./registry-public.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -117,11 +123,15 @@ export default {
        hand thekaal.co a CORS header: no other site may read it. */
     if (path === "/desk" || path.startsWith("/desk/")) return desk(request, env, ctx, path);
     if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
+    /* For the six-hourly ping (.github/workflows/health.yml): the worker is up and, with the registry on, its database answers. */
+    if (path === "/health") return health(env);
 
     if (request.method === "OPTIONS") return preflight(request, env);
     if (staging(env) && request.method === "GET" && path === "/staging") return stagingPage(env);
 
     if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
+    /* The public registry's data (thekaal.co/registry). */
+    if (request.method === "GET" && path === "/registry/data") return registryRoute(request, env, regDeps(env, ctx));
     if (RATE_LIMITS[path] && overRate(request, path, RATE_LIMITS[path])) {
       return json(request, env, { ok: false, reason: "rate" }, { "Retry-After": "600" }, 429);
     }
@@ -130,6 +140,11 @@ export default {
     if (path === "/control" || path.startsWith("/control/") || path.startsWith("/auth/") || path.startsWith("/photo/")) {
       return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid });
     }
+    /* The order's page (thekaal.co/track) and the courier's tracking events. */
+    if (path.startsWith("/track/")) return trackRoute(request, env, ctx, path, regDeps(env, ctx));
+    /* The owners' pages (thekaal.co/claim and /owners): registration and the dossier. */
+    if (path.startsWith("/o/")) return ownersRoute(request, env, ctx, path, regDeps(env, ctx));
+    if (request.method === "POST" && path === "/ship/shiprocket") return shiprocket(request, env, ctx, regDeps(env, ctx));
     if (request.method === "POST" && path === "/hold") return postHold(request, env);
     if (request.method === "POST" && path === "/order") return postOrder(request, env, ctx);
     if (request.method === "POST" && path === "/verify") return postVerify(request, env);
@@ -153,12 +168,25 @@ export default {
     /* The registry's outbox: what failed is tried again, with backoff. */
     if (registryOn(env)) ctx.waitUntil(flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html))
       .catch(e => console.log("Outbox run failed:", String(e).slice(0, 160))));
+    /* The quiet promises: late orders told to the owner, the one reminder to an unregistered owner. */
+    if (registryOn(env)) ctx.waitUntil(sweeps(env, regDeps(env, ctx)).catch(e => console.log("Sweeps failed:", String(e).slice(0, 160))));
     /* The first run after the registry goes live brings in the paid orders. */
     if (registryOn(env)) ctx.waitUntil(autoImport(env));
+    ctx.waitUntil(reconcileDaily(env, ctx));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
 };
+
+/* What the registry's modules need from this worker: its JSON answer with
+   CORS, its addresses, and the outbox flush (sent after the response, or
+   awaited where a cron is already running). */
+function regDeps(env, ctx) {
+  const flush = (ids) => flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html), ids)
+    .catch(e => console.log("Outbox flush failed:", String(e).slice(0, 160)));
+  const later = (p) => { const j = Promise.resolve(p).catch(e => console.log("Background job failed:", String(e).slice(0, 160))); if (ctx && ctx.waitUntil) ctx.waitUntil(j); };
+  return { json, siteUrl, workerUrl, sendEmail, kickNow: flush, kick: (ids) => later(flush(ids)), kick0: later };
+}
 
 /* ══════════ 0. A CEILING PER ADDRESS ══════════
 
@@ -177,7 +205,10 @@ export default {
    refusing a sold or held one; this stops the cheap way to empty the shop. */
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60,
-  "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5 };
+  "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5,
+  "/track/data": 60, "/track/lookup": 20, "/track/register": 10, "/track/email-link": 5, "/ship/shiprocket": 600,
+  "/registry/data": 120, "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120,
+  "/o/requests": 20, "/o/upload": 20, "/o/transfer/start": 10, "/o/transfer/cancel": 10, "/o/transfer/lookup": 15, "/o/transfer/email-code": 5, "/o/transfer/accept": 10, "/o/recovery": 5 };
 const RATE = new Map();
 function overRate(request, route, max) {
   const ip = request.headers.get("cf-connecting-ip") || "";
@@ -300,6 +331,18 @@ async function withRegistry(env, out) {
     const u = await unavailable(env, SERIES);
     out.sold = [...new Set((out.sold || []).concat(u.gone))].sort((a, b) => a - b);
     out.held = [...new Set((out.held || []).concat(u.held))].sort((a, b) => a - b);
+    /* Where a number went, for the shop's grid: an owner's city appears
+       only if that owner ticked the box, and an owner who registered and did
+       not tick it takes precedence over any line written by hand. */
+    const reg = (await env.DB.prepare("SELECT number, owner_no, owner_since, owner_city FROM public_registry WHERE series = ?1 AND owner_no IS NOT NULL").bind(SERIES).all()).results || [];
+    if (reg.length) {
+      const placed = Object.assign({}, out.placed || {});
+      for (const r of reg) {
+        if (r.owner_city) placed[r.number] = cleanNote(`${r.owner_city} · ${since(r.owner_since)}`, 40);
+        else delete placed[r.number];
+      }
+      if (Object.keys(placed).length) out.placed = placed; else delete out.placed;
+    }
   } catch (e) { console.log("Registry unavailable on /state:", String(e).slice(0, 160)); }
 }
 
@@ -795,7 +838,7 @@ async function postShipping(request, env, ctx) {
    once. Sent through the same provider as the rest (Resend or Brevo). With
    no provider key it logs and returns: a sale is never held up by mail.
    The words and the look live in worker/mail.js. */
-async function notifySale(env, entity, chosen, short) {
+async function notifySale(env, entity, chosen, short, opts) {
   try {
     if (!env.RESEND_API_KEY && !env.BREVO_API_KEY) { console.log("Sale emails skipped: no RESEND_API_KEY or BREVO_API_KEY."); return; }
     const paymentId = String(entity.id || "");
@@ -846,7 +889,7 @@ async function notifySale(env, entity, chosen, short) {
       const owner = ownerSale(d);
       sends.push(sendEmail(env, ownerInbox(env), owner.subject, owner.text, owner.html, buyerOk ? buyer : undefined));
     }
-    if (buyerOk && known) {
+    if (buyerOk && known && !(opts && opts.skipBuyer)) {
       const mine = buyerConfirmation(d);
       sends.push(sendEmail(env, buyer, mine.subject, mine.text, mine.html));
     }
@@ -966,14 +1009,31 @@ async function webhook(request, env, ctx) {
      watch. That one is refunded and apologised for, and nothing below is
      said: no "No. 07 is yours", no commit, no Purchase to Meta. */
   const edition0 = parseInt(env.EDITION || "20", 10);
+  let placedLetter = false;
   if (registryOn(env) && !short && chosen >= 1 && chosen <= edition0) {
     let fate = null;
     try { fate = await recordPayment(env, await paymentRecord(env, entity, chosen, order)); }
     catch (e) { console.log("Registry write failed on the webhook:", String(e).slice(0, 160)); }
     if (fate && fate.outcome === "duplicate") return duplicatePayment(env, entity, chosen, fate);
+    /* The buyer's confirmation is the Placed letter (the brief's words),
+       through the outbox: it is not lost if the provider is down, and a
+       webhook delivered twice queues it once. If it cannot be made (stage
+       emails off, no email on the order, the registry write failed), the
+       earlier confirmation still goes, so a buyer is never left without. */
+    if (fate && (fate.outcome === "placed" || fate.outcome === "already") && fate.order) {
+      try {
+        const q = await queuePlaced(env, siteUrl(env), fate.order);
+        if (q !== 0) placedLetter = true;
+        if (q > 0) regDeps(env, ctx).kick([q]);
+        if (q !== 0 && !fate.order.address_line1) {
+          const a = await queueAddressAsk(env, siteUrl(env), fate.order, `${siteUrl(env)}/claimed.html?o=${encodeURIComponent(entity.order_id || "")}&n=${pad2(chosen)}#ship`);
+          if (a > 0) regDeps(env, ctx).kick([a]);
+        }
+      } catch (e) { console.log("Placed letter failed to queue:", String(e).slice(0, 160)); }
+    }
   }
 
-  const mail = notifySale(env, entity, chosen, short);
+  const mail = notifySale(env, entity, chosen, short, { skipBuyer: placedLetter });
   if (ctx && ctx.waitUntil) ctx.waitUntil(mail);
 
   /* Meta hears now too, for the same reason, and whatever the commit then
@@ -1138,6 +1198,58 @@ async function importPaid(env) {
   console.log("Registry import:", JSON.stringify(r).slice(0, 300));
   return r;
 }
+/* "Is it up?": the worker answers, and so does the registry's database. */
+async function health(env) {
+  const out = { ok: true, at: new Date().toISOString(), registry: registryOn(env) ? "on" : "off" };
+  if (registryOn(env)) {
+    try { await env.DB.prepare("SELECT 1 AS up").first(); out.db = true; }
+    catch (e) { out.ok = false; out.db = false; }
+  }
+  return new Response(JSON.stringify(out), { status: out.ok ? 200 : 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
+/* ══════════ 3g. THE DAILY CHECK AGAINST RAZORPAY ══════════
+
+   Once a day (India time) the worker asks Razorpay for what it captured and
+   compares it with the registry, the same way the go-live import does. A
+   payment Razorpay took that the webhook never told us about is recorded,
+   its buyer gets the Placed letter, and the owner is told that the webhook
+   missed it. A second payment for one number is told to the owner (the
+   webhook is what refunds it; this is only the net under it). Nothing here
+   moves an order or refunds anyone. */
+async function reconcileDaily(env, ctx) {
+  try {
+    if (!registryOn(env) || !env.KAAL_STATE || !env.RAZORPAY_KEY_ID || staging(env)) return;
+    const key = "recon:" + istDay(Date.now());
+    if (await env.KAAL_STATE.get(key).catch(() => "x")) return;
+    await env.KAAL_STATE.put(key, "1", { expirationTtl: 3 * 86400 });
+    const r = await importPaid(env);
+    const lines = [];
+    if (!r.ok) lines.push("The daily check could not read Razorpay's payments (" + (r.reason || "unknown") + "). Nothing was changed.");
+    else {
+      const deps = regDeps(env, ctx);
+      for (const n of r.imported) {
+        lines.push(`No. ${pad2(n)} was paid for, and Razorpay's webhook never told us. It is recorded now. Check the webhook in Razorpay (Settings, Webhooks): it should send payment.captured to ${workerUrl(env)}/.`);
+        const o = await env.DB.prepare("SELECT o.* FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status = 'placed' ORDER BY o.id DESC").bind(SERIES, n).first();
+        if (o && Date.now() - Date.parse(o.paid_at) < 4 * 86400000) {
+          const q = await queuePlaced(env, siteUrl(env), o);
+          if (q > 0) deps.kick([q]);
+        }
+      }
+      for (const d of r.duplicates) {
+        const seen = "recon:dup:" + d.payment;
+        if (await env.KAAL_STATE.get(seen).catch(() => null)) continue;
+        await env.KAAL_STATE.put(seen, "1", { expirationTtl: 60 * 86400 });
+        lines.push(`A second payment (${d.payment}) exists for No. ${pad2(d.n)}. It should have been refunded automatically; check it in Razorpay.`);
+      }
+    }
+    if (lines.length) {
+      const text = lines.join("\n\n") + "\n";
+      await sendEmail(env, ownerInbox(env), "[KAAL] The daily check against Razorpay found something", text, "<p>" + lines.map(esc).join("</p><p>") + "</p>");
+    }
+  } catch (e) { console.log("Daily check threw:", String(e).slice(0, 160)); }
+}
+
 async function autoImport(env) {
   try {
     if (!env.KAAL_STATE || await env.KAAL_STATE.get("registry:imported").catch(() => "x")) return;
@@ -3256,7 +3368,7 @@ function cors(request, env) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin(request, env),
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-KAAL",
     "Vary": "Origin"
   };
 }

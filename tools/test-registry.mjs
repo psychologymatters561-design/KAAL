@@ -168,7 +168,8 @@ const realFetch = globalThis.fetch;
   const p7 = W.DB.raw.prepare("SELECT status, order_ref FROM pieces WHERE id = 'S01-07'").get();
   ok(placed === 1 && p7.status === "placed" && W.mails.length === firstMails && W.puts.length === firstPuts && firstPuts === 1,
     "webhook fired twice: one order, No. 07 placed once, one commit, no second pair of emails");
-  ok(W.mails.some(m => m.subject === "No. 07 is yours" && m.to[0] === "first@example.com"), "webhook: the first buyer is told it is theirs");
+  ok(W.mails.some(m => m.subject === "No. 07 is spoken for" && m.to[0] === "first@example.com") && !W.mails.some(m => m.subject === "No. 07 is yours"),
+    "webhook: the first buyer gets the Placed letter, once, and not the old confirmation as well");
 
   /* A second payment for No. 07: refunded once, apologised for once. */
   W.mails.length = 0; W.meta.length = 0;

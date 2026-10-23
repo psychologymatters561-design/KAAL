@@ -12,6 +12,10 @@
 #   META_CAPI_TOKEN        optional; Meta Conversions API token, so every
 #                          paid order reaches the ad account from the
 #                          worker (docs/meta.md). Modes deploy and all set it
+#   SHIPROCKET_TOKEN       optional; any text of 12+ characters, the same as the
+#                          security token you give Shiprocket's webhook, so
+#                          Dispatched and Delivered happen by themselves
+#                          (docs/courier.md). Modes deploy and live set it
 #   CLOUDFLARE_ACCOUNT_ID  optional; only if the token sees several accounts
 #
 # Mode "staging" (the registry build, docs/staging.md) also needs:
@@ -67,6 +71,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          SHIPROCKET_TOKEN: ${{ secrets.SHIPROCKET_TOKEN }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
           RAZORPAY_TEST_KEY_ID: ${{ secrets.RAZORPAY_TEST_KEY_ID }}

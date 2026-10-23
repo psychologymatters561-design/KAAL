@@ -229,6 +229,20 @@ async function ensureMeta() {
   good("META_CAPI_TOKEN set on the worker. Paid orders of the last six days reach Meta within half an hour.");
 }
 
+/* The courier's shared secret, for --deploy and --live: whatever the owner
+   typed into Shiprocket's webhook setting as its security token, so the
+   worker can tell Shiprocket from anyone else posting to /ship/shiprocket.
+   Optional; without it the endpoint answers "off" and Dispatched and
+   Delivered stay one tap each. Never printed. */
+async function ensureCourier() {
+  if (!env.SHIPROCKET_TOKEN) { todo("SHIPROCKET_TOKEN not set: Dispatched and Delivered stay one tap each (docs/courier.md)"); return; }
+  step("Shiprocket link");
+  if (String(env.SHIPROCKET_TOKEN).length < 12) stop("SHIPROCKET_TOKEN is too short: use at least 12 characters, any text, the same as the token you give Shiprocket.");
+  const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: "SHIPROCKET_TOKEN", text: env.SHIPROCKET_TOKEN, type: "secret_text" } });
+  if (!r.ok) stop(`Could not set SHIPROCKET_TOKEN: ${r.text.slice(0, 200)}`);
+  good(`SHIPROCKET_TOKEN set on the worker. Shiprocket posts to ${WORKER_URL}/ship/shiprocket`);
+}
+
 /* ── The staging worker (wrangler.toml [env.staging]) ──
    Its own D1 database and KV store, found by name or made, their ids
    written over the placeholders in wrangler.toml, migrations/ applied,
@@ -347,6 +361,7 @@ async function live() {
 
   await deploy();
   await ensureMeta();
+  await ensureCourier();
   await liveCheck();
   const who = env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0];
   step("Done. The registry is live");
@@ -505,7 +520,7 @@ async function ensureDesk(verified) {
   if (mode === "staging") { await staging(); return; }
   await ensureKV();
   if (mode === "live") { await live(); return; }
-  if (mode === "deploy") { await deploy(); await ensureMeta(); await liveCheck(); step("Done"); return; }
+  if (mode === "deploy") { await deploy(); await ensureMeta(); await ensureCourier(); await liveCheck(); step("Done"); return; }
   /* Deploy before the secrets: the new wrangler.toml no longer defines
      OWNER_EMAIL as a plain setting, so the secret can never collide with
      one left on an older deploy. */

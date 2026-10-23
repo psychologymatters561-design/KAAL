@@ -1,0 +1,125 @@
+/* ══════════════════════════════════════════════════════════════════
+   THE OWNERS' ROOMS: /track, /claim, /owners, /registry.
+
+   The same house as the rest of the site: its near-black, its bone and
+   gold, Instrument Serif for the voice and Inter for the words, with
+   tabular figures for every number. Quiet and exact. The accent is for
+   the one thing on a screen that matters. Nothing here moves unless a
+   state changed, and nothing moves for anyone who asked for less.
+   ══════════════════════════════════════════════════════════════════ */
+@font-face{font-family:Instrument;src:url(fonts/InstrumentSerif-latin.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Instrument;src:url(fonts/InstrumentSerif-italic-latin.woff2) format('woff2');font-weight:400;font-style:italic;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:InterV;src:url(fonts/Inter-wght.woff2) format('woff2-variations'),url(fonts/Inter-wght.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap}
+@font-face{font-family:InterV;src:url(fonts/Inter-rupee.woff2) format('woff2');font-weight:300 600;font-style:normal;font-display:swap;unicode-range:U+20B9}
+
+:root{
+  --void:#080908; --void-2:#0E0F0D; --raise:#12130F; --bone:#EDE8DF; --mute:#B3AC9F; --faint:#9D968A; --ghost:#4A463F;
+  --line:#221F1C; --line-2:#2E2A25; --gold:#C6A15B; --gold-lit:#E0BE7C; --bad:#E08A70; --ok:#8DB59B;
+  --display:Instrument,'Times New Roman',serif;
+  --body:InterV,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1); --ease-soft:cubic-bezier(.22,.61,.36,1);
+  --gut:clamp(1.25rem,5vw,4.5rem);
+  --hold:min(40rem,100% - var(--gut) * 2);
+  --hold-wide:min(64rem,100% - var(--gut) * 2);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--void);color:var(--bone);font-family:var(--body);font-weight:300;
+  font-size:clamp(1rem,.96rem + .2vw,1.0625rem);line-height:1.65;min-height:100svh;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums;
+  background:radial-gradient(120% 70% at 50% 0%,#14110c 0%,var(--void) 60%) fixed,var(--void)}
+a{color:inherit}
+::selection{background:var(--gold);color:var(--void)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+[hidden]{display:none !important}
+.skip{position:absolute;left:-999px;top:0;background:var(--gold);color:var(--void);padding:.7rem 1rem;z-index:10}
+.skip:focus{left:0}
+main{padding:clamp(2.5rem,8vh,5rem) var(--gut) calc(4rem + env(safe-area-inset-bottom));display:grid;justify-items:center}
+.wrap{width:var(--hold)} .wide{width:var(--hold-wide)}
+.mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 2.2rem;text-align:center}
+.mark a{text-decoration:none}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.12;margin:0 0 .6em;text-wrap:balance}
+h1{font-size:clamp(2rem,1.5rem + 2.2vw,3rem)} h2{font-size:clamp(1.4rem,1.2rem + .8vw,1.8rem)}
+p{margin:0 0 1rem} .muted{color:var(--mute)} .faint{color:var(--faint)} .center{text-align:center}
+.eyebrow{font-size:.75rem;letter-spacing:.3em;text-transform:uppercase;color:var(--faint);margin:0 0 .6rem}
+.num{font-variant-numeric:tabular-nums}
+.serif{font-family:var(--display)} .em{font-family:var(--display);font-style:italic;color:var(--gold-lit)}
+hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+
+/* Forms: labelled, at least 44px to tap, errors in plain words. */
+label{display:block;font-size:.8125rem;letter-spacing:.06em;color:var(--mute);margin:1.1rem 0 .4rem}
+input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],input[type=number],textarea,select{
+  width:100%;min-height:2.9rem;background:var(--void-2);color:var(--bone);border:1px solid var(--line-2);border-radius:3px;
+  padding:.7rem .85rem;font:inherit;font-size:1rem;transition:border-color .3s var(--ease-soft)}
+textarea{min-height:7rem;resize:vertical}
+input:hover,textarea:hover,select:hover{border-color:var(--ghost)}
+input:focus,textarea:focus,select:focus{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px rgba(198,161,91,.18)}
+input[readonly],input:disabled{color:var(--faint);background:transparent;border-style:dashed}
+.hint{font-size:.8125rem;color:var(--faint);margin:.4rem 0 0}
+.err{color:var(--bad);font-size:.9rem;min-height:1.4em;margin:.8rem 0 0}
+.okmsg{color:var(--ok);font-size:.95rem;margin:.8rem 0 0}
+.check{display:flex;gap:.85rem;align-items:flex-start;margin:1.1rem 0;padding:.9rem 1rem;border:1px solid var(--line);border-radius:3px;background:var(--void-2);cursor:pointer}
+.check input{flex:none;width:1.4rem;height:1.4rem;margin:.15rem 0 0;accent-color:var(--gold)}
+.check span{font-size:.95rem;line-height:1.5;color:var(--bone)}
+.check small{display:block;color:var(--faint);font-size:.8125rem;margin-top:.25rem}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.9rem;padding:.7rem 1.5rem;border-radius:3px;
+  background:var(--gold);color:var(--void);border:1px solid var(--gold);font:inherit;font-size:.9375rem;font-weight:500;letter-spacing:.04em;
+  text-decoration:none;cursor:pointer;transition:background .35s var(--ease-soft),border-color .35s var(--ease-soft),transform .35s var(--ease)}
+.btn:hover{background:var(--gold-lit);border-color:var(--gold-lit)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--bone);border-color:var(--line-2)}
+.btn.ghost:hover{border-color:var(--gold);color:var(--gold-lit)}
+.btn.block{display:flex;width:100%}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--mute);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:2.75rem}
+.linkbtn:hover{color:var(--gold-lit)}
+.row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
+
+/* Cards and the piece */
+.card{border:1px solid var(--line);border-radius:4px;background:linear-gradient(180deg,var(--raise),var(--void-2));padding:1.4rem 1.4rem 1.2rem;margin:0 0 1rem}
+.card h3{font-size:1.15rem;margin:0 0 .5rem}
+.piece{display:grid;justify-items:center;text-align:center;margin:0 0 2rem}
+.plate{width:min(11rem,52vw);aspect-ratio:1;margin:0 auto 1.4rem;border-radius:50%;display:grid;place-items:center;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 0 58%,rgba(0,0,0,.28) 59%,rgba(255,255,255,.18) 60.5%,rgba(0,0,0,0) 62%),
+    repeating-radial-gradient(circle at 50% 50%,#a7a9ab 0 .6px,#c3c5c7 .9px 1.4px,#9fa1a3 1.7px 2.2px),
+    conic-gradient(from 210deg,#8f9294,#d6d8da 18%,#9a9c9e 34%,#cfd1d3 52%,#8c8e90 70%,#c9cbcd 86%,#8f9294);
+  background-blend-mode:normal,overlay,normal;
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.35),inset 0 -6px 14px rgba(0,0,0,.35),0 30px 60px -24px rgba(0,0,0,.95),0 0 0 1px rgba(198,161,91,.25)}
+.plate span{max-width:62%;text-align:center;font-family:var(--display);font-size:clamp(.9rem,.8rem + .6vw,1.1rem);line-height:1.15;letter-spacing:.14em;color:#3f4143;
+  text-shadow:0 1px 0 rgba(255,255,255,.55),0 -1px 0 rgba(0,0,0,.35);white-space:pre-line}
+.photo{width:min(22rem,100%);aspect-ratio:1;object-fit:cover;border-radius:4px;margin:0 auto 1.4rem;display:block;background:var(--void-2);
+  box-shadow:0 30px 60px -28px rgba(0,0,0,.95),0 0 0 1px var(--line)}
+.no{font-family:var(--display);font-size:clamp(1.9rem,1.4rem + 2vw,2.6rem);line-height:1;margin:0}
+.no small{font-size:.5em;color:var(--faint);letter-spacing:.08em}
+.sub{font-size:.8125rem;letter-spacing:.26em;text-transform:uppercase;color:var(--mute);margin:.7rem 0 0}
+
+/* The journey: a vertical timeline. Done is solid, now gently pulses, later is quiet. */
+.tl{list-style:none;margin:0 0 2rem;padding:0;position:relative}
+.tl li{position:relative;padding:0 0 1.7rem 2.2rem;min-height:3rem}
+.tl li::before{content:"";position:absolute;left:.47rem;top:1.15rem;bottom:-.15rem;width:1px;background:var(--line-2)}
+.tl li:last-child::before{display:none}
+.tl li.done::before{background:var(--gold)}
+.tl .dot{position:absolute;left:0;top:.3rem;width:1rem;height:1rem;border-radius:50%;border:1px solid var(--ghost);background:var(--void)}
+.tl li.done .dot{background:var(--gold);border-color:var(--gold)}
+.tl li.current .dot{background:var(--gold-lit);border-color:var(--gold-lit);animation:pulse 2.6s var(--ease-soft) infinite}
+.tl .what{font-family:var(--display);font-size:1.3rem;line-height:1.2;margin:0}
+.tl li.todo .what{color:var(--ghost)}
+.tl .when{font-size:.875rem;color:var(--mute);margin:.2rem 0 0}
+.tl .more{font-size:.9rem;color:var(--mute);margin:.5rem 0 0}
+.tl .more a{color:var(--gold-lit)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,190,124,.5)}70%{box-shadow:0 0 0 .7rem rgba(224,190,124,0)}100%{box-shadow:0 0 0 0 rgba(224,190,124,0)}}
+
+.notice{border:1px solid var(--line-2);border-left:2px solid var(--gold);padding:.9rem 1.1rem;margin:1.2rem 0;color:var(--mute);font-size:.95rem;background:var(--void-2)}
+.notice b{color:var(--bone);font-weight:400}
+footer.fine{margin-top:3rem;text-align:center;font-size:.8125rem;color:var(--faint)}
+footer.fine a{color:var(--mute)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+}
+@media (max-width:420px){ .card{padding:1.1rem 1rem 1rem} .btn{width:100%} .row .btn{flex:1 1 100%} }

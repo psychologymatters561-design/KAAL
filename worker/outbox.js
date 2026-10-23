@@ -14,6 +14,7 @@
 import { LETTERS } from "./letters.js";
 
 const BACKOFF_MIN = [1, 5, 30, 120, 360];          /* then failed */
+const SECRET_VARS = ["claimUrl", "trackUrl", "inviteUrl", "transferCode", "shipUrl"];
 const iso = (ms) => new Date(ms === undefined ? Date.now() : ms).toISOString();
 
 /* Returns the row id, or 0 when the same dedupe key was already queued. */
@@ -52,7 +53,11 @@ export async function flushOutbox(env, send, ids, limit) {
       if (!ok) err = "The email provider refused it, or no provider key is set.";
     } catch (e) { err = String(e).slice(0, 200); }
     if (ok) {
-      await env.DB.prepare("UPDATE email_outbox SET status = 'sent', sent_at = ?1, last_error = NULL WHERE id = ?2").bind(iso(), row.id).run();
+      /* The email has gone: the links in it are the buyer's now, and no
+         longer need to sit in the database (or its backups). */
+      let left = row.payload;
+      try { const v = JSON.parse(row.payload || "{}"); for (const k of SECRET_VARS) delete v[k]; left = JSON.stringify(v); } catch (e) { /* kept as it was */ }
+      await env.DB.prepare("UPDATE email_outbox SET status = 'sent', sent_at = ?1, last_error = NULL, payload = ?2 WHERE id = ?3").bind(iso(), left, row.id).run();
       sent++;
     } else {
       const dead = row.attempts + 1 >= BACKOFF_MIN.length + 1;

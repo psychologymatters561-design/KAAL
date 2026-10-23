@@ -89,6 +89,21 @@ if (payMode !== "standard" && !cfg.checkout)
   const hist = tags.match(/var HISTORY = "([^"]*)"/)?.[1];
   if (hist !== undefined && hist && hist !== apiUrl)
     bad(`assets/tags.js sends the other pages' visits to ${hist}, but KAAL.api is ${apiUrl || "empty"} — they must agree`);
+  /* The owners' pages (track, claim, owners, registry) name the worker once,
+     in assets/owners.js. */
+  const ownersJs = existsSync(join(root, "assets/owners.js")) ? readFileSync(join(root, "assets/owners.js"), "utf8") : "";
+  const ownersApi = ownersJs.match(/var API = "([^"]*)"/)?.[1];
+  if (ownersApi !== undefined && ownersApi !== apiUrl)
+    bad(`assets/owners.js talks to ${ownersApi}, but KAAL.api is ${apiUrl || "empty"} — they must agree`);
+  /* Their Content-Security-Policy lets a page talk to that worker and no other. */
+  for (const f of readdirSync(root).filter(f => f.endsWith(".html"))) {
+    const t = readFileSync(join(root, f), "utf8");
+    const csp = t.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/)?.[1];
+    if (!csp) continue;
+    const connect = (csp.match(/connect-src ([^;]*)/) || [])[1] || "";
+    if (apiUrl && connect.trim() !== apiUrl) bad(`${f}: its Content-Security-Policy lets it talk to "${connect.trim()}", but the worker is ${apiUrl}`);
+    if (/unsafe-eval|script-src[^;]*unsafe-inline/.test(csp)) bad(`${f}: its Content-Security-Policy allows inline or eval'd script`);
+  }
   /* The pixel id, written down twice: the browser's Purchase (tags.js) and
      the worker's copy of it (META_PIXEL) only count as one sale when they
      are sent to the same dataset. Two ids is two half-measured sales. */
@@ -574,9 +589,11 @@ if (existsSync(join(root, "llms.txt"))) {
       : "<script>" + js.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[\s;{}(,])\/\/[^\n]*/g, "$1") + "</script>")
     /* "landscape" is a banned word in copy and a CSS media feature in code. */
     .replace(/orientation\s*:\s*landscape/gi, "orientation:wide");
-  for (const f of ["index.html", "about.html", "manifesto.html", "movement.html", "provenance.html", "legal.html", "claimed.html", "404.html", "llms.txt"]) {
+  const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[\s;{}(,])\/\/[^\n]*/g, "$1");
+  const owners = existsSync(join(root, "assets")) ? readdirSync(join(root, "assets")).filter(f => /^(owners|track|claim|transfer|dashboard|registry)\.js$/.test(f)).map(f => "assets/" + f) : [];
+  for (const f of [...pages, ...owners, "llms.txt"]) {
     if (!existsSync(join(root, f))) continue;
-    const t = f.endsWith(".txt") ? readFileSync(join(root, f), "utf8") : strip(readFileSync(join(root, f), "utf8"));
+    const t = f.endsWith(".txt") ? readFileSync(join(root, f), "utf8") : f.endsWith(".js") ? stripJs(readFileSync(join(root, f), "utf8")) : strip(readFileSync(join(root, f), "utf8"));
     const lines = t.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const w = BANNED.exec(lines[i]);

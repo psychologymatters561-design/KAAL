@@ -217,6 +217,7 @@ RENDER.overview = function(j){
   var waiting = ["placed","inspected","packed","dispatched"].map(function(s){ return '<div class="card stat"><b>' + (st[s] || 0) + '</b><span class="muted small">' + s + "</span></div>"; }).join("");
   var wins = j.returnWindows.length ? j.returnWindows.map(function(w){ return "<tr><td>" + esc(w.piece) + '</td><td class="num">' + esc(w.delivered) + '</td><td class="num">' + w.daysLeft + " days left</td></tr>"; }).join("") : '<tr><td class="muted">None open.</td></tr>';
   var late = j.late.length ? j.late.map(function(o){ return '<div class="card"><span class="pill bad">late</span> ' + esc(o.piece) + " · " + esc(o.why) + "</div>"; }).join("") : "";
+  late += (j.courier || []).map(function(c){ return '<div class="card"><span class="pill bad">courier</span> ' + esc(c.status) + " · tracking " + esc(c.awb) + (c.outcome === "unmatched" ? " · matched to no order" : "") + "</div>"; }).join("");
   var im = j.imported, imp = im && im.r ? im.r : null;
   var importCard = '<div class="card">' + (imp ? '<p class="small">Paid orders brought in from Razorpay ' + esc(when(im.at)) + ": " + (imp.imported || []).length + " new" +
       ((imp.needsRecord || []).length ? '. <b>To record by hand</b> (Orders, Record a past sale): No. ' + imp.needsRecord.map(pad).join(", No. ") : "") +
@@ -265,7 +266,7 @@ function nextStage(id, to){
   }
   if(to === "delivered"){
     sheet("No. " + pad(o.number) + " delivered", '<label for="dd">Delivered on</label><input id="dd" type="date" value="' + esc(DATA.orders.today) + '" max="' + esc(DATA.orders.today) + '">' +
-      '<p class="muted small">This starts the warranty and the seven day return window. The registration email follows once registration is live (Phase 4).</p>' +
+      '<p class="muted small">This starts the warranty and the seven day return window. The owner is emailed the registration link at once.</p>' +
       '<p class="err" id="sheetErr"></p><button class="btn go" data-act="deliverGo" data-id="' + id + '">Mark delivered</button>');
     return;
   }
@@ -285,7 +286,7 @@ function commit(keepalive){
   var o = { method:"POST", credentials:"same-origin", keepalive: !!keepalive, headers:{ "X-KAAL":"1", "Content-Type":"application/json" }, body: JSON.stringify(p.payload) };
   fetch("/control/api/orders/" + p.id + "/stage", o).then(function(r){ return r.json(); }).then(function(j){
     if(!j.ok){ say(j.why || "That did not save. Nothing was sent.", true); load("orders"); return; }
-    say(j.letter === "queued" ? "Saved. The email is on its way." : j.letter === "phase4" ? "Saved. Delivery date and return window set." : "Saved.");
+    say(j.letter === "queued" ? "Saved. The email is on its way." : "Saved.");
     load(VIEW);
   }).catch(function(){ say("That did not reach the server. Nothing was sent; try again.", true); });
 }

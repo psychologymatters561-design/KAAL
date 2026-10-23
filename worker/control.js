@@ -16,19 +16,15 @@
    retires it.
    ══════════════════════════════════════════════════════════════════ */
 import { authOn, adminEmail, startLogin, verifyLogin, sessionOf, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail } from "./auth.js";
-import { LETTERS, STAGE_LETTER, sample } from "./letters.js";
+import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
+import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
+import { lateOrders } from "./sla.js";
 import { registryOn, normPhone, audit, SERIES } from "./registry.js";
 
-const STAGES = ["placed", "inspected", "packed", "dispatched", "delivered"];
-const ORDER_STATUSES = [...STAGES, "registered", "returned", "cancelled"];
 const PIECE_STATUSES = ["available", "held", "placed", "delivered", "registered", "returned", "reported_stolen", "retired", "withheld"];
 const PIECE_ID = /^S\d{2}-\d{2}$/;
-const iso = (ms) => new Date(ms === undefined ? Date.now() : ms).toISOString();
-const istDay = (ms) => new Date((ms === undefined ? Date.now() : ms) + 5.5 * 3600000).toISOString().slice(0, 10);
-const pad2 = (n) => (n < 10 ? "0" + n : String(n));
-const clean = (v, max) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 function headers(extra) {
   return Object.assign({
@@ -43,10 +39,6 @@ function writeOk(request) {
   return !origin || origin === new URL(request.url).origin;
 }
 async function body(request) { try { return await request.json(); } catch (e) { return null; } }
-
-/* The day a return window closes: delivered_on plus the series' return
-   days, at 23:59:59 India time, as an instant. */
-function windowEnds(day, days) { return iso(Date.parse(`${day}T23:59:59.000+05:30`) + days * 86400000); }
 
 /* What a visitor sees when the registry is not switched on here, said in
    the words of what is actually missing and the one button that fixes it.
@@ -215,12 +207,10 @@ async function overview(env, T) {
   for (const r of (await env.DB.prepare("SELECT status, COUNT(*) AS c FROM email_outbox GROUP BY status").all()).results || []) mail[r.status] = r.c;
   const hook = env.KAAL_STATE ? await env.KAAL_STATE.get("seen:webhook").catch(() => null) : null;
   const imported = env.KAAL_STATE ? await env.KAAL_STATE.get("registry:imported", "json").catch(() => null) : null;
-  /* What has sat too long: the brief's three promises, checked here and
-     (Phase 3) emailed to the owner. */
-  const late = (await env.DB.prepare(
-    `SELECT id, piece_id, status, paid_at, dispatched_at FROM orders WHERE
-       (status = 'placed' AND paid_at < ?1) OR (status IN ('placed','inspected','packed') AND paid_at < ?2) OR (status = 'dispatched' AND dispatched_at < ?3)`
-  ).bind(iso(Date.now() - 48 * 3600000), iso(Date.now() - 4 * 86400000), iso(Date.now() - 7 * 86400000)).all()).results || [];
+  /* What has sat too long: the brief's three promises. The same check
+     emails the owner once each (worker/sla.js). */
+  const late = await lateOrders(env);
+  const courier = (await env.DB.prepare("SELECT awb, status, outcome, received_at FROM courier_events WHERE outcome IN ('unmatched','alert') ORDER BY id DESC LIMIT 5").all()).results || [];
   return {
     ok: true, staging: env.STAGING === "on", now: iso(), today: istDay(),
     pieces, sold: pieces.filter(p => p.state === "sold").length, size: pieces.length,
@@ -228,7 +218,7 @@ async function overview(env, T) {
     returnWindows: open.map(o => ({ id: o.id, piece: o.piece_id, delivered: o.delivered_on, endsAt: o.return_window_ends_at,
       daysLeft: Math.max(0, Math.ceil((Date.parse(o.return_window_ends_at) - Date.now()) / 86400000)) })),
     approvals: approvals ? approvals.c : 0, emails: mail, imported,
-    late: late.map(o => ({ id: o.id, piece: o.piece_id, status: o.status, why: lateWhy(o) })),
+    late: late.map(o => ({ id: o.id, piece: o.piece_id, status: o.status, why: o.why })), courier,
     health: [
       { label: "Database", ok: true, detail: "The registry answers." },
       { label: "Payment webhook", ok: !!hook, detail: hook ? "Last heard from Razorpay " + hook : "Not heard from yet on this worker." },
@@ -236,13 +226,6 @@ async function overview(env, T) {
       twoFactorOn(env) ? { label: "Second factor", ok: true, detail: "Every action here needs the authenticator's code." } : { label: "Sign-in", ok: true, detail: "The emailed code is the only lock, so guard that mailbox with 2-step verification." }
     ]
   };
-}
-
-/* Which promise an order is breaking, in words, the worst first. */
-function lateWhy(o) {
-  if (o.status === "dispatched") return "Dispatched more than 7 days ago, not delivered";
-  if (Date.parse(o.paid_at) < Date.now() - 4 * 86400000) return "Not dispatched by day 4";
-  return "Placed more than 48 hours ago, not inspected";
 }
 
 /* ══ Orders ══ */
@@ -266,63 +249,10 @@ async function listOrders(env) {
 /* A stage change. Forward, one step at a time, with its email; or, for a
    correction, any status with a reason and no email (silent). The 10
    second Undo lives in the page: nothing reaches here until it has run
-   out, so "undo" is simply never sending this. */
+   out. The work itself is worker/orders.js, shared with the courier. */
 async function stage(env, ctx, T, actor, id, b) {
-  const o = await env.DB.prepare("SELECT o.*, p.number, p.status AS piece_status FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.id = ?1").bind(id).first();
-  if (!o) return out({ ok: false, reason: "unknown-order" }, 404);
-  const to = String(b.to || "");
-  const silent = b.silent === true;
-  const reason = clean(b.reason, 200);
-  if (silent) {
-    if (ORDER_STATUSES.indexOf(to) < 0) return out({ ok: false, reason: "bad-status" }, 400);
-    if (reason.length < 3) return out({ ok: false, reason: "reason", why: "A correction needs a reason, in a few words." }, 400);
-  } else {
-    const next = STAGES[STAGES.indexOf(o.status) + 1];
-    if (!next || to !== next) return out({ ok: false, reason: "order", why: `No. ${pad2(o.number)} is ${o.status}; the next step is ${next || "none"}.` }, 409);
-  }
-
-  const set = { status: to, updated_at: iso() };
-  if (to === "inspected" && !o.inspected_at) set.inspected_at = iso();
-  if (to === "packed" && !o.packed_at) set.packed_at = iso();
-  if (to === "dispatched") {
-    const courier = clean(b.courier, 40), tracking = clean(b.tracking, 60), url = clean(b.url, 300);
-    if (!silent && (!courier || !tracking || !/^https:\/\/[^\s"'<>]+$/i.test(url))) return out({ ok: false, reason: "dispatch", why: "Dispatched needs the courier, the tracking number and a tracking link that starts with https://." }, 400);
-    Object.assign(set, { courier: courier || o.courier, tracking_number: tracking || o.tracking_number, tracking_url: url || o.tracking_url, dispatched_at: o.dispatched_at || iso() });
-  }
-  let pieceStatus = null;
-  if (to === "delivered") {
-    const day = String(b.day || istDay());
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > istDay() || (o.dispatched_at && day < istDay(Date.parse(o.dispatched_at)) && !silent)) {
-      return out({ ok: false, reason: "day", why: "The delivery date has to be a real day, not in the future, and not before it was dispatched." }, 400);
-    }
-    const series = await env.DB.prepare("SELECT return_days FROM series WHERE code = ?1").bind(o.series).first();
-    Object.assign(set, { delivered_on: day, return_window_ends_at: windowEnds(day, (series && series.return_days) || 7) });
-    pieceStatus = "delivered";
-  }
-  if (silent && ["placed", "inspected", "packed", "dispatched"].indexOf(to) > -1 && ["delivered", "returned"].indexOf(o.piece_status) > -1) pieceStatus = "placed";
-  if (to === "returned") pieceStatus = "returned";
-  if (to === "registered") pieceStatus = "registered";
-
-  const cols = Object.keys(set);
-  await env.DB.prepare(`UPDATE orders SET ${cols.map((c, i) => `${c} = ?${i + 1}`).join(", ")} WHERE id = ?${cols.length + 1}`).bind(...cols.map(c => set[c]), id).run();
-  if (pieceStatus) await env.DB.prepare("UPDATE pieces SET status = ?1, updated_at = ?2 WHERE id = ?3").bind(pieceStatus, iso(), o.piece_id).run();
-
-  /* The stage's email, once per order and stage (dedupe), unless silent
-     or switched off. Delivered's carries the registration link, which is
-     Phase 4; until then it is shown in Preview and not sent. */
-  let letter = null;
-  const on = await setting(env, "stage_emails", "1");
-  if (!silent && on === "1" && o.email && STAGE_LETTER[to] && to !== "delivered") {
-    const size = await seriesSize(env, o.series);
-    const q = await queueLetter(env, { template: STAGE_LETTER[to], to: o.email, dedupe: `stage:${o.id}:${to}`, series: o.series,
-      vars: { site: T.siteUrl(env), n: o.number, size, courier: set.courier || o.courier, tracking: set.tracking_number || o.tracking_number,
-        trackingUrl: set.tracking_url || o.tracking_url, trackUrl: "" } });
-    letter = q ? "queued" : "already";
-    if (q) kick(env, ctx, T, [q]);
-  } else if (!silent && to === "delivered") letter = "phase4";
-  await audit(env, actor, silent ? "order.correct" : "order.stage", "order:" + id,
-    { status: o.status, piece: o.piece_status }, Object.assign({}, set, { piece: pieceStatus || o.piece_status, reason: reason || undefined, letter }), o.series);
-  return out({ ok: true, status: to, letter });
+  const r = await moveOrder(env, { siteUrl: T.siteUrl, kick: (ids) => kick(env, ctx, T, ids) }, actor, id, b);
+  return out(r.body, r.http);
 }
 
 /* A sale made before the registry (Nos. 01 and 02): typed in once, from
@@ -554,14 +484,6 @@ async function preview(env, url, T) {
 }
 
 /* ══ Settings ══ */
-async function setting(env, key, fallback) {
-  const r = await env.DB.prepare("SELECT value FROM settings WHERE key = ?1").bind(key).first().catch(() => null);
-  return r ? r.value : fallback;
-}
-async function seriesSize(env, code) {
-  const r = await env.DB.prepare("SELECT size FROM series WHERE code = ?1").bind(code || SERIES).first();
-  return r ? r.size : 20;
-}
 async function settings(env) {
   const rows = (await env.DB.prepare("SELECT key, value FROM settings").all()).results || [];
   const series = (await env.DB.prepare("SELECT code, name, size, price_paise, warranty_months, return_days, manufactured, retired_at FROM series").all()).results || [];

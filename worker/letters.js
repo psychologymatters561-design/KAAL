@@ -125,6 +125,24 @@ export const LETTERS = {
       "KAAL"
     ], { preheader: "Its place in the registry is still empty." });
   },
+  outForDelivery(d) {
+    const n = pad2(d.n);
+    const who = d.courier ? `${d.courier}'s rider` : "the courier's rider";
+    return render(`No. ${n} is out for delivery`, [
+      "Owner,",
+      `No. ${n} is out for delivery. It is with ${who} today. Keep your phone close; the rider may call.`,
+      "KAAL", ...journey(d)
+    ], { preheader: "It should reach you today." });
+  },
+  addressNeeded(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} needs somewhere to go`, [
+      "Owner,",
+      `Your payment is received and No. ${n} of ${d.size} is set aside for you. One thing is left: tell us where to send it.`,
+      { button: ["Add delivery address", d.shipUrl] },
+      "KAAL"
+    ], { preheader: "One thing is left: where to send it." });
+  },
   registered(d) {
     const n = pad2(d.n);
     return render(`No. ${n} is recorded in your name`, [
@@ -134,16 +152,36 @@ export const LETTERS = {
       "Kaal does not wait. Wear it well.",
       "KAAL"
     ], { preheader: `You are Owner ${roman(d.ownerNo || 1)} of No. ${n}.` });
+  },
+
+  /* ── For the shop's own inbox, never a customer's. Plain and short. ── */
+  sla(d) {
+    const n = pad2(d.n);
+    return render(`No. ${n} is late: ${d.why}`, [
+      `No. ${n}: ${d.why}.`,
+      `Paid ${d.paidOn}. It is ${d.status} now. The promise is five days from payment to dispatch.`,
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: d.why });
+  },
+  courierAlert(d) {
+    const head = d.n ? `No. ${pad2(d.n)}: the courier reports ${d.status}` : `A courier update could not be matched to an order`;
+    return render(`${head}`, [
+      d.n ? `The courier reports "${d.status}" for No. ${pad2(d.n)} (tracking ${d.awb}). Nothing was changed.` : `The courier reports "${d.status}" for tracking ${d.awb}, and no order carries that number or a KAAL number in its order reference. Nothing was changed.`,
+      "Check it in Shiprocket and, if it needs a move, in the control room.",
+      { button: ["Open the control room", d.controlUrl] }
+    ], { preheader: d.status });
   }
 };
 
-/* Which letter a stage sends. Placed is the webhook's (Phase 3 replaces
-   the current confirmation with it); delivered waits for registration
-   links (Phase 4) and is previewed, not sent, until then. */
+/* Which letter a stage sends. Placed is the webhook's, not a tap's. */
 export const STAGE_LETTER = { inspected: "inspected", packed: "packed", dispatched: "dispatched", delivered: "delivered" };
+
+/* Letters that go to the shop, not to a customer. */
+export const STAFF_LETTERS = ["sla", "courierAlert"];
 
 export function sample(name, site) {
   const d = { site, n: 7, size: 20, courier: "Delhivery", tracking: "SAMPLE123456", trackingUrl: "https://www.delhivery.com/track/package/SAMPLE123456",
-    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: "" };
+    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, shipUrl: `${site}/claimed.html`,
+    why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
   return LETTERS[name] ? LETTERS[name](d) : null;
 }

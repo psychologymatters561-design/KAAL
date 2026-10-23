@@ -39,20 +39,20 @@ export const COOKIE = "kaal_s";
 const enc = new TextEncoder();
 const iso = (ms) => new Date(ms === undefined ? Date.now() : ms).toISOString();
 export const normEmail = (v) => String(v || "").trim().toLowerCase().slice(0, 254);
-const validEmail = (v) => /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i.test(v);
+export const validEmail = (v) => /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i.test(v);
 
 export const authOn = (env) => !!(env && env.DB && String(env.AUTH_SECRET || "").length >= 32);
 export function adminEmail(env) {
   return normEmail(env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0]);
 }
 
-const hex = (buf) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-async function sha256(text) { return hex(await crypto.subtle.digest("SHA-256", enc.encode(text))); }
-async function hmac(secret, text) {
+export const hex = (buf) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+export async function sha256(text) { return hex(await crypto.subtle.digest("SHA-256", enc.encode(text))); }
+export async function hmac(secret, text) {
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(await crypto.subtle.sign("HMAC", key, enc.encode(text)));
 }
-function same(a, b) {
+export function same(a, b) {
   if (typeof a !== "string" || typeof b !== "string") return false;
   let d = a.length ^ b.length;
   for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
@@ -67,7 +67,7 @@ function randomDigits(n) {
   }
   return out;
 }
-const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 /* ── 1. The emailed code ──
    Returns { send: {to, code} } when a code should go out (the caller

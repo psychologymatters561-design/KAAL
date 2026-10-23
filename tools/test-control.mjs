@@ -131,8 +131,8 @@ let oid;
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "inspected" });
   const ins = mails.find(m => m.to.includes("asha@example.com"));
   ok(r.j.ok && r.j.letter === "queued" && ins && ins.subject === "No. 07 has passed inspection", "Inspected: saved, and the buyer's email goes at once");
-  ok(ins && ins.text.includes("Today it was No. 07's turn: the time, the day and date, the 24-hour hand, the crown, the bracelet, the finish. It passed.") && /^Owner,/.test(ins.text) && /\nKAAL\n?$/.test(ins.text),
-    "Inspected: the brief's words, verbatim, signed KAAL");
+  ok(ins && ins.text.includes("Today it was No. 07's turn: the time, the day and date, the 24-hour hand, the crown, the bracelet, the finish. It passed.") && /^Owner,/.test(ins.text) && /\nKAAL\n/.test(ins.text) && /\nFollow No\. 07's journey: https:\/\/thekaal\.co\/track\?o=\d+&s=[0-9a-f]{24}\n$/.test(ins.text),
+    "Inspected: the brief's words, verbatim, signed KAAL, ending with the quiet link to follow its journey");
   ok(ins && /background:#F4F1EA/.test(ins.html) && (ins.html.match(/<a /g) || []).length <= 1 && !/<img/.test(ins.html), "Inspected: the light layout, no image, one link at most");
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "inspected" });
   ok(r.status === 409 && mails.filter(m => /passed inspection/.test(m.subject)).length === 1, "Inspected twice: refused, and one email only");
@@ -152,7 +152,11 @@ let oid;
   r = await call("POST", `/control/api/orders/${oid}/stage`, { to: "delivered", day: today });
   const row = DB.raw.prepare("SELECT delivered_on, return_window_ends_at FROM orders WHERE id = ?").get(oid);
   const want = new Date(Date.parse(today + "T23:59:59.000+05:30") + 7 * 86400000).toISOString();
-  ok(r.j.ok && r.j.letter === "phase4" && row.delivered_on === today && row.return_window_ends_at === want, "Delivered: the date, and the return window to 23:59:59 India time seven days on");
+  ok(r.j.ok && r.j.letter === "queued" && row.delivered_on === today && row.return_window_ends_at === want, "Delivered: the date, and the return window to 23:59:59 India time seven days on");
+  const del = mails.find(m => m.subject === "No. 07 is with you. One step makes it yours.");
+  const tok = del && (/claim\?t=([A-Za-z0-9_-]{43})/.exec(del.text) || [])[1];
+  ok(tok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND used_at IS NULL").get(oid).c === 1, "Delivered: the registration link goes in the email, and only its hash is kept");
+  ok(tok && !DB.raw.prepare("SELECT payload FROM email_outbox WHERE dedupe_key = ?").get(`stage:${oid}:delivered`).payload.includes(tok), "Delivered: once sent, the link is scrubbed from the outbox");
   ok(DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-07'").get().status === "delivered", "Delivered: the piece is delivered");
 
   /* Corrections, without email, and never a second stage email. */

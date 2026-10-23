@@ -1,0 +1,11 @@
+-- ════════════════════════════════════════════════════════════════════
+-- Migration 0005: a session knows where it may be used.
+--
+-- The control room's session is an HttpOnly cookie. An owner's session is
+-- a bearer token the owners' pages keep for themselves. They are different
+-- strengths of thing, and one must never open the other's door: a token
+-- lifted from a page's storage would otherwise be a cookie away from the
+-- control room. 'control' (the default, so every existing session stays
+-- exactly what it was) is for /control and 'owner' is for /o only.
+-- ════════════════════════════════════════════════════════════════════
+ALTER TABLE sessions ADD COLUMN scope TEXT NOT NULL DEFAULT 'control';

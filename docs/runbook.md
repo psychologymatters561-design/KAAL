@@ -18,6 +18,11 @@ You sign in with an emailed six digit code. There is no password and no app.
 Because the code is the only lock, keep Google's own 2-step verification on
 that mailbox.
 
+Your own address can also own a piece (No. 01). The two doors stay apart:
+signing in at /control opens only the control room, and signing in at
+thekaal.co/owners opens only your piece's dossier. A sign-in at one never
+opens the other, so sign in at each separately.
+
 ## Each screen of the control room
 
 **Overview.** Pieces sold out of twenty as a strip, revenue, how many orders

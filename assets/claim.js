@@ -41,9 +41,13 @@
     $("name").value = j.name; $("phone").value = j.phone ? "+" + j.phone.replace(/^\+/, "") : ""; $("email").value = j.email;
     var days = j.returnDays;
     var rn = $("returnNotice");
-    var b = K.el("b", "", "Registering ends the " + days + "-day return option.");
-    rn.appendChild(b);
-    rn.appendChild(document.createTextNode(j.returnOpen ? " Until you register, you can still return No. " + n + " for a full refund, until " + K.day(j.returnEndsAt) + ". Your 2-year warranty is honoured from the delivery date whether or not you register. If you would rather keep it on approval for now, this link will wait for you." : " Your 2-year warranty is honoured from the delivery date whether or not you register."));
+    if (j.returnOpen) {
+      rn.appendChild(K.el("b", "", "Registering ends the " + days + "-day return option."));
+      rn.appendChild(document.createTextNode(" Until you register, you can still return No. " + n + " for a full refund, until " + K.day(j.returnEndsAt) + ". Your 2-year warranty is honoured from the delivery date whether or not you register. If you would rather keep it on approval for now, this link will wait for you."));
+    } else {
+      rn.appendChild(K.el("b", "", "Its " + days + "-day return window has already closed."));
+      rn.appendChild(document.createTextNode(" Registering writes you into the registry as its owner. Your 2-year warranty is honoured from the delivery date whether or not you register."));
+    }
     $("acceptText").textContent = "I accept No. " + n + ". I understand registering ends my " + days + "-day return option.";
     $("cityText").textContent = "Show my city beside No. " + n + " in the public registry.";
     var cs = K.el("small", "", "Optional. Otherwise the registry says “Owner’s city withheld”. Your name, phone and email are never shown.");

@@ -258,5 +258,28 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(c.headers.get("Access-Control-Allow-Origin") === SITE && /max-age=10/.test(c.headers.get("Cache-Control")), "registry: shop origin only, cached ten seconds");
 }
 
+/* ── Brute force, and a cookie is not a bearer ── */
+{
+  const X = world();
+  const id = (await seed(X, "pay_BRUTE0007", 7, "asha@example.com")).order.id;
+  await deliver(X, id);
+  await call(X, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(X) }, good, { email: "asha@example.com" }));
+  X.mails.length = 0;
+  await call(X, "POST", "/o/auth/start", { email: "asha@example.com" });
+  const c = X.mails.find(m => /sign-in code/.test(m.subject)).subject.slice(0, 7).replace(" ", "");
+  const wrong = c === "000000" ? "111111" : "000000";
+  let last;
+  for (let i = 0; i < 5; i++) last = await call(X, "POST", "/o/auth/verify", { email: "asha@example.com", code: wrong });
+  ok(last.status === 401 && last.j.reason === "tries", "brute force: five wrong guesses spend the code");
+  const after = await call(X, "POST", "/o/auth/verify", { email: "asha@example.com", code: c });
+  ok(after.status === 401 && after.j.ok !== true, "brute force: and the right code no longer works after them");
+  const same = { "cf-connecting-ip": "198.51.100.250" };
+  let rate = null;
+  for (let i = 0; i < 7; i++) { const r = await call(X, "POST", "/o/auth/start", { email: "x" + i + "@example.com" }, same); if (r.status === 429) { rate = i; break; } }
+  ok(rate !== null && rate <= 5, "brute force: one address asking for codes is stopped after five (" + rate + ")");
+  const adm = world();
+  ok((await call(adm, "GET", "/o/me", undefined, { Cookie: "kaal_s=" + "a".repeat(43) })).status === 401, "a session cookie is not a bearer token");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");
 process.exit(failed ? 1 : 0);

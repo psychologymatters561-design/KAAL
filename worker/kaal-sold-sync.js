@@ -123,6 +123,8 @@ export default {
        hand thekaal.co a CORS header: no other site may read it. */
     if (path === "/desk" || path.startsWith("/desk/")) return desk(request, env, ctx, path);
     if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
+    /* For the six-hourly ping (.github/workflows/health.yml): the worker is up and, with the registry on, its database answers. */
+    if (path === "/health") return health(env);
 
     if (request.method === "OPTIONS") return preflight(request, env);
     if (staging(env) && request.method === "GET" && path === "/staging") return stagingPage(env);
@@ -170,6 +172,7 @@ export default {
     if (registryOn(env)) ctx.waitUntil(sweeps(env, regDeps(env, ctx)).catch(e => console.log("Sweeps failed:", String(e).slice(0, 160))));
     /* The first run after the registry goes live brings in the paid orders. */
     if (registryOn(env)) ctx.waitUntil(autoImport(env));
+    ctx.waitUntil(reconcileDaily(env, ctx));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
@@ -1195,6 +1198,58 @@ async function importPaid(env) {
   console.log("Registry import:", JSON.stringify(r).slice(0, 300));
   return r;
 }
+/* "Is it up?": the worker answers, and so does the registry's database. */
+async function health(env) {
+  const out = { ok: true, at: new Date().toISOString(), registry: registryOn(env) ? "on" : "off" };
+  if (registryOn(env)) {
+    try { await env.DB.prepare("SELECT 1 AS up").first(); out.db = true; }
+    catch (e) { out.ok = false; out.db = false; }
+  }
+  return new Response(JSON.stringify(out), { status: out.ok ? 200 : 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
+/* ══════════ 3g. THE DAILY CHECK AGAINST RAZORPAY ══════════
+
+   Once a day (India time) the worker asks Razorpay for what it captured and
+   compares it with the registry, the same way the go-live import does. A
+   payment Razorpay took that the webhook never told us about is recorded,
+   its buyer gets the Placed letter, and the owner is told that the webhook
+   missed it. A second payment for one number is told to the owner (the
+   webhook is what refunds it; this is only the net under it). Nothing here
+   moves an order or refunds anyone. */
+async function reconcileDaily(env, ctx) {
+  try {
+    if (!registryOn(env) || !env.KAAL_STATE || !env.RAZORPAY_KEY_ID || staging(env)) return;
+    const key = "recon:" + istDay(Date.now());
+    if (await env.KAAL_STATE.get(key).catch(() => "x")) return;
+    await env.KAAL_STATE.put(key, "1", { expirationTtl: 3 * 86400 });
+    const r = await importPaid(env);
+    const lines = [];
+    if (!r.ok) lines.push("The daily check could not read Razorpay's payments (" + (r.reason || "unknown") + "). Nothing was changed.");
+    else {
+      const deps = regDeps(env, ctx);
+      for (const n of r.imported) {
+        lines.push(`No. ${pad2(n)} was paid for, and Razorpay's webhook never told us. It is recorded now. Check the webhook in Razorpay (Settings, Webhooks): it should send payment.captured to ${workerUrl(env)}/.`);
+        const o = await env.DB.prepare("SELECT o.* FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status = 'placed' ORDER BY o.id DESC").bind(SERIES, n).first();
+        if (o && Date.now() - Date.parse(o.paid_at) < 4 * 86400000) {
+          const q = await queuePlaced(env, siteUrl(env), o);
+          if (q > 0) deps.kick([q]);
+        }
+      }
+      for (const d of r.duplicates) {
+        const seen = "recon:dup:" + d.payment;
+        if (await env.KAAL_STATE.get(seen).catch(() => null)) continue;
+        await env.KAAL_STATE.put(seen, "1", { expirationTtl: 60 * 86400 });
+        lines.push(`A second payment (${d.payment}) exists for No. ${pad2(d.n)}. It should have been refunded automatically; check it in Razorpay.`);
+      }
+    }
+    if (lines.length) {
+      const text = lines.join("\n\n") + "\n";
+      await sendEmail(env, ownerInbox(env), "[KAAL] The daily check against Razorpay found something", text, "<p>" + lines.map(esc).join("</p><p>") + "</p>");
+    }
+  } catch (e) { console.log("Daily check threw:", String(e).slice(0, 160)); }
+}
+
 async function autoImport(env) {
   try {
     if (!env.KAAL_STATE || await env.KAAL_STATE.get("registry:imported").catch(() => "x")) return;

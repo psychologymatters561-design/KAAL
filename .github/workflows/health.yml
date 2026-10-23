@@ -1,0 +1,36 @@
+# ══════════════════════════════════════════════════════════════════
+# Is the shop up? Every six hours, GitHub asks the worker whether it and
+# its database answer, and asks the site whether it is there. If either
+# does not, this run goes red and GitHub emails the repository's owner:
+# that email is the alert. (Cloudflare never pauses a worker for being
+# quiet, so this is not a keep-alive; it is a smoke detector.)
+#
+# Run it by hand any time: Actions, health, Run workflow.
+# ══════════════════════════════════════════════════════════════════
+name: health
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: The worker and its database answer
+        run: |
+          out=$(curl -fsS --retry 3 --retry-delay 10 --max-time 20 https://kaal-edition.kaal-edition-hq.workers.dev/health)
+          echo "$out"
+          echo "$out" | grep -q '"ok":true'
+      - name: The site answers
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 --max-time 20 -o /dev/null -w "%{http_code}\n" https://thekaal.co/
+      - name: The registry answers
+        run: |
+          out=$(curl -fsS --retry 3 --retry-delay 10 --max-time 20 https://kaal-edition.kaal-edition-hq.workers.dev/registry/data)
+          echo "$out" | grep -q '"ok":true'

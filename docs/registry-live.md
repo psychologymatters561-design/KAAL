@@ -12,12 +12,16 @@ setting takes it off again.
 | Two payments for one watch | Both buyers told "No. 07 is yours" | The second is refunded in full automatically, told why, and you are told |
 | Someone you blocked | Could buy again | Refused at checkout, in neutral words |
 | Your orders | The desk reads them from Razorpay | Each is a record you move through Inspected, Packed, Dispatched, Delivered at `/control`, and the buyer gets each stage's email (the brief's words) |
-| Buyer emails at payment | "No. 07 is yours" | Unchanged for now (Phase 3 replaces it with "No. 07 is spoken for") |
+| Buyer emails at payment | "No. 07 is yours" | "No. 07 is spoken for", the brief's words, then each stage by email as you tap it (or as Shiprocket reports it) |
 | The desk (`/desk`) | | Still works, beside it |
 
-What is not live yet: the registration email at delivery, the owner
-dashboard and the public registry (Phases 4 and 5), `/track` and Shiprocket
-(Phase 3), transfers and claims (Phase 6).
+Built and live with the registry (see docs/runbook.md): the Placed email from
+the verified payment, `/track`, the courier link (docs/courier.md, optional),
+the late-order alerts and the one registration reminder, registering at
+`/claim`, the owner dashboard at `/owners`, the public `/registry`, claims,
+transfers, stolen reports and recovery with the Approvals queue, the
+nightly backup (needs a private repository, runbook) and the six-hourly health
+ping.
 
 ## Switch it on (about ten minutes, from a phone)
 

@@ -18,7 +18,7 @@ const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed+
 
 const SITE = "https://thekaal.co", WORKER = "https://kaal-edition.kaal-edition-hq.workers.dev";
 const sigOf = (b) => createHmac("sha256", "wh").update(b).digest("hex");
-function world(extra) {
+function world(extra, mock) {
   const DB = d1(), KV = kv(), mails = [];
   KV.store.set("sold", "[1,2]");
   const env = Object.assign({
@@ -32,7 +32,8 @@ function world(extra) {
     if (url.includes("api.resend.com")) { mails.push(JSON.parse(init.body)); return new Response("{}"); }
     if (url.includes("api.github.com")) return new Response(JSON.stringify({ content: Buffer.from("var KAAL = {\n  sold:     [1, 2],\n};").toString("base64"), sha: "x" }));
     let m = /\/v1\/orders\/(order_\w+)$/.exec(url);
-    if (m) return new Response(JSON.stringify({ id: m[1], status: "paid", amount: 599900, currency: "INR", notes: { kaal_no: m[1].endsWith("T1") ? "08" : "07" } }));
+    if (m) return new Response(JSON.stringify({ id: m[1], status: "paid", amount: 599900, currency: "INR", notes: { kaal_no: (mock && mock.orders && mock.orders[m[1]]) || (m[1].endsWith("T1") ? "08" : "07") } }));
+    if (mock && mock.payments && /\/v1\/payments\?/.test(url)) return new Response(JSON.stringify({ items: mock.payments }));
     if (/\/v1\/(payments|refunds|orders)\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
     return new Response("{}", { status: 404 });
   };
@@ -251,6 +252,30 @@ function KV_SHIP(W, orderId, yes) {
   await run(); await run();
   ok(W.mails.filter(m => /has no name beside it yet/.test(m.subject)).length === 1, "reminder: never a second");
   void s4; void ov;
+}
+
+/* ── 5. The daily check against Razorpay, and the health ping ── */
+{
+  const missed = { id: "pay_MISSED0001", order_id: "order_MISSED01", amount: 599900, currency: "INR", status: "captured", email: "late@example.com", contact: "+919800000009", created_at: Math.floor(Date.now() / 1000) - 3600, notes: {} };
+  const W = world({}, { payments: [missed], orders: { order_MISSED01: "11" } });
+  let r = await get(W, "/health");
+  ok(r.status === 200 && r.j.ok && r.j.db === true && r.j.registry === "on", "health: the worker and its database answer");
+  const bad = await w.fetch(new Request("https://w/health"), Object.assign({}, W.env, { DB: { prepare() { throw new Error("down"); } } }), ctx());
+  ok(bad.status === 503 && (await bad.json()).db === false, "health: a database that does not answer is a 503, for the ping to see");
+  W.KV.store.set("registry:imported", "{}");                  /* the go-live import is long done */
+  const run = async () => { const k = ctx(); await w.scheduled({}, W.env, k); await k.done(); };
+  await run();
+  const o = W.DB.raw.prepare("SELECT o.id, o.status FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.number = 11").get();
+  ok(o && o.status === "placed", "daily check: a payment the webhook never reported is recorded");
+  ok(W.mails.some(m => m.to.includes("late@example.com") && m.subject === "No. 11 is spoken for"), "daily check: its buyer still gets the Placed letter");
+  const al = W.mails.filter(m => m.to.includes("owner@thekaal.co") && /daily check against Razorpay/.test(m.subject));
+  ok(al.length === 1 && /No\. 11 was paid for, and Razorpay's webhook never told us/.test(al[0].text), "daily check: and the owner is told the webhook missed it");
+  const n = W.mails.length;
+  await run();
+  ok(W.mails.length === n, "daily check: it runs once a day, not every half hour");
+  W.KV.store.delete("recon:" + new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10));
+  await run();
+  ok(W.mails.length === n, "daily check: and a second run finds nothing new to say");
 }
 
 globalThis.fetch = realFetch;

@@ -373,5 +373,30 @@ const sent = (W, re, to) => W.mails.filter(m => re.test(m.subject) && (!to || m.
   ok(W2.DB.raw.prepare("SELECT email FROM owners WHERE email = 'x@example.com'").get(), "recovery: and changes nothing about the real owner");
 }
 
+/* ── Nos. 01 and 02: sold before the registry, brought in by hand, registered by their owners ── */
+{
+  const W = world();
+  const adm = await admin(W);
+  W.mails.length = 0;
+  let r = await adm("POST", "/control/api/orders/manual", { n: 1, name: "Mira Das", email: "Mira@Example.com", phone: "9822233344", city: "Mumbai", state: "Maharashtra", paid_on: "2026-09-20", delivered_on: "2026-09-28" });
+  ok(r.j.ok && W.mails.every(m => !m.to.includes("mira@example.com")), "past sale: recorded for No. 01, and nobody is emailed");
+  const oid = r.j.id;
+  ok(W.DB.raw.prepare("SELECT status, return_window_ends_at FROM orders WHERE id = ?").get(oid).status === "delivered", "past sale: delivered, with the return window computed from the real delivery day");
+  const win = Date.parse(W.DB.raw.prepare("SELECT return_window_ends_at FROM orders WHERE id = ?").get(oid).return_window_ends_at);
+  ok(win < Date.now(), "past sale: and that window closed weeks ago, as it should");
+  r = await adm("POST", `/control/api/orders/${oid}/link`, { mode: "send" });
+  await flush(W);
+  const mail = sent(W, /One step makes it yours/, "mira@example.com")[0];
+  ok(r.j.ok && mail, "past sale: 'Send registration link' reaches the owner");
+  const tok = (/claim\?t=([A-Za-z0-9_-]{43})/.exec(mail.text) || [])[1];
+  const info = await call(W, "GET", "/o/claim/info?t=" + tok);
+  ok(info.j.ok && info.j.piece.n === 1 && info.j.returnOpen === false && info.j.city === "Mumbai", "past sale: the registration page opens, and says the return window is already closed");
+  const reg = await call(W, "POST", "/o/claim/register", Object.assign({ t: tok }, good("mira@example.com", { name: "Mira Das", phone: "9822233344" })));
+  ok(reg.j.ok && reg.j.ownerNo === 1, "past sale: Mira registers as Owner I of No. 01");
+  const warranty = (await call(W, "GET", "/o/me", undefined, { Authorization: "Bearer " + reg.j.token })).j.pieces[0].warranty;
+  ok(warranty.endDay === "2028-09-28", "past sale: her warranty runs from the real delivery day, to 28 September 2028");
+  ok((await call(W, "GET", "/registry/data")).j.pieces[0].owner.no === 1, "past sale: the public registry shows No. 01 with its Owner I");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 6 tests passed.");
 process.exit(failed ? 1 : 0);

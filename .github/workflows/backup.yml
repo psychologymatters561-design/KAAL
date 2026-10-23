@@ -1,0 +1,59 @@
+# ══════════════════════════════════════════════════════════════════
+# Every night, the registry (every order, owner, claim, transfer and the
+# audit log) is exported and filed in a PRIVATE repository, one dated file a
+# day. Cloudflare keeps its own point-in-time copy for thirty days; this is
+# the copy that is yours, somewhere else.
+#
+# It does nothing until two secrets exist (docs/runbook.md, "Backups"):
+#   BACKUP_REPO         the private repository, as owner/name
+#   BACKUP_REPO_TOKEN   a fine-grained GitHub token with Contents: write on
+#                       that one repository and nothing else
+# It uses the same CLOUDFLARE_API_TOKEN as setup-worker (D1 access).
+#
+# The export holds buyers' names, emails, phones and addresses. That is why
+# the repository must be private, and why this one never is.
+# ══════════════════════════════════════════════════════════════════
+name: backup
+
+on:
+  schedule:
+    - cron: "40 20 * * *"        # 02:10 India time
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Export the registry into the private repository
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+        run: |
+          if [ -z "$BACKUP_REPO" ] || [ -z "$BACKUP_REPO_TOKEN" ]; then
+            echo "No backup repository is set up yet (docs/runbook.md, Backups). Nothing was exported."
+            exit 0
+          fi
+          npx --yes wrangler@4 d1 export kaal-registry --remote --output=registry.sql
+          test -s registry.sql
+          git clone --depth 1 "https://x-access-token:${BACKUP_REPO_TOKEN}@github.com/${BACKUP_REPO}.git" backup
+          mkdir -p backup/d1
+          cp registry.sql "backup/d1/$(date -u +%F).sql"
+          cp registry.sql backup/d1/latest.sql
+          cd backup
+          git config user.name "kaal-backup"
+          git config user.email "backup@thekaal.co"
+          git add -A
+          git diff --cached --quiet && { echo "Nothing changed since the last export."; exit 0; }
+          git commit -m "Registry export $(date -u +%F)"
+          git push
+          echo "Exported $(wc -c < ../registry.sql) bytes."

@@ -122,6 +122,24 @@ await ap.fill("#d_pickup", "A courier collects it on 28 October between 10 and 1
 await ap.click('[data-act="decideGo"]');
 ok(!!(await waitMail("asha@example.com", /your claim is approved/)), "approvals: approved, and the pickup details go to the owner");
 
+/* What an owner types is shown as words, never as markup, in the owner of the shop's own screen. */
+{
+  const evil = '<img src=x onerror="window.__xss=1"> and <b>bold</b>';
+  await bp.reload();
+  await bp.waitForSelector(".actions");
+  await bp.click('button:has-text("Request a contact-details change")');
+  await bp.fill("#rd", evil);
+  await bp.click('#dlgB button[type=submit]');
+  await bp.waitForSelector("#dlgB .okmsg");
+  await ap.click('[data-go="overview"]'); await ap.click('[data-go="approvals"]');
+  await ap.waitForSelector('[data-act="decide"][data-do="done"]');
+  ok(await ap.locator('[data-v="approvals"] img, [data-v="approvals"] b:not(.num)').count() === 0 && /onerror/.test(await ap.locator('[data-v="approvals"]').innerText()), "XSS: a claim that carries markup is shown as text in Approvals, and nothing ran");
+  ok(await ap.evaluate(() => window.__xss === undefined), "XSS: and no script from it executed");
+  await ap.click('[data-act="decide"][data-do="done"]');
+  await ap.click('[data-act="decideGo"]');
+  await ap.waitForSelector('[data-act="decide"][data-do="done"]', { state: "detached" }).catch(() => {});
+}
+
 /* 5. Passing it on. */
 await bp.reload();
 await bp.waitForSelector(".actions");

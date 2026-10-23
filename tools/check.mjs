@@ -96,12 +96,13 @@ if (payMode !== "standard" && !cfg.checkout)
   if (ownersApi !== undefined && ownersApi !== apiUrl)
     bad(`assets/owners.js talks to ${ownersApi}, but KAAL.api is ${apiUrl || "empty"} — they must agree`);
   /* Their Content-Security-Policy lets a page talk to that worker and no other. */
-  for (const f of readdirSync(root).filter(f => f.endsWith(".html"))) {
+  const sub = existsSync(join(root, "claim")) ? readdirSync(join(root, "claim")).filter(f => f.endsWith(".html")).map(f => "claim/" + f) : [];
+  for (const f of [...readdirSync(root).filter(f => f.endsWith(".html")), ...sub]) {
     const t = readFileSync(join(root, f), "utf8");
     const csp = t.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/)?.[1];
     if (!csp) continue;
     const connect = (csp.match(/connect-src ([^;]*)/) || [])[1] || "";
-    if (apiUrl && connect.trim() !== apiUrl) bad(`${f}: its Content-Security-Policy lets it talk to "${connect.trim()}", but the worker is ${apiUrl}`);
+    if (connect && apiUrl && connect.trim() !== apiUrl) bad(`${f}: its Content-Security-Policy lets it talk to "${connect.trim()}", but the worker is ${apiUrl}`);
     if (/unsafe-eval|script-src[^;]*unsafe-inline/.test(csp)) bad(`${f}: its Content-Security-Policy allows inline or eval'd script`);
   }
   /* The pixel id, written down twice: the browser's Purchase (tags.js) and
@@ -590,8 +591,9 @@ if (existsSync(join(root, "llms.txt"))) {
     /* "landscape" is a banned word in copy and a CSS media feature in code. */
     .replace(/orientation\s*:\s*landscape/gi, "orientation:wide");
   const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[\s;{}(,])\/\/[^\n]*/g, "$1");
-  const owners = existsSync(join(root, "assets")) ? readdirSync(join(root, "assets")).filter(f => /^(owners|track|claim|transfer|dashboard|registry)\.js$/.test(f)).map(f => "assets/" + f) : [];
-  for (const f of [...pages, ...owners, "llms.txt"]) {
+  const owners = existsSync(join(root, "assets")) ? readdirSync(join(root, "assets")).filter(f => /^(owners|track|claim|transfer|dashboard|registry|owners-route|claim-forward)\.js$/.test(f)).map(f => "assets/" + f) : [];
+  const subpages = existsSync(join(root, "claim")) ? readdirSync(join(root, "claim")).filter(f => f.endsWith(".html")).map(f => "claim/" + f) : [];
+  for (const f of [...pages, ...subpages, ...owners, "llms.txt"]) {
     if (!existsSync(join(root, f))) continue;
     const t = f.endsWith(".txt") ? readFileSync(join(root, f), "utf8") : f.endsWith(".js") ? stripJs(readFileSync(join(root, f), "utf8")) : strip(readFileSync(join(root, f), "utf8"));
     const lines = t.split("\n");

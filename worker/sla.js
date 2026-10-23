@@ -18,6 +18,7 @@ import { registryOn } from "./registry.js";
 import { adminEmail } from "./auth.js";
 import { queueLetter, flushOutbox } from "./outbox.js";
 import { mintClaim, nextOwnerNo, seriesSize, setting, iso } from "./orders.js";
+import { expireTransfers } from "./transfers.js";
 
 const H = 3600000, D = 86400000;
 
@@ -87,6 +88,17 @@ export async function sweeps(env, deps) {
       if (q) queued.push(q);
     }
   }
+  /* A warranty claim is promised an answer in forty eight hours: the owner
+     of the shop is told once at thirty six, with twelve to spare. */
+  const stale = (await env.DB.prepare(
+    "SELECT r.id, r.series, p.number FROM requests r JOIN pieces p ON p.id = r.piece_id WHERE r.type = 'warranty' AND r.status IN ('open','info_needed') AND r.created_at <= ?1"
+  ).bind(iso(Date.now() - 36 * H)).all()).results || [];
+  for (const r of stale) {
+    const q = await queueLetter(env, { template: "requestLate", to: adminEmail(env), series: r.series, dedupe: `reqlate:${r.id}`, vars: { n: r.number, controlUrl } });
+    if (q) queued.push(q);
+  }
+  /* Transfer codes that went unused for seven days. */
+  await expireTransfers(env);
   if (queued.length) await deps.kickNow(queued);
   return { ok: true, queued: queued.length };
 }

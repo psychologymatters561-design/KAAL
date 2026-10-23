@@ -39,6 +39,7 @@
         <p class="center"><button class="linkbtn" id="back" type="button">Use another email</button></p>
       </form>
       <p class="hint center">Not registered yet? Open the link in the email we sent when your piece was delivered.</p>
+      <p class="center"><button class="linkbtn" id="lost" type="button">Cannot sign in, or lost your email?</button></p>
     </section>
 
     <!-- The dossier -->
@@ -46,6 +47,9 @@
       <div class="tabs noprint" id="tabs" role="group" aria-label="Your pieces"></div>
       <div id="dossier"></div>
     </section>
+
+    <!-- One sheet, filled by the page: a claim, a transfer, a report -->
+    <dialog class="sheet noprint" id="dlg" aria-labelledby="dlgT"><h2 id="dlgT"></h2><div id="dlgB"></div></dialog>
 
     <!-- The certificate and the receipt, as paper -->
     <section id="paper" hidden></section>

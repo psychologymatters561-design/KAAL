@@ -57,3 +57,6 @@ jobs:
 
       - name: Test owners (registering, signing in, the dossier, the public registry)
         run: node --no-warnings tools/test-owners.mjs
+
+      - name: Test what owners ask for (claims, uploads, stolen, transfers, recovery, Approvals)
+        run: node --no-warnings tools/test-requests.mjs

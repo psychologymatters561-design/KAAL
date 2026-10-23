@@ -25,6 +25,7 @@ import { registryOn, audit, normPhone, SERIES } from "./registry.js";
 import { startLogin, verifyLogin, issueCode, spendCode, openSession, sessionOf, endSession, codeEmail, adminEmail, normEmail, validEmail, sha256, authOn } from "./auth.js";
 import { queueLetter } from "./outbox.js";
 import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo } from "./orders.js";
+import { ownerActions } from "./owner-actions.js";
 
 const CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_BODY = 20 * 1024;
@@ -94,6 +95,12 @@ export async function ownersRoute(request, env, ctx, path, deps) {
     if (method === "POST" && path === "/o/claim/request-link") return requestLink(env, deps, J, await readBody(request) || {});
     if (method === "POST" && path === "/o/claim/email-code") return emailCode(env, deps, J, await readBody(request) || {});
     if (method === "POST" && path === "/o/claim/register") return register(env, deps, J, request, await readBody(request) || {});
+
+    /* ── Claims, uploads, transfers, recovery ── */
+    if (path === "/o/requests" || path === "/o/upload" || path === "/o/recovery" || path.startsWith("/o/transfer/")) {
+      const r = await ownerActions(request, env, ctx, path, deps, J, readBody);
+      if (r) return r;
+    }
 
     /* ── The owner's own dossier ── */
     if (path === "/o/me" || path.startsWith("/o/me/")) {
@@ -258,9 +265,13 @@ async function dossier(env, owner) {
       receipt: h.order_row ? { amountPaise: h.amount_paise, currency: h.currency, paidAt: h.paid_at, reference: /^manual:/.test(h.razorpay_payment_id || "") ? "Recorded by KAAL" : h.razorpay_payment_id, name: h.buyer_name || owner.name } : null
     });
   }
+  /* A transfer to this owner that is waiting for the shop's approval. */
+  const incoming = (await env.DB.prepare(
+    "SELECT t.id, t.status, p.number FROM transfer_requests t JOIN pieces p ON p.id = t.piece_id WHERE t.to_owner = ?1 AND t.status = 'accepted' ORDER BY t.id DESC"
+  ).bind(owner.id).all()).results || [];
   return {
     ok: true, now: Date.now(),
     owner: { name: owner.name, email: owner.email, phone: owner.phone, city: owner.city, state: owner.state, showCity: !!owner.show_city_publicly },
-    pieces, guide: (await setting(env, "guide_video_url", "")) || null
+    pieces, incoming: incoming.map(t => ({ n: t.number, status: t.status })), guide: (await setting(env, "guide_video_url", "")) || null
   };
 }

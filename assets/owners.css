@@ -221,3 +221,5 @@ dialog.sheet h2{margin-top:0}
 .legend{list-style:none;margin:0 0 2rem;padding:0;display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;justify-content:center;font-size:.8125rem;color:var(--faint)}
 .legend i{display:inline-block;width:.7rem;height:.7rem;border:1px solid var(--line-2);border-radius:2px;margin-right:.45rem;vertical-align:-.05em}
 .legend .s i{background:var(--line)} .legend .h i{border-color:var(--gold)} .legend .x i{border-color:var(--bad)}
+
+.big-code{font-size:clamp(1.8rem,1.4rem + 2vw,2.4rem);letter-spacing:.12em;margin:1rem 0;padding:1rem;border:1px solid var(--gold);border-radius:4px;text-align:center;user-select:all}

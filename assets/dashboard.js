@@ -84,13 +84,19 @@
     box.appendChild(hero);
 
     /* What is open */
+    d.incoming.forEach(function (t) { box.appendChild(banner("warn", "A transfer to you is waiting.", " No. " + K.pad(t.n) + " will be recorded in your name once we have approved it. We will email you.")); });
     if (p.stolen) box.appendChild(banner("bad", "Reported stolen.", " This piece is flagged in the registry and cannot be transferred until it is cleared. Write to connect@thekaal.co the moment it is found."));
     p.requests.forEach(function (r) {
       var label = { warranty: "Your warranty claim", stolen: "Your report", contact: "Your contact change", service: "Your service request" }[r.type] || "Your request";
       var st = { open: "is with us. We answer within 48 hours.", info_needed: "needs a little more from you. Check your email.", approved: "has been approved." }[r.status] || "is open.";
       box.appendChild(banner("warn", label, " " + st));
     });
-    if (p.transfer) box.appendChild(banner("warn", "A transfer is open.", p.transfer.status === "accepted" ? " The new owner has accepted. It is waiting for our approval." : " Valid until " + K.day(p.transfer.expires_at) + "."));
+    if (p.transfer) {
+      var tb = banner("warn", "A transfer is open.", p.transfer.status === "accepted" ? " The new owner has accepted. It is waiting for our approval." : " Its code is valid until " + K.day(p.transfer.expires_at) + ". Until someone accepts it, No. " + K.pad(p.n) + " is still yours.");
+      var cx = K.el("p"); var cb = K.el("button", "linkbtn", "Cancel the transfer"); cb.type = "button";
+      cb.addEventListener("click", function () { cb.disabled = true; K.api("POST", "/o/transfer/cancel", { piece: p.id }).then(function () { load(); }); });
+      cx.appendChild(cb); tb.appendChild(cx); box.appendChild(tb);
+    }
 
     /* The warranty */
     var w = p.warranty;
@@ -126,6 +132,13 @@
     /* Actions */
     var act = K.el("div", "card noprint"); act.appendChild(K.el("h2", "", "Yours to do"));
     var g = K.el("div", "actions");
+    var expired = p.warranty && serverNow() >= p.warranty.endMs;
+    if (!p.stolen) {
+      g.appendChild(action(expired ? "Request paid service" : "Raise a warranty claim", function () { claimForm(p, expired ? "service" : "warranty"); }));
+      if (!p.transfer) g.appendChild(action("Transfer ownership", function () { transferForm(p); }));
+    }
+    if (!p.stolen) g.appendChild(action("Report stolen", function () { reportForm(p, "stolen"); }));
+    g.appendChild(action("Request a contact-details change", function () { reportForm(p, "contact"); }));
     g.appendChild(action("Download receipt", function () { paper("receipt", p); }));
     g.appendChild(action("Printable certificate", function () { paper("certificate", p); }));
     if (d.guide && /^https:\/\//.test(d.guide)) { var gl = K.el("a", "btn ghost", "Setting guide video"); gl.href = d.guide; gl.target = "_blank"; gl.rel = "noopener noreferrer"; g.appendChild(gl); }
@@ -184,6 +197,113 @@
     tick();
     return card;
   }
+
+  /* ── The one sheet: a claim, a transfer, a report ── */
+  var DLG = $("dlg");
+  function sheet(title, build) {
+    $("dlgT").textContent = title; var b = K.clear($("dlgB")); build(b);
+    var x = K.el("p", "center"); var c = K.el("button", "linkbtn", "Close"); c.type = "button"; c.addEventListener("click", function () { DLG.close(); });
+    x.appendChild(c); b.appendChild(x);
+    if (typeof DLG.showModal === "function") DLG.showModal(); else DLG.setAttribute("open", "");
+  }
+  function field(b, id, label, el) { var l = K.el("label", "", label); l.setAttribute("for", id); el.id = id; b.appendChild(l); b.appendChild(el); return el; }
+  function form(b) { var f = K.el("form"); f.noValidate = true; b.appendChild(f); return f; }
+  function msg(f) { var m = K.el("p", "err"); m.setAttribute("role", "alert"); f.appendChild(m); return m; }
+  function sayDone(b, text) { K.clear(b); b.appendChild(K.el("p", "okmsg", text)); var x = K.el("p", "center"); var c = K.el("button", "btn", "Done"); c.type = "button"; c.addEventListener("click", function () { DLG.close(); load(); }); x.appendChild(c); b.appendChild(x); }
+
+  /* A warranty claim (or, after it has concluded, a paid service): words and up to four photographs or videos. */
+  function claimForm(p, type) {
+    var claim = type === "warranty";
+    sheet(claim ? "Raise a warranty claim" : "Request paid service", function (b) {
+      b.appendChild(K.el("p", "muted", claim ? "Tell us what No. " + K.pad(p.n) + " is doing. We answer within 48 hours, and the warranty covers the movement." : "Your warranty has concluded, so this is a paid service. Tell us what is wrong and we will quote it before anything is done."));
+      var f = form(b);
+      var ta = field(f, "cd", "What is it doing?", K.el("textarea")); ta.maxLength = 2000;
+      var fi = field(f, "cf", "Photographs or a short video (optional, up to four)", K.el("input")); fi.type = "file"; fi.multiple = true; fi.accept = "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm";
+      f.appendChild(K.el("p", "hint", "Only we can see them. Photographs up to 8 MB, videos up to 24 MB."));
+      var m = msg(f), go = K.el("button", "btn block", claim ? "Send the claim" : "Send the request"); go.type = "submit"; f.appendChild(go);
+      f.addEventListener("submit", function (e) {
+        e.preventDefault(); m.textContent = "";
+        var files = Array.prototype.slice.call(fi.files || [], 0, 4);
+        if (ta.value.trim().length < 5) { m.textContent = "Say a little about it, in a sentence or two."; ta.focus(); return; }
+        go.disabled = true; var keys = [], i = 0;
+        (function next() {
+          if (i >= files.length) {
+            K.api("POST", "/o/requests", { piece: p.id, type: type, description: ta.value, media: keys }).then(function (r) {
+              if (r.ok) { sayDone($("dlgB"), claim ? "Your claim is with us. A confirmation is in your email, and we answer within 48 hours." : "Your request is with us. We will write to you with a quote."); return; }
+              go.disabled = false; m.textContent = r.why || K.why[r.reason] || "That did not work. Please try again.";
+            });
+            return;
+          }
+          m.textContent = "Adding file " + (i + 1) + " of " + files.length + "…";
+          K.api("POST", "/o/upload?p=" + encodeURIComponent(p.id), files[i]).then(function (r) {
+            if (!r.ok) { go.disabled = false; m.textContent = r.why || K.why[r.reason] || "That file did not go. Please try another."; return; }
+            keys.push(r.key); i++; next();
+          });
+        })();
+      });
+    });
+  }
+
+  /* A stolen report or a contact-details change: words only. */
+  function reportForm(p, type) {
+    var stolen = type === "stolen";
+    sheet(stolen ? "Report No. " + K.pad(p.n) + " stolen" : "Change your details", function (b) {
+      b.appendChild(K.el("p", "muted", stolen ? "We will check what you tell us and confirm. Once confirmed, No. " + K.pad(p.n) + " is shown as stolen in the public registry and cannot be transferred until it is cleared. We will email you." : "Tell us what should change: your name, phone, email or city. We make the change by hand and will write to you if we need anything."));
+      var f = form(b);
+      var ta = field(f, "rd", stolen ? "What happened, and when?" : "What should change?", K.el("textarea")); ta.maxLength = 2000;
+      var m = msg(f), go = K.el("button", "btn block", stolen ? "Send the report" : "Send the request"); go.type = "submit"; f.appendChild(go);
+      f.addEventListener("submit", function (e) {
+        e.preventDefault(); m.textContent = ""; go.disabled = true;
+        K.api("POST", "/o/requests", { piece: p.id, type: type, description: ta.value }).then(function (r) {
+          if (r.ok) { sayDone($("dlgB"), stolen ? "Your report is with us. We will confirm by email." : "Thank you. We will make the change and write to you."); return; }
+          go.disabled = false; m.textContent = r.why || K.why[r.reason] || "That did not work. Please try again.";
+        });
+      });
+    });
+  }
+
+  /* Passing it on: a code, shown once. */
+  function transferForm(p) {
+    sheet("Transfer No. " + K.pad(p.n), function (b) {
+      b.appendChild(K.el("p", "muted", "You will be shown a code, once. Give it to the new owner with the watch and its letter. It works for seven days, and until they accept it No. " + K.pad(p.n) + " is still yours. Its warranty stays exactly as it is."));
+      var f = form(b);
+      var em = field(f, "te", "Their email (optional, so we can invite them)", K.el("input")); em.type = "email"; em.autocomplete = "off";
+      var m = msg(f), go = K.el("button", "btn block", "Start the transfer"); go.type = "submit"; f.appendChild(go);
+      f.addEventListener("submit", function (e) {
+        e.preventDefault(); m.textContent = ""; go.disabled = true;
+        K.api("POST", "/o/transfer/start", { piece: p.id, buyerEmail: em.value.trim() }).then(function (r) {
+          if (!r.ok) { go.disabled = false; m.textContent = r.why || K.why[r.reason] || "That did not work. Please try again."; return; }
+          var body = K.clear($("dlgB"));
+          body.appendChild(K.el("p", "muted", "Here is the code. This is the only time we show it."));
+          body.appendChild(K.el("p", "serif center big-code", r.code));
+          var cp = K.el("button", "btn ghost block", "Copy the code"); cp.type = "button";
+          cp.addEventListener("click", function () { try { navigator.clipboard.writeText(r.code); cp.textContent = "Copied"; } catch (x) { cp.textContent = "Select it and copy it by hand"; } });
+          body.appendChild(cp);
+          body.appendChild(K.el("p", "hint", "Valid until " + K.day(r.expiresAt) + ". The new owner enters it at thekaal.co/claim/transfer."));
+          var x = K.el("p", "center"); var c = K.el("button", "btn", "Done"); c.type = "button"; c.addEventListener("click", function () { DLG.close(); load(); }); x.appendChild(c); body.appendChild(x);
+        });
+      });
+    });
+  }
+
+  /* An owner who cannot sign in at all: a request for us to verify them by hand. */
+  $("lost").addEventListener("click", function () {
+    sheet("Cannot sign in?", function (b) {
+      b.appendChild(K.el("p", "muted", "If you can no longer open the email you registered with, we will check it by hand against the order, a photograph of the caseback and the letter that came with your watch. Tell us the number and an email we can reach you on."));
+      var f = form(b);
+      var n = field(f, "rn", "The number of your piece", K.el("input")); n.type = "text"; n.inputMode = "numeric"; n.maxLength = 2;
+      var e = field(f, "re", "An email we can reach you on", K.el("input")); e.type = "email";
+      var t = field(f, "rt", "Anything that helps (optional)", K.el("textarea")); t.maxLength = 1000;
+      var m = msg(f), go = K.el("button", "btn block", "Ask us to verify me"); go.type = "submit"; f.appendChild(go);
+      f.addEventListener("submit", function (ev) {
+        ev.preventDefault(); m.textContent = ""; go.disabled = true;
+        K.api("POST", "/o/recovery", { number: n.value, email: e.value.trim(), description: t.value }, { token: false }).then(function (r) {
+          if (r.ok) { K.clear($("dlgB")).appendChild(K.el("p", "okmsg", "Thank you. We will write to that address, and may ask for a photograph of the caseback and the letter.")); return; }
+          go.disabled = false; m.textContent = r.why || K.why[r.reason] || "That did not work. Please try again.";
+        });
+      });
+    });
+  });
 
   /* ── The certificate and the receipt ── */
   function paper(kind, p) {

@@ -9,6 +9,7 @@ import w from "../worker/kaal-sold-sync.js";
 import * as R from "../worker/registry.js";
 import { totpAt, unbase32 } from "../worker/auth.js";
 import { LETTERS } from "../worker/letters.js";
+import { Script } from "node:vm";
 import { d1, kv, ctx } from "./d1-shim.mjs";
 
 let failed = 0;
@@ -114,6 +115,8 @@ let secret;
     "page: served with a nonce CSP that runs only its own script");
   ok(!r.text.includes("${") && (r.text.match(/<script/g) || []).length === 1, "page: no template left unfilled, one script");
   ok(!/—/.test(r.text), "page: no em dashes");
+  let parses = true; try { new Script(/<script nonce="[^"]+">([\s\S]*?)<\/script>/.exec(r.text)[1]); } catch (e) { parses = false; console.log(String(e)); }
+  ok(parses, "page: the script it carries parses (the template cannot hide a syntax error)");
 }
 
 /* ── 4. The orders pipeline ── */

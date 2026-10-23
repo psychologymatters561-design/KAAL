@@ -204,7 +204,8 @@ const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60,
   "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5,
   "/track/data": 60, "/track/lookup": 20, "/track/register": 10, "/track/email-link": 5, "/ship/shiprocket": 600,
-  "/registry/data": 120, "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120 };
+  "/registry/data": 120, "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120,
+  "/o/requests": 20, "/o/upload": 20, "/o/transfer/start": 10, "/o/transfer/cancel": 10, "/o/transfer/lookup": 15, "/o/transfer/email-code": 5, "/o/transfer/accept": 10, "/o/recovery": 5 };
 const RATE = new Map();
 function overRate(request, route, max) {
   const ip = request.headers.get("cf-connecting-ip") || "";

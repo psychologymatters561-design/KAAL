@@ -333,10 +333,33 @@ function ownerSheet(id){
   });
 }
 
+var TYPENAME = { warranty:"Warranty claim", stolen:"Stolen report", contact:"Contact change", service:"Paid service", recovery:"Recovery" };
 RENDER.approvals = function(j){
-  var r = j.requests.map(function(x){ return '<div class="card"><span class="pill warn">' + esc(x.type) + "</span> " + esc(x.piece_id) + ' <span class="muted small">' + esc(when(x.created_at)) + '</span><p class="small">' + esc(x.description) + "</p></div>"; }).join("");
-  var t = j.transfers.map(function(x){ return '<div class="card"><span class="pill">transfer</span> ' + esc(x.piece_id) + " · " + esc(x.status) + "</div>"; }).join("");
-  sec("approvals").innerHTML = "<h1>Approvals</h1>" + (r + t || '<div class="card muted">Nothing waiting.</div>') + '<p class="muted small">Warranty claims, transfers, stolen reports and recovery requests are decided here once those flows are live (Phase 6).</p>';
+  function mediaLinks(x){ return (x.media || []).map(function(k, i){ return '<a class="btn ghost small" target="_blank" rel="noopener" href="/control/api/media?k=' + encodeURIComponent(k) + '">File ' + (i + 1) + "</a>"; }).join(" "); }
+  function btn(act, id, doIt, label, cls){ return '<button class="btn ' + (cls || "ghost") + '" data-act="decide" data-kind="' + act + '" data-id="' + id + '" data-do="' + doIt + '">' + label + "</button>"; }
+  function actions(x){
+    var id = x.id;
+    if(x.type === "warranty") return x.status === "approved" ? btn("req", id, "serviced", "Mark serviced", "go") : btn("req", id, "approve", "Approve", "go") + btn("req", id, "info", "Ask for more") + btn("req", id, "decline", "Decline", "warn");
+    if(x.type === "stolen") return x.status === "approved" ? btn("req", id, "clear", "Clear the flag") : btn("req", id, "confirm", "Confirm: flag it", "go") + btn("req", id, "dismiss", "Dismiss");
+    if(x.type === "recovery") return btn("req", id, "verify", "Verify: move their sign-in", "go") + btn("req", id, "decline", "Decline", "warn");
+    if(x.type === "contact") return btn("req", id, "done", "Done (changed in Owners)", "go");
+    return btn("req", id, "close", "Close");
+  }
+  var r = j.requests.map(function(x){
+    return '<div class="card"><div class="row"><b class="num">No. ' + pad(x.number) + '</b><span class="pill warn">' + esc(TYPENAME[x.type] || x.type) + '</span><span class="pill' + (x.status === "approved" ? " ok" : "") + '">' + esc(x.status.replace("_", " ")) + '</span><span class="sp"></span><span class="muted small">' + esc(when(x.created_at)) + "</span></div>" +
+      '<div class="small">' + esc(x.name || "") + ' <span class="muted">' + esc(x.email || "") + " " + esc(x.phone || "") + "</span></div>" +
+      '<p class="small" style="white-space:pre-wrap">' + esc(x.description || "") + "</p>" +
+      (x.media.length ? '<div class="row">' + mediaLinks(x) + "</div>" : "") +
+      '<div class="row" style="margin-top:10px">' + actions(x) + "</div></div>";
+  }).join("");
+  var t = j.transfers.map(function(x){
+    return '<div class="card"><div class="row"><b class="num">No. ' + pad(x.number) + '</b><span class="pill warn">Transfer</span><span class="pill">' + esc(x.status === "accepted" ? "accepted, waiting for you" : "code out, not accepted yet") + '</span><span class="sp"></span><span class="muted small">' + esc(when(x.created_at)) + "</span></div>" +
+      '<div class="small">From ' + esc(x.from_name || "") + ' <span class="muted">' + esc(x.from_email) + "</span></div>" +
+      (x.to_email ? '<div class="small">To ' + esc(x.to_name || "") + ' <span class="muted">' + esc(x.to_email) + "</span></div>" : '<div class="small muted">Nobody has accepted yet. The code expires ' + esc(when(x.expires_at)) + ".</div>") +
+      (x.status === "accepted" ? '<div class="row" style="margin-top:10px">' + btn("tr", x.id, "approve", "Approve", "go") + btn("tr", x.id, "reject", "Reject", "warn") + "</div>" : "") + "</div>";
+  }).join("");
+  sec("approvals").innerHTML = "<h1>Approvals</h1>" + (r + t || '<div class="card muted">Nothing waiting.</div>') +
+    '<p class="muted small">A claim is promised an answer within 48 hours. Every decision emails the owner in the brief\'s words and is written to the audit log.</p>';
 };
 
 RENDER.emails = function(j){
@@ -370,6 +393,34 @@ RENDER.audit = function(j){
 function sheet(title, html){ $("sheetT").textContent = title; $("sheetB").innerHTML = html; $("sheet").hidden = false; var f = $("sheetB").querySelector("input,select,textarea,button"); if(f) f.focus(); }
 function closeSheet(){ $("sheet").hidden = true; $("sheetB").innerHTML = ""; }
 function frame(src){ sheet("Preview", '<iframe src="' + esc(src) + '" title="Email preview"></iframe><p><a href="' + esc(src) + '&format=text" target="_blank" rel="noopener">The plain-text version</a></p>'); }
+
+/* ── Approvals: each decision's sheet ── */
+function decideSheet(kind, id, doIt){
+  function go(label, cls){ return '<p class="err" id="sheetErr"></p><button class="btn ' + (cls || "go") + '" data-act="decideGo" data-kind="' + kind + '" data-id="' + id + '" data-do="' + doIt + '">' + label + "</button>"; }
+  function area(fid, label, hint){ return '<label for="d_' + fid + '">' + label + '</label><textarea id="d_' + fid + '"></textarea>' + (hint ? '<p class="muted small">' + hint + "</p>" : ""); }
+  var x = (DATA.approvals && DATA.approvals.requests || []).filter(function(q){ return q.id === id; })[0];
+  if(kind === "tr"){
+    sheet(doIt === "approve" ? "Approve this transfer" : "Reject this transfer", '<p class="muted small">' + (doIt === "approve" ? "The old ownership closes today and the new owner becomes the next Owner. The warranty does not move. Both are emailed." : "It stays with its current owner. Both are emailed.") + "</p>" +
+      '<label for="d_note">A note for the log (optional)</label><input id="d_note">' + go(doIt === "approve" ? "Approve the transfer" : "Reject the transfer", doIt === "approve" ? "go" : "warn"));
+    return;
+  }
+  if(doIt === "approve") sheet("Approve the claim", area("pickup", "Pickup details, emailed to the owner", "Who collects it and when. For example: A courier collects it on 28 October between 10 and 1. Keep it in its box.") + go("Approve and email them"));
+  else if(doIt === "info") sheet("Ask for more", area("message", "What you need from them", "Emailed as it is written.") + go("Send the question"));
+  else if(doIt === "decline") sheet("Decline", area("reason", "The reason, said kindly and plainly", "They are sent it, with the offer of a paid service.") + go("Decline and email them", "warn"));
+  else if(doIt === "serviced") sheet("Mark serviced", '<label for="d_work_done">What was done (private)</label><input id="d_work_done" placeholder="Replaced the movement, serial 4471">' +
+    '<label for="d_public_line">A line for the public registry (optional)</label><input id="d_public_line" placeholder="Movement replaced under warranty"><label for="d_date">Date</label><input id="d_date" type="date" value="' + esc(DATA.overview ? DATA.overview.today : "") + '">' +
+    '<label for="d_courier">Courier back to the owner (optional)</label><input id="d_courier"><label for="d_tracking">Tracking number (optional)</label><input id="d_tracking">' + go("Save, and email that it is on its way back"));
+  else if(doIt === "confirm") sheet("Confirm it is stolen", '<p class="muted small">' + (x ? "No. " + pad(x.number) : "The piece") + ' is shown as stolen in the public registry, open transfers are cancelled, and the owner is emailed. You can clear it later.</p>' + go("Confirm and flag it", "warn"));
+  else if(doIt === "dismiss") sheet("Dismiss the report", '<p class="muted small">Nothing changes on the piece, and nobody is emailed. Write to them yourself if you want to.</p>' + go("Dismiss", "warn"));
+  else if(doIt === "clear") sheet("Clear the flag", '<p class="muted small">The piece reads as sold again, transfers are allowed, and the owner is emailed.</p>' + go("Clear it"));
+  else if(doIt === "verify"){
+    var guess = x && /^Contact: (\S+)/.exec(x.description || ""); 
+    sheet("Verify and move their sign-in", '<p class="muted small">Check the order record, a caseback photograph and the letter first. Then their sign-in moves to the address below, every earlier sign-in closes, and the new address is emailed.</p>' +
+      '<label for="d_email">The address their sign-in moves to</label><input id="d_email" type="email" value="' + esc(guess ? guess[1] : "") + '">' + go("Verify and move it"));
+  }
+  else if(doIt === "done" || doIt === "close") sheet("Close this", '<label for="d_note">A note (optional)</label><input id="d_note">' + go("Close it"));
+  else sheet("Not available", "<p>Nothing to do here.</p>");
+}
 
 /* ── Every tap ── */
 document.addEventListener("click", function(e){
@@ -432,6 +483,14 @@ document.addEventListener("click", function(e){
   else if(a === "retry") api("POST", "/control/api/emails/" + id + "/retry", {}).then(function(j){ say(j.ok ? "Queued again." : "Not queued.", !j.ok); setTimeout(function(){ load("emails"); }, 1500); });
   else if(a === "saveSettings") api("POST", "/control/api/settings", { settings:{ stage_emails: $("s1").checked ? "1" : "0", transfers_need_approval: $("s2").checked ? "1" : "0", sender_name: $("s3").value, warranty_terms: $("s4").value, guide_video_url: $("s7").value.trim() },
     series:{ code: el.getAttribute("data-code"), return_days: $("s5").value, warranty_months: $("s6").value } }).then(function(j){ if(j.ok){ say(j.changed.length ? "Saved." : "Nothing changed."); load("settings"); } else $("setErr").textContent = j.why || "Not saved."; });
+  else if(a === "decide") decideSheet(el.getAttribute("data-kind"), id, el.getAttribute("data-do"));
+  else if(a === "decideGo"){
+    var body = { action: el.getAttribute("data-do") };
+    ["pickup","message","reason","work_done","public_line","date","courier","tracking","email","note"].forEach(function(f){ var n = $("d_" + f); if(n) body[f] = n.value; });
+    api("POST", "/control/api/" + (el.getAttribute("data-kind") === "tr" ? "transfers" : "requests") + "/" + id + "/decide", body).then(function(j){
+      if(j.ok){ closeSheet(); say("Done. The owner has been emailed where it applies."); load("approvals"); } else $("sheetErr").textContent = j.why || "Not changed.";
+    });
+  }
   else if(a === "block") api("POST", "/control/api/blocked", { email:$("b1").value, phone:$("b2").value, reason:$("b3").value }).then(function(j){ if(j.ok){ say("Blocked."); load("settings"); } else $("blkErr").textContent = j.why || "Not saved."; });
   else if(a === "unblock"){ if(!confirm("Remove this block?")) return; api("POST", "/control/api/blocked", { remove:id }).then(function(){ load("settings"); }); }
 });

@@ -21,6 +21,7 @@ import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, 
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
 import { lateOrders } from "./sla.js";
+import { approvalsList, decideRequest, decideTransfer, mediaOf } from "./approvals.js";
 import { registryOn, normPhone, audit, SERIES } from "./registry.js";
 
 const PIECE_STATUSES = ["available", "held", "placed", "delivered", "registered", "returned", "reported_stolen", "retired", "withheld"];
@@ -123,7 +124,18 @@ export async function control(request, env, ctx, path, T) {
     m = /^\/owners\/(\d+)(\/revoke)?$/.exec(route);
     if (method === "GET" && m && !m[2]) return out(await ownerDetail(env, +m[1]));
     if (method === "POST" && m) return m[2] ? revokeOwner(env, actor, +m[1]) : ownerUpdate(env, actor, +m[1], await body(request) || {});
-    if (method === "GET" && route === "/approvals") return out(await approvals(env));
+    if (method === "GET" && route === "/approvals") return out(await approvalsList(env));
+    m = /^\/(requests|transfers)\/(\d+)\/decide$/.exec(route);
+    if (method === "POST" && m) {
+      const deps = { siteUrl: T.siteUrl, workerUrl: T.workerUrl, kick: (ids) => kick(env, ctx, T, ids) };
+      const r = m[1] === "requests" ? await decideRequest(env, deps, actor, +m[2], await body(request) || {}) : await decideTransfer(env, deps, actor, +m[2], await body(request) || {});
+      return out(r.body, r.http);
+    }
+    if (method === "GET" && route === "/media") {
+      const f = await mediaOf(env, new URL(request.url).searchParams.get("k"));
+      if (!f) return out({ ok: false, reason: "not-found" }, 404);
+      return new Response(f.body, { headers: headers({ "Content-Type": f.type, "Content-Disposition": "inline", "Content-Security-Policy": "default-src 'none'; media-src 'self'; img-src 'self'" }) });
+    }
     if (method === "GET" && route === "/emails") return out(await emails(env));
     m = /^\/emails\/(\d+)\/retry$/.exec(route);
     if (method === "POST" && m) { const ok = await retryLetter(env, +m[1]); if (ok) kick(env, ctx, T, [+m[1]]); await audit(env, actor, "email.retry", "email:" + m[1], null, { ok }); return out({ ok }); }
@@ -459,13 +471,6 @@ async function revokeOwner(env, actor, id) {
   const n = await revokeAll(env, id);
   await audit(env, actor, "owner.revoke", "owner:" + id, null, { sessions: n });
   return out({ ok: true, revoked: n });
-}
-
-/* ══ Approvals (decisions arrive with Phase 6's flows) ══ */
-async function approvals(env) {
-  const reqs = (await env.DB.prepare("SELECT id, type, piece_id, owner_id, status, created_at, substr(COALESCE(description,''), 1, 200) AS description FROM requests WHERE status IN ('open','info_needed') ORDER BY id").all()).results || [];
-  const transfers = (await env.DB.prepare("SELECT id, piece_id, from_owner, to_owner, status, created_at FROM transfer_requests WHERE status IN ('open','accepted') ORDER BY id").all()).results || [];
-  return { ok: true, requests: reqs, transfers };
 }
 
 /* ══ Emails ══ */

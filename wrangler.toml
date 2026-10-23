@@ -178,6 +178,14 @@ crons = ["*/30 * * * *"]
 [observability]
 enabled = true
 
+# The registry's database (docs/registry-live.md), bound by setup-worker
+# in mode live. REGISTRY in [vars] above is its off switch.
+[[d1_databases]]
+binding = "DB"
+database_name = "kaal-registry"
+database_id = "a5ef0458-cc1b-46c4-b739-298c957fa50e"
+migrations_dir = "migrations"
+
 # ══════════════════════════════════════════════════════════════════════
 # STAGING (the registry build, docs/phase-0-audit.md). A second worker,
 # kaal-edition-staging, with Razorpay TEST keys, its own database, store

@@ -378,6 +378,14 @@ async function deploy() {
   step("2. Deploy the worker");
   if (mode === "check") { todo("skipped in --check"); return; }
   say("  (wrangler is fetched by npx the first time; this takes a minute)");
+  /* New code may read a column only a newer migration adds, so a code-only
+     deploy brings the schema up first whenever the registry is bound. Mode
+     live has just done this; here it would only say "No migrations". */
+  if (mode === "deploy" && /^\[\[d1_databases\]\]\s*\nbinding\s*=\s*"DB"\s*\ndatabase_name\s*=\s*"kaal-registry"/m.test(readFileSync(TOML, "utf8"))) {
+    const m = wrangler(["d1", "migrations", "apply", "DB", "--remote"]);
+    if (!m.ok) stop(`Migrations failed; the worker was not deployed:\n${m.out.split("\n").slice(-20).join("\n")}`);
+    good(/No migrations to apply/i.test(m.out) ? "schema already up to date" : "schema brought up to date (migrations/)");
+  }
   const r = wrangler(["deploy"]);
   if (!r.ok) stop(`Deploy failed:\n${r.out.split("\n").slice(-25).join("\n")}`);
   const url = /https:\/\/\S+workers\.dev/.exec(r.out);

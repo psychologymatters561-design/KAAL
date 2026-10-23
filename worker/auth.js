@@ -119,18 +119,20 @@ export async function spendCode(env, email, code) {
 }
 
 /* A session for an owner: the token is shown once, only its hash is kept. */
-export async function openSession(env, owner, userAgent) {
+export async function openSession(env, owner, userAgent, scope) {
   const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  const life = owner.role === "admin" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
-  await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent) VALUES (?1, ?2, ?3, ?4)")
-    .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200)).run();
+  const sc = scope === "owner" ? "owner" : "control";
+  /* The control room's twelve hours are for the admin there; on the owners' pages even the admin's session is an owner's, thirty days. */
+  const life = owner.role === "admin" && sc === "control" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
+  await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent, scope) VALUES (?1, ?2, ?3, ?4, ?5)")
+    .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200), sc).run();
   return { token, maxAge: Math.floor(life / 1000) };
 }
 
 /* A code, and the sign-in it opens: an owner row exists (the admin's is
    made on first sign-in) and a session is opened. Returns
    { ok, token, owner, mfa } or { ok:false, reason }. */
-export async function verifyLogin(env, email, code, userAgent) {
+export async function verifyLogin(env, email, code, userAgent, scope) {
   const e = normEmail(email);
   const spent = await spendCode(env, e, code);
   if (!spent.ok) return spent;
@@ -144,7 +146,7 @@ export async function verifyLogin(env, email, code, userAgent) {
   }
   if (!owner) return { ok: false, reason: "unknown" };
 
-  const { token, maxAge } = await openSession(env, owner, userAgent);
+  const { token, maxAge } = await openSession(env, owner, userAgent, scope);
   return { ok: true, token, owner, maxAge, mfa: owner.role !== "admin" || !twoFactorOn(env) ? "none" : owner.totp_confirmed_at ? "needed" : "enroll" };
 }
 
@@ -160,10 +162,12 @@ export async function sessionOf(env, request, opts) {
     : new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]{40,60})`).exec(request.headers.get("Cookie") || "");
   if (!m) return null;
   const s = await env.DB.prepare(
-    `SELECT s.id AS sid, s.mfa_at, s.expires_at, s.totp_failures, o.* FROM sessions s JOIN owners o ON o.id = s.owner_id
+    `SELECT s.id AS sid, s.mfa_at, s.expires_at, s.totp_failures, s.scope, o.* FROM sessions s JOIN owners o ON o.id = s.owner_id
       WHERE s.id = ?1 AND s.revoked_at IS NULL AND s.expires_at > ?2 AND o.deleted_at IS NULL`
   ).bind(await sha256(m[1]), iso()).first();
   if (!s) return null;
+  /* A cookie opens the control room and a bearer token opens the owners' pages, and never the other way round. */
+  if (s.scope !== (opts && opts.bearer ? "owner" : "control")) return null;
   return { sid: s.sid, owner: s, admin: s.role === "admin", mfa: !!s.mfa_at || !twoFactorOn(env) };
 }
 

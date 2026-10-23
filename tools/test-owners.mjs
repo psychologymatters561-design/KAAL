@@ -173,8 +173,6 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   X.mails.length = 0;
   let a = await call(X, "POST", "/o/auth/start", { email: "stranger@example.com" });
   ok(a.j.ok && X.mails.length === 0, "sign-in: an address that is no owner's gets the same answer and no email");
-  a = await call(X, "POST", "/o/auth/start", { email: "admin@thekaal.co" });
-  ok(a.j.ok && X.mails.length === 0, "sign-in: the admin's address sends nothing here (the control room is the admin's door)");
   a = await call(X, "POST", "/o/auth/start", { email: "ASHA@example.com" });
   const c = (X.mails.find(m => m.to.includes("asha@example.com") && /sign-in code/.test(m.subject)) || {}).subject?.slice(0, 7).replace(" ", "");
   ok(a.j.ok && /^\d{6}$/.test(c), "sign-in: an owner is emailed a code");
@@ -207,8 +205,36 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   const me2 = await call(X, "GET", "/o/me", undefined, { Authorization: "Bearer " + a2.j.token });
   ok(me2.j.pieces.length === 1 && me2.j.pieces[0].n === 8 && !JSON.stringify(me2.j).includes("Asha") && !JSON.stringify(me2.j).includes("asha@"), "dossier: another owner sees only their own piece, and nothing of the first");
 
-  /* An admin's session is never an owner's. */
-  X.DB.raw.prepare("INSERT INTO owners (email, role) VALUES ('admin@thekaal.co', 'admin')").run();
+  /* The shop's own address may hold a piece too. It signs in here like any
+     owner, and each door's session opens only its own door. */
+  X.DB.raw.prepare("INSERT INTO owners (email, role) VALUES ('admin@thekaal.co', 'admin')").run();   /* the admin has signed in to the control room before */
+  const idA = (await seed(X, "pay_SIGN0001", 1, "admin@thekaal.co", { name: "Shop Owner" })).order.id;
+  await deliver(X, idA);
+  const rA = await call(X, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(X) }, good, { name: "Shop Owner", email: "admin@thekaal.co" }));
+  ok(rA.j.ok && rA.j.token && X.DB.raw.prepare("SELECT role FROM owners WHERE email = 'admin@thekaal.co'").get().role === "admin", "admin as owner: registering keeps the admin role");
+  X.mails.length = 0;
+  a = await call(X, "POST", "/o/auth/start", { email: "admin@thekaal.co" });
+  const cA = (X.mails.find(m => m.to.includes("admin@thekaal.co") && /sign-in code/.test(m.subject)) || {}).subject?.slice(0, 7).replace(" ", "");
+  ok(a.j.ok && /^\d{6}$/.test(cA), "admin as owner: the admin's address is emailed a code at the owners' door");
+  a = await call(X, "POST", "/o/auth/verify", { email: "admin@thekaal.co", code: cA });
+  ok(a.status === 200 && a.j.token, "admin as owner: the code gives an owner's token");
+  const ownerTok = a.j.token;
+  me = await call(X, "GET", "/o/me", undefined, { Authorization: "Bearer " + ownerTok });
+  ok(me.status === 200 && me.j.pieces.length === 1 && me.j.pieces[0].n === 1 && !JSON.stringify(me.j).includes("asha@"), "admin as owner: the dossier shows No. 01 and only No. 01");
+  const ctl = (pth, hdr) => w.fetch(new Request("https://w" + pth, { headers: Object.assign({ Origin: "https://w", "X-KAAL": "1" }, hdr) }), X.env, ctx());
+  let cr = await ctl("/control/api/overview", { Cookie: "kaal_s=" + ownerTok });
+  ok(cr.status === 401, "scope: an owner's token sent as the control room's cookie opens nothing");
+  cr = await ctl("/control/api/overview", { Cookie: "kaal_s=" + rA.j.token });
+  ok(cr.status === 401, "scope: the token registration hands out opens nothing in the control room either");
+  X.mails.length = 0;
+  await w.fetch(new Request("https://w/auth/start", { method: "POST", headers: { Origin: "https://w", "X-KAAL": "1", "Content-Type": "application/json", "cf-connecting-ip": "203.0.113.250" }, body: JSON.stringify({ email: "admin@thekaal.co" }) }), X.env, ctx());
+  const cC = (X.mails.find(m => /sign-in code/.test(m.subject)) || {}).subject?.slice(0, 7).replace(" ", "");
+  const vr = await w.fetch(new Request("https://w/auth/verify", { method: "POST", headers: { Origin: "https://w", "X-KAAL": "1", "Content-Type": "application/json", "cf-connecting-ip": "203.0.113.250" }, body: JSON.stringify({ email: "admin@thekaal.co", code: cC }) }), X.env, ctx());
+  const ctlTok = (/^kaal_s=([^;]+)/.exec(vr.headers.get("Set-Cookie") || "") || [])[1];
+  cr = await ctl("/control/api/overview", { Cookie: "kaal_s=" + ctlTok });
+  ok(vr.status === 200 && ctlTok && cr.status === 200, "scope: the control room's own sign-in still opens the control room");
+  me = await call(X, "GET", "/o/me", undefined, { Authorization: "Bearer " + ctlTok });
+  ok(me.status === 401, "scope: the control room's cookie sent as an owner's token opens nothing");
   await call(X, "POST", "/o/auth/logout", {}, bearer);
   me = await call(X, "GET", "/o/me", undefined, bearer);
   ok(me.status === 401, "sign-out: the token stops working");

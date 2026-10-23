@@ -67,7 +67,6 @@ export async function ownersRoute(request, env, ctx, path, deps) {
       const b = await readBody(request); if (!b) return J({ ok: false, reason: "too-big" }, 413);
       const e = normEmail(b.email);
       if (!validEmail(e)) return J({ ok: false, reason: "invalid" }, 400);
-      if (e === adminEmail(env)) return J({ ok: true });                               /* the same answer, and nothing sent */
       const r = await startLogin(env, e);
       if (r.send) {
         const m = codeEmail(r.send.code, deps.siteUrl(env));
@@ -78,10 +77,9 @@ export async function ownersRoute(request, env, ctx, path, deps) {
     if (method === "POST" && path === "/o/auth/verify") {
       const b = await readBody(request); if (!b) return J({ ok: false, reason: "too-big" }, 413);
       const e = normEmail(b.email);
-      if (e === adminEmail(env)) return J({ ok: false, reason: "admin", why: "This page is for owners. The control room is its own page." }, 401);
-      const r = await verifyLogin(env, e, b.code, request.headers.get("user-agent"));
+      /* Whoever holds the shop's own address may also hold a piece; the token this gives opens the owners' pages and nothing else. */
+      const r = await verifyLogin(env, e, b.code, request.headers.get("user-agent"), "owner");
       if (!r.ok) return J({ ok: false, reason: r.reason }, 401);
-      if (r.owner.role !== "owner") return J({ ok: false, reason: "admin" }, 401);
       return J({ ok: true, token: r.token, maxAge: r.maxAge });
     }
     if (method === "POST" && path === "/o/auth/logout") {
@@ -106,7 +104,6 @@ export async function ownersRoute(request, env, ctx, path, deps) {
     if (path === "/o/me" || path.startsWith("/o/me/")) {
       const s = await sessionOf(env, request, { bearer: true });
       if (!s) return J({ ok: false, reason: "signed-out" }, 401);
-      if (s.admin) return J({ ok: false, reason: "admin" }, 403);
       if (method === "GET" && path === "/o/me") return J(await dossier(env, s.owner));
     }
   } catch (e) {
@@ -229,7 +226,7 @@ async function register(env, deps, J, request, b) {
     vars: { site: deps.siteUrl(env), n: o.number, size: series ? series.size : await seriesSize(env, o.series), ownerNo: mine ? mine.owner_no : 1,
       registeredOn: longDay(istDay()), warrantyEnd: w ? `23:59 on ${longDay(w.endDay)}` : "" } });
   if (q) deps.kick([q]);
-  const s = await openSession(env, owner, request.headers.get("user-agent"));
+  const s = await openSession(env, owner, request.headers.get("user-agent"), "owner");
   return J({ ok: true, token: s.token, maxAge: s.maxAge, n: o.number, ownerNo: mine ? mine.owner_no : 1 });
 }
 

@@ -52,7 +52,7 @@ export async function ownerActions(request, env, ctx, path, deps, J, readBody) {
       vars: { n: piece.number, type, summary: summary ? summary.slice(0, 400) : "", controlUrl } });
     if (q) deps.kick([q]);
   };
-  const me = async () => { const s = await sessionOf(env, request, { bearer: true }); return s && !s.admin ? s : null; };
+  const me = () => sessionOf(env, request, { bearer: true });
 
   /* ── A photograph or a video for a claim ── */
   if (method === "POST" && path === "/o/upload") {
@@ -195,7 +195,7 @@ export async function ownerActions(request, env, ctx, path, deps, J, readBody) {
       completed = !!r.ok;
     }
     if (!completed) await staff("transfer", { series: t.series, number: t.number }, "A transfer has been accepted and is waiting for your approval.", "t" + t.id);
-    const sess = await openSession(env, owner, request.headers.get("user-agent"));
+    const sess = await openSession(env, owner, request.headers.get("user-agent"), "owner");
     return J({ ok: true, token: sess.token, maxAge: sess.maxAge, completed, n: t.number });
   }
 

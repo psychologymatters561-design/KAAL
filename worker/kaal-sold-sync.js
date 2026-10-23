@@ -97,6 +97,7 @@ import { shiprocket } from "./courier.js";
 import { sweeps } from "./sla.js";
 import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
+import { registryRoute, since } from "./registry-public.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -127,6 +128,8 @@ export default {
     if (staging(env) && request.method === "GET" && path === "/staging") return stagingPage(env);
 
     if (request.method === "GET" && path === "/state") return getState(request, env, ctx, url);
+    /* The public registry's data (thekaal.co/registry). */
+    if (request.method === "GET" && path === "/registry/data") return registryRoute(request, env, regDeps(env, ctx));
     if (RATE_LIMITS[path] && overRate(request, path, RATE_LIMITS[path])) {
       return json(request, env, { ok: false, reason: "rate" }, { "Retry-After": "600" }, 429);
     }
@@ -201,7 +204,7 @@ const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = { "/order": 12, "/hold": 12, "/shipping": 10, "/receipt": 60,
   "/auth/start": 5, "/auth/verify": 20, "/auth/totp": 10, "/auth/totp/enroll": 5,
   "/track/data": 60, "/track/lookup": 20, "/track/register": 10, "/track/email-link": 5, "/ship/shiprocket": 600,
-  "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120 };
+  "/registry/data": 120, "/o/auth/start": 5, "/o/auth/verify": 20, "/o/claim/info": 60, "/o/claim/register": 10, "/o/claim/email-code": 5, "/o/claim/request-link": 5, "/o/me": 120 };
 const RATE = new Map();
 function overRate(request, route, max) {
   const ip = request.headers.get("cf-connecting-ip") || "";
@@ -324,6 +327,18 @@ async function withRegistry(env, out) {
     const u = await unavailable(env, SERIES);
     out.sold = [...new Set((out.sold || []).concat(u.gone))].sort((a, b) => a - b);
     out.held = [...new Set((out.held || []).concat(u.held))].sort((a, b) => a - b);
+    /* Where a number went, for the shop's grid: an owner's city appears
+       only if that owner ticked the box, and an owner who registered and did
+       not tick it takes precedence over any line written by hand. */
+    const reg = (await env.DB.prepare("SELECT number, owner_no, owner_since, owner_city FROM public_registry WHERE series = ?1 AND owner_no IS NOT NULL").bind(SERIES).all()).results || [];
+    if (reg.length) {
+      const placed = Object.assign({}, out.placed || {});
+      for (const r of reg) {
+        if (r.owner_city) placed[r.number] = cleanNote(`${r.owner_city} · ${since(r.owner_since)}`, 40);
+        else delete placed[r.number];
+      }
+      if (Object.keys(placed).length) out.placed = placed; else delete out.placed;
+    }
   } catch (e) { console.log("Registry unavailable on /state:", String(e).slice(0, 160)); }
 }
 

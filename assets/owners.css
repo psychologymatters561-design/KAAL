@@ -37,7 +37,7 @@ a{color:inherit}
 .skip{position:absolute;left:-999px;top:0;background:var(--gold);color:var(--void);padding:.7rem 1rem;z-index:10}
 .skip:focus{left:0}
 main{padding:clamp(2.5rem,8vh,5rem) var(--gut) calc(4rem + env(safe-area-inset-bottom));display:grid;justify-items:center}
-.wrap{width:var(--hold)} .wide{width:var(--hold-wide)}
+.wrap{width:var(--hold);margin-inline:auto} .wide{width:var(--hold-wide)}
 .mark{font-size:.6875rem;letter-spacing:.42em;text-transform:uppercase;color:var(--faint);margin:0 0 2.2rem;text-align:center}
 .mark a{text-decoration:none}
 h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.12;margin:0 0 .6em;text-wrap:balance}
@@ -204,3 +204,20 @@ dialog.sheet h2{margin-top:0}
   main{padding:0}
   .paper{border:0;padding:0}
 }
+
+/* ── The registry's twenty ── */
+.reg-grid{list-style:none;margin:0 auto 1.4rem;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem;max-width:44rem}
+@media (min-width:640px){.reg-grid{grid-template-columns:repeat(10,minmax(0,1fr))}}
+.reg-grid button{width:100%;aspect-ratio:1;min-height:3.4rem;display:grid;place-items:center;align-content:center;gap:.15rem;border:1px solid var(--line-2);border-radius:3px;background:transparent;color:var(--bone);
+  font:inherit;cursor:pointer;padding:.2rem;transition:border-color .3s var(--ease-soft),background .3s var(--ease-soft)}
+.reg-grid button b{font-family:var(--display);font-weight:400;font-size:1.35rem;line-height:1}
+.reg-grid button small{font-size:.5rem;letter-spacing:.1em;max-width:100%;overflow-wrap:anywhere;text-transform:uppercase;color:var(--faint);line-height:1.15;text-align:center}
+.reg-grid button:hover{border-color:var(--gold)}
+.reg-grid button[aria-pressed=true]{border-color:var(--gold);background:rgba(198,161,91,.09)}
+.reg-grid .sold{background:linear-gradient(165deg,rgba(237,232,223,.04),transparent 72%);color:var(--mute);border-color:var(--line)}
+.reg-grid .held small{color:var(--gold)}
+.reg-grid .stolen{border-color:var(--bad)} .reg-grid .stolen small{color:var(--bad)}
+.reg-grid .unavailable,.reg-grid .retired{color:var(--ghost);border-style:dashed}
+.legend{list-style:none;margin:0 0 2rem;padding:0;display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;justify-content:center;font-size:.8125rem;color:var(--faint)}
+.legend i{display:inline-block;width:.7rem;height:.7rem;border:1px solid var(--line-2);border-radius:2px;margin-right:.45rem;vertical-align:-.05em}
+.legend .s i{background:var(--line)} .legend .h i{border-color:var(--gold)} .legend .x i{border-color:var(--bad)}

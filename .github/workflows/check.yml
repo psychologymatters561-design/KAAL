@@ -54,3 +54,6 @@ jobs:
 
       - name: Test orders in motion (the Placed letter, /track, the courier, late orders and the reminder)
         run: node --no-warnings tools/test-ops.mjs
+
+      - name: Test owners (registering, signing in, the dossier, the public registry)
+        run: node --no-warnings tools/test-owners.mjs

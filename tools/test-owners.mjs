@@ -216,5 +216,47 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(cors.headers.get("Access-Control-Allow-Origin") === SITE && /Authorization/.test((await w.fetch(new Request("https://w/o/me", { method: "OPTIONS", headers: { Origin: SITE } }), X.env, ctx())).headers.get("Access-Control-Allow-Headers")), "cors: only the shop's origin, and preflight allows the bearer header");
 }
 
+/* ── The public registry (Phase 5) ── */
+{
+  const X = world();
+  const id7 = (await seed(X, "pay_PUB00007", 7, "asha@example.com")).order.id;
+  await deliver(X, id7);
+  await call(X, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(X) }, good, { email: "asha@example.com", showCity: false }));
+  await seed(X, "pay_PUB00008", 8, "ravi@example.com", { name: "Ravi K" });                    /* sold, unregistered */
+  X.DB.raw.prepare("UPDATE pieces SET photo_url = 'https://w.example/photo/S01-07' WHERE id = 'S01-07'").run();
+  X.DB.raw.prepare("UPDATE pieces SET photo_url = 'https://w.example/photo/S01-12' WHERE id = 'S01-12'").run();
+  X.DB.raw.prepare("UPDATE pieces SET status = 'held', held_by = 'x', held_until = ? WHERE id = 'S01-10'").run(Date.now() + 600000);
+  X.DB.raw.prepare("UPDATE pieces SET status = 'reported_stolen' WHERE id = 'S01-15'").run();
+  X.DB.raw.prepare("INSERT INTO service_log (series, piece_id, date, work_done, public_line) VALUES ('S01','S01-07','2027-03-01','Replaced the movement, serial 1234','Movement replaced under warranty')").run();
+  X.DB.raw.prepare("INSERT INTO service_log (series, piece_id, date, work_done, public_line) VALUES ('S01','S01-07','2027-04-01','Private note only',NULL)").run();
+  let g = await call(X, "GET", "/registry/data");
+  const by = (n) => g.j.pieces.find(p => p.n === n);
+  ok(g.status === 200 && g.j.ok && g.j.pieces.length === 20 && g.j.series.size === 20 && g.j.series.retired === false, "registry: the twenty, and the series is not retired");
+  ok(by(7).state === "sold" && by(7).owner.no === 1 && /^[A-Z][a-z]{2} 20\d\d$/.test(by(7).owner.since) && by(7).owner.city === null, "registry: No. 07 is sold to Owner I since the month, its city withheld");
+  ok(by(8).state === "sold" && by(8).owner === null, "registry: a sold piece nobody has registered yet has no owner to show");
+  ok(by(10).state === "held" && by(15).state === "stolen" && by(9).state === "unavailable" && by(1).state === "sold" || by(1).state === "available", "registry: held, stolen and withheld pieces read as what they are");
+  ok(by(9).state !== "sold" && by(9).owner === null, "registry: withheld No. 09 is never shown as sold or owned");
+  ok(by(7).photo && !by(12).photo, "registry: a photograph only for a piece that has gone");
+  ok(by(7).service.length === 1 && by(7).service[0].line === "Movement replaced under warranty", "registry: only the service lines chosen for the public");
+  const raw = JSON.stringify(g.j);
+  ok(!/asha|ravi|example\.com|9876|98765|Road|411001|Pune|pay_|order_|serial 1234|Private note/i.test(raw), "registry: no name, email, phone, address, payment id, private note or city");
+  X.DB.raw.prepare("UPDATE owners SET show_city_publicly = 1 WHERE email = 'asha@example.com'").run();
+  g = await call(X, "GET", "/registry/data");
+  ok(by(7).owner.city === "Pune", "registry: the city appears once its owner has opted in");
+  X.DB.raw.prepare("UPDATE owners SET show_city_publicly = 0 WHERE email = 'asha@example.com'").run();
+  const st = await call(X, "GET", "/state");
+  ok(st.j.sold.includes(7) && st.j.sold.includes(8) && st.j.held.includes(10) && st.j.sold.includes(9), "state: the shop reads the same table: sold, held and withheld numbers are not offered");
+  ok(!(st.j.placed && st.j.placed[7]), "state: with the city not opted in, the shop's grid shows none");
+  X.DB.raw.prepare("UPDATE owners SET show_city_publicly = 1 WHERE email = 'asha@example.com'").run();
+  const st2 = await call(X, "GET", "/state");
+  ok(st2.j.placed && /^Pune · [A-Z][a-z]{2} 20\d\d$/.test(st2.j.placed[7]), "state: and with it opted in, the shop's grid says where and when");
+  X.DB.raw.prepare("UPDATE pieces SET status = 'placed', order_ref = 1 WHERE status = 'available'").run();
+  X.DB.raw.prepare("UPDATE pieces SET status = 'placed' WHERE status IN ('held','reported_stolen','withheld')").run();
+  g = await call(X, "GET", "/registry/data");
+  ok(g.j.series.retired === true, "registry: when all twenty have gone, the series reads Retired");
+  const c = await w.fetch(new Request("https://w/registry/data", { headers: { Origin: "https://evil.example" } }), X.env, ctx());
+  ok(c.headers.get("Access-Control-Allow-Origin") === SITE && /max-age=10/.test(c.headers.get("Cache-Control")), "registry: shop origin only, cached ten seconds");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");
 process.exit(failed ? 1 : 0);

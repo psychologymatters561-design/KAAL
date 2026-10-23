@@ -1503,6 +1503,8 @@ a{color:inherit}
 .pick .where{display:block;margin-top:.12rem;font-size:.5rem;letter-spacing:.06em;text-transform:none;color:var(--ghost);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 .2rem}
 .pick[disabled] .dot{display:none}
+.pick.claiming .dot{opacity:.2}
+.pick .claim{position:absolute;left:0;right:0;bottom:.3rem;font-family:var(--body);font-size:.46875rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);line-height:1.2;pointer-events:none}
 /* Dealt rather than pasted. A 24ms step across twenty cells is under half a
    second end to end, which reads as a hand laying them out and never as a
    queue the visitor has to wait through. The delay rides the reveal that
@@ -5222,6 +5224,27 @@ function markSold(n){
   if(!KAAL.api || !window.fetch) return;
   var base = KAAL.api.replace(/\/+$/, ""), busy = false, timer = 0, asked = false;
 
+  /* A number somebody is paying for right now says so, for the ten minutes
+     the hold lasts. It stays tappable: the hold may be this visitor's own,
+     and /order decides who gets in. */
+  function markHeld(list){
+    var on = {};
+    for(var i = 0; i < (list || []).length; i++) on[list[i]] = 1;
+    var cells = grid ? grid.querySelectorAll(".pick") : [];
+    for(var c = 0; c < cells.length; c++){
+      var b = cells[c], n = parseInt(b.dataset.n, 10), has = b.classList.contains("claiming");
+      if(soldSet[n]) continue;
+      if(on[n] && !has){
+        b.classList.add("claiming"); b.dataset.was = b.getAttribute("aria-label") || "";
+        b.setAttribute("aria-label", b.dataset.was + ", being claimed right now");
+        var tag = document.createElement("span"); tag.className = "claim"; tag.textContent = "Being claimed"; b.appendChild(tag);
+      } else if(!on[n] && has){
+        b.classList.remove("claiming"); if(b.dataset.was) b.setAttribute("aria-label", b.dataset.was);
+        var old = b.querySelector(".claim"); if(old) b.removeChild(old);
+      }
+    }
+  }
+
   function ask(){
     /* A sold-out edition has nothing left to change, so the minute's check
        stops, unless the owner's live view is counting on it. */
@@ -5247,6 +5270,7 @@ function markSold(n){
             if(soldSet[n]) placeCell($('.pick[data-n="' + n + '"]', grid), n);
           }
         }
+        markHeld(d.held);
         if(!d.sold || !d.sold.length) return;
         for(var i=0;i<d.sold.length;i++) markSold(d.sold[i]);
       })

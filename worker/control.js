@@ -15,7 +15,7 @@
    The existing desk (/desk) keeps working beside this until the owner
    retires it.
    ══════════════════════════════════════════════════════════════════ */
-import { authOn, adminEmail, startLogin, verifyLogin, sessionOf, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, codeEmail, normEmail } from "./auth.js";
+import { authOn, adminEmail, startLogin, verifyLogin, sessionOf, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail } from "./auth.js";
 import { LETTERS, STAGE_LETTER, sample } from "./letters.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
@@ -233,7 +233,7 @@ async function overview(env, T) {
       { label: "Database", ok: true, detail: "The registry answers." },
       { label: "Payment webhook", ok: !!hook, detail: hook ? "Last heard from Razorpay " + hook : "Not heard from yet on this worker." },
       { label: "Emails", ok: !mail.failed, detail: `${mail.sent || 0} sent, ${mail.queued || 0} waiting, ${mail.failed || 0} failed.` },
-      { label: "Second factor", ok: true, detail: "Every action here needs the authenticator's code." }
+      twoFactorOn(env) ? { label: "Second factor", ok: true, detail: "Every action here needs the authenticator's code." } : { label: "Sign-in", ok: true, detail: "The emailed code is the only lock, so guard that mailbox with 2-step verification." }
     ]
   };
 }

@@ -20,7 +20,7 @@ const ORIGIN = "https://kaal-edition-staging.kaal-edition-hq.workers.dev";
 const env = {
   DB, KAAL_STATE: KV, STAGING: "", EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN,
   ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "wh", RESEND_API_KEY: "re",
-  OWNER_EMAIL: "Arjun@Example.com, other@example.com", AUTH_SECRET: "a".repeat(48), GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r"
+  OWNER_EMAIL: "Arjun@Example.com, other@example.com", ADMIN_2FA: "on", AUTH_SECRET: "a".repeat(48), GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r"
 };
 globalThis.fetch = async (url, init) => {
   url = String(url);
@@ -305,6 +305,36 @@ let oid;
     ok(m.subject === want[k][0] && m.text.includes(want[k][1]) && m.html.includes(want[k][1].replace(/'/g, "&#39;")), `letter ${k}: the brief's subject and words`);
   }
   ok(Object.keys(LETTERS).every(k => !/—/.test(LETTERS[k](d).text + LETTERS[k](d).html)), "letters: no em dashes, no emojis by construction");
+}
+
+/* ── 10. The emailed code alone (the default: ADMIN_2FA off) ── */
+{
+  const keep = { env: env.ADMIN_2FA, jar };
+  const ip = { "cf-connecting-ip": "198.51.100.91" };
+  delete env.ADMIN_2FA;
+  DB.raw.prepare("DELETE FROM login_codes").run();
+  jar = "";
+  let r = await call("GET", "/control/api/overview", undefined, ip);
+  ok(r.status === 401 && r.j.reason === "signed-out", "code only: signed out, nothing opens");
+  await call("POST", "/auth/start", { email: "arjun@example.com" }, ip);
+  r = await call("POST", "/auth/verify", { email: "arjun@example.com", code: lastCode("arjun@example.com") }, ip);
+  ok(r.j.ok && r.j.role === "admin" && r.j.mfa === "none", "code only: the admin's emailed code signs in with no second step");
+  r = await call("GET", "/control/api/overview", undefined, ip);
+  ok(r.j.ok && r.j.pieces.length === 20, "code only: the control room opens on the code alone");
+  r = await call("POST", "/auth/me", {}, ip);
+  ok(r.j.ok && r.j.role === "admin" && r.j.mfa === true, "code only: the page is told it is already in");
+  r = await call("POST", "/auth/verify", { email: "arjun@example.com", code: "000000" }, ip);
+  ok(r.status === 401, "code only: a wrong or spent code still gets nothing");
+  const saved = jar;
+  jar = "";
+  r = await call("POST", "/auth/verify", { email: "arjun@example.com", code: "000000" }, ip);
+  r = await call("GET", "/control/api/overview", undefined, ip);
+  ok(r.status === 401, "code only: a wrong code leaves the visitor signed out");
+  jar = saved;
+  env.ADMIN_2FA = "on";
+  r = await call("GET", "/control/api/overview", undefined, ip);
+  ok(r.status === 401 && r.j.reason === "mfa", "switching ADMIN_2FA on asks the authenticator of a session that has not given it");
+  env.ADMIN_2FA = keep.env; jar = keep.jar;
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll control room tests passed.");

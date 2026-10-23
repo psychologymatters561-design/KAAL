@@ -69,11 +69,12 @@ the domain's DNS to Cloudflare later would let it live at
 `control.thekaal.co`.)
 
 **Signing in.** Your email (`ADMIN_EMAIL`, else the first `OWNER_EMAIL`)
-gets a six-digit code, valid once for ten minutes. The first time, the page
-shows a link and a key: tap the link and your authenticator app (Google
-Authenticator, 1Password, Authy) adds KAAL. After that, every sign-in asks
-for the app's six digits as well. A session lasts twelve hours. Five wrong
-app codes end the session.
+gets a six-digit code, valid once for ten minutes, and that code alone
+signs you in (no app). A session lasts twelve hours. Setting
+`ADMIN_2FA = "on"` in `wrangler.toml` adds an authenticator app on top: the
+first sign-in then shows a link and a key to add KAAL, and every sign-in
+after asks for the app's six digits as well; five wrong app codes end the
+session.
 
 | Screen | What it does |
 |---|---|

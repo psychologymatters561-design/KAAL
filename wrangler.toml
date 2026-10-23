@@ -83,6 +83,11 @@ META_PIXEL      = "1607748840888926"
 # Variables (then here too, or the next deploy turns it back on).
 REGISTRY        = "on"
 
+# The control room signs in with the emailed code alone. "on" also asks the
+# admin for an authenticator app's six digits (docs/registry-live.md); the
+# first sign-in after switching it on sets the app up.
+ADMIN_2FA       = "off"
+
 # Refunds are found on their own: every half hour the worker asks Razorpay
 # (at once, if the Razorpay webhook also sends refund.processed), records
 # each one once and emails the owner. A full refund never puts the number

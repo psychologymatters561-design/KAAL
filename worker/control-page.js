@@ -171,6 +171,7 @@ $("fCode").addEventListener("submit", function(e){ e.preventDefault();
   api("POST", "/auth/verify", { email: EMAIL, code: $("code").value }).then(function(j){
     if(!j.ok){ gate(j.reason === "expired" || j.reason === "tries" ? "email" : "code", WHY[j.reason] || "That did not work."); return; }
     if(j.role !== "admin"){ gate("email", WHY["not-admin"]); return; }
+    if(j.mfa === "none"){ start(); return; }
     gate(j.mfa === "enroll" ? "enroll" : "totp");
   }); });
 $("fTotp").addEventListener("submit", function(e){ e.preventDefault();

@@ -1,6 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════
-   SIGNING IN (registry, Phase 2): a code by email, and for the admin a
-   second code from an authenticator app (TOTP, RFC 6238).
+   SIGNING IN (registry, Phase 2): a code by email. For the admin, a
+   second code from an authenticator app (TOTP, RFC 6238) is available but
+   OFF unless ADMIN_2FA is "on": the emailed code alone is the lock, so the
+   admin's mailbox is the key to guard.
 
    No password is stored anywhere, because none exists. A sign-in is:
      1. POST /auth/start  {email}        a six-digit code is emailed, if
@@ -9,7 +11,8 @@
                                          same either way
      2. POST /auth/verify {email, code}  the code, once, within ten
                                          minutes, at most five tries
-     3. (admin) POST /auth/totp {code}   the authenticator's code; the
+     3. (admin, only if ADMIN_2FA is "on")
+        POST /auth/totp {code}           the authenticator's code; the
                                          first time, /auth/totp/enroll
                                          hands over the secret to add
 
@@ -28,6 +31,9 @@ const CODES_PER_WINDOW = 3, CODE_WINDOW_MS = 15 * 60 * 1000;
 const OWNER_SESSION_MS = 30 * 86400 * 1000;
 const ADMIN_SESSION_MS = 12 * 3600 * 1000;
 const TOTP_FAILS = 5;
+
+/* The authenticator is asked for only when ADMIN_2FA is "on". */
+export const twoFactorOn = (env) => String((env && env.ADMIN_2FA) || "off").toLowerCase() === "on";
 export const COOKIE = "kaal_s";
 
 const enc = new TextEncoder();
@@ -117,11 +123,12 @@ export async function verifyLogin(env, email, code, userAgent) {
   const life = owner.role === "admin" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
   await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent) VALUES (?1, ?2, ?3, ?4)")
     .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200)).run();
-  return { ok: true, token, owner, maxAge: Math.floor(life / 1000), mfa: owner.role !== "admin" ? "none" : owner.totp_confirmed_at ? "needed" : "enroll" };
+  return { ok: true, token, owner, maxAge: Math.floor(life / 1000), mfa: owner.role !== "admin" || !twoFactorOn(env) ? "none" : owner.totp_confirmed_at ? "needed" : "enroll" };
 }
 
 /* The session behind a request's cookie, or null. `mfa` is true when the
-   admin has given the authenticator's code on this session. */
+   admin has given the authenticator's code on this session, or when the
+   authenticator is not required (ADMIN_2FA off). */
 export async function sessionOf(env, request) {
   if (!authOn(env)) return null;
   const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]{40,60})`).exec(request.headers.get("Cookie") || "");
@@ -131,7 +138,7 @@ export async function sessionOf(env, request) {
       WHERE s.id = ?1 AND s.revoked_at IS NULL AND s.expires_at > ?2 AND o.deleted_at IS NULL`
   ).bind(await sha256(m[1]), iso()).first();
   if (!s) return null;
-  return { sid: s.sid, owner: s, admin: s.role === "admin", mfa: !!s.mfa_at };
+  return { sid: s.sid, owner: s, admin: s.role === "admin", mfa: !!s.mfa_at || !twoFactorOn(env) };
 }
 
 export async function endSession(env, sid) {

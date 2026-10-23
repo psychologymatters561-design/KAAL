@@ -37,11 +37,12 @@ dashboard and the public registry (Phases 4 and 5), `/track` and Shiprocket
    if the token cannot edit D1.
 4. **Sign in, now.** Open
    **https://kaal-edition.kaal-edition-hq.workers.dev/control** on your
-   phone. Enter your email, then the code it sends. The first time, it asks
-   you to add KAAL to an authenticator app (Google Authenticator,
-   1Password, Authy): tap the link, then type the six digits. Do this
-   straight away. Whoever first signs in with that address sets up the
-   authenticator.
+   phone. Enter your email, then the six-digit code it sends. That is the
+   whole lock: no app, no password. Because the code is the only lock,
+   protect that mailbox (turn on Google's own 2-step verification for it).
+   A session lasts twelve hours. If you ever want an authenticator app on
+   top, set `ADMIN_2FA = "on"` in `wrangler.toml` and deploy; the next
+   sign-in then walks you through it.
 5. **Your orders come in.** Within half an hour of switching on, the
    worker brings in every paid order Razorpay holds, and emails nobody.
    Or tap **Bring in paid orders from Razorpay** on Overview. It carries
@@ -76,6 +77,7 @@ Change `wrangler.toml` too, or the next deploy turns it back on.
 - **No sign-in email**: check spam; the sender is connect@thekaal.co. Three
   codes per address per quarter hour.
 - **"Too many wrong codes"**: sign in again from the email step.
-- **A lost phone (no authenticator)**: ask Claude to reset the admin's
-  authenticator in the database; there is no reset button by design.
+- **Locked out after switching `ADMIN_2FA` on, with no app**: set it back
+  to `"off"` in `wrangler.toml` and deploy; the emailed code alone then
+  opens the control room again.
 - **Everything else**: the Audit screen shows every change, by whom and when.

@@ -298,7 +298,7 @@ async function staging() {
   say(`       Secret:  the same value as the RAZORPAY_TEST_WEBHOOK_SECRET repository secret`);
   say(`       Events:  payment.captured and refund.processed`);
   say(`  2. Open ${url}/staging on your phone and buy a number with a test card.`);
-  say(`  3. The control room: ${url}/control. Sign in with ${env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0]}; the first time, it asks you to add KAAL to an authenticator app.`);
+  say(`  3. The control room: ${url}/control. Sign in with ${env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0]}; the emailed six-digit code is all it asks.`);
 }
 
 /* ── The registry on the live worker ──
@@ -351,8 +351,7 @@ async function live() {
   const who = env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0];
   step("Done. The registry is live");
   say(`  1. Open ${WORKER_URL}/control on your phone and sign in with ${who}.`);
-  say("     The first time, add KAAL to your authenticator app when it asks. Do it now: the first");
-  say("     person to sign in with that address sets it up.");
+  say("     The six-digit code it emails you is the whole lock, so keep that mailbox safe.");
   say("  2. Overview: the paid orders come in on their own within half an hour, or tap");
   say("     \"Bring in paid orders from Razorpay\".");
   say("  3. Orders, \"Record a past sale\", for each number it lists as sold before the registry.");

@@ -24,7 +24,7 @@
 import { registryOn, audit, normPhone, SERIES } from "./registry.js";
 import { startLogin, verifyLogin, issueCode, spendCode, openSession, sessionOf, endSession, codeEmail, adminEmail, normEmail, validEmail, sha256, authOn } from "./auth.js";
 import { queueLetter } from "./outbox.js";
-import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo } from "./orders.js";
+import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered } from "./orders.js";
 import { ownerActions } from "./owner-actions.js";
 
 const CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -67,6 +67,22 @@ export async function ownersRoute(request, env, ctx, path, deps) {
       const b = await readBody(request); if (!b) return J({ ok: false, reason: "too-big" }, 413);
       const e = normEmail(b.email);
       if (!validEmail(e)) return J({ ok: false, reason: "invalid" }, 400);
+      /* A buyer whose piece has arrived but is not registered has no code to
+         sign in with: what that inbox needs is the link to register, so that
+         is what it gets, at most once an hour per order. The answer on the
+         screen is the same either way. */
+      const holds = await env.DB.prepare("SELECT 1 AS x FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE w.email = ?1 AND w.deleted_at IS NULL AND s.to_at IS NULL LIMIT 1").bind(e).first();
+      if (!holds) {
+        const waiting = ((await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.email = ?1 AND o.status = 'delivered' ORDER BY o.id").bind(e).all()).results) || [];
+        if (waiting.length) {
+          if ((await setting(env, "stage_emails", "1")) === "1") {
+            const hour = new Date().toISOString().slice(0, 13), ids = [];
+            for (const o of waiting) { const q = await queueDelivered(env, deps.siteUrl(env), o, `signin:${o.id}:${hour}`); if (q) ids.push(q); }
+            if (ids.length) deps.kick(ids);
+          }
+          return J({ ok: true });
+        }
+      }
       const r = await startLogin(env, e);
       if (r.send) {
         const m = codeEmail(r.send.code, deps.siteUrl(env));

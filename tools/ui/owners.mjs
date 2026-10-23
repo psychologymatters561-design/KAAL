@@ -123,7 +123,7 @@ await p2.goto(SITE + "/owners");
 await p2.waitForSelector("#gate:not([hidden])");
 await p2.fill("#email", "stranger@example.com"); await p2.click("#eGo");
 await p2.waitForSelector("#fCode:not([hidden])");
-ok(/If that email belongs to an owner/.test(await p2.locator("#gateLead").innerText()), "owners: a stranger's email gets the same answer as an owner's");
+ok(/If that email holds a KAAL, a code is on its way/.test(await p2.locator("#gateLead").innerText()), "owners: a stranger's email gets the same answer as an owner's");
 ok(B.log.errors.length === 0, "owners: no script errors " + JSON.stringify(B.log.errors).slice(0, 200));
 ok(B.log.console.filter(x => !/Failed to load resource.*status of (40\d|410)/.test(x)).length === 0, "owners: no console errors " + JSON.stringify(B.log.console).slice(0, 300));
 await B2.browser.close();

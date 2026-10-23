@@ -92,8 +92,12 @@ owners and pieces; **Backup now**.
 - **A buyer paid and the watch is not in Orders.** The daily check against
   Razorpay brings it in within a day and emails you; or Overview, "Bring in
   paid orders from Razorpay".
-- **An owner cannot sign in.** Use the sign-in page's "Cannot sign in?"; it
-  lands in Approvals as a recovery request.
+- **An owner cannot sign in.** First: has the piece been registered? Sign-in
+  codes go only to registered owners. A buyer whose piece is delivered but not
+  registered who asks for a code is emailed the registration link instead
+  (once an hour at most). Before delivery, nothing is sent: mark the order
+  Delivered first. If it is registered and still fails, the sign-in page's
+  "Cannot sign in?" lands in Approvals as a recovery request.
 
 ## Backups
 

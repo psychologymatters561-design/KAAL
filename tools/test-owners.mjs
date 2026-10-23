@@ -242,6 +242,28 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(cors.headers.get("Access-Control-Allow-Origin") === SITE && /Authorization/.test((await w.fetch(new Request("https://w/o/me", { method: "OPTIONS", headers: { Origin: SITE } }), X.env, ctx())).headers.get("Access-Control-Allow-Headers")), "cors: only the shop's origin, and preflight allows the bearer header");
 }
 
+/* ── A buyer who has not registered yet asks to sign in ── */
+{
+  const X = world();
+  const id = (await seed(X, "pay_WAIT0012", 12, "gaurang@example.com", { name: "G V" })).order.id;
+  X.mails.length = 0;
+  let a = await call(X, "POST", "/o/auth/start", { email: "gaurang@example.com" });
+  ok(a.j.ok && X.mails.length === 0, "sign-in before delivery: the same answer, and nothing sent");
+  await deliver(X, id);
+  X.mails.length = 0;
+  a = await call(X, "POST", "/o/auth/start", { email: "Gaurang@Example.com" });
+  const t = tokenFrom(X);
+  ok(a.j.ok && t && X.mails.every(m => m.to.includes("gaurang@example.com")) && !X.mails.some(m => /sign-in code/.test(m.subject)), "sign-in before registering: the inbox on the order gets the link to register, not a code");
+  X.mails.length = 0;
+  a = await call(X, "POST", "/o/auth/start", { email: "gaurang@example.com" });
+  ok(a.j.ok && X.mails.length === 0, "sign-in before registering: asking again within the hour sends nothing more");
+  const reg = await call(X, "POST", "/o/claim/register", Object.assign({ t }, good, { name: "G V", email: "gaurang@example.com" }));
+  ok(reg.j.ok, "sign-in before registering: the link it sent registers the piece");
+  X.mails.length = 0;
+  a = await call(X, "POST", "/o/auth/start", { email: "gaurang@example.com" });
+  ok(a.j.ok && X.mails.some(m => /sign-in code/.test(m.subject)) && !tokenFrom(X), "once registered, sign-in sends a code again");
+}
+
 /* ── The public registry (Phase 5) ── */
 {
   const X = world();

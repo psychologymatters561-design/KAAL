@@ -25,7 +25,7 @@
       if (r._status === 0 || (!r.ok && r.reason !== "invalid")) { $("eErr").textContent = K.why[r.reason] || "That did not work. Please try again."; return; }
       if (!r.ok) { $("eErr").textContent = WHY[r.reason]; return; }
       $("fEmail").hidden = true; $("fCode").hidden = false; $("cErr").textContent = ""; $("code").value = ""; $("code").focus();
-      $("gateLead").textContent = "If that email belongs to an owner, a code is on its way.";
+      $("gateLead").textContent = "If that email holds a KAAL, a code is on its way. If its piece is not registered yet, the email brings the link to register it instead.";
     });
   });
   $("back").addEventListener("click", function () { showEmail(""); $("gateLead").textContent = "Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember."; });

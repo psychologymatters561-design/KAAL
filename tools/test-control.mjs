@@ -353,5 +353,64 @@ let oid;
   env.ADMIN_2FA = keep.env; jar = keep.jar;
 }
 
+/* ── The command centre's passcode (last: "sign out every device" ends every session) ── */
+{
+  const keep = { env: env.ADMIN_2FA, jar }; jar = ""; env.ADMIN_2FA = "off"; env.DESK_PASSCODE = "brass quiet lantern 42";
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+  for (const k of [...KV.store.keys()]) if (/^rl:pass/.test(k)) KV.store.delete(k);
+  mails.length = 0;
+  let r = await call("POST", "/auth/passcode", { passcode: "not it" }, { "cf-connecting-ip": "198.51.100.7" });
+  ok(r.status === 401 && r.j.reason === "wrong" && r.j.left === 7 && !r.cookie, "passcode: a wrong one opens nothing, and says how many tries are left");
+  for (let i = 0; i < 7; i++) await call("POST", "/auth/passcode", { passcode: "wrong " + i }, { "cf-connecting-ip": "198.51.100.7" });
+  r = await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, { "cf-connecting-ip": "198.51.100.7" });
+  ok(r.status === 429 && r.j.reason === "rate" && !r.cookie, "passcode: eight wrong from one connection, and even the right one waits fifteen minutes there");
+  r = await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, { "X-KAAL": "" });
+  ok(r.status === 403, "passcode: refused without the page's own header (a form on another site)");
+  r = await call("POST", "/auth/passcode", { passcode: " brass quiet lantern 42 " }, { "cf-connecting-ip": "198.51.100.8", "User-Agent": IPHONE });
+  ok(r.j.ok && r.j.role === "admin" && r.j.mfa === "none" && /Max-Age=2592000; HttpOnly; Secure; SameSite=Strict/.test(r.cookie), "passcode: the right one opens a thirty day, strict, HttpOnly session on that device");
+  const alert = mails.find(m => /^New sign-in to the KAAL command centre/.test(m.subject));
+  ok(alert && alert.to.includes("arjun@example.com") && /Device: iPhone, Safari/.test(alert.text) && /Sign out every device/.test(alert.text) && !/\u2014/.test(alert.text),
+    "passcode: a device not seen before emails the admin which device, and what to do if it was not them");
+  const signedIn = jar;
+  mails.length = 0;
+  r = await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, { "cf-connecting-ip": "198.51.100.8", "User-Agent": IPHONE });
+  ok(r.j.ok && !mails.some(m => /New sign-in/.test(m.subject)), "passcode: the same device again sends nothing");
+  jar = signedIn;
+  r = await call("GET", "/control/api/overview");
+  ok(r.j.ok, "passcode: the session opens the control room");
+  r = await call("GET", "/desk/data", undefined, { "X-Desk": "1" });
+  const ins = await call("GET", "/desk/insights?r=7d", undefined, { "X-Desk": "1" });
+  ok(r.status === 200 && r.j.ok && Array.isArray(r.j.alerts) && ins.status === 200 && ins.j.on === false, "command centre: the same session reads the desk's data and Insights");
+  r = await call("GET", "/desk", undefined, { Accept: "text/html" });
+  ok(r.status === 302 && r.headers.get("Location") === "/control", "command centre: the old desk's address leads here");
+  r = await call("GET", "/control/api/sessions");
+  ok(r.j.ok && r.j.sessions.some(x => x.here && x.device === "iPhone, Safari"), "command centre: Settings lists the signed-in devices, this one marked");
+  /* An old desk cookie, made before "sign out every device". */
+  const dl = await call("POST", "/desk/login", { passcode: "brass quiet lantern 42" }, { "X-Desk": "1", "cf-connecting-ip": "198.51.100.9" });
+  ok(dl.status === 410 && !dl.cookie, "desk: its old sign-in is shut, so the passcode is only ever tried behind the command centre's lockout");
+  const { createHmac } = await import("node:crypto");
+  const exp = String(Date.now() + 86400000);
+  const deskCookie = "kaal_desk=" + exp + "." + createHmac("sha256", "kaal-desk|brass quiet lantern 42|sek").update("desk|" + exp).digest("hex");
+  r = await call("GET", "/desk/data", undefined, { "X-Desk": "1", Cookie: deskCookie });
+  ok(r.status === 200, "desk: a cookie it gave out before still works until then");
+  r = await call("POST", "/control/api/sessions/revoke", {});
+  ok(r.j.ok && r.j.revoked >= 2 && /kaal_s=; Path=\/; Max-Age=0/.test(r.cookie || ""), "command centre: Sign out every device ends every session, this one too");
+  jar = signedIn;
+  const after1 = await call("GET", "/control/api/overview");
+  const after2 = await call("GET", "/desk/data", undefined, { "X-Desk": "1", Cookie: deskCookie });
+  ok(after1.status === 401 && after2.status === 401, "command centre: afterwards neither the session nor an old desk cookie opens anything");
+  /* Guessing from everywhere: thirty wrong in an hour pauses the passcode, and the admin is told once. */
+  mails.length = 0;
+  let paused = null;
+  for (let i = 0; i < 40 && !paused; i++) {
+    const x = await call("POST", "/auth/passcode", { passcode: "guess " + i }, { "cf-connecting-ip": "192.0.2." + (i + 10) });
+    if (x.j.reason === "paused") paused = i;
+  }
+  r = await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, { "cf-connecting-ip": "192.0.2.250" });
+  ok(paused !== null && r.status === 429 && r.j.reason === "paused" && mails.filter(m => /passcode sign-in paused/.test(m.subject)).length === 1,
+    "passcode: thirty wrong from anywhere pauses it for the hour, even the right one, and the admin is emailed once");
+  env.ADMIN_2FA = keep.env; jar = keep.jar;
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll control room tests passed.");
 process.exit(failed ? 1 : 0);

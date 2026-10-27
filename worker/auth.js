@@ -119,14 +119,24 @@ export async function spendCode(env, email, code) {
 }
 
 /* A session for an owner: the token is shown once, only its hash is kept. */
-export async function openSession(env, owner, userAgent, scope) {
+export async function openSession(env, owner, userAgent, scope, lifeMs) {
   const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const sc = scope === "owner" ? "owner" : "control";
-  /* The control room's twelve hours are for the admin there; on the owners' pages even the admin's session is an owner's, thirty days. */
-  const life = owner.role === "admin" && sc === "control" ? ADMIN_SESSION_MS : OWNER_SESSION_MS;
+  /* The control room's twelve hours are for the admin there; on the owners' pages even the admin's session is an owner's, thirty days.
+     The command centre's passcode asks for thirty days on that device (lifeMs). */
+  const life = lifeMs || (owner.role === "admin" && sc === "control" ? ADMIN_SESSION_MS : OWNER_SESSION_MS);
   await env.DB.prepare("INSERT INTO sessions (id, owner_id, expires_at, user_agent, scope) VALUES (?1, ?2, ?3, ?4, ?5)")
     .bind(await sha256(token), owner.id, iso(Date.now() + life), String(userAgent || "").slice(0, 200), sc).run();
   return { token, maxAge: Math.floor(life / 1000) };
+}
+
+/* The admin's own row, made on first use and kept the admin's. */
+export async function adminOwner(env) {
+  const e = adminEmail(env);
+  let owner = await env.DB.prepare("SELECT * FROM owners WHERE email = ?1 AND deleted_at IS NULL").bind(e).first();
+  if (!owner) owner = await env.DB.prepare("INSERT INTO owners (email, role) VALUES (?1, 'admin') RETURNING *").bind(e).first();
+  else if (owner.role !== "admin") owner = await env.DB.prepare("UPDATE owners SET role = 'admin', updated_at = ?1 WHERE id = ?2 RETURNING *").bind(iso(), owner.id).first();
+  return owner;
 }
 
 /* A code, and the sign-in it opens: an owner row exists (the admin's is

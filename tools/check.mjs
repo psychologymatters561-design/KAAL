@@ -479,7 +479,9 @@ else {
      is only that each one is a real W3C date and not in the future — a
      lastmod a crawler cannot parse or cannot believe is ignored, and a
      sitemap whose dates are ignored has told the crawler nothing. */
-  const today = new Date().toISOString().slice(0, 10);
+  /* A commit's date is in its author's zone: one made after midnight in
+     India is dated a day ahead of UTC. The latest zone on Earth is +14. */
+  const today = new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10);
   for (const [, block] of sm.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
     const loc = block.match(/<loc>\s*([^<\s]+)/)?.[1] ?? "?";
     const mods = [...block.matchAll(/<lastmod>\s*([^<\s]*)\s*<\/lastmod>/g)].map(m => m[1]);

@@ -733,6 +733,7 @@ const pct = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : "");
 const ACTS = { early: "Which one is yours?", 1: "the idea", 2: "the four faces", 3: "Emerald", 4: "Midnight", 5: "Champagne",
   6: "Ivory", 7: "the craftsmanship", 8: "the box", 9: "the movement", 10: "the seven-day return", 11: "the twenty",
   who: "who it is for", owners: "owners' words" };
+export const actName = (k) => ACTS[k] || String(k);
 const PAGE_NAMES = { home: "the shop", about: "the About page", manifesto: "the manifesto", movement: "the movement page",
   provenance: "Who is selling this", legal: "terms and privacy", claimed: "the thank-you page", "404": "a page that does not exist" };
 const SOURCE_NAMES = { instagram: "Instagram", ig: "Instagram", facebook: "Facebook", fb: "Facebook", meta: "a Meta ad", google: "Google",
@@ -755,7 +756,7 @@ export function stepText(e) {
   switch (e.e) {
     case "visit": {
       const where = deviceName(e.os, e.dev);
-      return `Arrived from ${sourceName(e.s, e.app)}${where ? " on " + where : ""}${e.x && e.x !== "home" ? ", on " + (PAGE_NAMES[e.x] || e.x) : ""}`;
+      return `Arrived from ${sourceName(e.s, e.app)}${e.c ? " (ad: " + e.c + (e.a ? " / " + e.a : "") + ")" : ""}${where ? " on " + where : ""}${e.g ? ", near " + e.g : ""}${e.x && e.x !== "home" ? ", on " + (PAGE_NAMES[e.x] || e.x) : ""}`;
     }
     case "page": return e.x === "home" ? "Opened the shop again" : `Opened ${PAGE_NAMES[e.x] || e.x}`;
     case "act": return `Read ${ACTS[e.x] || "part of the story"}`;

@@ -55,6 +55,7 @@ const ADM = await open(W, { viewport: { width: 390, height: 844 } });
 const ap = await ADM.page();
 await ap.clock.install();
 await ap.goto(WORKER + "/control");
+await ap.click("#useCode");                                   /* the passcode is the default door; the emailed code is the other */
 await ap.fill("#email", "admin@thekaal.co");
 W.mails.length = 0;
 await ap.click("#fEmail button[type=submit]");
@@ -64,7 +65,9 @@ await ap.fill("#code", code);
 await ap.click("#fCode button[type=submit]");
 await ap.waitForSelector("#app:not([hidden])");
 ok(true, "control: signed in with the emailed code alone");
-await ap.click('[data-go="orders"]');
+/* Screens by their address: on a phone the sidebar's links are there but hidden. */
+const nav = async (v) => { await ap.evaluate((h) => { location.hash = h; }, "#" + v); await ap.waitForFunction((t) => document.getElementById("title").textContent === t, { Approvals: "Approvals", Orders: "Orders", Today: "Today" }[v.charAt(0).toUpperCase() + v.slice(1)]); };
+await nav("orders");
 await ap.waitForSelector('[data-act="next"]');
 
 async function tap(label, mailRe, who) {
@@ -114,7 +117,7 @@ await bp.click("#dlgB button:has-text('Done')");
 await bp.waitForSelector(".banner:has-text('Your warranty claim')");
 ok(true, "dashboard: the open claim shows");
 
-await ap.click('[data-go="approvals"]');
+await nav("approvals");
 await ap.waitForSelector('[data-act="decide"][data-do="approve"]');
 ok(await ap.locator('a:has-text("File 1")').count() === 1, "approvals: the claim and its photograph");
 await ap.click('[data-act="decide"][data-do="approve"]');
@@ -131,9 +134,9 @@ ok(!!(await waitMail("asha@example.com", /your claim is approved/)), "approvals:
   await bp.fill("#rd", evil);
   await bp.click('#dlgB button[type=submit]');
   await bp.waitForSelector("#dlgB .okmsg");
-  await ap.click('[data-go="overview"]'); await ap.click('[data-go="approvals"]');
+  await nav("today"); await nav("approvals");
   await ap.waitForSelector('[data-act="decide"][data-do="done"]');
-  ok(await ap.locator('[data-v="approvals"] img, [data-v="approvals"] b:not(.num)').count() === 0 && /onerror/.test(await ap.locator('[data-v="approvals"]').innerText()), "XSS: a claim that carries markup is shown as text in Approvals, and nothing ran");
+  ok(await ap.locator('#view img, #view p b').count() === 0 && /<img src=x onerror=/.test(await ap.locator('#view').innerText()) && /<b>bold<\/b>/.test(await ap.locator('#view').innerText()), "XSS: a claim that carries markup is shown as text in Approvals, and nothing ran");
   ok(await ap.evaluate(() => window.__xss === undefined), "XSS: and no script from it executed");
   await ap.click('[data-act="decide"][data-do="done"]');
   await ap.click('[data-act="decideGo"]');
@@ -168,7 +171,7 @@ await np.click("#go2");
 await np.waitForSelector("#s3:not([hidden])");
 ok(/It is with us/.test(await np.locator("#doneH").innerText()), "transfer: accepted, waiting for the owner of the shop");
 
-await ap.click('[data-go="overview"]'); await ap.click('[data-go="approvals"]');
+await nav("today"); await nav("approvals");
 await ap.waitForSelector('[data-act="decide"][data-kind="tr"][data-do="approve"]');
 await ap.click('[data-act="decide"][data-kind="tr"][data-do="approve"]');
 await ap.click('[data-act="decideGo"]');

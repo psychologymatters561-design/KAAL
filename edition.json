@@ -1,0 +1,73 @@
+{
+  "brand": "KAAL",
+  "series": "Series 01",
+  "url": "https://thekaal.co/",
+  "edition": 20,
+  "priceINR": 5999,
+  "status": "on sale",
+  "available": 12,
+  "gone": 8,
+  "availableNumbers": [
+    5,
+    6,
+    8,
+    11,
+    12,
+    13,
+    14,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "goneNumbers": [
+    1,
+    2,
+    3,
+    4,
+    7,
+    9,
+    10,
+    15
+  ],
+  "dials": {
+    "Emerald": {
+      "made": 6,
+      "available": 2,
+      "availableNumbers": [
+        5,
+        6
+      ]
+    },
+    "Midnight": {
+      "made": 4,
+      "available": 1,
+      "availableNumbers": [
+        8
+      ]
+    },
+    "Champagne": {
+      "made": 4,
+      "available": 4,
+      "availableNumbers": [
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    "Ivory": {
+      "made": 6,
+      "available": 5,
+      "availableNumbers": [
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    }
+  },
+  "asOf": "2026-10-28"
+}

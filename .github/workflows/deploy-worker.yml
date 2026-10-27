@@ -1,0 +1,93 @@
+# ══════════════════════════════════════════════════════════════════
+# The merge is the deploy, for the worker too.
+#
+# The site goes live the moment main changes (GitHub Pages). The worker
+# used to wait for someone to press "Run workflow" on setup-worker, and
+# twice that step was forgotten: fixes sat merged and not live for days.
+# Now, when a push to main has passed every test in check.yml, and that
+# push changed the worker, its schema or its config, this deploys it.
+#
+# Only after check passes: workflow_run fires when check finishes, and the
+# job runs only if it succeeded on a push to main. A red build never
+# reaches the live worker. It never runs for a pull request, so nothing
+# from a fork can reach the secrets.
+#
+# Mode live, the same as pressing the button: migrations first, then the
+# code, the Meta and courier tokens, and the secrets ADMIN_EMAIL,
+# OWNER_EMAIL, RESEND_API_KEY and DESK_PASSCODE from this repository's
+# secrets. So changing DESK_PASSCODE in Settings, then running
+# setup-worker (or merging anything), changes the command centre's
+# passcode. AUTH_SECRET is never replaced. setup-worker stays for the
+# other modes and for a deploy by hand.
+#
+# A sale's own commit (index.html, llms.txt, edition.json) changes none of
+# the worker's files, so it deploys nothing.
+# ══════════════════════════════════════════════════════════════════
+name: deploy-worker
+
+on:
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: setup-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Did this push change the worker?
+        id: what
+        run: |
+          set -euo pipefail
+          if ! git rev-parse -q --verify HEAD~1 >/dev/null; then echo "go=yes" >> "$GITHUB_OUTPUT"; exit 0; fi
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "$CHANGED"
+          if grep -qE '^(worker/|migrations/|wrangler\.toml$|tools/setup-email\.mjs$|\.github/workflows/deploy-worker\.yml$)' <<<"$CHANGED"; then
+            echo "go=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=no" >> "$GITHUB_OUTPUT"; echo "Nothing of the worker's changed: no deploy."
+          fi
+
+      - uses: actions/setup-node@v5
+        if: ${{ steps.what.outputs.go == 'yes' }}
+        with:
+          node-version: '22'
+
+      - name: Deploy (mode live)
+        if: ${{ steps.what.outputs.go == 'yes' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
+          META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          SHIPROCKET_TOKEN: ${{ secrets.SHIPROCKET_TOKEN }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/setup-email.mjs --live
+
+      - name: Keep the store's id in wrangler.toml
+        if: ${{ steps.what.outputs.go == 'yes' }}
+        continue-on-error: true
+        run: |
+          if git diff --quiet -- wrangler.toml; then echo "wrangler.toml unchanged."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wrangler.toml
+          git commit -m "Bind the worker's stores in wrangler.toml (deploy-worker)"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -98,6 +98,7 @@ import { sweeps } from "./sla.js";
 import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
+import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -1289,14 +1290,74 @@ async function refundPayment(env, paymentId, amount, reason, n, prefix) {
 async function rewriteSold(env, change, message) {
   /* Staging never writes the live site's sold list, either way. */
   if (staging(env)) return { status: "skipped" };
+  /* First choice: one commit that changes the sold list AND every count a
+     reader without a script sees (worker/stock.js): index.html, llms.txt,
+     edition.json together. If anything about that path fails, the single
+     file write below still marks the number, as it always has. */
+  const atomic = await commitStock(env, change, message).catch(e => { console.log("Stock commit failed:", String(e).slice(0, 160)); return { status: "error" }; });
+  if (atomic.status !== "error") return atomic;
+  return rewriteIndexOnly(env, change, message);
+}
+
+const ghHeaders = (env, raw) => ({
+  "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+  "Accept": raw ? "application/vnd.github.raw" : "application/vnd.github+json",
+  "User-Agent": "kaal-edition-worker"
+});
+const soldPattern = /sold:\s*\[([^\]]*)\]/;
+const soldOf = (html) => { const m = html.match(soldPattern); return m ? m[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)) : null; };
+
+/* The Git Data API: read main, write a tree of three files on top of it,
+   a commit, then move main to it only if main has not moved (no force).
+   A race with another commit re-reads and tries again. */
+async function commitStock(env, change, message) {
+  const repo = `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+  const branch = env.GITHUB_BRANCH || "main";
+  const H = ghHeaders(env), json = (o) => ({ method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, H), body: JSON.stringify(o) });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ref = await fetch(`${repo}/git/ref/heads/${branch}`, { headers: H });
+    if (!ref.ok) return { status: "error" };
+    const head = ((await ref.json()).object || {}).sha;
+    if (!/^[0-9a-f]{40}$/.test(head || "")) return { status: "error" };
+    const [hRes, lRes] = await Promise.all([
+      fetch(`${repo}/contents/index.html?ref=${head}`, { headers: ghHeaders(env, true) }),
+      fetch(`${repo}/contents/llms.txt?ref=${head}`, { headers: ghHeaders(env, true) })
+    ]);
+    if (!hRes.ok) return { status: "error" };
+    const html = await hRes.text(), llms = lRes.ok ? await lRes.text() : "";
+    const current = soldOf(html);
+    if (!current) { console.log("Could not find `sold:` array: has index.html's config shape changed?"); return { status: "error" }; }
+    const edition = parseInt((html.match(/edition:\s*(\d+)/) || [])[1], 10) || 20;
+    const step = change(current, edition);
+    if (step.status) return step;
+    const nextHtml = applyStockHtml(html.replace(soldPattern, `sold:     [${step.next.join(", ")}]`));
+    const st = stockOf(configOf(nextHtml)), day = stockDay(Date.now());
+    const files = [{ path: "index.html", mode: "100644", type: "blob", content: nextHtml },
+      { path: "edition.json", mode: "100644", type: "blob", content: editionJson(st, day) }];
+    if (llms) files.push({ path: "llms.txt", mode: "100644", type: "blob", content: applyStockLlms(llms, st, day) });
+    const base = await fetch(`${repo}/git/commits/${head}`, { headers: H });
+    if (!base.ok) return { status: "error" };
+    const tree = await fetch(`${repo}/git/trees`, json({ base_tree: (await base.json()).tree.sha, tree: files }));
+    if (!tree.ok) return { status: "error" };
+    const commit = await fetch(`${repo}/git/commits`, json({ message, tree: (await tree.json()).sha, parents: [head] }));
+    if (!commit.ok) return { status: "error" };
+    const moved = await fetch(`${repo}/git/refs/heads/${branch}`, Object.assign(json({ sha: (await commit.json()).sha, force: false }), { method: "PATCH" }));
+    if (moved.ok) return { status: "ok" };
+    if (moved.status === 422 || moved.status === 409) continue;        /* main moved under us: read it again */
+    console.log("GitHub ref update failed:", moved.status, (await moved.text()).slice(0, 200));
+    return { status: "error" };
+  }
+  return { status: "error" };
+}
+
+/* The original path, kept as the fallback: one file, the contents API.
+   It still prints the counts (applyStockHtml); only llms.txt and
+   edition.json wait for the next commit that carries them. */
+async function rewriteIndexOnly(env, change, message) {
   const owner  = env.GITHUB_OWNER, repo = env.GITHUB_REPO;
   const branch = env.GITHUB_BRANCH || "main";
   const api    = `https://api.github.com/repos/${owner}/${repo}/contents/index.html`;
-  const headers = {
-    "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
-    "Accept": "application/vnd.github+json",
-    "User-Agent": "kaal-edition-worker"
-  };
+  const headers = ghHeaders(env);
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const getRes = await fetch(`${api}?ref=${branch}`, { headers });
@@ -1305,31 +1366,26 @@ async function rewriteSold(env, change, message) {
       return { status: "error" };
     }
     const file = await getRes.json();
-    const decoded = atob(file.content.replace(/\n/g, ""));
+    const decoded = b64Text(file.content);
 
     const editionMatch = decoded.match(/edition:\s*(\d+)/);
     const edition = editionMatch ? parseInt(editionMatch[1], 10) : 20;
 
-    const soldPattern = /sold:\s*\[([^\]]*)\]/;
-    const match = decoded.match(soldPattern);
-    if (!match) {
-      console.log("Could not find `sold:` array — has index.html's config shape changed?");
+    const current = soldOf(decoded);
+    if (!current) {
+      console.log("Could not find `sold:` array: has index.html's config shape changed?");
       return { status: "error" };
     }
 
-    const current = match[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
     const step = change(current, edition);
     if (step.status) return step;
 
+    let next = decoded.replace(soldPattern, `sold:     [${step.next.join(", ")}]`);
+    try { next = applyStockHtml(next); } catch (e) { console.log("Counts not printed:", String(e).slice(0, 120)); }
     const putRes = await fetch(api, {
       method: "PUT",
       headers: Object.assign({ "Content-Type": "application/json" }, headers),
-      body: JSON.stringify({
-        message,
-        content: btoa(decoded.replace(soldPattern, `sold:     [${step.next.join(", ")}]`)),
-        sha: file.sha,
-        branch
-      })
+      body: JSON.stringify({ message, content: textB64(next), sha: file.sha, branch })
     });
 
     if (putRes.ok) return { status: "ok" };
@@ -1340,6 +1396,19 @@ async function rewriteSold(env, change, message) {
   }
   console.log("GitHub PUT conflicted three times running.");
   return { status: "error" };
+}
+
+/* GitHub's base64 is of UTF-8 bytes; the page has ₹ and Devanagari in it. */
+function b64Text(b64) {
+  const bin = atob(String(b64 || "").replace(/\n/g, "")), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function textB64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 
 async function commitSold(env, chosen, paymentId) {

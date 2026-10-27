@@ -1229,5 +1229,53 @@ const person = (s) => sha(s).slice(0, 32);
   ok(/reason === "exists"/.test(thanks), "claimed.html: says the address is already in, and how to change it");
 }
 
+/* ── 17. A sale's commit carries what is left, for readers that run no script ── */
+{
+  const fs = await import("node:fs");
+  const S = await import("../worker/stock.js");
+  const files = { "index.html": fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"), "llms.txt": fs.readFileSync(new URL("../llms.txt", import.meta.url), "utf8") };
+  const before = S.configOf(files["index.html"]).sold;
+  const open = [5, 6, 8, 11].find(n => before.indexOf(n) < 0);
+  const base = globalThis.fetch;
+  let trees = [], patches = [], puts = [], race = 0, refDown = false;
+  globalThis.fetch = async (url, init) => {
+    url = String(url); const m = (init && init.method) || "GET";
+    if (/\/orders\/order_STOCK\d$/.test(url)) return new Response(JSON.stringify({ id: "order_STOCK1", status: "paid", amount: 599900, currency: "INR", created_at: 1790000000, notes: { kaal_no: String(open) } }));
+    if (!url.includes("api.github.com")) return base(url, init);
+    if (/\/git\/ref\/heads\/main$/.test(url)) return refDown ? new Response("down", { status: 502 }) : new Response(JSON.stringify({ object: { sha: "a".repeat(40) } }));
+    const f = /\/contents\/([a-z.]+)\?ref=/.exec(url);
+    if (f && m === "GET") {
+      if (/raw/.test((init.headers || {}).Accept || "")) return files[f[1]] != null ? new Response(files[f[1]]) : new Response("", { status: 404 });
+      return new Response(JSON.stringify({ content: Buffer.from(files[f[1]] || "").toString("base64"), sha: "x" }));
+    }
+    if (/\/git\/commits\/[0-9a-f]{40}$/.test(url)) return new Response(JSON.stringify({ tree: { sha: "t".repeat(40) } }));
+    if (/\/git\/trees$/.test(url)) { trees.push(JSON.parse(init.body)); return new Response(JSON.stringify({ sha: "b".repeat(40) }), { status: 201 }); }
+    if (/\/git\/commits$/.test(url)) return new Response(JSON.stringify({ sha: "c".repeat(40) }), { status: 201 });
+    if (/\/git\/refs\/heads\/main$/.test(url) && m === "PATCH") { patches.push(JSON.parse(init.body)); return race-- > 0 ? new Response("{}", { status: 422 }) : new Response("{}"); }
+    if (m === "PUT") { puts.push(JSON.parse(init.body)); return new Response("{}"); }
+    return new Response("{}", { status: 404 });
+  };
+  const sell = (id) => hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id, order_id: "order_STOCK1", amount: 599900, currency: "INR", email: "stock@example.com", contact: "+919800000011", created_at: 1791000000 } } } }));
+  KV.store.set("sold", JSON.stringify(before)); race = 1;
+  r = await sell("pay_STOCK01");
+  const t = trees[trees.length - 1] || { tree: [] }, by = {};
+  for (const x of t.tree) by[x.path] = x.content;
+  const after = by["index.html"] ? S.configOf(by["index.html"]) : null, st = after && S.stockOf(after);
+  ok(r.status === 200 && patches.length === 2 && patches.every(p => p.force === false) && puts.length === 0 && Object.keys(by).sort().join() === "edition.json,index.html,llms.txt",
+    "stock: a sale is ONE commit of index.html, llms.txt and edition.json, main moved without force, and a race read again");
+  ok(after && after.sold.indexOf(open) > -1 && S.applyStockHtml(by["index.html"]) === by["index.html"] && new RegExp('<span id="heroLeft">' + (20 - before.length - 1) + "<").test(by["index.html"]) &&
+    new RegExp('"sku": "KAAL-' + String(open).padStart(2, "0") + '"[\\s\\S]*?SoldOut').test(by["index.html"]),
+    "stock: the page's counts, its grid and No. " + open + "'s structured data all say it is gone");
+  ok(st && S.llmsAgrees(by["llms.txt"], st) && S.editionAgrees(by["edition.json"], st) && JSON.parse(by["edition.json"]).available === st.remaining,
+    "stock: llms.txt's Live status and edition.json say the same, " + (st && st.remaining) + " left");
+  /* GitHub's Git Data API down: the one-file path still marks it, counts and all. */
+  KV.store.set("sold", JSON.stringify(before)); refDown = true; trees = []; patches = [];
+  r = await sell("pay_STOCK02");
+  const put = puts[0] ? Buffer.from(puts[0].content, "base64").toString("utf8") : "";
+  ok(r.status === 200 && trees.length === 0 && puts.length === 1 && S.configOf(put).sold.indexOf(open) > -1 && S.applyStockHtml(put) === put && /काल/.test(put),
+    "stock: if that fails, the old single-file write still marks it, prints the counts and keeps the page's Devanagari intact");
+  globalThis.fetch = base;
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll worker tests passed.");
 process.exit(failed ? 1 : 0);

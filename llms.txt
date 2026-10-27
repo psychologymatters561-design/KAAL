@@ -12,6 +12,17 @@ stretch of time that ends and is remembered. A brand named after that, selling
 a design it finishes after twenty pieces, is the whole idea rather than a
 marketing line.
 
+## Live status
+
+Rewritten automatically in the same commit as every sale, so it always
+matches the shop. The same facts as data: https://thekaal.co/edition.json
+
+- **Available now**: 12 of 20 (Nos. 05, 06, 08, 11, 12, 13, 14, 16, 17, 18, 19, 20)
+- **No longer available**: 8 of 20 (Nos. 01, 02, 03, 04, 07, 09, 10, 15)
+- **Available by dial**: Emerald 2 of 6 (Nos. 05, 06); Midnight 1 of 4 (No. 08); Champagne 4 of 4 (Nos. 11, 12, 13, 14); Ivory 5 of 6 (Nos. 16, 17, 18, 19, 20)
+- **Status**: on sale at thekaal.co, ₹5,999 each
+- **As of**: 28 October 2026
+
 ## The facts, stated once
 
 - **Brand**: KAAL (काल), thekaal.co. Sold direct only: no marketplace, no

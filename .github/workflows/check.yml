@@ -37,6 +37,9 @@ jobs:
       - name: Validate the page
         run: node tools/check.mjs
 
+      - name: Test what is left, for readers that run no script (worker/stock.js)
+        run: node tools/test-stock.mjs
+
       - name: Validate the worker parses
         run: for f in worker/*.js; do node --check "$f" || exit 1; done
 

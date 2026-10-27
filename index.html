@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KAAL Watches India · Series 01 · Seiko Epson movement, twenty pieces</title>
-<!-- The title is rewritten on load by countsFromRemaining() so the count in
-     it is never stale. Both strings are the same shape on purpose: brand,
+<title>KAAL Watches India · Series 01 · twelve of twenty remain</title>
+<!-- The title's count is printed by worker/stock.js with every sale and
+     rewritten on load by countsFromRemaining(), so it is never stale. Both strings are the same shape on purpose: brand,
      country, series, then the one fact that decides the click. If you change
      one, change the other. -->
 <meta name="description" content="Series 01: twenty numbered luxury watches, made in India around a Japanese Seiko Epson movement backed twenty four months. ₹5,999, free delivery in India, seven day return. When No. 20 ships, the design retires.">
@@ -30,36 +30,21 @@
 <meta name="twitter:description" content="Twenty numbered watches, made in India around a Japanese Seiko Epson movement backed twenty four months. When the twentieth ships, the design is finished with.">
 <meta name="twitter:image" content="https://thekaal.co/assets/img/og.jpg">
 
-<!-- The twenty are SEEDED here, MINUS their availability.
+<!-- The twenty are SEEDED here, WITH their availability.
 
-     Two true things were in tension. #22 moved this list to runtime
-     because worker/kaal-sold-sync rewrites only the edition array in
-     this file, so anything baked in beside that one line is stale from
-     the first sale — correct, and a baked availability would have
-     started lying within a day. But it shipped hasVariant as [], and
-     Googlebot is
-     close to the only crawler that would ever fill it: GPTBot,
-     ClaudeBot, PerplexityBot and CCBot fetch HTML and never execute it.
-     To all of them the edition became one product with no variants, no
-     numbers, no dials and no price — invisible to exactly the answer
-     engines the rest of this markup is written for.
+     GPTBot, ClaudeBot, PerplexityBot and CCBot fetch this HTML and never
+     run its script, so whatever is printed here is all they learn. Every
+     count on this page (title, nav, hero, statement, dock, each dial's
+     "left" and "remain"), the twenty in the grid, and below, each
+     number's availability, the group's availability and inventoryLevel,
+     are rewritten from KAAL.sold by worker/stock.js in the same commit
+     as each sale (with llms.txt's Live status and edition.json), so they
+     are true from the moment the commit lands. driveSchema() still
+     rebuilds the graph wherever JavaScript runs, from the same soldSet
+     that strikes the number in the grid, and then knows about holds too.
 
-     Both problems have the same cause, which is that only ONE field
-     here can go stale. A number's sku, its name, the dial it was
-     assigned and what it costs are fixed for the life of the series.
-     Whether it is still available is not.
-
-     So the durable facts are baked and `availability` is left off
-     every variant. A crawler that runs no JavaScript now learns that
-     twenty numbered pieces exist, which dial each carries and what
-     each costs, and learns nothing false about what is left.
-     driveSchema() adds the availability wherever JavaScript runs, from
-     the same soldSet that strikes the number in the grid.
-
-     check.mjs compares this against KAAL.dials and the price on every
-     push, and FAILS if a variant grows an availability back, because
-     the next person to add one will have a good reason and no way to
-     know the worker cannot maintain it. -->
+     tools/check.mjs fails any push where these and KAAL.sold disagree.
+     After editing the sold list by hand, run node tools/sync-stock.mjs. -->
 <script type="application/ld+json" id="ld">
 {
   "@context": "https://schema.org",
@@ -333,7 +318,11 @@
         "@type": "Offer",
         "price": "5999",
         "priceCurrency": "INR",
-        "availability": "https://schema.org/LimitedAvailability",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": {
+          "@type": "QuantitativeValue",
+          "value": 12
+        },
         "seller": {
           "@id": "https://thekaal.co/#org"
         },
@@ -388,6 +377,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -402,6 +392,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -416,6 +407,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -430,6 +422,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -444,6 +437,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -458,6 +452,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -472,6 +467,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -486,6 +482,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -500,6 +497,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -514,6 +512,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -528,6 +527,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -542,6 +542,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -556,6 +557,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -570,6 +572,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -584,6 +587,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/SoldOut",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -598,6 +602,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -612,6 +617,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -626,6 +632,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -640,6 +647,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -654,6 +662,7 @@
             "@type": "Offer",
             "price": "5999",
             "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
             "seller": {
               "@id": "https://thekaal.co/#org"
             }
@@ -1971,7 +1980,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
   <a class="nav-mark" href="#top" aria-label="KAAL, back to top">
     <svg viewBox="0 0 380 120" aria-hidden="true"><g fill="currentColor"><path d="M24 20 V100 M24 66 L72 20 M24 66 L74 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M108 100 L140 20 L172 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M208 100 L240 20 L272 100" stroke="currentColor" stroke-width="7" fill="none"/><path d="M308 20 V100 H356" stroke="currentColor" stroke-width="7" fill="none"/></g></svg>
   </a>
-  <span class="nav-rem"><span id="navRem">Seventeen</span> of twenty remain</span>
+  <span class="nav-rem"><span id="navRem">Twelve</span> of twenty remain</span>
 </header>
 
 <main id="top">
@@ -2007,7 +2016,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
           </svg>
         </h1>
         <p class="hero-line">Most people disappear into the crowd. <em>Twenty won&rsquo;t.</em></p>
-        <p class="mark-sub"><span id="heroLeft">17</span> of 20 &nbsp;·&nbsp; <span class="hero-price">&#8377;5,999</span> &nbsp;·&nbsp; free delivery</p>
+        <p class="mark-sub"><span id="heroLeft">12</span> of 20 &nbsp;·&nbsp; <span class="hero-price">&#8377;5,999</span> &nbsp;·&nbsp; free delivery</p>
         <a class="buy hero-cta sheen" id="heroCta" href="#twenty">Choose your number</a>
       </div>
 
@@ -2060,10 +2069,10 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
   <div class="hold" data-depth="front">
     <h2 class="statement rise" id="earlyH">Which one is yours?</h2>
     <div class="early-row rise" id="earlyRow" role="group" aria-labelledby="earlyH">
-      <button type="button" class="early-pick" data-face="emerald" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="ep-name">Emerald</span><span class="ep-left" data-early-left="emerald">4 left</span></button>
-      <button type="button" class="early-pick" data-face="midnight" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="ep-name">Midnight</span><span class="ep-left" data-early-left="midnight">3 left</span></button>
+      <button type="button" class="early-pick" data-face="emerald" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="ep-name">Emerald</span><span class="ep-left" data-early-left="emerald">2 left</span></button>
+      <button type="button" class="early-pick" data-face="midnight" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="ep-name">Midnight</span><span class="ep-left" data-early-left="midnight">1 left</span></button>
       <button type="button" class="early-pick" data-face="champagne" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span><span class="ep-name">Champagne</span><span class="ep-left" data-early-left="champagne">4 left</span></button>
-      <button type="button" class="early-pick" data-face="ivory" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><span class="ep-name">Ivory</span><span class="ep-left" data-early-left="ivory">6 left</span></button>
+      <button type="button" class="early-pick" data-face="ivory" aria-pressed="false"><span class="disc" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><span class="ep-name">Ivory</span><span class="ep-left" data-early-left="ivory">5 left</span></button>
     </div>
   </div>
 </section>
@@ -2129,7 +2138,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       </div>
     </div>
   </div>
-  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="emerald">Emerald &middot; 4 of 6 remain &rarr; Choose yours</a></div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="emerald">Emerald &middot; 2 of 6 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 04 MIDNIGHT, and the water ════════ -->
@@ -2146,7 +2155,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
            alt="Close view of the black dial with gold indices, gold hands and gold subdial print, on black stone under a streak of warm light.">
     </div>
   </div>
-  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="midnight">Midnight &middot; 3 of 4 remain &rarr; Choose yours</a></div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="midnight">Midnight &middot; 1 of 4 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 05 CHAMPAGNE ════════ -->
@@ -2184,7 +2193,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       </div>
     </div>
   </div>
-  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="ivory">Ivory &middot; 6 of 6 remain &rarr; Choose yours</a></div>
+  <div class="hold ctx-wrap"><a class="ctx" href="#twenty" data-ctx="ivory">Ivory &middot; 5 of 6 remain &rarr; Choose yours</a></div>
 </section>
 
 <!-- ════════ 07 THE HANDS ════════ -->
@@ -2320,7 +2329,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
   <div class="act-back" data-depth="back" aria-hidden="true"></div>
   <div class="hold">
     <p class="label rise">11 · The twenty</p>
-    <h2 class="statement rise"><span id="remWord">Seventeen</span> remain.</h2>
+    <h2 class="statement rise"><span id="remWord">Twelve</span> remain.</h2>
     <p class="sub rise">Every number is engraved on one caseback, once.</p>
 
     <p class="step" id="choose">1 &nbsp;·&nbsp; Choose a dial</p>
@@ -2341,22 +2350,22 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
         style="--tint:rgba(93,143,110,.15)" aria-label="Number 01, Emerald dial, already gone">01<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="2" aria-pressed="false" disabled
         style="--tint:rgba(93,143,110,.15)" aria-label="Number 02, Emerald dial, already gone">02<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
-      <li><button type="button" class="pick" data-n="3" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 03, Emerald dial">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
-      <li><button type="button" class="pick" data-n="4" aria-pressed="false"
-        style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 04, Emerald dial">04<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
+      <li><button type="button" class="pick" data-n="3" aria-pressed="false" disabled
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 03, Emerald dial, already gone">03<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
+      <li><button type="button" class="pick" data-n="4" aria-pressed="false" disabled
+        style="--tint:rgba(93,143,110,.15)" aria-label="Number 04, Emerald dial, already gone">04<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="5" aria-pressed="false"
         style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 05, Emerald dial">05<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
       <li><button type="button" class="pick" data-n="6" aria-pressed="false"
         style="--tint:rgba(93,143,110,.15)" aria-label="Choose number 06, Emerald dial">06<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#5D8F6E,#245236 58%,#122A1D)"></span></button></li>
-      <li><button type="button" class="pick" data-n="7" aria-pressed="false"
-        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 07, Midnight dial">07<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="7" aria-pressed="false" disabled
+        style="--tint:rgba(190,190,188,.085)" aria-label="Number 07, Midnight dial, already gone">07<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="8" aria-pressed="false"
         style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 08, Midnight dial">08<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
       <li><button type="button" class="pick" data-n="9" aria-pressed="false" disabled
         style="--tint:rgba(190,190,188,.085)" aria-label="Number 09, Midnight dial, already gone">09<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="placed">Placed</span></button></li>
-      <li><button type="button" class="pick" data-n="10" aria-pressed="false"
-        style="--tint:rgba(190,190,188,.085)" aria-label="Choose number 10, Midnight dial">10<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span></button></li>
+      <li><button type="button" class="pick" data-n="10" aria-pressed="false" disabled
+        style="--tint:rgba(190,190,188,.085)" aria-label="Number 10, Midnight dial, already gone">10<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#3A3A38,#151514 58%,#070707)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="11" aria-pressed="false"
         style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 11, Champagne dial">11<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="12" aria-pressed="false"
@@ -2365,8 +2374,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
         style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 13, Champagne dial">13<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
       <li><button type="button" class="pick" data-n="14" aria-pressed="false"
         style="--tint:rgba(198,161,91,.16)" aria-label="Choose number 14, Champagne dial">14<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#F0D89B,#C6A15B 56%,#8A6C33)"></span></button></li>
-      <li><button type="button" class="pick" data-n="15" aria-pressed="false"
-        style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 15, Ivory dial">15<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
+      <li><button type="button" class="pick" data-n="15" aria-pressed="false" disabled
+        style="--tint:rgba(237,232,223,.13)" aria-label="Number 15, Ivory dial, already gone">15<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span><span class="placed">Placed</span></button></li>
       <li><button type="button" class="pick" data-n="16" aria-pressed="false"
         style="--tint:rgba(237,232,223,.13)" aria-label="Choose number 16, Ivory dial">16<span class="dot" style="background:radial-gradient(120% 120% at 32% 24%,#FFFFFF,#DCD7CC 56%,#A49E92)"></span></button></li>
       <li><button type="button" class="pick" data-n="17" aria-pressed="false"
@@ -2578,7 +2587,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
      again if the visitor scrolls back up into the story. -->
 <template id="dockTpl">
 <aside class="dock" id="dock" aria-label="The edition">
-  <span class="dock-txt"><span id="dockRem">Seventeen</span> of twenty remain</span>
+  <span class="dock-txt"><span id="dockRem">Twelve</span> of twenty remain</span>
   <a class="buy small" id="dockCta" role="button" tabindex="0">Choose your number</a>
 </aside>
 </template>
@@ -5107,10 +5116,9 @@ var clientToken = (function(){
       in the nav and the availability in the schema, and they cannot
       disagree because there is nothing to keep in agreement.
 
-      The cost is that a crawler which does not run JavaScript sees the
-      ProductGroup with an empty hasVariant. That is the honest trade and
-      it is the right way round: an empty list says nothing, where a baked
-      one would have said something false. ─────────────────────────────── */
+      A crawler that runs no JavaScript reads the same graph as printed by
+      worker/stock.js in the commit of the last sale, so the two agree; this
+      only moves it on between commits (a sale seconds ago, a hold). ───── */
 var LD = $("#ld"), ldGraph = null, ldGroup = null;
 function driveSchema(){
   if(!LD) return;
@@ -5147,6 +5155,7 @@ function driveSchema(){
      of them is, out of stock only when the last one goes. */
   ldGroup.offers.availability = open ? "https://schema.org/InStock"
                                      : "https://schema.org/OutOfStock";
+  if(ldGroup.offers.inventoryLevel) ldGroup.offers.inventoryLevel.value = open;
   LD.textContent = JSON.stringify(ldGraph);
 }
 driveSchema();

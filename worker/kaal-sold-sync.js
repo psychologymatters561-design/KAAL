@@ -89,7 +89,7 @@ import { buyerConfirmation, buyerNearlyBought, nearlyWhatsApp, seriesTwoNote, af
   stepText, sourceName, deviceName } from "./mail.js";
 import { deskPage } from "./desk.js";
 import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlocked, recordPayment, claimRefund, refundDone, refundFailed, paymentFate } from "./registry.js";
-import { buyerDuplicate, ownerDuplicate, esc } from "./mail.js";
+import { buyerDuplicate, ownerDuplicate, esc, actName } from "./mail.js";
 import { control } from "./control.js";
 import { flushOutbox } from "./outbox.js";
 import { queuePlaced, queueAddressAsk } from "./orders.js";
@@ -98,6 +98,7 @@ import { sweeps } from "./sla.js";
 import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
+import { sessionOf, authOn } from "./auth.js";
 import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -2361,7 +2362,7 @@ export class Stats {
       devices: group("dev", "AND dev IS NOT NULL", 4),
       hours: all(`SELECT ${hourIst} AS h, COUNT(*) AS v, SUM(${PAID}) AS paid FROM visitor WHERE ${W} GROUP BY h`, since),
       weekdays: all(`SELECT ${dayIst} AS d, COUNT(*) AS v, SUM(${PAID}) AS paid FROM visitor WHERE ${W} GROUP BY d`, since),
-      dials: count("dials"), numbers: count("nums").sort((a, b) => b.v - a.v || a.k - b.k), acts: count("acts"),
+      dials: count("dials"), numbers: count("nums").sort((a, b) => b.v - a.v || a.k - b.k), acts: count("acts").map(a => Object.assign(a, { name: actName(a.k) })),
       time: all(`SELECT CASE WHEN tsec < 30 THEN 0 WHEN tsec < 120 THEN 1 WHEN tsec < 300 THEN 2 WHEN tsec < 900 THEN 3 ELSE 4 END AS b, COUNT(*) AS v, SUM(${PAID}) AS paid
         FROM visitor WHERE ${W} GROUP BY b`, since),
       hot: all(`SELECT * FROM visitor WHERE ${W} AND score >= ${WARM} AND NOT ${PAID} ORDER BY score DESC, last DESC LIMIT 40`, since).map(visitorSummary)
@@ -2749,12 +2750,25 @@ function deskJson(body, status, extra) {
 
 /* The signing key mixes the passcode with a secret that never leaves the
    worker, so a stolen cookie cannot be used to guess the passcode offline. */
-const deskKey = (env) => `kaal-desk|${env.DESK_PASSCODE}|${env.RAZORPAY_KEY_SECRET || env.GITHUB_TOKEN || ""}`;
+/* "Sign out every device" in the command centre moves desk:epoch, which
+   is in the key, so every desk cookie made before it stops working. */
+async function deskKey(env) {
+  const epoch = env.KAAL_STATE ? await env.KAAL_STATE.get("desk:epoch").catch(() => null) : null;
+  return `kaal-desk|${env.DESK_PASSCODE}|${env.RAZORPAY_KEY_SECRET || env.GITHUB_TOKEN || ""}` + (epoch ? "|" + epoch : "");
+}
 async function deskSession(request, env) {
   if (!env.DESK_PASSCODE) return false;
   const m = new RegExp(`(?:^|;\\s*)${DESK_COOKIE}=(\\d{10,15})\\.([0-9a-f]{64})`).exec(request.headers.get("Cookie") || "");
   if (!m || !(parseInt(m[1], 10) > Date.now())) return false;
-  return timingSafeEqual(await hmacHex("desk|" + m[1], deskKey(env)), m[2]);
+  return timingSafeEqual(await hmacHex("desk|" + m[1], await deskKey(env)), m[2]);
+}
+/* The command centre (/control) reads everything the desk does, with its
+   own session: the admin's, signed in, past any second factor. */
+const commandOn = (env) => registryOn(env) && authOn(env);
+async function commandSession(request, env) {
+  if (!commandOn(env)) return false;
+  const s = await sessionOf(env, request).catch(() => null);
+  return !!(s && s.admin && s.mfa);
 }
 
 /* Every write the desk makes carries X-Desk and comes from the desk's own
@@ -2768,6 +2782,8 @@ function deskWrite(request) {
 
 async function desk(request, env, ctx, path) {
   const method = request.method;
+  /* The desk is now part of the command centre; the old address leads there. */
+  if (path === "/desk" && method === "GET" && commandOn(env)) return new Response(null, { status: 302, headers: deskHeaders({ Location: "/control" }) });
   if (path === "/desk" && method === "GET") {
     const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
     return new Response(deskPage(nonce), { headers: deskHeaders({
@@ -2775,13 +2791,16 @@ async function desk(request, env, ctx, path) {
       "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
     }) });
   }
-  if (path === "/desk/login" && method === "POST") return deskLogin(request, env);
+  /* With the command centre on, the passcode is checked only at /auth/passcode, behind its
+     limits and its lockout; this older door would be a way round them. */
+  if (path === "/desk/login" && method === "POST") return commandOn(env) ? deskJson({ ok: false, reason: "moved", why: "Sign in at /control." }, 410) : deskLogin(request, env);
   if (path === "/desk/logout" && method === "POST") {
     if (!deskWrite(request)) return deskJson({ ok: false, reason: "refused" }, 403);
     return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=; Path=/desk; Max-Age=0; HttpOnly; Secure; SameSite=Strict` });
   }
-  if (!env.DESK_PASSCODE) return deskJson({ ok: false, reason: "off" }, 503);
-  if (!(await deskSession(request, env))) return deskJson({ ok: false, reason: "signed-out" }, 401);
+  if (!(await commandSession(request, env)) && !(await deskSession(request, env))) {
+    return env.DESK_PASSCODE || commandOn(env) ? deskJson({ ok: false, reason: "signed-out" }, 401) : deskJson({ ok: false, reason: "off" }, 503);
+  }
   if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
   if (path === "/desk/live" && method === "GET") return deskJson(await deskLive(env));
   if (path === "/desk/visitors" && method === "GET") return deskJson(await deskVisitors(env, new URL(request.url).searchParams));
@@ -2826,7 +2845,7 @@ async function deskLogin(request, env) {
     return deskJson({ ok: false, reason: "wrong" }, 401);
   }
   const exp = String(Date.now() + DESK_DAYS * 86400000);
-  const token = exp + "." + (await hmacHex("desk|" + exp, deskKey(env)));
+  const token = exp + "." + (await hmacHex("desk|" + exp, await deskKey(env)));
   return deskJson({ ok: true }, 200, { "Set-Cookie": `${DESK_COOKIE}=${token}; Path=/desk; Max-Age=${DESK_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict` });
 }
 

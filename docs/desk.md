@@ -1,3 +1,8 @@
+> **Now part of the command centre.** The desk's screens (Right now, every
+> visitor's history, nearly bought, the Series 02 list, Health) live in the
+> command centre at `/control`, with Insights and AI search added; `/desk`
+> leads there. It opens with the same passcode. docs/runbook.md is the guide.
+
 # The desk: your private page
 
 Everything the website knows, on one page only you can open:

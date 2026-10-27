@@ -8,31 +8,105 @@ do when something looks wrong. Nothing here needs a computer.
 | | Address |
 |---|---|
 | The shop | thekaal.co |
-| **The control room** (you only) | kaal-edition.kaal-edition-hq.workers.dev/control |
+| **The command centre** (you only) | kaal-edition.kaal-edition-hq.workers.dev/control |
 | Owners sign in and see their piece | thekaal.co/owners |
 | Anyone follows an order | thekaal.co/track (the link is in every tracking email) |
 | The public registry | thekaal.co/registry |
-| The old desk, still there | kaal-edition.kaal-edition-hq.workers.dev/desk |
+| What AI search reads about stock | thekaal.co/edition.json and thekaal.co/llms.txt |
 
-You sign in with an emailed six digit code. There is no password and no app.
-Because the code is the only lock, keep Google's own 2-step verification on
-that mailbox.
+The old desk address (/desk) now opens the command centre: the control room
+and the desk are one app.
+
+### Getting in, the easy and safe way
+
+1. On your phone, open the command centre address above and type your
+   passcode (the DESK_PASSCODE secret; the same one the old desk used). Tap
+   **Show** to check what you typed.
+2. Add it to your home screen: Safari, Share, Add to Home Screen (Chrome:
+   menu, Add to Home screen). It opens like an app.
+3. That phone stays signed in for thirty days. Then it asks again.
+
+What keeps it safe:
+- Eight wrong tries from one connection, and that connection waits fifteen
+  minutes.
+- Thirty wrong tries from anywhere in an hour, and the passcode stops working
+  for the rest of that hour. You are emailed once.
+- Every sign-in from a device it has not seen before emails you which device,
+  roughly where, and what to do if it was not you.
+- **Settings, Sign out every device** ends every signed-in session, the old
+  desk's included.
+- Forgot the passcode, or it is paused? **Use an emailed code instead** on
+  the sign-in screen: a six digit code to the admin address.
+
+To change the passcode: GitHub, the KAAL repository, Settings, Secrets and
+variables, Actions, DESK_PASSCODE, Update. It takes effect at the next deploy
+(merging anything that touches the worker, or Actions, setup-worker, mode
+live). Make it long: four or five unrelated words beat any short password.
+Keep Google's 2-step verification on the admin mailbox, because the emailed
+code is the other way in.
 
 Your own address can also own a piece (No. 01). The two doors stay apart:
-signing in at /control opens only the control room, and signing in at
-thekaal.co/owners opens only your piece's dossier. A sign-in at one never
-opens the other, so sign in at each separately.
+signing in at /control opens only the command centre, and signing in at
+thekaal.co/owners opens only your piece's dossier.
 
-## Each screen of the control room
+## Each screen of the command centre
 
-**Overview.** Pieces sold out of twenty as a strip, revenue, how many orders
-wait at each stage, the unregistered deliveries with the days left in their
-return window, what is waiting for you, failed emails, and Health. A red
-"late" card means an order is breaking the five day promise (placed 48 hours
-without Inspected, not Dispatched by day 4, Dispatched 7 days without
-Delivered); you are also emailed once for each.
+On a phone the bar along the bottom holds Today, Orders, Visitors, Insights
+and More (everything else). On a computer the same screens are down the left.
+Keys: 1 to 9 open screens, / searches, r refreshes, u undoes, ? lists them.
 
-**Orders.** One card per order with its stage. One tap per stage:
+**Today.** Sold out of twenty (as the shop shows it), revenue, visitors today
+against yesterday, the seven day conversion, and the twenty as a strip.
+**Needs you** lists what is yours to do: late orders, courier alerts,
+approvals, failed emails, a refunded number to put back on sale or keep
+retired, a payment with no number, and any number the shop shows as sold
+with no order in the registry (with **Record a past sale** beside it).
+**Right now** shows who is on the site this minute and where on the page,
+every ten seconds. **Hot leads** are this week's visitors closest to buying.
+Then the orders at each stage, today's path to a sale against yesterday, and
+the last seven days.
+
+**Visitors and leads.** Every visitor of the last ninety days, newest first,
+opening on **Hot leads**. Each carries a score out of 100, from what they did
+and nothing else: reached the twenty 10, chose a dial 10, chose a number 15,
+turned to the caseback 10, watched the film through 5, read three or more of
+the story 5, opened checkout 20, gave their details 15, came back another day
+10, three minutes or more on the site 5. A buyer is 100. 50 and over is hot,
+25 and over warm. Filter by Warm, Everyone, Bought, Opened checkout, Gave
+details, Came back; search by name, phone, email, city, campaign or visitor
+number. Tap a visitor for their whole story: where they came from and which
+ad, roughly where (a city and state from their connection, never their
+address), phone and browser, every visit, every step, and WhatsApp, Call and
+Email buttons when they gave their details. **Delete this visitor** is for
+when someone asks.
+
+**Insights.** Today, 7, 30 or 90 days. Where people stop on the way to a
+sale; every source with visitors, numbers chosen, checkouts, sales and hot
+leads; every ad campaign and ad; states and cities; phones and browsers; the
+hours (India time) and days they come; the numbers and dials that pull
+interest; the story they read; how long they stay. Tap any row to see exactly
+those visitors.
+
+To see each ad by name, every Meta ad needs these URL parameters (Ads
+Manager, the ad, Destination, URL parameters). Insights shows a Copy button
+for it until the first tagged visit arrives:
+
+    utm_source=meta&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}
+
+**AI search.** What ChatGPT, Perplexity, Google and Bing are told right now
+(available, gone, each dial), links to check it (edition.json, llms.txt,
+Google's rich results test, the schema validator), buttons that ask each
+engine "How many KAAL Series 01 watches are left?", and the visitors those
+engines sent. Nothing to press: every sale rewrites the shop page's counts,
+its grid and structured data, llms.txt's Live status and edition.json in the
+same commit, and Bing (which ChatGPT search reads) is told at once.
+
+**Orders.** Tabs: To ship, Delivered (not registered yet), Finished, All, and
+**Nearly bought** (checkouts opened today or yesterday that did not end in a
+payment, with a WhatsApp note already written for you to send). **Bring in
+from Razorpay** pulls in any paid order the registry has not seen. One card
+per order with its stage, the buyer's WhatsApp, Call and Email, and **Their
+journey** (the visitor history behind the order). One tap per stage:
 Inspected, Packed, Dispatched (courier, tracking number, tracking link),
 Delivered (a date, today by default: this starts the warranty and the return
 window and emails the registration link). Each tap gives you **ten seconds to
@@ -45,7 +119,7 @@ returned** (only inside the seven days and before registering; the buyer is
 never sold to again), **Refund** (full amount, through Razorpay, after you
 type the number). **Record a past sale** is for Nos. 01 and 02.
 
-**Pieces.** The twenty, with the photograph of each exact watch (upload),
+**The twenty.** Each number, with the photograph of that exact watch (upload),
 colourway, private notes, and a manual status change that needs a reason.
 
 **Owners.** Search by name, email or phone, see an owner's chain, change
@@ -67,6 +141,13 @@ contact details when they ask, sign them out everywhere.
 - *Transfer:* **Approve** closes the old ownership and opens the next Owner,
   the warranty unchanged; **Reject** leaves it. Turn the approval off in
   Settings and transfers complete by themselves.
+
+**Series 02 list.** Everyone who asked to hear about Series 02, with where
+they came from, a CSV, and Stop emails for anyone who asks.
+
+**Health.** Every connection in one list (emails, Razorpay, the webhook, the
+store, the visitor count, Meta, the sold list, the daily report); anything
+not ok says what to do.
 
 **Emails.** Every email, with its state (queued, sent, failed). A failed one is
 retried five times over about eight hours, then marked failed; **Retry** tries

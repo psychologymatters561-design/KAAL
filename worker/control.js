@@ -15,7 +15,7 @@
    The existing desk (/desk) keeps working beside this until the owner
    retires it.
    ══════════════════════════════════════════════════════════════════ */
-import { authOn, adminEmail, startLogin, verifyLogin, sessionOf, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail } from "./auth.js";
+import { authOn, adminEmail, adminOwner, startLogin, verifyLogin, sessionOf, openSession, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail, sha256, same } from "./auth.js";
 import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
 import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
@@ -147,11 +147,79 @@ export async function control(request, env, ctx, path, T) {
     m = /^\/export\/(orders|owners|pieces)\.csv$/.exec(route);
     if (method === "GET" && m) return exportCsv(env, m[1]);
     if (method === "GET" && route === "/backup") return backup(env, actor);
+    if (method === "GET" && route === "/sessions") {
+      const r = await env.DB.prepare("SELECT created_at, expires_at, user_agent, CASE WHEN id = ?2 THEN 1 ELSE 0 END AS here FROM sessions WHERE owner_id = ?1 AND scope = 'control' AND revoked_at IS NULL AND expires_at > ?3 ORDER BY created_at DESC LIMIT 20")
+        .bind(s.owner.id, s.sid, iso()).all();
+      return out({ ok: true, sessions: (r.results || []).map(x => ({ since: x.created_at, until: x.expires_at, device: deviceLabel(x.user_agent), here: !!x.here })) });
+    }
+    if (method === "POST" && route === "/sessions/revoke") {
+      const n = await revokeAll(env, s.owner.id);
+      /* The old desk's cookies are signed with this, so they go too. */
+      if (env.KAAL_STATE) await env.KAAL_STATE.put("desk:epoch", String(Date.now())).catch(() => null);
+      await audit(env, actor, "auth.revoke_all", "session", null, { revoked: n });
+      return out({ ok: true, revoked: n }, 200, { "Set-Cookie": clearCookie() });
+    }
   } catch (e) {
     console.log("Control room error:", route, String(e).slice(0, 200));
     return out({ ok: false, reason: "error", why: "Something failed on our side. Nothing was changed; try again." }, 500);
   }
   return out({ ok: false, reason: "not-found" }, 404);
+}
+
+/* ══ The passcode (the command centre's chosen lock) ══
+   DESK_PASSCODE, the same secret the desk used. A right one opens a
+   thirty day session on that device. Guarded three ways: eight wrong tries
+   per connection in fifteen minutes, then that connection waits; thirty
+   wrong tries from anywhere in an hour, then the passcode stops working
+   for the rest of that hour (the emailed code still does) and the admin is
+   emailed once; and every sign-in from a device not seen before emails the
+   admin which device, roughly where, and what to do if it was not them. */
+const PASS_TRIES = 8, PASS_TRIES_S = 15 * 60, PASS_ALL_MAX = 30, PASS_ALL_S = 3600, PASS_SESSION_MS = 30 * 86400 * 1000;
+function deviceLabel(ua) {
+  ua = String(ua || "");
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android phone" : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows computer" : /Linux/.test(ua) ? "Linux computer" : "a device";
+  const br = /Edg\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+  return os + (br ? ", " + br : "");
+}
+function placeOf(request) {
+  const cf = (request && request.cf) || {};
+  return [cf.city, cf.region, cf.country].filter(Boolean).join(", ");
+}
+async function passcodeLogin(request, env, ctx, b, T) {
+  if (!env.DESK_PASSCODE) return out({ ok: false, reason: "off", why: "No passcode is set yet (DESK_PASSCODE). Use an emailed code." }, 503);
+  const kv = env.KAAL_STATE;
+  const ipKey = "rl:pass:" + (await sha256((request.headers.get("cf-connecting-ip") || "unknown") + "|" + env.AUTH_SECRET)).slice(0, 32);
+  const num = async (k) => kv ? parseInt((await kv.get(k).catch(() => null)) || "0", 10) || 0 : 0;
+  const [tries, all] = await Promise.all([num(ipKey), num("rl:pass:all")]);
+  if (all >= PASS_ALL_MAX) return out({ ok: false, reason: "paused" }, 429);
+  if (tries >= PASS_TRIES) return out({ ok: false, reason: "rate" }, 429);
+  const given = String(b.passcode || "").trim().slice(0, 200);
+  const right = !!given && same(await sha256("pass|" + given), await sha256("pass|" + String(env.DESK_PASSCODE).trim()));
+  const send = (subject, text) => {
+    const html = "<div style=\"font:15px/1.6 -apple-system,Segoe UI,sans-serif;color:#1a1814;max-width:520px\">" +
+      text.split("\n\n").map(p => "<p>" + p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") + "</p>").join("") + "</div>";
+    const job = T.sendEmail(env, adminEmail(env), subject, text, html).catch(() => null);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job);
+  };
+  if (!right) {
+    if (kv) {
+      await kv.put(ipKey, String(tries + 1), { expirationTtl: PASS_TRIES_S }).catch(() => null);
+      await kv.put("rl:pass:all", String(all + 1), { expirationTtl: PASS_ALL_S }).catch(() => null);
+    }
+    if (all + 1 === PASS_ALL_MAX) send("KAAL command centre: passcode sign-in paused for an hour",
+      `${PASS_ALL_MAX} wrong passcodes were tried in the last hour, so the passcode does not open the command centre until the hour is up. The emailed code still does.\n\nIf this was not you guessing, someone is trying. Change DESK_PASSCODE (GitHub, Settings, Secrets and variables, Actions), then run setup-worker in mode live.`);
+    return out({ ok: false, reason: "wrong", left: Math.max(0, PASS_TRIES - tries - 1) }, 401);
+  }
+  const owner = await adminOwner(env);
+  const ua = String(request.headers.get("user-agent") || "").slice(0, 200);
+  const known = await env.DB.prepare("SELECT 1 AS x FROM sessions WHERE owner_id = ?1 AND scope = 'control' AND user_agent = ?2 LIMIT 1").bind(owner.id, ua).first();
+  const { token, maxAge } = await openSession(env, owner, ua, "control", PASS_SESSION_MS);
+  const where = placeOf(request), device = deviceLabel(ua);
+  if (!known) send("New sign-in to the KAAL command centre",
+    `The command centre was opened with the passcode on a device it had not seen before.\n\nDevice: ${device}\nRoughly where: ${where || "not known"}\nWhen: ${new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 16).replace("T", " ")} India time\n\nIf this was you, there is nothing to do.\n\nIf it was not: change DESK_PASSCODE (GitHub, Settings, Secrets and variables, Actions), run setup-worker in mode live, then open the command centre, Settings, and press Sign out every device.`);
+  await audit(env, "admin:" + owner.id, "auth.passcode", "session", null, { device, where, newDevice: !known });
+  const mfa = !twoFactorOn(env) ? "none" : owner.totp_confirmed_at ? "needed" : "enroll";
+  return out({ ok: true, role: "admin", mfa }, 200, { "Set-Cookie": sessionCookie(token, maxAge) });
 }
 
 /* Sends queued letters now, after the response, so a tap is never slower
@@ -178,6 +246,7 @@ async function authRoute(request, env, ctx, path, T) {
     /* The same answer whether or not the address is known. */
     return out({ ok: true });
   }
+  if (path === "/auth/passcode") return passcodeLogin(request, env, ctx, b, T);
   if (path === "/auth/verify") {
     const r = await verifyLogin(env, b.email, b.code, request.headers.get("user-agent"));
     if (!r.ok) return out({ ok: false, reason: r.reason }, 401);

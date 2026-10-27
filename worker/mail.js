@@ -755,7 +755,7 @@ export function stepText(e) {
   switch (e.e) {
     case "visit": {
       const where = deviceName(e.os, e.dev);
-      return `Arrived from ${sourceName(e.s, e.app)}${where ? " on " + where : ""}${e.x && e.x !== "home" ? ", on " + (PAGE_NAMES[e.x] || e.x) : ""}`;
+      return `Arrived from ${sourceName(e.s, e.app)}${e.c ? " (ad: " + e.c + (e.a ? " / " + e.a : "") + ")" : ""}${where ? " on " + where : ""}${e.g ? ", near " + e.g : ""}${e.x && e.x !== "home" ? ", on " + (PAGE_NAMES[e.x] || e.x) : ""}`;
     }
     case "page": return e.x === "home" ? "Opened the shop again" : `Opened ${PAGE_NAMES[e.x] || e.x}`;
     case "act": return `Read ${ACTS[e.x] || "part of the story"}`;

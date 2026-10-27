@@ -1963,7 +1963,9 @@ function uaInfo(ua) {
   const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android"
     : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "Chromebook" : /Linux/.test(ua) ? "Linux" : "";
   const dev = /iPad|Tablet/i.test(ua) || (/Android/.test(ua) && !/Mobile/.test(ua)) ? "tablet" : /Mobi|iPhone|Android/i.test(ua) ? "phone" : "computer";
-  return { app, os, dev };
+  const br = app ? app + " app" : /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet"
+    : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+  return { app, os, dev, br };
 }
 
 /* One visit's report, cleaned: anything not on these short lists is
@@ -1977,7 +1979,7 @@ function liveVisit(request, l) {
   const out = Object.assign({ v: tag, u: /^[a-z0-9]{6,24}$/.test(u) ? u : "", p: PAGES.has(l.p) ? l.p : "home",
     w: LIVE_WHERE.has(l.w) ? l.w : "", n: n >= 1 && n <= 99 ? n : 0,
     d: LIVE_FACES.has(l.d) ? l.d : "", s: String(l.s || "").toLowerCase().replace(/[^a-z0-9 ._-]/g, "").slice(0, 24),
-    g: l.g === 1 || l.g === true, ev: [] }, uaInfo(request.headers.get("User-Agent")));
+    g: l.g === 1 || l.g === true, ev: [], c: camp(l.c), m: camp(l.m), a: camp(l.a) }, uaInfo(request.headers.get("User-Agent")), geoOf(request));
   for (const e of Array.isArray(l.ev) ? l.ev.slice(0, 16) : []) {
     if (!e || !LIVE_EV.has(e.e)) continue;
     out.ev.push({ e: e.e, no: /^\d{1,2}$/.test(e.no || "") ? String(e.no) : "",
@@ -1987,10 +1989,21 @@ function liveVisit(request, l) {
   return out;
 }
 
+/* The ad's own names for itself (utm_campaign, utm_medium, utm_content),
+   as the ad was set up: a few safe characters, kept short. */
+function camp(v) { return String(v || "").replace(/[^A-Za-z0-9 ._|:+-]/g, "").trim().slice(0, 60); }
+/* Roughly where, as Cloudflare places the connection: a city, its state,
+   the country. The address itself is never read or kept. */
+function geoOf(request) {
+  const cf = (request && request.cf) || {}, place = (v) => String(v || "").replace(/[^\p{L} .'-]/gu, "").trim().slice(0, 40);
+  return { gc: /^[A-Z]{2}$/.test(cf.country || "") ? cf.country : "", gr: place(cf.region), gt: place(cf.city) };
+}
+
 /* The page's minute check: "this visit is still here, and here". */
 function liveSeen(request, env, ctx, q) {
   if (!countable(request, env)) return;
-  const live = liveVisit(request, { v: q.get("h"), u: q.get("u"), w: q.get("w"), n: q.get("n"), d: q.get("d"), s: q.get("s") });
+  const live = liveVisit(request, { v: q.get("h"), u: q.get("u"), w: q.get("w"), n: q.get("n"), d: q.get("d"), s: q.get("s"),
+    c: q.get("c"), m: q.get("m"), a: q.get("a") });
   if (live) liveTell(env, ctx, live);
 }
 
@@ -2046,6 +2059,35 @@ const HIST_HOUR_MAX = 3000;        /* new visitors stop being written past this 
 function stepsOf(row) { try { const a = JSON.parse(row.steps || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
 function uniq(a) { return a.filter((x, i) => x && a.indexOf(x) === i); }
 
+/* What a visitor did, reduced to what the desk sorts and counts by. Kept
+   as columns beside the steps, so a breakdown of ninety days is one SQL
+   query and not ninety days of steps read again.
+
+   The score is how close they came to buying, out of 100, from what they
+   did and nothing else: reached the twenty 10, chose a dial 10, chose a
+   number 15, turned to the caseback 10, watched the film through 5, read
+   three or more of the story 5, opened checkout 20, gave their details 15,
+   came back another day 10, three minutes or more on the site 5. A
+   payment is 100. 50 and over is hot; 25 and over is warm. */
+const HOT = 50, WARM = 25;
+function derive(row, st) {
+  const has = (e) => st.some(x => x.e === e);
+  const dials = uniq(st.filter(e => (e.e === "dial" || e.e === "early_dial" || e.e === "number") && e.dial).map(e => e.dial));
+  const nums = uniq(st.filter(e => (e.e === "number" || e.e === "caseback_view" || e.e === "checkout") && e.no).map(e => e.no)
+    .concat(row.n ? [pad2(row.n)] : []));
+  const acts = uniq(st.filter(e => e.e === "act" && e.x).map(e => e.x));
+  const f = { view: has("view"), dial: dials.length > 0, num: nums.length > 0, cas: has("caseback_view"), film: has("hero_complete"),
+    co: has("checkout"), det: has("details") || !!(row.name || row.phone || row.email) };
+  const tsec = Math.round(visitTime(st, row.last) / 1000);
+  const paid = !!String(row.paid || "").replace(/,/g, "");
+  let score = (f.view ? 10 : 0) + (f.dial ? 10 : 0) + (f.num ? 15 : 0) + (f.cas ? 10 : 0) + (f.film ? 5 : 0) + (acts.length >= 3 ? 5 : 0)
+    + (f.co ? 20 : 0) + (f.det ? 15 : 0) + ((row.visits || 1) >= 2 ? 10 : 0) + (tsec >= 180 ? 5 : 0);
+  score = paid ? 100 : Math.min(99, score);
+  return { f, dials, nums, acts, tsec, score, paid };
+}
+const DERIVED = ["country", "region", "gcity", "cmp", "med", "ad", "br", "f_view", "f_dial", "f_num", "f_case", "f_film", "f_co", "f_det",
+  "acts", "dials", "nums", "score", "tsec"];
+
 /* One visitor, as the desk lists them: who, where from, and the
    moments that matter, worked out from the steps. */
 function visitorSummary(row) {
@@ -2062,7 +2104,9 @@ function visitorSummary(row) {
       .concat(row.n ? [pad2(row.n)] : [])),
     checkout: st.some(e => e.e === "checkout"), details: st.some(e => e.e === "details"),
     film: st.some(e => e.e === "hero_complete"), twenty: st.some(e => e.e === "view"),
-    time: visitTime(st, row.last)
+    time: visitTime(st, row.last),
+    score: derive(row, st).score, country: row.country || "", region: row.region || "", gcity: row.gcity || "",
+    cmp: row.cmp || "", med: row.med || "", ad: row.ad || "", br: row.br || ""
   };
 }
 /* Time on the site across every visit: each visit runs from its arrival to
@@ -2109,6 +2153,7 @@ export class Stats {
     if (url.pathname === "/live") return out(await this.liveView());
     if (url.pathname === "/link" && request.method === "POST") { await this.histLink(await request.json()); return new Response("ok"); }
     if (url.pathname === "/visitors") return out(this.histList(q));
+    if (url.pathname === "/insights") return out(this.insights(parseInt(q.get("since"), 10) || 0));
     if (url.pathname === "/visitor") return out(this.histOne(parseInt(q.get("k"), 10)));
     if (url.pathname === "/journeys" && request.method === "POST") return out(this.histJourneys((await request.json()).o || []));
     if (url.pathname === "/day") return out(this.histDay(q.get("d") || ""));
@@ -2128,6 +2173,10 @@ export class Stats {
       sql.exec("CREATE INDEX IF NOT EXISTS visitor_last ON visitor(last)");
       sql.exec("CREATE UNIQUE INDEX IF NOT EXISTS visitor_k ON visitor(k)");
       sql.exec("CREATE TABLE IF NOT EXISTS orderof (o TEXT PRIMARY KEY, id TEXT NOT NULL, at INTEGER NOT NULL)");
+      /* The derived columns (derive(), above), added to a store made before them. */
+      const have = new Set(sql.exec("PRAGMA table_info(visitor)").toArray().map(c => c.name));
+      for (const c of DERIVED) if (!have.has(c)) sql.exec(`ALTER TABLE visitor ADD COLUMN ${c} ${/^(f_|score|tsec)/.test(c) ? "INTEGER" : "TEXT"}`);
+      sql.exec("CREATE INDEX IF NOT EXISTS visitor_score ON visitor(score)");
       this.sqlOk = true;
     }
     return sql;
@@ -2141,14 +2190,23 @@ export class Stats {
   }
   save(row, steps) {
     if (steps.length > STEPS_MAX) steps = steps.slice(steps.length - STEPS_MAX);
-    this.sql.exec(`INSERT INTO visitor (id, k, first, last, visits, tag, s, app, os, dev, name, phone, email, city, n, dial, paid, steps)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const d = derive(row, steps);
+    this.sql.exec(`INSERT INTO visitor (id, k, first, last, visits, tag, s, app, os, dev, name, phone, email, city, n, dial, paid, steps,
+        country, region, gcity, cmp, med, ad, br, f_view, f_dial, f_num, f_case, f_film, f_co, f_det, acts, dials, nums, score, tsec)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET last = excluded.last, visits = excluded.visits, tag = excluded.tag, s = excluded.s,
       app = excluded.app, os = excluded.os, dev = excluded.dev, name = excluded.name, phone = excluded.phone,
-      email = excluded.email, city = excluded.city, n = excluded.n, dial = excluded.dial, paid = excluded.paid, steps = excluded.steps`,
+      email = excluded.email, city = excluded.city, n = excluded.n, dial = excluded.dial, paid = excluded.paid, steps = excluded.steps,
+      country = excluded.country, region = excluded.region, gcity = excluded.gcity, cmp = excluded.cmp, med = excluded.med, ad = excluded.ad,
+      br = excluded.br, f_view = excluded.f_view, f_dial = excluded.f_dial, f_num = excluded.f_num, f_case = excluded.f_case,
+      f_film = excluded.f_film, f_co = excluded.f_co, f_det = excluded.f_det, acts = excluded.acts, dials = excluded.dials,
+      nums = excluded.nums, score = excluded.score, tsec = excluded.tsec`,
       row.id, row.k, row.first, row.last, row.visits, row.tag || null, row.s || null, row.app || null, row.os || null, row.dev || null,
       row.name || null, row.phone || null, row.email || null, row.city || null, row.n || null, row.dial || null, row.paid || null,
-      JSON.stringify(steps));
+      JSON.stringify(steps),
+      row.country || null, row.region || null, row.gcity || null, row.cmp || null, row.med || null, row.ad || null, row.br || null,
+      d.f.view ? 1 : 0, d.f.dial ? 1 : 0, d.f.num ? 1 : 0, d.f.cas ? 1 : 0, d.f.film ? 1 : 0, d.f.co ? 1 : 0, d.f.det ? 1 : 0,
+      d.acts.join(",") || null, d.dials.join(",") || null, d.nums.join(",") || null, d.score, d.tsec);
   }
   /* A report from a page: a minute check, a few steps, or "gone". Returns
      the visitor's number for the live view. A minute check that changes
@@ -2169,8 +2227,11 @@ export class Stats {
       const prev = steps.filter(e => e.e === "visit").pop();
       if (prev && !prev.end) prev.end = row.last;
       row.visits = (row.visits || 0) + 1;
-      steps.push({ t: now, e: "visit", x: x.p || "home", s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "" });
+      const where = [x.gt, x.gr].filter(Boolean).join(", ");
+      steps.push(Object.assign({ t: now, e: "visit", x: x.p || "home", s: x.s || "", app: x.app || "", os: x.os || "", dev: x.dev || "" },
+        x.c ? { c: x.c, a: x.a || "" } : {}, where ? { g: where } : {}));
       if (fresh || !row.s) { row.s = x.s || ""; row.app = x.app || ""; row.os = x.os || ""; row.dev = x.dev || ""; }
+      if (x.gc) { row.country = x.gc; row.region = x.gr || ""; row.gcity = x.gt || ""; }
     } else if (x.v && row.tag && x.v !== row.tag && x.p === "home") {
       /* Back on the storefront within the same visit: a reload, or from one
          of the other pages. */
@@ -2181,6 +2242,11 @@ export class Stats {
       if (newVisit && e.e === "page" && e.x === (x.p || "home")) continue;
       steps.push({ t: now, e: e.e, no: e.no || "", dial: e.dial || "", x: e.x || "" });
     }
+    /* The first campaign that brought them is the one that gets the credit,
+       whichever report of the visit (a step, or the minute check) says it first. */
+    if (x.c && !row.cmp) { row.cmp = x.c; row.med = x.m || ""; row.ad = x.a || ""; changed = true; }
+    if (x.gc && !row.country) { row.country = x.gc; row.region = x.gr || ""; row.gcity = x.gt || ""; changed = true; }
+    if (x.br && !row.br) { row.br = x.br; changed = true; }
     if (x.n) { if (row.n !== x.n) changed = true; row.n = x.n; }
     if (x.d) { const d = x.d.charAt(0).toUpperCase() + x.d.slice(1); if (row.dial !== d) changed = true; row.dial = d; }
     if (x.v) row.tag = x.v;
@@ -2225,17 +2291,81 @@ export class Stats {
     else if (f === "details") where += " AND (name IS NOT NULL OR phone IS NOT NULL OR email IS NOT NULL)";
     else if (f === "number") where += " AND n IS NOT NULL AND n > 0";
     else if (f === "checkout") where += " AND steps LIKE '%\"e\":\"checkout\"%'";
+    else if (f === "hot") where += ` AND score >= ${HOT} AND (paid IS NULL OR paid = '')`;
+    else if (f === "warm") where += ` AND score >= ${WARM} AND score < ${HOT} AND (paid IS NULL OR paid = '')`;
+    else if (f === "back") where += " AND visits > 1";
+    /* Narrowed by one value of a breakdown, as the Insights screen links. */
+    const by = { src: "(s = ? OR app = ?)", cmp: "cmp = ?", ad: "ad = ?", region: "region = ?", city: "(gcity = ? OR city = ?)", os: "os = ?", br: "br = ?", dev: "dev = ?" };
+    for (const k of Object.keys(by)) {
+      const v = String(q.get(k) || "").slice(0, 60);
+      if (!v) continue;
+      where += " AND " + by[k];
+      args.push(...Array((by[k].match(/\?/g) || []).length).fill(v));
+    }
     const term = String(q.get("q") || "").trim().slice(0, 60);
     if (term) {
       const kn = parseInt(term.replace(/^visitor\s*/i, ""), 10);
-      where += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR s LIKE ? OR app LIKE ? OR paid LIKE ?" + (kn ? " OR k = ?" : "") + ")";
+      where += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR s LIKE ? OR app LIKE ? OR paid LIKE ? OR gcity LIKE ? OR region LIKE ? OR cmp LIKE ? OR ad LIKE ?" + (kn ? " OR k = ?" : "") + ")";
       const like = "%" + term.replace(/[%_]/g, "") + "%";
-      args.push(like, like, like, like, like, like, like);
+      args.push(like, like, like, like, like, like, like, like, like, like, like);
       if (kn) args.push(kn);
     }
+    const order = q.get("sort") === "score" ? "score DESC, last DESC" : "last DESC";
     const total = this.sql.exec(`SELECT COUNT(*) AS c FROM visitor WHERE ${where}`, ...args).toArray()[0].c;
-    const rows = this.sql.exec(`SELECT * FROM visitor WHERE ${where} ORDER BY last DESC LIMIT ? OFFSET ?`, ...args, lim, off).toArray();
+    const rows = this.sql.exec(`SELECT * FROM visitor WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, ...args, lim, off).toArray();
     return { ok: true, total, rows: rows.map(visitorSummary) };
+  }
+  /* Rows written before the derived columns existed get them here, a
+     batch at a time: by every Insights read and every half-hourly run. */
+  backfill(max) {
+    if (!this.hasSql()) return 0;
+    const rows = this.sql.exec("SELECT * FROM visitor WHERE score IS NULL LIMIT ?", max || 150).toArray();
+    for (const row of rows) this.save(row, stepsOf(row));
+    return this.sql.exec("SELECT COUNT(*) AS c FROM visitor WHERE score IS NULL").toArray()[0].c;
+  }
+  /* Every breakdown the Insights screen shows, for visitors seen since a
+     moment: who came, from where, on what, when, what pulled them, and
+     how far each kind got. One query each, over the derived columns. */
+  insights(since) {
+    if (!this.hasSql()) return { ok: false };
+    const pending = this.backfill(150);
+    const all = (sql, ...a) => this.sql.exec(sql, ...a).toArray();
+    const W = "last >= ?", PAID = "(paid IS NOT NULL AND paid <> '')";
+    const M = `COUNT(*) AS v, SUM(f_view) AS view, SUM(f_num) AS num, SUM(f_co) AS co, SUM(f_det) AS det, SUM(${PAID}) AS paid,
+      SUM(score >= ${HOT} AND NOT ${PAID}) AS hot`;
+    const tot = all(`SELECT ${M}, SUM(visits > 1) AS back, SUM(f_dial) AS dial, SUM(f_case) AS cas, SUM(f_film) AS film,
+      AVG(tsec) AS tsec, SUM(score >= ${WARM} AND score < ${HOT} AND NOT ${PAID}) AS warm FROM visitor WHERE ${W}`, since)[0] || {};
+    const group = (col, extra, lim) => all(`SELECT ${col}, ${M} FROM visitor WHERE ${W} ${extra || ""} GROUP BY ${col.replace(/ AS \w+/g, "")} ORDER BY v DESC LIMIT ${lim || 12}`, since);
+    /* Sources, named the way the desk names them, then merged by name. */
+    const src = {};
+    for (const r of group("s, app", "", 60)) {
+      const k = sourceName(r.s, r.app), t = src[k] || (src[k] = { k, s: r.app && (!r.s || r.s === "direct" || r.s === "meta") ? r.app : (r.s || "direct"), v: 0, view: 0, num: 0, co: 0, det: 0, paid: 0, hot: 0 });
+      for (const m of ["v", "view", "num", "co", "det", "paid", "hot"]) t[m] += r[m] || 0;
+    }
+    const count = (col) => {
+      const out = {};
+      for (const r of all(`SELECT ${col} AS x, ${PAID} AS p FROM visitor WHERE ${W} AND ${col} IS NOT NULL`, since))
+        for (const k of String(r.x).split(",").filter(Boolean)) { const t = out[k] || (out[k] = { k, v: 0, paid: 0 }); t.v++; if (r.p) t.paid++; }
+      return Object.values(out).sort((a, b) => b.v - a.v);
+    };
+    const hourIst = `CAST(((first + ${IST_MS}) / 3600000) % 24 AS INTEGER)`, dayIst = `CAST((((first + ${IST_MS}) / 86400000) + 4) % 7 AS INTEGER)`;
+    return {
+      ok: true, since, pending,
+      totals: tot,
+      sources: Object.values(src).sort((a, b) => b.v - a.v).slice(0, 15),
+      campaigns: group("cmp, ad", "AND cmp IS NOT NULL", 25),
+      regions: group("region, country", "AND region IS NOT NULL AND region <> ''", 15),
+      cities: group("COALESCE(NULLIF(gcity, ''), city) AS place", "AND COALESCE(NULLIF(gcity, ''), city) IS NOT NULL", 15),
+      os: group("os", "AND os IS NOT NULL AND os <> ''", 8),
+      browsers: group("br", "AND br IS NOT NULL AND br <> ''", 8),
+      devices: group("dev", "AND dev IS NOT NULL", 4),
+      hours: all(`SELECT ${hourIst} AS h, COUNT(*) AS v, SUM(${PAID}) AS paid FROM visitor WHERE ${W} GROUP BY h`, since),
+      weekdays: all(`SELECT ${dayIst} AS d, COUNT(*) AS v, SUM(${PAID}) AS paid FROM visitor WHERE ${W} GROUP BY d`, since),
+      dials: count("dials"), numbers: count("nums").sort((a, b) => b.v - a.v || a.k - b.k), acts: count("acts"),
+      time: all(`SELECT CASE WHEN tsec < 30 THEN 0 WHEN tsec < 120 THEN 1 WHEN tsec < 300 THEN 2 WHEN tsec < 900 THEN 3 ELSE 4 END AS b, COUNT(*) AS v, SUM(${PAID}) AS paid
+        FROM visitor WHERE ${W} GROUP BY b`, since),
+      hot: all(`SELECT * FROM visitor WHERE ${W} AND score >= ${WARM} AND NOT ${PAID} ORDER BY score DESC, last DESC LIMIT 40`, since).map(visitorSummary)
+    };
   }
   histOne(k) {
     if (!this.hasSql() || !k) return { ok: false };
@@ -2294,6 +2424,7 @@ export class Stats {
     const gone = this.sql.exec("SELECT COUNT(*) AS c FROM visitor WHERE last < ?", cut).toArray()[0].c;
     this.sql.exec("DELETE FROM visitor WHERE last < ?", cut);
     this.sql.exec("DELETE FROM orderof WHERE at < ?", cut);
+    this.backfill(400);
     return { deleted: gone };
   }
 
@@ -2654,6 +2785,10 @@ async function desk(request, env, ctx, path) {
   if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
   if (path === "/desk/live" && method === "GET") return deskJson(await deskLive(env));
   if (path === "/desk/visitors" && method === "GET") return deskJson(await deskVisitors(env, new URL(request.url).searchParams));
+  if (path === "/desk/insights" && method === "GET") {
+    const r = new URL(request.url).searchParams.get("r") || "30d";
+    return deskJson(Object.assign({ on: !!env.STATS, r }, await histAsk(env, "/insights?since=" + histSince(r), null, { ok: false })));
+  }
   if (path === "/desk/visitor" && method === "GET") {
     const k = parseInt(new URL(request.url).searchParams.get("k"), 10);
     return deskJson(k > 0 ? await histAsk(env, "/visitor?k=" + k, null, { ok: false }) : { ok: false });
@@ -2849,6 +2984,7 @@ function histSince(r) {
 async function deskVisitors(env, q) {
   const p = new URLSearchParams({ since: String(histSince(q.get("r") || "today")), f: q.get("f") || "all",
     q: String(q.get("q") || "").slice(0, 60), off: String(Math.max(0, parseInt(q.get("off"), 10) || 0)), lim: "25" });
+  for (const k of ["src", "cmp", "ad", "region", "city", "os", "br", "dev", "sort"]) if (q.get(k)) p.set(k, String(q.get(k)).slice(0, 60));
   const res = await histAsk(env, "/visitors?" + p, null, { ok: false, total: 0, rows: [] });
   return Object.assign({ on: !!env.STATS }, res);
 }

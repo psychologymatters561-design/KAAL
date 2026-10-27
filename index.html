@@ -2978,6 +2978,14 @@ LIVE.src = (function(){
   for(var i = 0; i < known.length; i++) if(known[i][0].test(h)) return known[i][1];
   return h.replace(/[^a-z0-9._-]/g, "").slice(0, 24);
 })();
+/* The ad's own names, when its link carries them: utm_campaign, utm_medium
+   and utm_content. A Meta ad fills them itself when its URL parameters say
+   utm_campaign={{campaign.name}}&utm_medium={{placement}}&utm_content={{ad.name}}
+   (docs/desk.md). They tell the owner's desk which ad sold, never who. */
+LIVE.camp = (function(){
+  function v(k){ return (qs.get(k) || "").replace(/[^A-Za-z0-9 ._|:+-]/g, "").trim().slice(0, 60); }
+  return { c:v("utm_campaign"), m:v("utm_medium"), a:v("utm_content") };
+})();
 function liveWhere(){
   if(paying) return "pay";
   if(detDlg && detDlg.open) return "details";
@@ -2991,7 +2999,8 @@ function liveWhere(){
 function liveUid(){ return /^[a-z0-9]{6,24}$/.test(clientToken || "") ? clientToken : ""; }
 function liveNow(){
   /* The twenty always shows a number; only one the visitor chose counts. */
-  return { v:LIVE.tag, u:liveUid(), w:liveWhere(), n:picked ? chosen || 0 : 0, d:tinted || "", s:LIVE.src };
+  return { v:LIVE.tag, u:liveUid(), w:liveWhere(), n:picked ? chosen || 0 : 0, d:tinted || "", s:LIVE.src,
+           c:LIVE.camp.c, m:LIVE.camp.m, a:LIVE.camp.a };
 }
 function liveNote(name, data){
   if(!LIVE_EV[name] || OFF.count) return;
@@ -3009,7 +3018,8 @@ function liveSoon(){
 function liveQuery(){
   if(OFF.count || navigator.webdriver) return "";
   var l = liveNow();
-  return "?h=" + l.v + "&u=" + l.u + "&w=" + l.w + "&n=" + l.n + "&d=" + encodeURIComponent(l.d) + "&s=" + encodeURIComponent(l.s);
+  return "?h=" + l.v + "&u=" + l.u + "&w=" + l.w + "&n=" + l.n + "&d=" + encodeURIComponent(l.d) + "&s=" + encodeURIComponent(l.s) +
+    (l.c ? "&c=" + encodeURIComponent(l.c) + "&m=" + encodeURIComponent(l.m) + "&a=" + encodeURIComponent(l.a) : "");
 }
 
 /* ── One scroll value, eased, and everything on the page derives from

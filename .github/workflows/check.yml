@@ -19,9 +19,13 @@ on:
 permissions:
   contents: read
 
+# On a branch a newer push makes the older run moot. On main every push
+# keeps its own run to the end: deploy-worker.yml deploys from the run of
+# the push that changed the worker, and a sale's own commit landing a few
+# seconds later must not cancel it.
 concurrency:
-  group: check-${{ github.ref }}
-  cancel-in-progress: true
+  group: check-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'branch' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:

@@ -707,6 +707,44 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
     "history: the midnight email lists the day's visitors and what each did");
   ok(!/Read Emerald/.test(mail.text.split("WHO VISITED")[1]), "history: the email shows only that day's steps, not the visit two days before");
 
+  /* Which ad, roughly where, and how close they came: the intelligence. */
+  const goCf = (path, init, cf) => { const k = ctx(), req = new Request("https://w" + path, init); Object.defineProperty(req, "cf", { value: cf }); return w.fetch(req, envH, k).then(async res => { await k.done(); return res; }); };
+  const ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36";
+  await goCf("/state?h=pagetag020&u=adclick00001&w=film&n=0&d=&s=facebook&c=" + encodeURIComponent("S01 Launch") + "&m=paid&a=" + encodeURIComponent("Emerald reel"),
+    { headers: { Origin: "https://thekaal.co", "User-Agent": ANDROID } }, { country: "IN", region: "Karnataka", city: "Bengaluru" });
+  t0 += 30000;
+  await goCf("/e", { method: "POST", headers: { Origin: "https://thekaal.co", "User-Agent": ANDROID, "Content-Type": "text/plain" }, body: JSON.stringify({ l: {
+    v: "pagetag020", u: "adclick00001", w: "pay", n: 5, d: "emerald", s: "facebook", c: "<b>Other</b>", ev: [{ e: "view" }, { e: "dial", dial: "Emerald" },
+    { e: "number", no: "05", dial: "Emerald" }, { e: "caseback_view", no: "05", dial: "Emerald" }, { e: "checkout", no: "05", dial: "Emerald" }] } }) },
+    { country: "IN", region: "Karnataka", city: "Bengaluru" });
+  const ad = so.histOne(so.sql.exec("SELECT k FROM visitor WHERE id = 'adclick00001'").toArray()[0].k).v;
+  ok(ad.cmp === "S01 Launch" && ad.med === "paid" && ad.ad === "Emerald reel" && ad.region === "Karnataka" && ad.gcity === "Bengaluru" && ad.country === "IN" && ad.br === "Chrome",
+    "intel: the ad's campaign and ad name, the city and state, the browser (a later report cannot change who gets the credit)");
+  ok(ad.steps[0].txt === "Arrived from Facebook (ad: S01 Launch / Emerald reel) on Android, near Bengaluru, Karnataka", "intel: the visit says which ad and where, in words (" + ad.steps[0].txt + ")");
+  ok(ad.score === 65 && so.histOne(1).v.score === 100, "intel: the score is what they did (twenty 10, dial 10, number 15, caseback 10, checkout 20 = " + ad.score + "); a buyer is 100");
+  /* A history written before the derived columns existed is filled in on the next read. */
+  so.sql.exec("UPDATE visitor SET score = NULL, f_co = NULL, nums = NULL WHERE id = 'adclick00001'");
+  d = await (await go("/desk/insights?r=90d", { headers: jar })).json();
+  const filled = so.sql.exec("SELECT score, f_co, nums FROM visitor WHERE id = 'adclick00001'").toArray()[0];
+  ok(d.ok && d.pending === 0 && filled.score === 65 && filled.f_co === 1 && filled.nums === "05", "intel: an old history gets its score and flags back on the next Insights read");
+  const fb = d.sources.find(x => x.k === "Facebook"), ig = d.sources.find(x => x.k === "Instagram");
+  ok(d.totals.v === 3 && d.totals.paid === 1 && d.totals.co === 2 && d.totals.hot === 1 && fb && fb.co === 1 && ig && ig.paid === 1,
+    "intel: totals and each source's visitors, checkouts and sales (" + JSON.stringify(d.sources.map(x => [x.k, x.v, x.co, x.paid])) + ")");
+  ok(d.campaigns.length === 1 && d.campaigns[0].cmp === "S01 Launch" && d.campaigns[0].ad === "Emerald reel" && d.campaigns[0].co === 1 && d.campaigns[0].hot === 1,
+    "intel: each campaign and ad, with how far its visitors got");
+  ok(d.regions[0].region === "Karnataka" && d.cities.some(c => c.place === "Bengaluru") && d.cities.some(c => c.place === "Kolkata, West Bengal") && d.os.some(o => o.os === "Android") && d.browsers.some(b => b.br === "Chrome"),
+    "intel: where (the city they typed wins over the guess) and on what");
+  ok(d.dials[0].k === "Emerald" && d.dials[0].v === 2 && d.numbers.find(n => n.k === "03").paid === 1 && d.hours.length >= 1 && d.weekdays.length >= 1,
+    "intel: which dials and numbers pulled them, and which sold; the hours and days they came");
+  ok(d.hot.length === 1 && d.hot[0].cmp === "S01 Launch" && d.hot[0].score === 65, "intel: the hot list is everyone close to buying who has not");
+  d = await (await go("/desk/visitors?r=90d&f=hot", { headers: jar })).json();
+  const e2 = await (await go("/desk/visitors?r=90d&cmp=" + encodeURIComponent("S01 Launch"), { headers: jar })).json();
+  const e3 = await (await go("/desk/visitors?r=90d&city=Bengaluru&sort=score", { headers: jar })).json();
+  const e4 = await (await go("/desk/visitors?r=90d&src=instagram", { headers: jar })).json();
+  ok(d.total === 1 && e2.total === 1 && e3.total === 1 && e4.total === 1 && e4.rows[0].k === 1, "intel: the visitor list narrows to hot leads, one campaign, one city, one source");
+
+  await go("/desk/forget", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ k: ad.k }) });
+
   /* Deleted on request, and after ninety days. */
   r = await go("/desk/forget", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ k: 2 }) });
   ok((await r.json()).ok && !so.histOne(2).ok, "history: Delete this visitor deletes them");

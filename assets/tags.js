@@ -180,11 +180,16 @@ var HISTORY = "https://kaal-edition.kaal-edition-hq.workers.dev";
     try{ h = new URL(document.referrer).hostname.replace(/^www\./, ""); }catch(e){}
     src = !h ? "direct" : h === location.hostname.replace(/^www\./, "") ? "thekaal.co" : h.replace(/[^a-z0-9._-]/g, "").slice(0, 24);
   }
+  var camp = { c:"", m:"", a:"" };
+  try{
+    var q = new URLSearchParams(location.search), cv = function(k){ return (q.get(k) || "").replace(/[^A-Za-z0-9 ._|:+-]/g, "").trim().slice(0, 60); };
+    camp = { c:cv("utm_campaign"), m:cv("utm_medium"), a:cv("utm_content") };
+  }catch(e){}
   function beacon(l){
     try{ navigator.sendBeacon(HISTORY + "/e", new Blob([JSON.stringify({ l:l })], { type:"text/plain" })); }catch(e){}
   }
   var gone = false;
-  function here(ev){ beacon({ v:tag, u:uid, p:page, s:src, ev:ev || [] }); }
+  function here(ev){ beacon({ v:tag, u:uid, p:page, s:src, c:camp.c, m:camp.m, a:camp.a, ev:ev || [] }); }
   here([{ e:"page", x:page }]);
   setInterval(function(){ if(document.visibilityState === "visible" && !gone) here(); }, 60000);
   function leave(){ if(gone) return; gone = true; beacon({ v:tag, u:uid, p:page, s:src, ev:[], g:1 }); }

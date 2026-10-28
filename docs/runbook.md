@@ -241,6 +241,10 @@ owners and pieces; **Backup now**.
   site file is written, so a slow GitHub can no longer drop it; a file that
   failed is written by the half-hourly repair run. Activity, Money shows every
   payment as it lands.
+- **A number is free in the registry but the shop shows it gone.** The
+  twenty, that number: it says "Shown as gone on the shop" and offers both
+  ways out. Record a past sale if it was sold before the registry; Put it on
+  sale if it is still yours to sell (it asks first).
 - **A buyer paid and the watch is not in Orders.** The daily check against
   Razorpay brings it in within a day and emails you; or Overview, "Bring in
   paid orders from Razorpay".

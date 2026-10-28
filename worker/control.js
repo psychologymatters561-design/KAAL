@@ -124,7 +124,7 @@ export async function control(request, env, ctx, path, T) {
       if (m[2] === "returned") return markReturned(env, actor, +m[1], b);
       return refund(env, T, actor, +m[1], b);
     }
-    if (method === "GET" && route === "/pieces") return out(await listPieces(env));
+    if (method === "GET" && route === "/pieces") return out(await listPieces(env, T));
     /* On sale, or kept back: the registry, the live page and the site file at once. */
     m = /^\/pieces\/(\d{1,2})\/sale$/.exec(route);
     if (method === "POST" && m) {
@@ -470,13 +470,16 @@ async function refund(env, T, actor, id, b) {
 }
 
 /* ══ Pieces ══ */
-async function listPieces(env) {
+async function listPieces(env, T) {
   const rows = (await env.DB.prepare(
     `SELECT p.id, p.series, p.number, p.colorway, p.status, p.photo_url, p.notes, p.held_until, r.state, r.owner_no, r.owner_since,
             (SELECT COUNT(*) FROM orders o WHERE o.piece_id = p.id) AS orders
        FROM pieces p JOIN public_registry r ON r.series = p.series AND r.number = p.number ORDER BY p.series, p.number`
   ).all()).results || [];
-  return { ok: true, pieces: rows, statuses: PIECE_STATUSES };
+  /* What the shop itself shows as gone right now (KV), so a number free in
+     the registry and still shown as gone can be put right with one tap. */
+  const shopSold = T && T.soldNow ? ((await T.soldNow().catch(() => null)) || []) : [];
+  return { ok: true, pieces: rows, statuses: PIECE_STATUSES, shopSold };
 }
 async function piece(env, T, actor, id, b) {
   const p = await env.DB.prepare("SELECT * FROM pieces WHERE id = ?1").bind(id).first();

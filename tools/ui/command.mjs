@@ -176,6 +176,18 @@ if (SHOTS) await pg.screenshot({ path: SHOTS + "/8-piece-sale-phone.png" });
 await pg.click('#sheetB [data-act="sale"][data-v="1"]');
 await pg.waitForFunction(() => /No\. 09 is on sale/.test(document.getElementById("toast").textContent));
 ok(piece(9) === "available" && !soldKV().includes(9), "the twenty: Put it on sale opens No. 09 on the shop");
+/* No. 01: sold on the shop before the registry, free in it. Both ways out are offered, neither by default. */
+await pg.goto(URL0 + "#pieces");
+await pg.waitForSelector('.lrow[data-id="S01-01"]');
+await pg.click('.lrow[data-id="S01-01"]');
+await pg.waitForFunction(() => /Shown as gone on the shop/.test(document.getElementById("sheetB").textContent));
+text = await pg.textContent("#sheetB");
+ok(/Record a past sale/.test(text) && /Put it on sale/.test(text) && piece(1) === "available" && soldKV().includes(1), "the twenty: a number gone on the shop with no registry order offers Record a past sale or Put it on sale, and changes nothing by itself");
+pg.once("dialog", (d) => d.dismiss());
+await pg.click('#sheetB [data-act="sale"][data-v="1"]');
+await pg.waitForTimeout(400);
+ok(soldKV().includes(1), "the twenty: and Put it on sale asks first (dismissed: still gone)");
+await pg.keyboard.press("Escape");
 
 await pg.goto(URL0 + "#settings");
 await pg.waitForFunction(() => /Sign out every device/.test(document.getElementById("view").textContent) && !/Checking this device/.test(document.getElementById("view").textContent));

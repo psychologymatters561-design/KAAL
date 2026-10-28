@@ -176,7 +176,9 @@ new_sqlite_classes = ["Stats"]
 # report. An email that is "off", or any of them outside 10:00 to 20:00 in
 # India, returns before doing anything.
 [triggers]
-crons = ["*/30 * * * *"]
+# The second (at :07 and :37) is the light run: only the sold list's repair
+# and the owner's own one-time requests (worker OWNER_OPS), on their own.
+crons = ["*/30 * * * *", "7,37 * * * *"]
 
 # Keep the worker's logs (every "Follow-up emails sent", every refusal) in
 # the Cloudflare dashboard: Workers & Pages → kaal-edition → Logs.

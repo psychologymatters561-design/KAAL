@@ -1140,6 +1140,11 @@ function saleBox(p){
   var sold = ["placed","delivered","registered"].indexOf(p.status) > -1;
   if(sold) return '<div class="saleBox"><div class="big">Sold, with an order</div><p class="muted small" style="margin:6px 0 0">To sell it again, refund it or mark it returned in Orders first.</p></div>';
   var on = p.status === "available" || p.status === "held";
+  /* Free in the registry, yet the shop shows it gone: either it was sold
+     before the registry (record that sale), or a release never reached the
+     shop (put it on sale). Only the owner knows which, so both are offered. */
+  if(on && (DATA.pieces.shopSold || []).indexOf(p.number) > -1) return '<div class="saleBox"><div class="big">Shown as gone on the shop</div><p class="muted small" style="margin:6px 0 10px">The registry has no order for No. ' + pad(p.number) + ', but the shop and the site file show it gone. If it was sold before the registry, record that sale. If it is still yours to sell, put it on sale.</p>' +
+    '<div class="row"><button class="btn" data-act="pastSale">Record a past sale</button><button class="btn go" data-act="sale" data-n="' + p.number + '" data-v="1" data-sure="1">Put it on sale</button></div></div>';
   return '<div class="saleBox"><div class="row between"><div><div class="big">' + (on ? "On sale" : p.status === "withheld" ? "Kept back" : esc(p.status.replace("_", " "))) + '</div><p class="muted small" style="margin:4px 0 0">' +
     (on ? "Shown as open on the shop. Anyone can buy it." : "Shown as gone on the shop. Nobody can buy it.") + "</p></div>" +
     (on ? '<button class="btn warn" data-act="sale" data-n="' + p.number + '" data-v="0">Keep it back</button>' : '<button class="btn go" data-act="sale" data-n="' + p.number + '" data-v="1">Put it on sale</button>') +
@@ -1486,6 +1491,7 @@ document.addEventListener("click", function(e){
   else if(a === "piece") pieceSheet(el.getAttribute("data-id"));
   else if(a === "sale"){ var sn = +el.getAttribute("data-n"), son = el.getAttribute("data-v") === "1";
     if(!son && !confirm("Keep No. " + pad(sn) + " back? The shop will show it as gone and nobody can buy it.")) return;
+    if(son && el.getAttribute("data-sure") && !confirm("Put No. " + pad(sn) + " on sale? Only if nobody has bought it: anyone can buy it the moment it shows.")) return;
     saleGo(sn, son, son ? "put on sale from the command centre" : "kept back from the command centre"); }
   else if(a === "cmd") cmdSheet();
   else if(a === "fuMode") api("POST", "/control/api/followups/mode", { mode: el.getAttribute("data-v") }).then(function(j){ say(j.ok ? "Saved." : (j.why || "Not saved."), !j.ok); load(); });

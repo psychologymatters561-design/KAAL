@@ -49,6 +49,6 @@ shows it beside the standard note. Nothing is sent. Ten an hour at most.
 3. Actions, setup-worker, Run workflow, mode **live**. In about two minutes
    Follow-ups says "Claude is connected".
 
-The model is Claude Opus 5.5 (`claude-opus-5-5`). A note is a few hundred
-words in and out, roughly ₹1 to ₹2 each; at most three are written each
-half-hour run.
+The model is Claude Opus 5.5 (`claude-opus-5-5`). A note costs a few
+rupees (its own thinking counts too); at most three are written each
+half-hour run, so even a busy day stays well under ₹100.

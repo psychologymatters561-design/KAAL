@@ -105,7 +105,9 @@ async function call(method, path, body, extra, e = env) {
 }
 let E2 = null;
 const call2 = (m, p, b) => call(m, p, b, undefined, E2 || env);
-async function cron(e = env) { const k = ctx(); await w.scheduled({}, e, k); await k.done(); }
+async function cron(e = env) { const k = ctx(); await w.scheduled({ cron: "*/30 * * * *" }, e, k); await k.done(); }
+/* The light run (:07, :37): the sold list's repair and the owner's own requests. */
+async function light(e = env) { const k = ctx(); await w.scheduled({ cron: "7,37 * * * *" }, e, k); await k.done(); }
 async function hook(entity) {
   const b = JSON.stringify({ event: "payment.captured", payload: { payment: { entity } } });
   const k = ctx();
@@ -216,10 +218,10 @@ async function vapidOk(auth, aud) {
 /* ── 3. The repair run: a paid number the site file still offers ── */
 {
   files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
-  await cron();
-  ok(soldOnGitHub().includes(5) && soldOnGitHub().includes(6), "repair: the half-hourly run writes paid numbers the site file is missing");
+  await light();
+  ok(soldOnGitHub().includes(5) && soldOnGitHub().includes(6), "repair: the half-hourly light run writes paid numbers the site file is missing");
   const n = ghWrites;
-  await cron();
+  await light();
   ok(ghWrites === n, "repair: and writes nothing when the file already agrees");
 }
 
@@ -250,26 +252,49 @@ async function vapidOk(auth, aud) {
   ok(a === 3, "sale: every change is in the audit log (" + a + ")");
 }
 
-/* ── 5. The owner's request, done once on the first run after deploy ── */
+/* ── 5. The owner's request, done once on the first light run after deploy ── */
 {
+  const OP = "op:2026-10-28-release-09b";
   const D2 = d1(), K2 = kv();
   K2.store.set("sold", "[1,2,3,4,7,9,10,15]");
   files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
   const e2 = Object.assign({}, env, { DB: D2, KAAL_STATE: K2, OWNER_OPS: "" });
   K2.store.set("registry:imported", "{}");
   await cron(e2);
+  ok(D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "withheld" && !K2.store.has(OP), "owner's request: the heavy half-hourly run leaves it to the light one");
+  await light(e2);
   const p9 = D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get();
-  ok(p9.status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K2.store.get("sold")).includes(9) && K2.store.has("op:2026-10-28-release-09"),
-    "owner's request: No. 09 goes on sale on the first run, everywhere, and is marked done");
+  ok(p9.status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K2.store.get("sold")).includes(9) && JSON.parse(K2.store.get(OP)).done,
+    "owner's request: No. 09 goes on sale on the light run, everywhere, and is marked done");
   const n = ghWrites;
   D2.raw.prepare("UPDATE pieces SET status = 'withheld' WHERE number = 9").run();
-  await cron(e2);
+  await light(e2);
   ok(ghWrites === n && D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "withheld", "owner's request: never again, even if No. 09 is kept back later");
+  /* Free in the registry already, but still on the shop's sold list and in the site file (a release whose GitHub write failed). */
+  const D4 = d1(), K4 = kv();
+  D4.raw.prepare("UPDATE pieces SET status = 'available' WHERE number = 9").run();
+  K4.store.set("sold", "[1,2,3,4,7,9,10,15]"); K4.store.set("registry:imported", "{}");
+  files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
+  ghDown = true;
+  const e4 = Object.assign({}, env, { DB: D4, KAAL_STATE: K4, OWNER_OPS: "" });
+  await light(e4);
+  const t1 = JSON.parse(K4.store.get(OP));
+  ok(!t1.done && t1.tries === 1 && !JSON.parse(K4.store.get("sold")).includes(9), "owner's request: free in the registry but shown sold: the shop is put right at once, and a GitHub failure is tried again");
+  ghDown = false;
+  await light(e4);
+  ok(JSON.parse(K4.store.get(OP)).done && !soldOnGitHub().includes(9), "owner's request: the next light run writes the site file, and it is done");
   const D3 = d1(), K3 = kv();
   D3.raw.prepare("UPDATE pieces SET status = 'placed' WHERE number = 9").run();
   K3.store.set("registry:imported", "{}");
-  await cron(Object.assign({}, env, { DB: D3, KAAL_STATE: K3, OWNER_OPS: "" }));
-  ok(D3.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "placed" && K3.store.has("op:2026-10-28-release-09"), "owner's request: skipped if No. 09 is no longer as it was asked about");
+  await light(Object.assign({}, env, { DB: D3, KAAL_STATE: K3, OWNER_OPS: "" }));
+  ok(D3.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "placed" && /placed/.test(JSON.parse(K3.store.get(OP)).skipped), "owner's request: skipped, and says why, if No. 09 is no longer as it was asked about");
+  const keep = jar;
+  await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, undefined, e4);
+  let r = await call("GET", "/control/api/pieces", undefined, undefined, e4);
+  ok(r.j.ok && Array.isArray(r.j.shopSold) && !r.j.shopSold.includes(9) && r.j.shopSold.includes(15), "the twenty: the screen knows what the shop shows as gone, to offer Put it on sale where they disagree");
+  r = await call("GET", "/desk/data", undefined, undefined, e4);
+  ok(r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Done/.test(h.detail)), "health: says the request for No. 09 is done");
+  jar = keep;
 }
 
 /* ── 6. Activity: everything on one line of time ── */

@@ -146,7 +146,7 @@ export default {
     /* The registry's control room, its sign-in and the pieces' photographs
        (worker/control.js). Same origin as the page, so no CORS here. */
     if (path === "/control" || path.startsWith("/control/") || path.startsWith("/auth/") || path.startsWith("/photo/")) {
-      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid, setOnSale, activity: (q) => histAsk(env, "/stream?" + q, null, { rows: [] }), followups: (m, sub, b) => followupsApi(env, m, sub, b) });
+      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid, setOnSale, soldNow: () => readSold(env), activity: (q) => histAsk(env, "/stream?" + q, null, { rows: [] }), followups: (m, sub, b) => followupsApi(env, m, sub, b) });
     }
     /* The order's page (thekaal.co/track) and the courier's tracking events. */
     if (path.startsWith("/track/")) return trackRoute(request, env, ctx, path, regDeps(env, ctx));
@@ -170,6 +170,13 @@ export default {
      (section 3e) does nothing unless its own switch is "on", so the trigger
      can stay configured while any of them stays off. */
   async scheduled(event, env, ctx) {
+    /* The light run (:07 and :37): only the sold list's repair and the
+       owner's own requests, on their own, so nothing heavier in the same
+       run can starve them. */
+    if (event && event.cron === LIGHT_CRON) {
+      if (registryOn(env)) ctx.waitUntil(repairSold(env).then(() => ownerOps(env)).catch(e => console.log("Light run failed:", String(e).slice(0, 160))));
+      return;
+    }
     ctx.waitUntil(followUps(env));
     ctx.waitUntil(refundWatch(env));
     ctx.waitUntil(metaCatchUp(env));
@@ -180,10 +187,7 @@ export default {
     if (registryOn(env)) ctx.waitUntil(sweeps(env, regDeps(env, ctx)).catch(e => console.log("Sweeps failed:", String(e).slice(0, 160))));
     /* The first run after the registry goes live brings in the paid orders. */
     if (registryOn(env)) ctx.waitUntil(autoImport(env));
-    /* One after another: the daily check, the repair, then the owner's own
-       requests, so none of them reads the sold list while another writes it. */
-    ctx.waitUntil(reconcileDaily(env, ctx).then(() => registryOn(env) ? repairSold(env).then(() => ownerOps(env)) : null)
-      .catch(e => console.log("Daily check chain failed:", String(e).slice(0, 160))));
+    ctx.waitUntil(reconcileDaily(env, ctx));
     ctx.waitUntil(dailyDigest(env));
     ctx.waitUntil(histPrune(env));
   }
@@ -1345,26 +1349,48 @@ async function repairSold(env) {
    own buttons, and written to the audit log. Each runs only while the
    piece is still exactly as it was when it was asked for. */
 const OWNER_OPS = [
-  { id: "2026-10-28-release-09", n: 9, from: "withheld", to: "available",
+  /* No. 09 on sale. It may be "withheld" (kept back since 2 Oct), or
+     already "available" in the registry while the shop's sold list (KV,
+     the site file) still carries it, which is what a release whose GitHub
+     write failed used to leave behind. Either way: on sale, everywhere. */
+  { id: "2026-10-28-release-09b", n: 9, from: ["withheld", "available"], to: "available",
     why: "Owner's request: No. 09 (the owner's own test order, kept back since 2 Oct 2026) goes on sale." }
 ];
+const LIGHT_CRON = "7,37 * * * *";
+const OP_TRIES = 6;
 async function ownerOps(env) {
   if (staging(env) || env.OWNER_OPS === "off" || !env.KAAL_STATE || !env.DB) return;
   for (const op of OWNER_OPS) {
     try {
       const key = "op:" + op.id;
-      if (await env.KAAL_STATE.get(key).catch(() => "x")) continue;
+      const was = await env.KAAL_STATE.get(key, "json").catch(() => ({ done: true }));
+      if (was && (was.done || (was.tries || 0) >= OP_TRIES)) continue;
+      const tries = ((was && was.tries) || 0) + 1, at = new Date().toISOString();
       const pc = await env.DB.prepare("SELECT id, status, order_ref FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, op.n).first();
       const open = await env.DB.prepare("SELECT COUNT(*) AS c FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status NOT IN ('cancelled','returned')").bind(SERIES, op.n).first();
-      if (!pc || pc.status !== op.from || pc.order_ref || (open && open.c)) {
-        await env.KAAL_STATE.put(key, JSON.stringify({ at: new Date().toISOString(), skipped: pc ? pc.status : "no piece" }));
+      if (!pc || op.from.indexOf(pc.status) < 0 || pc.order_ref || (open && open.c)) {
+        await env.KAAL_STATE.put(key, JSON.stringify({ at, done: true, skipped: pc ? `No. ${pad2(op.n)} is ${pc.status}${open && open.c ? " with an order" : ""}` : "no such piece" }));
+        console.log(`Owner op ${op.id}: skipped (${pc ? pc.status : "no piece"}).`);
         continue;
       }
       const r = await setOnSale(env, "system:owner-request", op.n, op.to === "available", op.why);
-      await env.KAAL_STATE.put(key, JSON.stringify({ at: new Date().toISOString(), site: r.site }));
-      console.log(`Owner op ${op.id}: ${r.ok ? "done" : "failed"} (site: ${r.site}).`);
+      const done = r.ok && (r.site === "ok" || r.site === "already");
+      await env.KAAL_STATE.put(key, JSON.stringify({ at, done, tries, site: r.site || "", why: r.why || "" }));
+      console.log(`Owner op ${op.id}: ${done ? "done" : "not yet"} (site: ${r.site}, try ${tries}).`);
     } catch (e) { console.log("Owner op threw:", String(e).slice(0, 160)); }
   }
+}
+/* What the Health screen says about each of them. */
+async function ownerOpsHealth(env) {
+  if (!env.KAAL_STATE) return [];
+  return Promise.all(OWNER_OPS.map(async op => {
+    const v = await env.KAAL_STATE.get("op:" + op.id, "json").catch(() => null);
+    const label = `No. ${pad2(op.n)} on sale (your request)`;
+    if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };
+    if (v.skipped) return { ok: true, label, detail: `Not needed: ${v.skipped}. Use The twenty to change it.` };
+    if (v.done) return { ok: true, label, detail: `Done ${indiaTime(new Date(v.at))}: on sale in the registry, on the shop and in the site file.` };
+    return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish (site file: ${v.site || "?"}${v.why ? "; " + v.why : ""}). It tries again each half hour; or tap The twenty, No. ${pad2(op.n)}, Put it on sale.` };
+  }));
 }
 
 /* ON SALE, OR KEPT BACK: one number, everywhere at once. The registry
@@ -3303,6 +3329,7 @@ async function deskData(env) {
       { ok: !!(env.GITHUB_TOKEN && env.GITHUB_OWNER), label: "Sold list", detail: env.GITHUB_TOKEN ? "Each sale is written to the site within a minute." : "No GITHUB_TOKEN: sales are not written to the site." },
       { ok: !!lastRun && !lastRun.bad, label: "Emails sent on their own", detail: lastRun ? `Last run ${indiaTime(new Date(lastRun.at))}: ${lastRun.msg}`
         : "No run yet. The worker runs every half hour, 10:00 to 20:00 India time." },
+      ...(await ownerOpsHealth(env)),
       { ok: env.DIGEST !== "off" && mail, label: "Daily report", detail: env.DIGEST === "off" ? "Switched off (DIGEST in wrangler.toml)." : `Every day at ${hour === 0 ? "midnight" : hour + ":00"}, India time${lastDigest ? `; last one covered ${lastDigest}` : ""}.` }
     ],
     counting: !!env.STATS, razorpay: L.rzp

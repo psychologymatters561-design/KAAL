@@ -9,6 +9,8 @@
 #   RESEND_API_KEY         Resend key with Full access
 #   DESK_PASSCODE          optional; without it, one is made and emailed
 #                          to connect@thekaal.co
+#   ANTHROPIC_API_KEY      optional; Claude writes each nearly-bought note from
+#                          the visitor's own visit (docs/followups.md)
 #   META_CAPI_TOKEN        optional; Meta Conversions API token, so every
 #                          paid order reaches the ad account from the
 #                          worker (docs/meta.md). Modes deploy and all set it
@@ -71,6 +73,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SHIPROCKET_TOKEN: ${{ secrets.SHIPROCKET_TOKEN }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}

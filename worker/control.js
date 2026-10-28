@@ -133,6 +133,13 @@ export async function control(request, env, ctx, path, T) {
       return out(r, r.ok ? 200 : 409);
     }
     if (method === "GET" && route === "/activity") return out(await activity(env, T, new URL(request.url).searchParams));
+    /* Who writes the one note to someone who nearly bought: the mode, the queue, a sample. */
+    if ((route === "/followups" || route.startsWith("/followups/")) && T.followups) {
+      const sub = route.slice("/followups".length).replace(/^\//, ""), b = method === "POST" ? (await body(request) || {}) : {};
+      const r = await T.followups(method, sub, b);
+      if (method === "POST" && r.body && r.body.ok && sub) await audit(env, actor, /\/send$/.test(sub) ? "followup.send" : /\/skip$/.test(sub) ? "followup.skip" : sub === "mode" ? "followup.mode" : "followup.sample", "followups", null, { mode: b.mode, edited: !!(b.subject || b.body) || undefined });
+      return out(r.body, r.http);
+    }
     if (route.startsWith("/push/")) return pushRoute(request, env, s, actor, route.slice(6));
     m = /^\/pieces\/(S\d{2}-\d{2})(\/photo)?$/.exec(route);
     if (method === "POST" && m) return m[2] ? photo(request, env, T, actor, m[1]) : piece(env, T, actor, m[1], await body(request) || {});
@@ -726,7 +733,7 @@ const AUDIT_WORDS = {
   "request.new": "An owner asked for something", "transfer.start": "Transfer started", "transfer.accept": "Transfer accepted", "transfer.cancel": "Transfer cancelled",
   "transfer.complete": "Transfer completed", "transfer.reject": "Transfer refused", "courier.alert": "Courier alert", "courier.unmatched": "Courier event matched to no order",
   "blocked.add": "Buyer blocked", "blocked.remove": "Buyer unblocked", "backup.download": "Backup downloaded",
-  "followup.send": "Follow-up email sent", "followup.skip": "Follow-up skipped", "followup.draft": "Follow-up drafted"
+  "followup.send": "Follow-up note sent, approved by you", "followup.skip": "Follow-up skipped", "followup.mode": "Follow-up mode changed", "followup.sample": "Sample follow-up written"
 };
 function auditText(a) {
   let after = {};

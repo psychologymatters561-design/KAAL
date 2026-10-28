@@ -127,6 +127,28 @@ h2 .count{color:var(--faint);letter-spacing:0;margin-left:6px;font-weight:400}
 .kpi.go{cursor:pointer}
 .kpi.go:hover{border-color:var(--line2)}
 .up{color:var(--ok)}.down{color:var(--bad)}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis .kpi .l{margin:0 0 6px}
+.kpis .kpi .v{font-size:25px}
+.kpis .kpi .d{font-size:12px}
+.mini{display:flex;align-items:flex-end;gap:1px;height:26px;margin-top:9px}
+.mini i{flex:1;background:var(--gold);opacity:.75;border-radius:1px;min-height:1px}
+.mini i.z{background:var(--line2);opacity:1}
+.chart{display:flex;align-items:flex-end;gap:3px;height:170px;margin-top:14px;padding-top:18px}
+.cday{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;min-width:0}
+.cday .b{display:block;width:100%;max-width:34px;background:#4a463d;border-radius:3px 3px 0 0}
+.cday.now .b{background:var(--bone)}
+.cday .o{font-family:var(--mono);font-size:10.5px;color:#111;background:var(--gold);border-radius:99px;min-width:17px;height:17px;padding:0 4px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;font-weight:700}
+.legend{font-size:12px;color:var(--faint);display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:8px}
+.legend i.lv{background:#4a463d}.legend i.lo{background:var(--gold);border-radius:50%}
+.strip.half{grid-template-columns:repeat(10,minmax(0,1fr))}
+.stagek{background:var(--card2);border-radius:9px;padding:10px;text-align:center;cursor:pointer}
+.stagek b{display:block;font-size:22px}
+.stagek span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.card.go{cursor:pointer}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:9px 16px;border-radius:9px;border:1px solid var(--line2);background:var(--card2);color:var(--bone);cursor:pointer;text-decoration:none!important;font-size:14px;white-space:nowrap}
 .btn:hover{border-color:#4a4539}
 .btn.go{background:var(--bone);color:#111;border-color:var(--bone);font-weight:600}
@@ -334,7 +356,7 @@ function esc(v){ return String(v == null ? "" : v).replace(/&/g,"&amp;").replace
 function pad(n){ n = +n; return n < 10 ? "0" + n : "" + n; }
 function rupees(p){ return "₹" + Math.round((p || 0) / 100).toLocaleString("en-IN"); }
 function plural(n, one, many){ return n + " " + (n === 1 ? one : (many || one + "s")); }
-function pct(n, of){ return of ? Math.round(n / of * 100) + "%" : "–"; }
+function pct(n, of){ if(!of) return "–"; var v = Math.round(n / of * 100); return v === 0 && n > 0 ? "<1%" : v + "%"; }
 function when(iso){ if(!iso) return ""; var d = new Date(iso); return d.toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"short", hour:"numeric", minute:"2-digit" }); }
 var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function ist(ms){ return new Date(ms + 5.5 * 3600000); }
@@ -494,15 +516,37 @@ function failed(j){ return '<div class="card empty"><p>' + esc((j && j.why) || "
 var LOAD = {}, RENDER = {}, AFTER = {};
 function both(a, b, done){ var got = {}, n = 2; function one(k){ return function(j){ got[k] = j; if(--n === 0) done(got.a, got.b); }; } a.then(one("a")); b.then(one("b")); }
 
-/* ══ TODAY ══ */
+/* ══ TODAY: the live dashboard ══
+   A period (Today, 7, 30, 90 days in India), its numbers against the same
+   length before it, the chart, the path to a sale and where sales came
+   from; then what needs you, who is here now, the hot leads, the twenty.
+   The numbers refresh every thirty seconds while the screen is open;
+   Right now every ten. */
+var TP_NAME = { today:"Today", "7d":"7 days", "30d":"30 days", "90d":"90 days" };
+function tperiod(){ var r = PARAMS.r; if(!TP_NAME[r]){ try{ r = localStorage.getItem("kaal_tp"); }catch(e){} } return TP_NAME[r] ? r : "today"; }
 LOAD.today = function(put){
-  both(api("GET", "/control/api/overview"), api("GET", "/desk/data"), function(ov, dk){
-    if(!ov.ok && !dk.ok){ put(failed(ov)); return; }
-    DATA.overview = ov.ok ? ov : null; DATA.desk = dk.ok ? dk : null;
+  var r = tperiod(), got = {}, left = 4;
+  function one(k){ return function(j){ got[k] = j; if(--left === 0) done(); }; }
+  api("GET", "/control/api/overview").then(one("ov")); api("GET", "/desk/data").then(one("dk"));
+  api("GET", "/desk/summary?r=" + r).then(one("sm")); api("GET", "/desk/insights?r=" + r).then(one("ins"));
+  function done(){
+    if(!got.ov.ok && !got.dk.ok && !got.sm.ok){ put(failed(got.sm)); return; }
+    DATA.overview = got.ov.ok ? got.ov : null; DATA.desk = got.dk.ok ? got.dk : null;
+    DATA.summary = got.sm.ok ? got.sm : null; DATA.tins = got.ins.ok ? got.ins : null;
     put(RENDER.today());
     api("GET", "/desk/visitors?r=7d&f=hot&sort=score").then(function(h){ if(h.ok){ setBadge("visitors", h.total); var e = $("hotCard"); if(e) e.innerHTML = hotCard(h); } });
-  });
+  }
 };
+/* The quiet refresh: only the numbers, the chart and the path, in place. */
+function refreshToday(){
+  if(VIEW !== "today" || !SIGNED || document.visibilityState !== "visible" || !$("sheet").hidden || PENDING) return;
+  api("GET", "/desk/summary?r=" + tperiod()).then(function(j){
+    if(!j.ok || VIEW !== "today") return;
+    DATA.summary = j;
+    var a = $("dash"); if(a) a.innerHTML = dashBody();
+  });
+}
+setInterval(refreshToday, 30000);
 function needs(){
   var ov = DATA.overview, dk = DATA.desk, out = [];
   if(ov){
@@ -534,43 +578,77 @@ function hotCard(h){
   return '<div class="card"><div class="row between"><h3>' + plural(h.total, "hot lead") + ' this week</h3><button class="btn sm" data-go="visitors" data-p="f=hot">See all</button></div>' +
     '<div class="list" style="margin:8px -16px -16px">' + rows.map(function(v){ return vrow(v); }).join("") + "</div></div>";
 }
+function kdelta(cur, prev, r){
+  if(r === "today") return '<span class="faint">Yesterday ' + prev + "</span>";
+  if(!prev) return cur ? '<span class="up">new</span> <span class="faint">vs previous ' + TP_NAME[r] + "</span>" : '<span class="faint">none in either period</span>';
+  var d = Math.round((cur - prev) / prev * 100);
+  return '<span class="' + (d > 0 ? "up" : d < 0 ? "down" : "faint") + '">' + (d > 0 ? "\u25b2 " : d < 0 ? "\u25bc " : "") + Math.abs(d) + '%</span> <span class="faint">vs previous ' + TP_NAME[r] + "</span>";
+}
+function mini(days, key){
+  if(!days || days.length < 2) return "";
+  var top = 1; days.forEach(function(x){ top = Math.max(top, x[key] || 0); });
+  return '<div class="mini" aria-hidden="true">' + days.map(function(x){ var v = x[key] || 0; return '<i class="' + (v ? "" : "z") + '" style="height:' + (v ? Math.max(10, Math.round(v / top * 100)) : 6) + '%"></i>'; }).join("") + "</div>";
+}
+function dashBody(){
+  var sm = DATA.summary;
+  if(!sm) return '<div class="card empty">The numbers could not be read just now. They try again in thirty seconds.</div>';
+  var r = sm.r, t = sm.totals || {}, p = sm.prev || {}, days = r === "today" ? null : sm.days;
+  function conv(o, v){ return v ? (o / v * 100).toFixed(o / v >= 0.1 ? 0 : 1) + "%" : "\u2013"; }
+  function kpi(label, v, pv, sub, key, go){
+    return '<div class="kpi' + (go ? " go" : "") + '"' + (go ? ' data-go="' + go + '"' : "") + '><div class="l">' + label + '</div><div class="v">' + v + "</div>" +
+      '<div class="d">' + sub + '</div><div class="d">' + kdelta(pv ? pv[0] : t[key] || 0, pv ? pv[1] : p[key] || 0, r) + "</div>" + (key ? mini(days, key) : "") + "</div>";
+  }
+  var h = '<div class="kpis">' +
+    kpi("Visits", (t.visits || 0).toLocaleString("en-IN"), null, (t.visitors || 0).toLocaleString("en-IN") + " " + (t.visitors === 1 ? "visitor" : "visitors") + (r === "today" ? " today" : " (unique each day)"), "visits", "insights") +
+    kpi("Add to cart", (t.cart || 0).toLocaleString("en-IN"), null, pct(t.cart || 0, t.visits || 0) + " of visits chose a number", "cart", "visitors") +
+    kpi("Checkouts", (t.checkout || 0).toLocaleString("en-IN"), null, pct(t.checkout || 0, t.cart || 0) + " of add to carts", "checkout", "orders") +
+    kpi("Orders", (t.orders || 0).toLocaleString("en-IN"), null, (t.returned ? plural(t.returned, "returned or refunded", "returned or refunded") : pct(t.orders || 0, t.checkout || 0) + " of checkouts paid"), "orders", "orders") +
+    kpi("Revenue", rupees(t.paise || 0), [t.paise || 0, p.paise || 0], "after refunds and returns", "paise", null) +
+    kpi("Conversion", conv(t.orders || 0, t.visitors || 0), [Math.round((t.orders || 0) * 1000 / Math.max(1, t.visitors || 0)), Math.round((p.orders || 0) * 1000 / Math.max(1, p.visitors || 0))], "orders per visitor", null, "insights") + "</div>";
+  h += '<p class="note">' + (r === "today" ? "Today so far, India time. " : esc(TP_NAME[r]) + " to today, against the " + esc(TP_NAME[r]) + " before. ") +
+    "A visit is counted as it ends, so the last few minutes arrive with it; Right now, below, is live. Add to cart is a visit that chose a number." + (sm.orders === "razorpay" ? " Orders from Razorpay." : "") + "</p>";
+  /* the chart */
+  var cd = sm.days || [], top = 1, otop = 0;
+  cd.forEach(function(x){ top = Math.max(top, x.visits || 0); otop = Math.max(otop, x.orders || 0); });
+  h += '<div class="card" style="margin-top:12px"><div class="row between"><h3>' + (r === "today" ? "The last fourteen days" : "Visits and orders, day by day") + '</h3><span class="legend"><i class="lv"></i>Visits <i class="lo"></i>Orders</span></div>' +
+    '<div class="chart" role="img" aria-label="Visits and orders each day">' + cd.map(function(x){
+      var hv = x.visits ? Math.max(3, Math.round(x.visits / top * 100)) : 1;
+      return '<div class="cday' + (x.day === sm.today ? " now" : "") + '" title="' + esc(dayShort(x.day)) + ": " + plural(x.visits || 0, "visit") + ", " + plural(x.cart || 0, "add to cart", "add to carts") + ", " + plural(x.orders || 0, "order") + (x.paise ? ", " + rupees(x.paise) : "") + '">' +
+        (x.orders ? '<b class="o">' + x.orders + "</b>" : "") + '<i class="b" style="height:' + hv + '%"></i></div>'; }).join("") + "</div>" +
+    '<div class="axis"><span>' + esc(cd.length ? dayShort(cd[0].day) : "") + "</span><span>" + esc(cd.length > 2 ? dayShort(cd[Math.floor(cd.length / 2)].day) : "") + "</span><span>" + (cd.length ? (cd[cd.length - 1].day === sm.today ? "Today" : esc(dayShort(cd[cd.length - 1].day))) : "") + "</span></div></div>";
+  /* the path to a sale */
+  var steps = [["Visits", t.visits || 0], ["Reached the twenty", t.twenty || 0], ["Added to cart", t.cart || 0], ["Opened checkout", t.checkout || 0], ["Gave their details", t.details || 0], ["Ordered", t.orders || 0]];
+  var v0 = Math.max(steps[0][1], 1);
+  var path = '<div class="card funnel"><h3 style="margin-bottom:6px">The path to a sale</h3>' + steps.map(function(x, i){
+    var drop = i ? steps[i - 1][1] - x[1] : 0;
+    return '<div class="st"><span>' + x[0] + '</span><span class="track"><i style="width:' + Math.min(100, Math.max(x[1] ? 1 : 0, Math.round(x[1] / v0 * 100))) + '%"></i></span><span class="val">' + x[1].toLocaleString("en-IN") + (i && steps[0][1] ? "<small>" + pct(x[1], steps[0][1]) + "</small>" : "") + (i && drop > 0 ? '<small class="down" title="Lost at this step">\u2212' + drop + "</small>" : "") + "</span></div>"; }).join("") + "</div>";
+  var ins = DATA.tins, src = ins && ins.sources ? ins.sources.slice(0, 6) : [];
+  var from = '<div class="card"><div class="row between"><h3>Where they came from</h3><button class="btn sm ghost" data-go="insights" data-p="r=' + esc(r) + '">Insights</button></div>' +
+    (src.length ? '<div class="scroll" style="margin:6px -16px -16px"><table><tr><th>Source</th><th class="n">Visitors</th><th class="n">Cart</th><th class="n">Checkout</th><th class="n">Sold</th></tr>' + src.map(function(x){
+      return '<tr class="go" data-go="visitors" data-p="f=all&r=' + esc(r) + "&src=" + esc(x.s) + '"><td>' + esc(cleanSrc(x.k)) + '</td><td class="n">' + x.v + '</td><td class="n">' + x.num + '</td><td class="n">' + x.co + '</td><td class="n">' + (x.paid ? '<b class="up">' + x.paid + "</b>" : 0) + "</td></tr>"; }).join("") + "</table></div>"
+      : '<p class="muted small" style="margin:6px 0 0">' + (ins ? "Nobody yet in this period." : "The sources could not be read just now.") + "</p>") + "</div>";
+  return h + '<div class="grid g2 solo" style="margin-top:12px">' + path + from + "</div>";
+}
 RENDER.today = function(){
-  var ov = DATA.overview || {}, dk = DATA.desk || {}, c = (dk.c || {}).today || {}, y = (dk.c || {}).yesterday || {}, paid = dk.paid || {};
+  var ov = DATA.overview || {}, dk = DATA.desk || {}, r = tperiod();
   var sold = dk.sold ? dk.sold.length : (ov.sold || 0), size = dk.edition || ov.size || 20;
-  var trend = dk.trend || [], tv = 0, to = 0;
-  trend.forEach(function(r){ tv += r.visitors; to += r.orders; });
-  function delta(a, b){ if(!b && !a) return ""; var d = a - b; return d === 0 ? "same as yesterday" : '<span class="' + (d > 0 ? "up" : "down") + '">' + (d > 0 ? "+" : "") + d + "</span> vs yesterday"; }
   var gone = {}; (dk.sold || []).forEach(function(n){ gone[n] = 1; });
   var cells = (ov.pieces || []).map(function(p){ var st = p.state || p.status; if((st === "available" || !st) && gone[p.number]) st = "sold"; return '<div class="cell ' + esc(st) + '" title="No. ' + pad(p.number) + " · " + esc(p.colorway) + " · " + esc(p.status) + '">' + pad(p.number) + "</div>"; }).join("");
   var n = needs();
   setBadge("orders", (ov.stages ? (ov.stages.placed || 0) + (ov.stages.inspected || 0) + (ov.stages.packed || 0) : 0));
   setBadge("approvals", ov.approvals || 0, true);
-  var h = '<div class="grid g4">' +
-    '<div class="kpi go" data-go="pieces"><div class="v">' + sold + '<span class="faint" style="font-size:16px"> / ' + size + '</span></div><div class="l">Sold</div><div class="d">' + (size - sold) + " remain</div></div>" +
-    '<div class="kpi"><div class="v">' + rupees(ov.revenue != null ? ov.revenue : dk.revenue) + '</div><div class="l">Revenue, all time</div><div class="d">' + (paid.today ? rupees(paid.todayPaise) + " today" : "Nothing yet today") + "</div></div>" +
-    '<div class="kpi go" data-go="visitors"><div class="v">' + (c.visitor || 0) + '</div><div class="l">Visitors today</div><div class="d">' + delta(c.visitor || 0, y.visitor || 0) + "</div></div>" +
-    '<div class="kpi go" data-go="insights"><div class="v">' + (tv ? (to / tv * 100).toFixed(1) + "%" : "–") + '</div><div class="l">Conversion</div><div class="d">7 days: ' + plural(to, "order") + ", " + plural(tv, "visitor") + "</div></div></div>" +
-    (cells ? '<div class="card" style="margin-top:12px"><div class="row between"><b>The twenty</b><span class="muted small">' + sold + " gone · " + (size - sold) + ' open</span></div><div class="strip">' + cells + "</div></div>" : "");
-  h += "<h2>Needs you" + (n.length ? '<span class="count">' + n.length + "</span>" : "") + "</h2>" +
-    (n.length ? n.map(function(x){ return '<div class="alert' + (x.act ? " act" : "") + '"><b>' + esc(x.t) + "</b>" + (x.d ? "<p>" + esc(x.d) + "</p>" : "") + (x.b ? '<div class="row">' + x.b + "</div>" : "") + "</div>"; }).join("")
-      : '<div class="calm">&#10003; Nothing needs you right now.</div>');
-  h += '<div class="grid g2 solo" style="margin-top:12px"><div id="nowCard">' + nowCard() + '</div><div id="hotCard"><div class="card empty">Loading leads…</div></div></div>';
-  if(ov.stages) h += '<h2>Orders at each stage</h2><div class="grid g4">' + ["placed","inspected","packed","dispatched"].map(function(s){
-    return '<div class="kpi go" data-go="orders"><div class="v">' + (ov.stages[s] || 0) + '</div><div class="l">' + s + "</div></div>"; }).join("") + "</div>";
-  h += "<h2>Today's path to a sale</h2>" + dayFunnel(c, paid.today || 0, y, paid.yesterday || 0);
-  if(trend.length) h += '<h2>Last seven days</h2><div class="card tight scroll"><table><tr><th>Day</th><th class="n">Visitors</th><th class="n">Number</th><th class="n">Checkout</th><th class="n">Orders</th></tr>' +
-    trend.map(function(r){ return '<tr><td class="d">' + (r.day === dk.today ? "<b>Today</b>" : dayShort(r.day)) + '</td><td class="n">' + r.visitors + '</td><td class="n">' + r.numbers + '</td><td class="n">' + r.checkouts + '</td><td class="n">' + r.orders + "</td></tr>"; }).join("") + "</table></div>";
+  var seg = Object.keys(TP_NAME).map(function(k){ return '<button data-act="tset" data-v="' + k + '" aria-pressed="' + (r === k) + '">' + TP_NAME[k] + "</button>"; }).join("");
+  var h = '<div class="row between"><div class="seg" role="group" aria-label="Period">' + seg + '</div><span class="live small"><span class="dot on"></span><span id="dashAt">Live \u00b7 updates every 30 seconds</span></span></div>' +
+    '<div id="dash" style="margin-top:12px">' + dashBody() + "</div>";
+  if(n.length) h += "<h2>Needs you" + '<span class="count">' + n.length + "</span></h2>" + n.map(function(x){ return '<div class="alert' + (x.act ? " act" : "") + '"><b>' + esc(x.t) + "</b>" + (x.d ? "<p>" + esc(x.d) + "</p>" : "") + (x.b ? '<div class="row">' + x.b + "</div>" : "") + "</div>"; }).join("");
+  else h += '<h2>Needs you</h2><div class="calm">&#10003; Nothing needs you right now.</div>';
+  h += '<div class="grid g2 solo" style="margin-top:12px"><div id="nowCard">' + nowCard() + '</div><div id="hotCard"><div class="card empty">Loading leads\u2026</div></div></div>';
+  h += '<div class="grid g2 solo" style="margin-top:12px">' + (cells ? '<div class="card go" data-go="pieces"><div class="row between"><h3>The twenty</h3><span class="muted small">' + sold + " gone \u00b7 " + (size - sold) + ' open</span></div><div class="strip half">' + cells + "</div></div>" : "<div></div>") +
+    (ov.stages ? '<div class="card"><div class="row between"><h3>Orders at each stage</h3><button class="btn sm ghost" data-go="orders">Orders</button></div><div class="grid g4" style="margin-top:10px">' + ["placed","inspected","packed","dispatched"].map(function(s){
+      return '<div class="stagek go" data-go="orders"><b class="num">' + (ov.stages[s] || 0) + "</b><span>" + s + "</span></div>"; }).join("") + "</div></div>" : "") + "</div>";
   if(ov.returnWindows && ov.returnWindows.length) h += '<h2>Delivered, return window open</h2><div class="card tight"><table>' + ov.returnWindows.map(function(w){ return "<tr><td>" + esc(w.piece) + '</td><td class="n">' + esc(w.delivered) + '</td><td class="n">' + plural(w.daysLeft, "day") + " left</td></tr>"; }).join("") + "</table></div>";
   return h;
 };
-function dayFunnel(c, paid, y, paidY){
-  var rows = [["Visitors", c.visitor || 0, y.visitor || 0], ["Watched the film through", c.hero_complete || 0, y.hero_complete || 0], ["Reached the twenty", c.view || 0, y.view || 0],
-    ["Chose a dial", (c.dial || 0) + (c.early_dial || 0), (y.dial || 0) + (y.early_dial || 0)], ["Chose a number", c.number || 0, y.number || 0],
-    ["Opened checkout", c.checkout || 0, y.checkout || 0], ["Gave their details", c.details || 0, y.details || 0], ["Paid", paid, paidY]];
-  var top = Math.max(rows[0][1], 1);
-  return '<div class="card funnel"><div class="hdr"><span></span><span></span><span>Today <span class="y">Yesterday</span></span></div>' + rows.map(function(r, i){
-    return '<div class="st"><span>' + r[0] + '</span><span class="track"><i style="width:' + Math.min(100, Math.round(r[1] / top * 100)) + '%"></i></span><span class="val">' + r[1] + (i && rows[0][1] ? "<small>" + pct(r[1], rows[0][1]) + "</small>" : "") + '<span class="y">' + r[2] + "</span></span></div>"; }).join("") + "</div>";
-}
 
 /* ══ RIGHT NOW: the live view, every ten seconds ══ */
 var LV = null, liveT = 0, LAST_PAID = 0;
@@ -1047,6 +1125,7 @@ document.addEventListener("click", function(e){
   else if(a === "vset"){ var vp = copyParams(); vp[el.getAttribute("data-k")] = el.getAttribute("data-v"); if(el.getAttribute("data-k") === "f") vp.sort = ""; go("visitors", vp); }
   else if(a === "vmore"){ el.disabled = true; api("GET", "/desk/visitors?" + vparams(VROWS.length)).then(function(j){ VROWS = VROWS.concat(j.rows || []); $("view").innerHTML = RENDER.visitors(j); AFTER.visitors(); }); }
   else if(a === "iset") go("insights", { r: el.getAttribute("data-v") });
+  else if(a === "tset"){ var tv = el.getAttribute("data-v"); try{ localStorage.setItem("kaal_tp", tv); }catch(e){} go("today", { r: tv }); }
   else if(a === "forget"){ var fk = +el.getAttribute("data-k"); if(!confirm("Delete everything kept about Visitor " + fk + "? Their history, and their name and contact on it, go for good.")) return;
     api("POST", "/desk/forget", { k: fk }).then(function(j){ if(j.ok){ closeSheet(); say("Visitor " + fk + " deleted"); load(); } else say("Not deleted.", true); }); }
   else if(a === "release"){ var rn = +el.getAttribute("data-n"), what = el.getAttribute("data-v");

@@ -381,6 +381,10 @@ let oid;
   r = await call("GET", "/desk/data", undefined, { "X-Desk": "1" });
   const ins = await call("GET", "/desk/insights?r=7d", undefined, { "X-Desk": "1" });
   ok(r.status === 200 && r.j.ok && Array.isArray(r.j.alerts) && ins.status === 200 && ins.j.on === false, "command centre: the same session reads the desk's data and Insights");
+  const want = DB.raw.prepare("SELECT COUNT(*) AS n, SUM(CASE WHEN refund_id IS NULL AND status <> 'returned' THEN amount_paise ELSE 0 END) AS p FROM orders WHERE status <> 'cancelled' AND paid_at >= ?").get(new Date(Date.now() - 95 * 86400000).toISOString());
+  r = await call("GET", "/desk/summary?r=90d", undefined, { "X-Desk": "1" });
+  ok(r.j.ok && r.j.orders === "registry" && r.j.totals.orders === want.n && r.j.totals.paise === (want.p || 0) && r.j.days.length === 90,
+    "dashboard: orders and revenue for 90 days come from the registry, refunds and returns taken out (" + r.j.totals.orders + " orders, " + r.j.totals.paise + ")");
   r = await call("GET", "/desk", undefined, { Accept: "text/html" });
   ok(r.status === 302 && r.headers.get("Location") === "/control", "command centre: the old desk's address leads here");
   r = await call("GET", "/control/api/sessions");

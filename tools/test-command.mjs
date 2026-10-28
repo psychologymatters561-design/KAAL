@@ -26,7 +26,8 @@ const files = { "index.html": readFileSync(new URL("index.html", ROOT), "utf8"),
 files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
 let ghDown = false, ghWrites = 0, head = "a".repeat(40), pendingTree = null;
 const soldOnGitHub = () => JSON.parse("[" + /sold:\s*\[([^\]]*)\]/.exec(files["index.html"])[1] + "]");
-const payments = [], orders = {}, mails = [], pushes = [];
+const payments = [], orders = {}, mails = [], pushes = [], rzpOrders = [], claudeCalls = [];
+let claudeReply = null;
 let pushStatus = 201, rzpListings = 0;
 
 globalThis.fetch = async (url, init = {}) => {
@@ -58,10 +59,15 @@ globalThis.fetch = async (url, init = {}) => {
   if (url.includes("api.razorpay.com")) {
     const u = new URL(url);
     if (u.pathname === "/v1/payments") { rzpListings++; return Response.json({ items: payments.slice(+u.searchParams.get("skip") || 0, (+u.searchParams.get("skip") || 0) + 100) }); }
-    if (u.pathname === "/v1/orders") return Response.json({ items: [] });
+    if (u.pathname === "/v1/orders") return Response.json({ items: rzpOrders });
     const o = /^\/v1\/orders\/(order_\w+)$/.exec(u.pathname);
     if (o) return orders[o[1]] ? Response.json(orders[o[1]]) : new Response("{}", { status: 404 });
     return Response.json({ items: [] });
+  }
+  if (url === "https://api.anthropic.com/v1/messages") {
+    claudeCalls.push({ headers: init.headers, body: JSON.parse(init.body) });
+    const r = typeof claudeReply === "function" ? claudeReply(JSON.parse(init.body)) : claudeReply;
+    return r.status ? new Response(JSON.stringify(r.json || {}), { status: r.status }) : Response.json(r);
   }
   if (url.startsWith("https://fcm.googleapis.com/")) { pushes.push({ url, headers: init.headers, body: new Uint8Array(init.body) }); return new Response("", { status: pushStatus }); }
   if (url.includes("graph.facebook.com") || url.includes("bing.com") || url.includes("indexnow")) return Response.json({});
@@ -97,6 +103,8 @@ async function call(method, path, body, extra, e = env) {
   const text = await r.text(); let j = null; try { j = JSON.parse(text); } catch (x) { j = null; }
   return { status: r.status, j, text };
 }
+let E2 = null;
+const call2 = (m, p, b) => call(m, p, b, undefined, E2 || env);
 async function cron(e = env) { const k = ctx(); await w.scheduled({}, e, k); await k.done(); }
 async function hook(entity) {
   const b = JSON.stringify({ event: "payment.captured", payload: { payment: { entity } } });
@@ -296,6 +304,125 @@ async function vapidOk(auth, aud) {
   await call("POST", "/control/api/push/test", {});
   const st = await call("GET", "/control/api/push/state");
   ok(st.j.devices.length === 0, "alerts: a phone the push service says is gone is dropped");
+}
+
+/* ── 8. Every owner's page, from the command centre ── */
+{
+  const day = new Date(Date.now() + 5.5 * 3600000 - 3 * 86400000).toISOString().slice(0, 10);
+  DB.raw.prepare("UPDATE orders SET status = 'registered', delivered_on = ?, registered_at = ? WHERE razorpay_payment_id = 'pay_Buy05aaaa'").run(day, new Date().toISOString());
+  DB.raw.prepare("UPDATE pieces SET status = 'registered' WHERE number = 5").run();
+  DB.raw.prepare("INSERT INTO owners (email, name, phone, city, state, show_city_publicly, show_name_publicly, data_consent_at, created_at, updated_at) VALUES ('riya@example.com', 'Riya Sen', '919812345678', 'Kolkata', 'West Bengal', 1, 0, ?1, ?1, ?1)").run(new Date().toISOString());
+  const oid = DB.raw.prepare("SELECT id FROM owners WHERE email = 'riya@example.com'").get().id;
+  const ord = DB.raw.prepare("SELECT id FROM orders WHERE razorpay_payment_id = 'pay_Buy05aaaa'").get().id;
+  DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via, order_id) VALUES ('S01', 'S01-05', ?, 1, ?, 'purchase', ?)").run(oid, new Date().toISOString(), ord);
+  let r = await call("GET", "/control/api/owners/live");
+  const o5 = (r.j.owners || []).find(o => o.n === 5);
+  ok(r.j.ok && o5 && o5.name === "Riya Sen" && o5.ownerNo === 1 && o5.warranty && o5.warranty.endMs > Date.now() && o5.cityPublic && !o5.initialsPublic, "owners, live: each owner with their number, place in the line, warranty clock and what the shop shows");
+  r = await call("GET", "/control/api/owners/" + oid + "/dossier");
+  ok(r.j.ok && r.j.pieces.length === 1 && r.j.pieces[0].n === 5 && r.j.pieces[0].warranty && r.j.owner.initials === "R\u2022\u2022\u2022 S\u2022\u2022", "owners: the admin sees an owner's own page, exactly as they do");
+  r = await call("GET", "/control/api/owners/99999/dossier");
+  ok(r.status === 404, "owners: an owner who does not exist, nothing");
+  const keep = jar; jar = "";
+  r = await call("GET", "/control/api/owners/" + oid + "/dossier");
+  ok(r.status === 401, "owners: signed out, nobody's page");
+  jar = keep;
+}
+
+/* ── 9. The nearly-bought note, written by Claude for one person ── */
+{
+  const { check, factsFor } = await import("../worker/lead-writer.js");
+  const d = { site: "https://thekaal.co", first: "Kabir", when: "Yesterday", n: 13, open: true, dial: "Champagne", sold: 9, left: 11, sameDial: [], stage: "Payment failed: card declined" };
+  const good = { subject: "No. 13", preheader: "Still unclaimed.",
+    paragraphs: ["You chose No. 13, the Champagne dial, yesterday. The payment did not go through, and No. 13 is still unclaimed.",
+      "There is one No. 13 and there will never be another. Of the twenty, 11 are left. You have seven days to live with it, and every rupee comes back if it is not for you.",
+      "If the card was the trouble, reply and a person will help you finish. Delivery across India is included, and the movement has two years' warranty."],
+    button: "Take No. 13", angle: "payment_help", why: "Their payment failed, so help comes first." };
+  ok(check(good, d).length === 0, "writer check: a true, plain note passes " + JSON.stringify(check(good, d)));
+  const bad = (patch) => check(Object.assign({}, good, patch), d);
+  ok(bad({ paragraphs: [good.paragraphs[0] + " Use code KAAL10 for a discount."] }).some(x => /discount/.test(x)), "writer check: a discount never goes");
+  ok(bad({ paragraphs: ["No. 13 \u2014 still open, and it will not wait for long."] }).length > 0, "writer check: no dashes");
+  ok(bad({ paragraphs: ["No. 14 carries the same dial and is open too, if 13 is not quite right."] }).some(x => /No\. 14/.test(x)), "writer check: a number not in the facts is never named");
+  ok(bad({ paragraphs: ["Only three are left now, so this is the moment to choose."] }).some(x => /three/.test(x)), "writer check: a count not in the facts is never stated");
+  ok(bad({ paragraphs: ["We noticed you watched the film twice before choosing No. 13."] }).some(x => /saw of their visit/.test(x)), "writer check: never what we saw of their visit");
+  ok(bad({ paragraphs: ["Hello Kabir, No. 13 is still open for you to take."] }).some(x => /greets/.test(x)), "writer check: the greeting is ours, not Claude's");
+  ok(bad({ paragraphs: ["No. 13 is still open. Visit thekaal.co to take it today."] }).length > 0, "writer check: no links, no deadlines");
+  ok(check(Object.assign({}, good, { paragraphs: ["No. 13 is still open and unclaimed, waiting for you."] }), Object.assign({}, d, { open: false, sameDial: [14] })).some(x => /sold number is open/.test(x)), "writer check: a sold number is never called open");
+  const f = factsFor(Object.assign({}, d, { history: { visits: 3, returned: true, numbers: ["13", "12"], dials: ["Champagne"], caseback: true, film: true, story: false, gift: false, minutes: 9 } }));
+  ok(f.their_number === "No. 13" && f.how_they_came_to_it.visits === 3 && !/@|98|riya|phone|email/i.test(JSON.stringify(f)), "writer facts: the true state and how they came to it, and never an email or phone");
+
+  /* Through the real follow-up run: a checkout five hours ago whose card was declined. */
+  const realNow = Date.now;
+  const T0 = Date.parse("2026-10-28T08:00:00Z");                                      /* 1:30 pm in India */
+  Date.now = () => T0;
+  const e3 = Object.assign({}, env, { ABANDON_EMAIL: "on", ANTHROPIC_API_KEY: "sk-ant-test", FOLLOW_GAP_MS: "0" });
+  E2 = e3;
+  rzpOrders.push({ id: "order_Near13aaaa", status: "created", created_at: Math.floor(T0 / 1000) - 5 * 3600, notes: { kaal_no: "13" } });
+  payments.push({ id: "pay_Near13fail", order_id: "order_Near13aaaa", status: "failed", email: "kabir.n@example.com", contact: "+919800000013", error_description: "card declined", created_at: Math.floor(T0 / 1000) - 5 * 3600, amount: 599900, currency: "INR", notes: {} });
+  claudeReply = { model: "claude-opus-5-5", stop_reason: "end_turn", content: [{ type: "thinking", thinking: "" }, { type: "text", text: JSON.stringify(good) }], usage: { input_tokens: 900, output_tokens: 300 } };
+  mails.length = 0; claudeCalls.length = 0;
+  await cron(e3);
+  const sent = mails.find(m => m.to.includes("kabir.n@example.com"));
+  const call = claudeCalls[0];
+  ok(sent && /The payment did not go through/.test(sent.text) && /^Hello,|^Kabir,/m.test(sent.text) && /P\.S\. This is the only time we'll write about No\. 13\./.test(sent.text) && /thekaal\.co\/#n13/.test(sent.text),
+    "follow-up: the note Claude wrote goes, inside the fixed frame (greeting, link to No. 13, the only-time P.S.)");
+  ok(call && call.headers["x-api-key"] === "sk-ant-test" && call.headers["anthropic-version"] === "2026-10-21" && call.headers["anthropic-beta"] === "server-side-fallback-2026-07-01" &&
+    call.body.model === "claude-opus-5-5" && call.body.fallbacks === "default" && call.body.output_config.format.type === "json_schema" && call.body.output_config.effort === "medium" && !("thinking" in call.body),
+    "follow-up: one Messages API call, Claude Opus 5.5, structured output, refusal fallback on");
+  ok(call && !/kabir\.n@|9800000013/.test(JSON.stringify(call.body)), "follow-up: Claude is never sent their email or phone");
+  let st = await call2("GET", "/control/api/followups");
+  ok(st.j.ok && st.j.mode === "auto" && st.j.connected && st.j.log[0].how === "claude" && st.j.log[0].angle === "payment_help" && /payment did not go through/.test(st.j.log[0].text), "follow-up: the command centre shows it, word for word, as written by Claude");
+  mails.length = 0;
+  await cron(e3);
+  ok(!mails.some(m => m.to.includes("kabir.n@example.com")), "follow-up: once, ever");
+
+  /* A draft that fails the check: the standard note goes instead. */
+  rzpOrders.push({ id: "order_Near14aaaa", status: "created", created_at: Math.floor(T0 / 1000) - 4 * 3600, notes: { kaal_no: "14" } });
+  payments.push({ id: "pay_Near14fail", order_id: "order_Near14aaaa", status: "failed", email: "meera.k@example.com", created_at: Math.floor(T0 / 1000) - 4 * 3600, amount: 599900, currency: "INR", notes: {} });
+  claudeReply = { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(Object.assign({}, good, { paragraphs: ["A 10% discount, today only!"] })) }] };
+  mails.length = 0;
+  await cron(e3);
+  const std = mails.find(m => m.to.includes("meera.k@example.com"));
+  ok(std && /You chose No\. 14/.test(std.text) && !/discount/.test(std.text), "follow-up: a draft that fails the check never goes; the standard note does");
+  st = await call2("GET", "/control/api/followups");
+  ok(st.j.log[0].how === "standard" && /failed the check/.test(st.j.log[0].why), "follow-up: and the log says why");
+
+  /* Review mode: Claude drafts, the owner approves. */
+  await call2("POST", "/control/api/followups/mode", { mode: "review" });
+  rzpOrders.push({ id: "order_Near16aaaa", status: "created", created_at: Math.floor(T0 / 1000) - 4 * 3600, notes: { kaal_no: "16" } });
+  payments.push({ id: "pay_Near16fail", order_id: "order_Near16aaaa", status: "failed", email: "ira@example.com", created_at: Math.floor(T0 / 1000) - 4 * 3600, amount: 599900, currency: "INR", notes: {} });
+  rzpOrders.push({ id: "order_Near17aaaa", status: "created", created_at: Math.floor(T0 / 1000) - 4 * 3600, notes: { kaal_no: "17" } });
+  payments.push({ id: "pay_Near17fail", order_id: "order_Near17aaaa", status: "failed", email: "dev@example.com", created_at: Math.floor(T0 / 1000) - 4 * 3600, amount: 599900, currency: "INR", notes: {} });
+  claudeReply = (body) => { const n = /"their_number": "No\. (\d+)"/.exec(body.messages[0].content)[1];
+    return { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ subject: "No. " + n, preheader: "Still unclaimed.", paragraphs: ["No. " + n + " is still unclaimed, and there is only one of it.", "You have seven days to live with it, and every rupee comes back if it is not for you."], button: "Take No. " + n, angle: "still_open", why: "It is still open." }) }] }; };
+  mails.length = 0;
+  await cron(e3);
+  st = await call2("GET", "/control/api/followups");
+  ok(!mails.some(m => /ira@|dev@/.test(m.to.join())) && st.j.queue.length === 2, "review: the drafts wait for the owner, nothing is sent");
+  const q16 = st.j.queue.find(q => q.n === 16), q17 = st.j.queue.find(q => q.n === 17);
+  let r = await call2("POST", "/control/api/followups/" + q16.id + "/send", { subject: "No. 16, still here", body: "No. 16 is still unclaimed.\n\nWrite back if anything stopped you; a person reads it." });
+  const m16 = mails.find(m => m.to.includes("ira@example.com"));
+  ok(r.j.ok && m16 && m16.subject === "No. 16, still here" && /Write back if anything stopped you/.test(m16.text) && /P\.S\./.test(m16.text), "review: Send it sends the owner's edited words, in the same frame");
+  r = await call2("POST", "/control/api/followups/" + q17.id + "/skip", {});
+  mails.length = 0;
+  await cron(e3);
+  st = await call2("GET", "/control/api/followups");
+  ok(r.j.ok && !mails.some(m => m.to.includes("dev@example.com")) && st.j.queue.length === 0, "review: Skip means no note to them, ever");
+  r = await call2("POST", "/control/api/followups/" + q16.id + "/send", {});
+  ok(r.status === 404, "review: a note cannot be sent twice");
+  ok(DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action IN ('followup.send','followup.skip','followup.mode')").get().c >= 3, "review: every decision is in the audit log");
+
+  /* When Claude is unreachable, declines, or is not connected. */
+  const { writeNote } = await import("../worker/lead-writer.js");
+  claudeReply = { status: 529, json: { type: "error", error: { type: "overloaded_error" } } };
+  let w = await writeNote(e3, d);
+  ok(!w.ok && w.retry && /529/.test(w.why), "writer: an overloaded API means the standard note, and says it can be retried");
+  claudeReply = { stop_reason: "refusal", content: [] };
+  w = await writeNote(e3, d);
+  ok(!w.ok && w.why === "declined", "writer: a declined request means the standard note");
+  w = await writeNote(Object.assign({}, e3, { ANTHROPIC_API_KEY: "" }), d);
+  ok(!w.ok && w.why === "no key", "writer: without a key, nothing is called");
+  await call2("POST", "/control/api/followups/mode", { mode: "auto" });
+  Date.now = realNow;
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll command centre control tests passed.");

@@ -27,6 +27,7 @@ import { queueLetter } from "./outbox.js";
 import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered } from "./orders.js";
 import { ownerActions } from "./owner-actions.js";
 import { notifyOwner } from "./push.js";
+import { maskName } from "./registry-public.js";
 
 const CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_BODY = 20 * 1024;
@@ -122,6 +123,15 @@ export async function ownersRoute(request, env, ctx, path, deps) {
       const s = await sessionOf(env, request, { bearer: true });
       if (!s) return J({ ok: false, reason: "signed-out" }, 401);
       if (method === "GET" && path === "/o/me") return J(await dossier(env, s.owner));
+      /* How they appear on the shop: their city, their masked initials. Each a yes they can take back. */
+      if (method === "POST" && path === "/o/me/privacy") {
+        const b = await readBody(request) || {}, at = iso();
+        const showCity = b.showCity === true && !!s.owner.city, showName = b.showName === true && !!maskName(s.owner.name);
+        await env.DB.prepare(`UPDATE owners SET show_city_publicly = ?1, city_consent_at = CASE WHEN ?1 = 1 THEN ?3 ELSE NULL END,
+            show_name_publicly = ?2, name_consent_at = CASE WHEN ?2 = 1 THEN ?3 ELSE NULL END, updated_at = ?3 WHERE id = ?4`).bind(showCity ? 1 : 0, showName ? 1 : 0, at, s.owner.id).run();
+        await audit(env, "owner:" + s.owner.id, "owner.privacy", "owner:" + s.owner.id, { city: !!s.owner.show_city_publicly, initials: !!s.owner.show_name_publicly }, { city: showCity, initials: showName }, null);
+        return J({ ok: true, showCity, showName });
+      }
     }
   } catch (e) {
     console.log("Owners API error:", path, String(e).slice(0, 200));
@@ -200,7 +210,7 @@ async function register(env, deps, J, request, b) {
     const spent = await spendCode(env, email, b.emailCode);
     if (!spent.ok) return J({ ok: false, reason: "email-code", why: spent.reason === "wrong" ? "That code is not right. Check it and try again." : "Enter the six digits we sent to that address." }, 400);
   }
-  const showCity = b.showCity === true;
+  const showCity = b.showCity === true, showName = b.showName === true;
 
   /* Taking the link is the one step only one caller can win. */
   const won = await env.DB.prepare("UPDATE claim_tokens SET used_at = ?1 WHERE id = ?2 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?1 RETURNING id").bind(iso(), c.token.id).first();
@@ -217,6 +227,8 @@ async function register(env, deps, J, request, b) {
          ON CONFLICT (email) DO UPDATE SET name = ?2, phone = ?3, city = COALESCE(owners.city, ?4), state = COALESCE(owners.state, ?5),
            show_city_publicly = ?6, data_consent_at = ?7, city_consent_at = CASE WHEN ?6 = 1 THEN ?7 ELSE owners.city_consent_at END, deleted_at = NULL, updated_at = ?7`
       ).bind(email, name, phone, o.city || null, o.state || null, showCity ? 1 : 0, at, showCity ? at : null),
+      /* Initials on the shop: only with the box ticked (unticked by default). */
+      env.DB.prepare("UPDATE owners SET show_name_publicly = ?1, name_consent_at = CASE WHEN ?1 = 1 THEN ?2 ELSE NULL END WHERE email = ?3").bind(showName ? 1 : 0, at, email),
       env.DB.prepare(
         `INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via, order_id)
          SELECT ?1, ?2, id, (SELECT COALESCE(MAX(owner_no), 0) + 1 FROM ownerships WHERE piece_id = ?2), ?3, 'purchase', ?4 FROM owners WHERE email = ?5`
@@ -236,7 +248,7 @@ async function register(env, deps, J, request, b) {
   const w = warrantyWindow(o.delivered_on, months);
   await audit(env, "owner:" + owner.id, "owner.register", "order:" + o.id,
     { order: "delivered", piece: "delivered", return_window_ends_at: o.return_window_ends_at },
-    { order: "registered", piece: "registered", owner_no: mine && mine.owner_no, email_changed: changed || undefined, show_city: showCity }, o.series);
+    { order: "registered", piece: "registered", owner_no: mine && mine.owner_no, email_changed: changed || undefined, show_city: showCity, show_initials: showName }, o.series);
   await notifyOwner(env, { kind: "owner", title: `No. ${pad2(o.number)} is registered`, body: `Owner ${mine ? mine.owner_no : 1} of No. ${pad2(o.number)} just registered. The return window is closed; the warranty is on file.`, url: "/control#owners", tag: "reg-" + o.number });
 
   /* The welcome, and the session that opens the dashboard. */
@@ -252,7 +264,7 @@ async function register(env, deps, J, request, b) {
    Everything one owner may see of the pieces they hold: their own record,
    the warranty clock in the server's time, the chain with earlier owners
    as numbers and years only, the service history, what is open. */
-async function dossier(env, owner) {
+export async function dossier(env, owner) {
   const held = (await env.DB.prepare(
     `SELECT w.*, p.number, p.colorway, p.photo_url, p.status AS piece_status, s.name AS series_name, s.size, s.warranty_months, s.return_days,
             o.id AS order_row, o.paid_at, o.amount_paise, o.currency, o.razorpay_payment_id, o.delivered_on, o.registered_at, o.buyer_name, o.city AS order_city, o.state AS order_state
@@ -286,7 +298,8 @@ async function dossier(env, owner) {
   ).bind(owner.id).all()).results || [];
   return {
     ok: true, now: Date.now(),
-    owner: { name: owner.name, email: owner.email, phone: owner.phone, city: owner.city, state: owner.state, showCity: !!owner.show_city_publicly },
+    owner: { name: owner.name, email: owner.email, phone: owner.phone, city: owner.city, state: owner.state, showCity: !!owner.show_city_publicly,
+      showName: !!owner.show_name_publicly, initials: maskName(owner.name) },
     pieces, incoming: incoming.map(t => ({ n: t.number, status: t.status })), guide: (await setting(env, "guide_video_url", "")) || null
   };
 }

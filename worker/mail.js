@@ -573,6 +573,23 @@ function note({ subject, preheader, site, blocks }) {
   return { subject, html: frame({ title: subject, preheader, body, site, stop: true }), text, headers: MARKETING };
 }
 
+/* The same note, its middle written for one person (worker/lead-writer.js,
+   checked line by line before it reaches here). The greeting, the one link,
+   the offer of help, the signature and the promise that this is the only
+   time are fixed here and never written by anyone else. */
+export function writtenNote(d, w) {
+  const No = d.n ? `No. ${pad2(d.n)}` : "";
+  const href = d.n && d.open ? `${d.site}/#n${d.n}` : d.n && (d.sameDial || []).length ? `${d.site}/#n${d.sameDial[0]}` : `${d.site}/#twenty`;
+  return note({ subject: w.subject, preheader: w.preheader, site: d.site, blocks: [
+    greet(d.first),
+    ...w.paragraphs,
+    { label: w.button, href },
+    "If something went wrong at payment, reply here. A person reads it and will help you finish.",
+    "KAAL",
+    `P.S. This is the only time we'll write about ${No || "it"}.`
+  ] });
+}
+
 const RETURN_LONG = "you have seven days to live with it. If it isn't you, send it back unworn and every rupee comes back.";
 const RETURN_SHORT = "Live with it for seven days. If it isn't you, send it back unworn and every rupee comes back. Two years' warranty on the movement. Free delivery across India.";
 

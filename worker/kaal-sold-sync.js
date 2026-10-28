@@ -92,6 +92,8 @@ import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlo
 import { buyerDuplicate, ownerDuplicate, esc, actName } from "./mail.js";
 import { control } from "./control.js";
 import { notifyOwner } from "./push.js";
+import { writeNote, WRITER_MODEL } from "./lead-writer.js";
+import { writtenNote } from "./mail.js";
 import { flushOutbox } from "./outbox.js";
 import { queuePlaced, queueAddressAsk } from "./orders.js";
 import { shiprocket } from "./courier.js";
@@ -144,7 +146,7 @@ export default {
     /* The registry's control room, its sign-in and the pieces' photographs
        (worker/control.js). Same origin as the page, so no CORS here. */
     if (path === "/control" || path.startsWith("/control/") || path.startsWith("/auth/") || path.startsWith("/photo/")) {
-      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid, setOnSale, activity: (q) => histAsk(env, "/stream?" + q, null, { rows: [] }) });
+      return control(request, env, ctx, path, { sendEmail, siteUrl, workerUrl, refundPayment, releaseSold, importPaid, setOnSale, activity: (q) => histAsk(env, "/stream?" + q, null, { rows: [] }), followups: (m, sub, b) => followupsApi(env, m, sub, b) });
     }
     /* The order's page (thekaal.co/track) and the courier's tracking events. */
     if (path.startsWith("/track/")) return trackRoute(request, env, ctx, path, regDeps(env, ctx));
@@ -1892,10 +1894,126 @@ async function nearlyRound(R) {
       for (const k of pool) if (!(await heldNow(env, k))) same.push(k);
       if (pool.length && !same.length) continue;           // the dial's last open numbers are being paid for; next run
     }
-    const mail = buyerNearlyBought({ site: R.site, first: firstNameOf(u.name), when: nearlyWhen(u.ts, nowMs),
-      n, open, dial, sold: sold.length, left, sameDial: same });
-    await followSend(R, "nearly", email, mail, once, { n, order: u.orderId });
+    const d = { site: R.site, first: firstNameOf(u.name), when: nearlyWhen(u.ts, nowMs), n, open, dial, sold: sold.length, left, sameDial: same, stage: u.stage };
+    let mail = buyerNearlyBought(d), how = "standard", w = null;
+    /* Claude writes it for this one person (worker/lead-writer.js), a few a
+       run; past that the rest wait for the next run rather than get the
+       standard note. A draft that fails its check, or any error, sends the
+       standard note, as before. In review mode it waits for the owner. */
+    if (R.mode === undefined) R.mode = await followMode(env);
+    if (R.mode !== "standard" && env.ANTHROPIC_API_KEY) {
+      const hash = once.slice(7);
+      if (R.mode === "review" && await env.KAAL_STATE.get("fuq:" + hash).catch(() => null)) continue;
+      R.writes = (R.writes || 0) + 1;
+      if (R.writes > WRITES_PER_RUN) continue;
+      d.history = await leadHistory(env, u.orderId);
+      if (d.history && d.history.gift) d.gift = true;
+      w = await writeNote(env, d);
+      if (w.ok) { mail = writtenNote(d, w.draft); how = "claude"; }
+      if (R.mode === "review" && w.ok) {
+        await env.KAAL_STATE.put("fuq:" + hash, JSON.stringify({ id: hash, at: new Date(nowMs).toISOString(), email, name: u.name || "", n, order: u.orderId,
+          d: Object.assign({}, d, { history: undefined }), draft: w.draft, stage: u.stage }), { expirationTtl: 14 * 86400 });
+        await followLog(env, { status: "waiting", email, name: u.name, n, how, angle: w.draft.angle, why: w.draft.why, subject: mail.subject, text: mail.text });
+        continue;
+      }
+    }
+    await followSend(R, "nearly", email, mail, once, { n, order: u.orderId, how, angle: w && w.ok ? w.draft.angle : "" });
+    await followLog(env, { status: "sent", email, name: u.name, n, how, angle: w && w.ok ? w.draft.angle : "", why: w ? (w.ok ? w.draft.why : "Standard note: Claude's draft " + w.why) : "", subject: mail.subject, text: mail.text });
   }
+}
+
+/* ── Who writes the nearly-bought note (Follow-ups, in the command centre) ── */
+const WRITES_PER_RUN = 3;
+const FOLLOW_MODES = ["auto", "review", "standard"];
+async function followMode(env) {
+  const m = env.KAAL_STATE ? await env.KAAL_STATE.get("fu:mode").catch(() => null) : null;
+  return FOLLOW_MODES.indexOf(m) > -1 ? m : "auto";
+}
+/* How they came to it, from their own history: for choosing the angle only. */
+async function leadHistory(env, orderId) {
+  if (!orderId) return null;
+  const j = await histAsk(env, "/journeys", { o: [orderId] }, {});
+  const k = j && j[orderId] && j[orderId].k;
+  if (!k) return null;
+  const one = await histAsk(env, "/visitor?k=" + k, null, null);
+  const v = one && one.ok && one.v;
+  if (!v) return null;
+  const st = v.steps || [];
+  return { visits: v.visits || 1, returned: (v.visits || 1) > 1, numbers: v.numbers || [], dials: v.dials || [],
+    caseback: st.some(e => e.e === "caseback_view"), film: !!v.film, story: st.some(e => e.e === "act"),
+    gift: st.some(e => e.e === "gift"), minutes: Math.round((v.time || 0) / 60000) };
+}
+async function followLog(env, x) {
+  if (!env.KAAL_STATE) return;
+  try {
+    const log = (await env.KAAL_STATE.get("fu:log", "json").catch(() => null)) || [];
+    log.unshift(Object.assign({ at: new Date().toISOString() }, x, { name: String(x.name || "").slice(0, 60), text: String(x.text || "").slice(0, 3000) }));
+    await env.KAAL_STATE.put("fu:log", JSON.stringify(log.slice(0, 40)), { expirationTtl: 180 * 86400 });
+  } catch (e) { console.log("Follow-up log failed:", String(e).slice(0, 120)); }
+}
+
+/* The command centre's Follow-ups: the mode, the queue, the log, a sample. */
+async function followupsApi(env, method, sub, b) {
+  const K = env.KAAL_STATE;
+  if (!K) return { http: 503, body: { ok: false, why: "No store on this worker." } };
+  if (method === "GET" && !sub) {
+    const [mode, log, list] = await Promise.all([followMode(env), K.get("fu:log", "json").catch(() => null), K.list({ prefix: "fuq:" }).catch(() => ({ keys: [] }))]);
+    const queue = (await Promise.all((list.keys || []).slice(0, 30).map(k => K.get(k.name, "json").catch(() => null)))).filter(Boolean)
+      .map(q => Object.assign({}, q, { preview: writtenNote(q.d, q.draft).text }));
+    return { http: 200, body: { ok: true, mode, connected: !!env.ANTHROPIC_API_KEY, model: env.WRITER_MODEL || WRITER_MODEL, on: env.ABANDON_EMAIL === "on", queue, log: log || [] } };
+  }
+  if (method !== "POST") return { http: 404, body: { ok: false } };
+  if (sub === "mode") {
+    if (FOLLOW_MODES.indexOf(b.mode) < 0) return { http: 400, body: { ok: false, why: "Unknown mode." } };
+    await K.put("fu:mode", b.mode);
+    return { http: 200, body: { ok: true, mode: b.mode } };
+  }
+  if (sub === "sample") {
+    if (!env.ANTHROPIC_API_KEY) return { http: 409, body: { ok: false, why: "Claude is not connected yet: add ANTHROPIC_API_KEY (Follow-ups explains how)." } };
+    const hour = "fu:samples:" + new Date().toISOString().slice(0, 13);
+    const used = parseInt(await K.get(hour).catch(() => "0") || "0", 10);
+    if (used >= 10) return { http: 429, body: { ok: false, why: "Ten samples this hour already. Try again later." } };
+    await K.put(hour, String(used + 1), { expirationTtl: 7200 });
+    const sold = (await knownSold(env)) || [];
+    const edition = parseInt(env.EDITION || "20", 10), left = Math.max(0, edition - sold.length);
+    const now = Math.floor(Date.now() / 1000);
+    const pays = (await listPayments(env, now - 30 * 86400, now + 60)) || [];
+    const recent = (await unfinishedBetween(env, pays, now - 30 * 86400, now + 60))[0] || null;
+    const open = []; for (let k = 1; k <= edition; k++) if (sold.indexOf(k) < 0) open.push(k);
+    const n = recent && recent.n ? recent.n : open[0] || 0, dial = n ? DIAL_OF(env, n) : "";
+    const isOpen = !!n && sold.indexOf(n) < 0;
+    const same = []; if (dial) for (let k = 1; k <= edition; k++) if (k !== n && DIAL_OF(env, k) === dial && sold.indexOf(k) < 0) same.push(k);
+    const d = { site: siteUrl(env), first: recent ? firstNameOf(recent.name) : "Asha", when: recent ? nearlyWhen(recent.ts, Date.now()) : "Yesterday",
+      n, open: isOpen, dial, sold: sold.length, left, sameDial: isOpen ? [] : same, stage: recent ? recent.stage : "Closed checkout before paying" };
+    d.history = recent ? await leadHistory(env, recent.orderId) : null;
+    const w = await writeNote(env, d);
+    const standard = buyerNearlyBought(d);
+    return { http: 200, body: { ok: w.ok, why: w.ok ? "" : "Claude's draft " + w.why + ". The standard note would go instead.", for: recent ? (recent.name || "a recent checkout") + (n ? ", No. " + pad2(n) : "") : "an example: No. " + pad2(n),
+      draft: w.draft || null, claude: w.ok ? writtenNote(d, w.draft).text : "", standard: standard.text } };
+  }
+  const m = /^([0-9a-f]{32})\/(send|skip)$/.exec(sub || "");
+  if (!m) return { http: 404, body: { ok: false } };
+  const q = await K.get("fuq:" + m[1], "json").catch(() => null);
+  if (!q) return { http: 404, body: { ok: false, why: "That one is no longer waiting." } };
+  const once = "nearly:" + m[1];
+  if (await K.get(once).catch(() => null)) { await K.delete("fuq:" + m[1]); return { http: 409, body: { ok: false, why: "A note has already gone to them." } }; }
+  if (m[2] === "skip") {
+    await K.put(once, JSON.stringify({ at: indiaTime(new Date()), skipped: true }), { expirationTtl: ONCE_TTL });
+    await K.delete("fuq:" + m[1]);
+    await followLog(env, { status: "skipped", email: q.email, name: q.name, n: q.n, how: "claude", subject: q.draft.subject });
+    return { http: 200, body: { ok: true, skipped: true } };
+  }
+  /* Your own edits are yours: they are sent as written, inside the same fixed frame. */
+  const draft = Object.assign({}, q.draft);
+  if (typeof b.subject === "string" && b.subject.trim()) draft.subject = b.subject.trim().slice(0, 80);
+  if (typeof b.body === "string" && b.body.trim()) draft.paragraphs = b.body.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).slice(0, 6);
+  if (await stopped(env, q.email)) { await K.delete("fuq:" + m[1]); return { http: 409, body: { ok: false, why: "They asked not to be written to." } }; }
+  const mail = writtenNote(q.d, draft);
+  await K.put(once, JSON.stringify({ at: indiaTime(new Date()), subject: mail.subject, n: q.n, order: q.order, how: "claude, approved" }), { expirationTtl: ONCE_TTL });
+  const sent = await sendEmail(env, q.email, mail.subject, mail.text, mail.html, undefined, mail.headers);
+  await K.delete("fuq:" + m[1]);
+  await followLog(env, { status: sent ? "sent" : "failed", email: q.email, name: q.name, n: q.n, how: "claude, approved by you", angle: draft.angle, subject: mail.subject, text: mail.text });
+  return { http: sent ? 200 : 502, body: { ok: !!sent, why: sent ? "" : "The email service refused it." } };
 }
 
 async function seriesTwoRound(R) {

@@ -131,7 +131,7 @@ await pg.waitForSelector("#alist .arow");
 text = await pg.textContent("#view");
 ok(/Chose No\. 05/.test(text) && /Priya/.test(text) && /Instagram/.test(text) && /people/.test(text), "activity: every visitor's steps, newest first, with who it was and where from");
 await pg.click('.chip[data-p$="f=money"]');
-await pg.waitForFunction(() => /f=money/.test(location.hash) && document.querySelector("#alist .arow"));
+await pg.waitForFunction(() => document.querySelector('.chip[data-p$="f=money"][aria-pressed="true"]') && document.querySelector("#alist .arow"));
 text = await pg.textContent("#view");
 ok(/Pressed buy/.test(text) && !/Played the box film/.test(text), "activity: Money narrows it to checkouts and payments");
 ok(await flat(), "activity: nothing wider than a phone");
@@ -183,7 +183,7 @@ text = await pg.textContent("#view");
 ok(/this one/.test(text), "settings: the signed-in devices, and Sign out every device");
 ok(/Phone alerts/.test(text) && /Turn on phone alerts|three taps|cannot show alerts/.test(text) && /A watch is paid for \(always\)/.test(text), "settings: phone alerts for this device, and which kinds");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/9-settings-phone.png", fullPage: true });
-for (const v of ["approvals", "pieces", "owners", "list", "emails", "audit", "health"]) {
+for (const v of ["approvals", "pieces", "owners", "list", "followups", "emails", "audit", "health"]) {
   await pg.goto(URL0 + "#" + v);
   await pg.waitForFunction(() => !/Loading/.test(document.getElementById("view").textContent));
   ok(!/Could not load/.test(await pg.textContent("#view")) && await flat(), "screen " + v + ": loads, nothing wider than a phone");

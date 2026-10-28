@@ -318,6 +318,12 @@ button.arow{cursor:pointer}button.arow:hover,button.arow:focus-visible{backgroun
 .cmdex{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .cmdex button{background:none;border:1px dashed var(--line2);border-radius:99px;color:var(--mute);font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
 .cmdex button:hover{border-color:var(--gold);color:var(--bone)}
+.obd{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.ocard{display:block;text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;color:inherit;font:inherit;cursor:pointer;transition:border-color .2s}
+.ocard:hover,.ocard:focus-visible{border-color:var(--gold)}
+.ow{margin:10px 0 6px}.wclk{font-size:14px;color:var(--bone)}.wclk b{font-family:var(--serif);font-weight:400;font-size:22px}.wclk .t{color:var(--mute);margin-left:6px}
+.wbar{display:block;height:2px;background:var(--line2);border-radius:2px;margin-top:6px;overflow:hidden}.wbar i{display:block;height:100%;background:var(--gold)}
+.card.dz table td{padding:4px 0;border:0}
 .saleBox{border:1px solid var(--line2);border-radius:var(--r);padding:14px;margin:14px 0;background:var(--card2)}
 .saleBox .big{font-family:var(--serif);font-size:20px}
 .arow .at{white-space:nowrap}
@@ -490,6 +496,7 @@ var NAV = [
   { g:"Run",  v:"approvals", t:"Approvals" },
   { g:"Grow", v:"visitors",  t:"Visitors and leads" },
   { g:"Grow", v:"insights",  t:"Insights" },
+  { g:"Grow", v:"followups", t:"Follow-ups" },
   { g:"Grow", v:"ai",        t:"AI search" },
   { g:"Keep", v:"pieces",    t:"The twenty" },
   { g:"Keep", v:"owners",    t:"Owners" },
@@ -787,6 +794,35 @@ setInterval(function(){
     if(ACT_TOP > top){ var v = $("view"); if(v) v.innerHTML = RENDER.activity(j, top); }
   });
 }, 8000);
+
+/* ══ FOLLOW-UPS: the one note to someone who nearly bought ══
+   Who writes it (Claude for that one person, checked line by line, or the
+   standard note), what is waiting for you in review mode, and every note
+   that went, word for word. */
+var FU_MODES = [["auto","Claude writes and sends"],["review","Claude drafts, I approve"],["standard","The standard note only"]];
+LOAD.followups = function(put){ api("GET", "/control/api/followups").then(function(j){ if(!j.ok){ put(failed(j)); return; } DATA.fu = j; setBadge("followups", j.queue.length); put(RENDER.followups(j)); }); };
+RENDER.followups = function(j){
+  var seg = FU_MODES.map(function(m){ return '<button data-act="fuMode" data-v="' + m[0] + '" aria-pressed="' + (j.mode === m[0]) + '">' + m[1] + "</button>"; }).join("");
+  var h = '<div class="card"><h3>Who writes the one note</h3><p class="muted small" style="margin:0 0 12px">When someone reaches checkout and stops, one note goes to them, once, ever, three hours or more later, between 10 am and 8 pm. ' +
+    "Claude writes it for that one person: from whether their number is still open, the same dial's other numbers, how many are left, and how they came to it. The offer is only the truth: the piece is unclaimed and there is one of it, seven days to send it back, two years' warranty, free delivery, help if paying went wrong. No discount, no deadline. " +
+    "Every draft is checked before it can go (no invented numbers, none of the words the house never uses, no links, no dashes); one that fails sends the standard note instead.</p>" +
+    '<div class="seg" role="group" aria-label="Who writes the note">' + seg + "</div>" +
+    '<p class="note" style="margin-bottom:0">' + (j.connected ? "Claude is connected (" + esc(j.model) + ")." : "Claude is not connected yet, so the standard note goes. To connect it: GitHub, Settings, Secrets and variables, Actions, New repository secret, name ANTHROPIC_API_KEY, paste the key from console.anthropic.com, then Actions, setup-worker, Run workflow (mode live).") +
+    (j.on ? "" : " The nearly-bought email is switched off in wrangler.toml (ABANDON_EMAIL), so nothing goes at all.") + "</p>" +
+    '<div class="row" style="margin-top:12px"><button class="btn sm" data-act="fuSample"' + (j.connected ? "" : " disabled") + ">Write a sample now</button><span class=\"muted small\">For the most recent unfinished checkout. Nothing is sent.</span></div></div>";
+  if(j.queue.length) h += "<h2>Waiting for you<span class=\"count\">" + j.queue.length + "</span></h2>" + j.queue.map(function(q){
+    return '<div class="card"><div class="ohead"><b>' + esc(q.name || q.email) + '</b><span class="muted small">' + esc(q.email) + '</span><span class="sp"></span>' + (q.n ? '<span class="pill gold">No. ' + pad(q.n) + "</span>" : "") + "</div>" +
+      '<p class="small faint" style="margin:6px 0 0">' + esc(q.stage || "") + " \u00b7 " + esc(q.draft.angle.replace("_", " ")) + ": " + esc(q.draft.why) + "</p>" +
+      '<label for="fs_' + q.id + '">Subject</label><input id="fs_' + q.id + '" value="' + esc(q.draft.subject) + '">' +
+      '<label for="fb_' + q.id + '">The note (the greeting, link, signature and P.S. are added)</label><textarea id="fb_' + q.id + '" style="min-height:220px">' + esc(q.draft.paragraphs.join("\n\n")) + "</textarea>" +
+      '<div class="oact"><button class="btn go" data-act="fuSend" data-id="' + q.id + '">Send it</button><button class="btn ghost" data-act="fuSkip" data-id="' + q.id + '">Skip (no note, ever)</button></div></div>';
+  }).join("");
+  h += "<h2>Every note that went</h2>" + (j.log.length ? '<div class="card tight list">' + j.log.map(function(x, i){
+    return '<button class="lrow" data-act="fuOpen" data-i="' + i + '"><div class="t"><b>' + esc(x.name || x.email || "") + (x.n ? ' <span class="muted">No. ' + pad(x.n) + "</span>" : "") + '</b><span class="pill' + (x.status === "sent" ? " ok" : x.status === "waiting" ? " gold" : x.status === "failed" ? " bad" : "") + '">' + esc(x.status) + "</span></div>" +
+      '<div class="m">' + esc(when(x.at)) + " \u00b7 " + (/^claude/.test(x.how) ? "written by Claude" + (x.angle ? ", " + esc(x.angle.replace("_", " ")) : "") : "standard note") + " \u00b7 " + esc(x.subject || "") + "</div></button>"; }).join("") + "</div>"
+    : '<div class="card empty">None yet. They appear here, word for word, as they go.</div>');
+  return h;
+};
 
 /* ══ ORDERS ══ */
 var NAMES = { inspected:"Inspected", packed:"Packed", dispatched:"Dispatched", delivered:"Delivered" };
@@ -1131,18 +1167,69 @@ function pieceSheet(id){
     '<p class="err" id="sheetErr"></p><button class="btn go" data-act="pieceSave" data-id="' + esc(id) + '">Save</button>');
 }
 
-LOAD.owners = function(put){ api("GET", "/control/api/owners?q=" + encodeURIComponent(PARAMS.q || "")).then(function(j){ if(!j.ok){ put(failed(j)); return; } put(RENDER.owners(j)); }); };
-RENDER.owners = function(j){
-  return '<input id="oq" type="search" placeholder="Search by name, email or phone" value="' + esc(PARAMS.q || "") + '" aria-label="Search owners">' +
+/* Every owner, live: who holds which number, and each warranty counting
+   down to the second. Tap one for their own page, exactly as they see it. */
+var OWNOFF = 0, OWNT = 0;
+LOAD.owners = function(put){
+  both(api("GET", "/control/api/owners?q=" + encodeURIComponent(PARAMS.q || "")), api("GET", "/control/api/owners/live"), function(j, lv){
+    if(!j.ok){ put(failed(j)); return; }
+    if(lv.ok) OWNOFF = lv.now - Date.now();
+    put(RENDER.owners(j, lv.ok ? lv.owners : []));
+  });
+};
+function dayLong(day){ if(!day) return ""; var d = new Date(String(day).slice(0, 10) + "T12:00:00Z"); return isNaN(d) ? "" : d.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"UTC" }); }
+function wleft(endMs){
+  var s = Math.max(0, Math.floor((endMs - (Date.now() + OWNOFF)) / 1000));
+  return { d: Math.floor(s / 86400), t: pad(Math.floor(s % 86400 / 3600)) + ":" + pad(Math.floor(s % 3600 / 60)) + ":" + pad(s % 60), done: s === 0 };
+}
+function wclock(w){
+  if(!w) return '<span class="muted small">Warranty starts on delivery</span>';
+  var l = wleft(w.endMs), used = Math.min(100, Math.max(0, Math.round((Date.now() + OWNOFF - w.startMs) / (w.endMs - w.startMs) * 100)));
+  if(l.done) return '<span class="muted small">Warranty concluded ' + esc(dayLong(w.endDay)) + "</span>";
+  return '<span class="wclk" data-end="' + w.endMs + '"><b class="num">' + l.d + '</b> days <span class="num t">' + l.t + '</span></span><span class="wbar" aria-hidden="true"><i style="width:' + used + '%"></i></span>';
+}
+RENDER.owners = function(j, live){
+  var board = live.length ? '<div class="obd">' + live.map(function(o){
+    return '<button class="ocard" data-act="owner" data-id="' + o.id + '"><div class="row between"><b class="num" style="font-family:var(--serif);font-size:26px;font-weight:400">No. ' + pad(o.n) + '</b><span class="pill gold">Owner ' + roman(o.ownerNo) + "</span></div>" +
+      '<div style="margin-top:4px"><b style="font-weight:500">' + esc(o.name || o.email) + '</b> <span class="muted small">' + esc(o.city || "") + "</span></div>" +
+      '<div class="small faint">' + esc(o.colorway) + " \u00b7 since " + esc(when(o.since)) + (o.openRequests ? ' \u00b7 <span style="color:var(--goldLit)">' + plural(o.openRequests, "open request") + "</span>" : "") + "</div>" +
+      '<div class="ow">' + wclock(o.warranty) + "</div>" +
+      '<div class="small faint">On the shop: ' + (o.initialsPublic ? "initials" : "a private collector") + (o.cityPublic ? ", city" : "") + "</div></button>"; }).join("") + "</div>" : "";
+  return (board ? "<h2 style=\"margin-top:0\">Every owner, live</h2>" + board : "") +
+    '<h2>Search</h2><input id="oq" type="search" placeholder="Search by name, email or phone" value="' + esc(PARAMS.q || "") + '" aria-label="Search owners">' +
     (j.owners.length ? '<div class="card tight list" style="margin-top:12px">' + j.owners.map(function(w){ return '<button class="lrow" data-act="owner" data-id="' + w.id + '"><div class="t"><b>' + esc(w.name || w.email) + "</b><span>" + (w.role === "admin" ? '<span class="pill gold">admin</span> ' : "") + '<span class="muted small">' + esc(w.pieces || "") + '</span></span></div><div class="m">' + esc(w.email) + "</div></button>"; }).join("") + "</div>"
       : '<div class="card empty" style="margin-top:12px">No owners yet. They appear when they register their piece.</div>');
 };
+function roman(n){ var r = [[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]], o = "", x = Math.max(1, n | 0); r.forEach(function(p){ while(x >= p[0]){ o += p[1]; x -= p[0]; } }); return o; }
+/* The clocks step once a second while Owners, or an owner's page, is open. */
+setInterval(function(){
+  if(!SIGNED || document.visibilityState !== "visible" || (VIEW !== "owners" && $("sheet").hidden)) return;
+  Array.prototype.forEach.call(document.querySelectorAll(".wclk"), function(e){ var l = wleft(+e.getAttribute("data-end")); var b = e.querySelector("b"), t = e.querySelector(".t"); if(b) b.textContent = l.d; if(t) t.textContent = l.t; });
+}, 1000);
 AFTER.owners = function(){ var q = $("oq"); if(q) q.addEventListener("change", function(){ go("owners", { q: q.value.trim() }); }); };
+function dossierHtml(d){
+  if(!d || !d.ok) return '<p class="muted small">Their own page could not be read just now.</p>';
+  if(d.now) OWNOFF = d.now - Date.now();
+  if(!d.pieces.length) return '<p class="muted">No piece in their name yet.</p>';
+  return d.pieces.map(function(p){
+    var rq = (p.requests || []).map(function(r){ return '<span class="pill gold">' + esc(TYPENAME[r.type] || r.type) + " \u00b7 " + esc(r.status.replace("_", " ")) + "</span>"; }).join(" ");
+    return '<div class="card dz"><div class="row between"><b style="font-family:var(--serif);font-size:30px;font-weight:400" class="num">No. ' + pad(p.n) + ' <span class="muted" style="font-size:16px">of ' + p.size + '</span></b><span class="pill gold">Owner ' + roman(p.ownerNo) + "</span></div>" +
+      '<div class="small faint">' + esc(p.series) + " \u00b7 " + esc(p.colorway) + (p.stolen ? ' \u00b7 <span style="color:var(--bad)">reported stolen</span>' : "") + "</div>" +
+      '<div class="ow" style="margin:12px 0 8px">' + wclock(p.warranty) + "</div>" +
+      '<table class="small"><tr><td class="faint">Delivered</td><td class="n">' + esc(p.deliveredOn ? dayLong(p.deliveredOn) : "\u2013") + '</td></tr><tr><td class="faint">Registered</td><td class="n">' + esc(when(p.registeredOn)) + "</td></tr>" +
+      (p.warranty ? '<tr><td class="faint">Covered until</td><td class="n">' + esc(dayLong(p.warranty.endDay)) + "</td></tr>" : "") +
+      '<tr><td class="faint">Owners so far</td><td class="n">' + p.chain.map(function(c){ return "Owner " + roman(c.ownerNo) + " " + c.from + "\u2013" + (c.to || "now"); }).join(", ") + "</td></tr>" +
+      '<tr><td class="faint">Service visits</td><td class="n">' + (p.service || []).length + "</td></tr>" +
+      (p.transfer ? '<tr><td class="faint">Transfer</td><td class="n">' + esc(p.transfer.status) + "</td></tr>" : "") + "</table>" +
+      (rq ? '<div class="pills">' + rq + "</div>" : "") + "</div>";
+  }).join("") + '<p class="note">On the shop, a tap on their number shows: ' + (d.owner.showName ? esc(d.owner.initials) : "a private collector") + (d.owner.showCity && d.owner.city ? ", " + esc(d.owner.city) : "") + ".</p>";
+}
 function ownerSheet(id){
-  api("GET", "/control/api/owners/" + id).then(function(j){
+  both(api("GET", "/control/api/owners/" + id), api("GET", "/control/api/owners/" + id + "/dossier"), function(j, dz){
     if(!j.ok){ say("Could not load that owner.", true); return; }
     var w = j.owner;
     sheet(w.name || w.email,
+      "<h2 style=\"margin-top:0\">Their page, as they see it</h2>" + dossierHtml(dz) +
       '<p class="muted small">' + plural(j.sessions, "signed-in device") + ". Joined " + esc(when(w.created_at)) + ". City public: " + (w.show_city_publicly ? "yes" : "no") + '.</p><div class="oact" style="margin-top:0">' + contactBtns(w.email, w.phone) + "</div>" +
       "<h2>Ownership chain</h2>" + (j.chain.length ? '<div class="card tight scroll"><table>' + j.chain.map(function(c){ return "<tr><td>" + esc(c.piece_id) + "</td><td>Owner " + c.owner_no + "</td><td>" + esc(c.email) + '</td><td class="n">' + esc((c.from_at || "").slice(0, 10)) + " to " + esc(c.to_at ? c.to_at.slice(0, 10) : "now") + "</td></tr>"; }).join("") + "</table></div>" : '<p class="muted">No pieces yet.</p>') +
       "<h2>Contact details, on the owner's request</h2>" +
@@ -1278,6 +1365,7 @@ function cmdParse(t){
   if(/\b(claim|warranty|approv|request)/.test(t)) return { go:"approvals", say:"Opening approvals." };
   if(/\b(source|campaign|ad|insight|where.*from)/.test(t)) return { go:"insights", say:"Opening insights." };
   if(/\b(owner)/.test(t)) return { go:"owners", say:"Opening owners." };
+  if(/\b(follow|nearly|abandon|lead email)/.test(t)) return { go:"followups", say:"Opening follow-ups." };
   if(/\b(email)/.test(t)) return { go:"emails", say:"Opening emails." };
   if(/\b(sale|sold|revenue|today|visits|dashboard)/.test(t)) return { go:"today", say:"Opening today." };
   return null;
@@ -1400,6 +1488,17 @@ document.addEventListener("click", function(e){
     if(!son && !confirm("Keep No. " + pad(sn) + " back? The shop will show it as gone and nobody can buy it.")) return;
     saleGo(sn, son, son ? "put on sale from the command centre" : "kept back from the command centre"); }
   else if(a === "cmd") cmdSheet();
+  else if(a === "fuMode") api("POST", "/control/api/followups/mode", { mode: el.getAttribute("data-v") }).then(function(j){ say(j.ok ? "Saved." : (j.why || "Not saved."), !j.ok); load(); });
+  else if(a === "fuSample"){ el.disabled = true; el.textContent = "Writing\u2026";
+    api("POST", "/control/api/followups/sample", {}).then(function(j){ el.disabled = false; el.textContent = "Write a sample now";
+      if(!j.draft && !j.standard){ say(j.why || "Could not write one just now.", true); return; }
+      sheet("A sample, for " + (j.for || "a recent checkout"), (j.ok ? '<p class="note" style="margin-top:0">' + esc(j.draft.angle.replace("_", " ")) + ": " + esc(j.draft.why) + '</p><div class="card" style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + esc(j.claude) + "</div>"
+        : '<p class="err">' + esc(j.why) + "</p>") + "<h2>The standard note, for comparison</h2>" + '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--mute)">' + esc(j.standard) + "</div>"); }); }
+  else if(a === "fuSend"){ var fid = el.getAttribute("data-id"); if(!confirm("Send this note now?")) return;
+    api("POST", "/control/api/followups/" + fid + "/send", { subject: $("fs_" + fid).value, body: $("fb_" + fid).value }).then(function(j){ say(j.ok ? "Sent." : (j.why || "Not sent."), !j.ok); load(); }); }
+  else if(a === "fuSkip"){ var sid = el.getAttribute("data-id"); if(!confirm("Skip? This person will never get the note.")) return;
+    api("POST", "/control/api/followups/" + sid + "/skip", {}).then(function(j){ say(j.ok ? "Skipped." : (j.why || "Not changed."), !j.ok); load(); }); }
+  else if(a === "fuOpen"){ var x = DATA.fu.log[+el.getAttribute("data-i")]; sheet(x.subject || "Follow-up", '<p class="muted small" style="margin-top:0">' + esc(when(x.at)) + " \u00b7 " + esc(x.email || "") + " \u00b7 " + esc(x.how || "") + "</p>" + (x.why ? '<p class="note">' + esc(x.why) + "</p>" : "") + '<div class="card" style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + esc(x.text || "") + "</div>"); }
   else if(a === "cmdEx"){ $("cmdIn").value = el.textContent; cmdRun(); }
   else if(a === "cmdGo") cmdDo();
   else if(a === "pushOn") pushOn();

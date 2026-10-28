@@ -28,6 +28,9 @@
                             at least 10 characters. Without it, and with no
                             passcode on the worker yet, one is made and emailed
                             to the owner; it is never printed
+     ANTHROPIC_API_KEY      optional: lets Claude write each nearly-bought note
+                            from the visitor's own visit (worker/lead-writer.js);
+                            without it the standard note goes, as before
      META_CAPI_TOKEN        optional: Meta Conversions API access token, so every
                             paid order reaches the ad account from the worker
                             (docs/meta.md). Set on every run that has it,
@@ -190,12 +193,13 @@ async function ensureSecrets() {
     have.has("RESEND_API_KEY") ? good("RESEND_API_KEY is set") : todo("RESEND_API_KEY not set yet");
     have.has("OWNER_EMAIL") ? good("OWNER_EMAIL is set") : good("OWNER_EMAIL not set: orders and the morning report go to connect@thekaal.co");
     have.has("DESK_PASSCODE") ? good(`DESK_PASSCODE is set: the desk is open at ${WORKER_URL}/desk`) : todo("DESK_PASSCODE not set: the desk stays shut");
+    have.has("ANTHROPIC_API_KEY") ? good("ANTHROPIC_API_KEY is set: Claude writes each nearly-bought note from the visit") : todo("ANTHROPIC_API_KEY not set: the standard nearly-bought note goes (docs/followups.md)");
     have.has("META_CAPI_TOKEN") ? good("META_CAPI_TOKEN is set: every paid order is sent to Meta from the worker") : todo("META_CAPI_TOKEN not set: Meta hears of a sale only from the buyer's browser (docs/meta.md)");
     have.has("META_TEST_EVENT_CODE") ? todo("META_TEST_EVENT_CODE is set: sales go to Meta's Test events tab, NOT to the ad account. Remove it after testing.") : null;
     return;
   }
   deskWasSet = have.has("DESK_PASSCODE");
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "META_CAPI_TOKEN"].filter(k => env[k])) {
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "META_CAPI_TOKEN", "ANTHROPIC_API_KEY"].filter(k => env[k])) {
     const r = await cf(`/accounts/${account}/workers/scripts/${WORKER}/secrets`, { method: "PUT", body: { name: k, text: env[k], type: "secret_text" } });
     if (!r.ok) stop(`Could not set ${k}: ${r.text.slice(0, 200)}`);
     good(`${k} ${have.has(k) ? "updated" : "set"}`);
@@ -295,7 +299,7 @@ async function staging() {
   await put("RAZORPAY_KEY_ID", env.RAZORPAY_TEST_KEY_ID);
   await put("RAZORPAY_KEY_SECRET", env.RAZORPAY_TEST_KEY_SECRET);
   await put("RAZORPAY_WEBHOOK_SECRET", env.RAZORPAY_TEST_WEBHOOK_SECRET);
-  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "ADMIN_EMAIL"]) if (env[k]) await put(k, env[k]);
+  for (const k of ["RESEND_API_KEY", "OWNER_EMAIL", "DESK_PASSCODE", "ADMIN_EMAIL", "ANTHROPIC_API_KEY"]) if (env[k]) await put(k, env[k]);
   /* The control room's own key: signs sign-in codes and seals the
      authenticator secret. Made here once and never shown. Never replaced
      on a later run: a new one would lock the admin out of /control (the
@@ -357,7 +361,7 @@ async function live() {
   };
   if (names.has("AUTH_SECRET")) good("AUTH_SECRET already set (kept)");
   else await put("AUTH_SECRET", randomBytes(48).toString("base64url"));
-  for (const k of ["ADMIN_EMAIL", "OWNER_EMAIL", "RESEND_API_KEY", "DESK_PASSCODE"]) if (env[k]) await put(k, env[k]);
+  for (const k of ["ADMIN_EMAIL", "OWNER_EMAIL", "RESEND_API_KEY", "DESK_PASSCODE", "ANTHROPIC_API_KEY"]) if (env[k]) await put(k, env[k]);
 
   await deploy();
   await ensureMeta();

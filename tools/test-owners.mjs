@@ -329,5 +329,37 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok((await call(adm, "GET", "/o/me", undefined, { Cookie: "kaal_s=" + "a".repeat(43) })).status === 401, "a session cookie is not a bearer token");
 }
 
+/* ── Initials on the shop: only with a yes, only masked, and taken back at will ── */
+{
+  const X = world();
+  const id = (await seed(X, "pay_INIT0007", 7, "i@example.com")).order.id;
+  await deliver(X, id);
+  const reg = await call(X, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(X) }, good, { name: "Arjun Dixit", email: "i@example.com" }));
+  let pub = await call(X, "GET", "/registry/data");
+  const p7 = pub.j.pieces.find(p => p.n === 7);
+  ok(reg.j.ok && p7.owner && p7.owner.no === 1 && p7.owner.initials === null && !/Arjun|Dixit/.test(JSON.stringify(pub.j)), "initials: unticked (the default), the shop's card has none, and no name anywhere in the public data");
+  const bearer = { Authorization: "Bearer " + reg.j.token };
+  let me = await call(X, "GET", "/o/me", undefined, bearer);
+  ok(me.j.owner.showName === false && me.j.owner.initials === "A\u2022\u2022\u2022\u2022 D\u2022\u2022\u2022\u2022", "initials: the owner's page shows what they would look like, A\u2022\u2022\u2022\u2022 D\u2022\u2022\u2022\u2022");
+  let r = await call(X, "POST", "/o/me/privacy", { showName: true, showCity: true }, bearer);
+  pub = await call(X, "GET", "/registry/data");
+  const q7 = pub.j.pieces.find(p => p.n === 7);
+  const ow = X.DB.raw.prepare("SELECT show_name_publicly, name_consent_at, show_city_publicly FROM owners WHERE email = 'i@example.com'").get();
+  ok(r.j.ok && r.j.showName && q7.owner.initials === "A\u2022\u2022\u2022\u2022 D\u2022\u2022\u2022\u2022" && q7.owner.city === "Pune" && ow.name_consent_at && !/Arjun|Dixit/.test(JSON.stringify(pub.j)),
+    "initials: a yes on their page shows them masked, with their city, the time of consent kept, and still never the name");
+  r = await call(X, "POST", "/o/me/privacy", { showName: false, showCity: false }, bearer);
+  pub = await call(X, "GET", "/registry/data");
+  const z7 = pub.j.pieces.find(p => p.n === 7);
+  ok(r.j.ok && z7.owner.initials === null && z7.owner.city === null && X.DB.raw.prepare("SELECT name_consent_at FROM owners WHERE email = 'i@example.com'").get().name_consent_at === null, "initials: and a no takes both away at once");
+  ok((await call(X, "POST", "/o/me/privacy", { showName: true })).status === 401, "initials: nobody else can change them");
+  ok(X.DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'owner.privacy'").get().c === 2, "initials: each change is in the audit log");
+  const Y = world();
+  const id8 = (await seed(Y, "pay_INIT0008", 8, "y@example.com")).order.id;
+  await deliver(Y, id8);
+  await call(Y, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(Y) }, good, { name: "Meera Shah", email: "y@example.com", showName: true }));
+  const y8 = (await call(Y, "GET", "/registry/data")).j.pieces.find(p => p.n === 8);
+  ok(y8.owner.initials === "M\u2022\u2022\u2022\u2022 S\u2022\u2022\u2022", "initials: ticked at registration, shown from the start");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");
 process.exit(failed ? 1 : 0);

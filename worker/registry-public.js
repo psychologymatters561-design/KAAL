@@ -18,6 +18,14 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 /* "2026-10" as the registry writes it. */
 export const since = (ym) => { const m = /^(\d{4})-(\d{2})$/.exec(ym || ""); return m ? `${MON[+m[2] - 1]} ${m[1]}` : ""; };
 
+/* "Arjun Dixit" as "A•••• D••••": each of the first two words' first
+   letter, the rest of the word as dots (at most five). Letters only. */
+export function maskName(name) {
+  const words = String(name || "").normalize("NFC").split(/\s+/).map(w => w.replace(/[^\p{L}]/gu, "")).filter(Boolean).slice(0, 2);
+  if (!words.length) return "";
+  return words.map(w => w.charAt(0).toUpperCase() + "\u2022".repeat(Math.min(5, Math.max(2, w.length - 1)))).join(" ");
+}
+
 export async function registryData(env, series) {
   const code = series || SERIES;
   const s = await env.DB.prepare("SELECT name, size, retired_at FROM series WHERE code = ?1").bind(code).first();
@@ -27,6 +35,13 @@ export async function registryData(env, series) {
   const lines = (await env.DB.prepare(
     "SELECT p.number, l.date, l.public_line FROM service_log l JOIN pieces p ON p.id = l.piece_id WHERE p.series = ?1 AND l.public_line IS NOT NULL AND l.public_line != '' ORDER BY l.date, l.id"
   ).bind(code).all()).results || [];
+  /* Initials, masked, for an owner who said yes; nobody else's. */
+  const named = (await env.DB.prepare(
+    `SELECT p.number, w.name FROM ownerships o JOIN pieces p ON p.id = o.piece_id JOIN owners w ON w.id = o.owner_id
+      WHERE p.series = ?1 AND o.to_at IS NULL AND w.deleted_at IS NULL AND w.show_name_publicly = 1`
+  ).bind(code).all()).results || [];
+  const initials = {};
+  for (const r of named) { const m = maskName(r.name); if (m) initials[r.number] = m; }
   const service = {};
   for (const l of lines) (service[l.number] = service[l.number] || []).push({ date: l.date, line: l.public_line });
   const pieces = rows.map(r => {
@@ -35,7 +50,7 @@ export async function registryData(env, series) {
       n: r.number, colorway: r.colorway, state: r.state,
       photo: gone && r.photo_url ? r.photo_url : null,
       /* A sold piece nobody has registered yet has no owner to describe. */
-      owner: r.owner_no ? { no: r.owner_no, since: since(r.owner_since), city: r.owner_city || null } : null,
+      owner: r.owner_no ? { no: r.owner_no, since: since(r.owner_since), city: r.owner_city || null, initials: initials[r.number] || null } : null,
       service: gone ? service[r.number] || [] : []
     };
   });

@@ -298,5 +298,27 @@ async function vapidOk(auth, aud) {
   ok(st.j.devices.length === 0, "alerts: a phone the push service says is gone is dropped");
 }
 
+/* ── 8. Every owner's page, from the command centre ── */
+{
+  const day = new Date(Date.now() + 5.5 * 3600000 - 3 * 86400000).toISOString().slice(0, 10);
+  DB.raw.prepare("UPDATE orders SET status = 'registered', delivered_on = ?, registered_at = ? WHERE razorpay_payment_id = 'pay_Buy05aaaa'").run(day, new Date().toISOString());
+  DB.raw.prepare("UPDATE pieces SET status = 'registered' WHERE number = 5").run();
+  DB.raw.prepare("INSERT INTO owners (email, name, phone, city, state, show_city_publicly, show_name_publicly, data_consent_at, created_at, updated_at) VALUES ('riya@example.com', 'Riya Sen', '919812345678', 'Kolkata', 'West Bengal', 1, 0, ?1, ?1, ?1)").run(new Date().toISOString());
+  const oid = DB.raw.prepare("SELECT id FROM owners WHERE email = 'riya@example.com'").get().id;
+  const ord = DB.raw.prepare("SELECT id FROM orders WHERE razorpay_payment_id = 'pay_Buy05aaaa'").get().id;
+  DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via, order_id) VALUES ('S01', 'S01-05', ?, 1, ?, 'purchase', ?)").run(oid, new Date().toISOString(), ord);
+  let r = await call("GET", "/control/api/owners/live");
+  const o5 = (r.j.owners || []).find(o => o.n === 5);
+  ok(r.j.ok && o5 && o5.name === "Riya Sen" && o5.ownerNo === 1 && o5.warranty && o5.warranty.endMs > Date.now() && o5.cityPublic && !o5.initialsPublic, "owners, live: each owner with their number, place in the line, warranty clock and what the shop shows");
+  r = await call("GET", "/control/api/owners/" + oid + "/dossier");
+  ok(r.j.ok && r.j.pieces.length === 1 && r.j.pieces[0].n === 5 && r.j.pieces[0].warranty && r.j.owner.initials === "R\u2022\u2022\u2022 S\u2022\u2022", "owners: the admin sees an owner's own page, exactly as they do");
+  r = await call("GET", "/control/api/owners/99999/dossier");
+  ok(r.status === 404, "owners: an owner who does not exist, nothing");
+  const keep = jar; jar = "";
+  r = await call("GET", "/control/api/owners/" + oid + "/dossier");
+  ok(r.status === 401, "owners: signed out, nobody's page");
+  jar = keep;
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll command centre control tests passed.");
 process.exit(failed ? 1 : 0);

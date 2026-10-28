@@ -200,6 +200,33 @@ months, blocked buyers.
 **Audit.** Every action, who and when, before and after; CSV of orders,
 owners and pieces; **Backup now**.
 
+## The owners' side
+
+- **Signing in** (thekaal.co/owners): the owner types their email and gets a
+  six-digit code. It works once, for ten minutes, and signs them in by itself
+  once all six digits are in. There is no password. "Send a new code" waits
+  45 seconds between codes.
+- **Registering** (the link emailed when you mark an order Delivered): the
+  piece is already filled in from the order, and so are their name, phone
+  and email. They tick that they accept the piece (which ends the return
+  window) and the data notice. Two optional boxes start unticked: show my
+  city, and show my initials.
+- **Their page**: the piece in its turning chapter ring, Owner I (II, III...)
+  and since when, the warranty counting down to the second with the line it
+  runs along, ownership, provenance, service history, and **How you appear
+  on the shop**. That card previews exactly what a visitor sees, with two
+  switches the owner can change at any time: initials, shown masked as
+  A•••• D•••• and never as the name, and city.
+- **On the shop**: tapping a number that has gone opens a small card: Held
+  by Owner I, the masked initials if the owner said yes (otherwise "a
+  private collector"), since when, the city if they said yes, and "One of
+  twenty. Never remade." A number paid for and not yet registered says it is
+  on its way to its first owner. Never a name, email, phone or street.
+- **You, as admin**: Owners in the command centre opens with **Every owner,
+  live**: each number, its owner, their place in the line, the warranty
+  ticking down and what the shop shows of them. Tap one to see **their page,
+  as they see it**, above the contact details you can change for them.
+
 ## When something looks wrong
 
 - **Health says the database does not answer.** Cloudflare may be having a

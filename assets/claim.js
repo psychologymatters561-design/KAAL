@@ -52,6 +52,17 @@
     $("cityText").textContent = "Show my city beside No. " + n + " in the public registry.";
     var cs = K.el("small", "", "Optional. Otherwise the registry says “Owner’s city withheld”. Your name, phone and email are never shown.");
     $("cityText").appendChild(cs);
+    /* Initials on the shop: shown as they would appear, from the name as typed. */
+    function initials() {
+      var w = $("name").value.trim().split(/\s+/).map(function (x) { return x.replace(/[^A-Za-z\u00C0-\u024F\u0900-\u097F]/g, ""); }).filter(Boolean).slice(0, 2);
+      return w.map(function (x) { return x.charAt(0).toUpperCase() + new Array(Math.min(5, Math.max(2, x.length - 1)) + 1).join("\u2022"); }).join(" ");
+    }
+    function nameText() {
+      var i = initials();
+      $("nameText").textContent = "Show my initials when someone taps No. " + n + " on the shop" + (i ? ", as " + i : "") + ".";
+      $("nameText").appendChild(K.el("small", "", "Optional. Otherwise the card says \u201ca private collector\u201d. Never your full name."));
+    }
+    nameText(); $("name").addEventListener("input", nameText);
     $("go").textContent = "Register No. " + n;
     $("loading").hidden = true; $("form").hidden = false;
     document.title = "KAAL · Register No. " + n;
@@ -72,7 +83,7 @@
     e.preventDefault();
     var err = $("err"); err.textContent = "";
     var body = { t: t, name: $("name").value, phone: $("phone").value, email: $("email").value.trim(), emailCode: $("emailCode").value,
-      accept: $("accept").checked, showCity: $("showCity").checked, consent: $("consent").checked };
+      accept: $("accept").checked, showCity: $("showCity").checked, showName: $("showName").checked, consent: $("consent").checked };
     var go = $("go"); go.disabled = true;
     K.api("POST", "/o/claim/register", body, { token: false }).then(function (r) {
       if (r.ok) { done(r); return; }

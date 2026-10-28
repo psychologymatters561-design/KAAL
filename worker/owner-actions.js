@@ -187,6 +187,7 @@ export async function ownerActions(request, env, ctx, path, deps, J, readBody) {
        ON CONFLICT (email) DO UPDATE SET name = COALESCE(owners.name, ?2), phone = COALESCE(owners.phone, ?3), city = COALESCE(owners.city, ?4), state = COALESCE(owners.state, ?5),
          data_consent_at = ?7, deleted_at = NULL, updated_at = ?7`
     ).bind(email, name, phone, city || null, state || null, showCity ? 1 : 0, at, showCity ? at : null).run();
+    if (b.showName === true) await env.DB.prepare("UPDATE owners SET show_name_publicly = 1, name_consent_at = ?1 WHERE email = ?2").bind(at, email).run();
     const owner = await env.DB.prepare("SELECT * FROM owners WHERE email = ?1").bind(email).first();
     const won = await env.DB.prepare("UPDATE transfer_requests SET status = 'accepted', to_owner = ?1 WHERE id = ?2 AND status = 'open' RETURNING id").bind(owner.id, t.id).first();
     if (!won) return J({ ok: false, reason: "invalid", why: "That code was just used." }, 409);

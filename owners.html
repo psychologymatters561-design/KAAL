@@ -22,8 +22,12 @@
 
     <!-- Signing in: an emailed code, no password -->
     <section id="gate" hidden>
-      <h1>Owners</h1>
-      <p class="muted" id="gateLead">Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember.</p>
+      <div class="sigil" aria-hidden="true">
+        <svg viewBox="0 0 120 120"><circle class="r1" cx="60" cy="60" r="56"/><circle class="r2" cx="60" cy="60" r="44"/><path class="v" d="M44 40 L60 80 L76 40"/></svg>
+      </div>
+      <p class="eyebrow center">KAAL &middot; Series 01</p>
+      <h1 class="center">The owners&rsquo; room</h1>
+      <p class="muted center" id="gateLead">Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember.</p>
       <form id="fEmail" novalidate>
         <label for="email">Email</label>
         <input id="email" type="email" inputmode="email" autocomplete="email" required>
@@ -32,11 +36,11 @@
       </form>
       <form id="fCode" hidden novalidate>
         <label for="code">The six digits we emailed you</label>
-        <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required>
-        <p class="hint">It works once, for ten minutes. Check your spam folder if it has not come.</p>
+        <input id="code" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="&middot;&middot;&middot;&middot;&middot;&middot;" required>
+        <p class="hint">It works once, for ten minutes, and signs you in by itself when all six are in. Check your spam folder if it has not come.</p>
         <p class="err" id="cErr" role="alert"></p>
         <button class="btn block" type="submit" id="cGo">Sign in</button>
-        <p class="center"><button class="linkbtn" id="back" type="button">Use another email</button></p>
+        <p class="center row pair"><button class="linkbtn" id="again" type="button">Send a new code</button><button class="linkbtn" id="back" type="button">Use another email</button></p>
       </form>
       <p class="hint center">Not registered yet? Enter the email you ordered with and we will send the link to register again.</p>
       <p class="center"><button class="linkbtn" id="lost" type="button">Cannot sign in, or lost your email?</button></p>
@@ -58,6 +62,7 @@
   </div>
 </main>
 <script src="assets/owners.js"></script>
+<script src="assets/atelier.js"></script>
 <script src="assets/dashboard.js"></script>
 </body>
 </html>

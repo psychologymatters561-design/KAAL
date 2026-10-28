@@ -34,6 +34,7 @@
     <!-- The piece, and the one step -->
     <section id="form" hidden>
       <div class="piece" id="piece"></div>
+      <ol class="steps" aria-label="Three steps"><li class="on">Your piece</li><li class="on">Your details</li><li>Yours</li></ol>
       <h1 class="center" id="title">Register</h1>
       <p class="muted center" id="lead">Registering writes you into the KAAL registry. That record stays with this piece for as long as it exists.</p>
 
@@ -61,6 +62,7 @@
 
         <label class="check" for="accept"><input id="accept" type="checkbox"><span id="acceptText"></span></label>
         <label class="check" for="showCity"><input id="showCity" type="checkbox"><span id="cityText"></span></label>
+        <label class="check" for="showName"><input id="showName" type="checkbox"><span id="nameText"></span></label>
         <label class="check" for="consent"><input id="consent" type="checkbox"><span>I have read the <a href="legal.html#data" target="_blank" rel="noopener">data notice</a> and agree to KAAL keeping my details to run my warranty and my place in the registry.</span></label>
 
         <p class="err" id="err" role="alert"></p>
@@ -80,6 +82,7 @@
   </div>
 </main>
 <script src="assets/owners.js"></script>
+<script src="assets/atelier.js"></script>
 <script src="assets/claim.js"></script>
 </body>
 </html>

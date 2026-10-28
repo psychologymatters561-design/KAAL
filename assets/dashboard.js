@@ -24,16 +24,39 @@
       $("eGo").disabled = false;
       if (r._status === 0 || (!r.ok && r.reason !== "invalid")) { $("eErr").textContent = K.why[r.reason] || "That did not work. Please try again."; return; }
       if (!r.ok) { $("eErr").textContent = WHY[r.reason]; return; }
-      $("fEmail").hidden = true; $("fCode").hidden = false; $("cErr").textContent = ""; $("code").value = ""; $("code").focus();
+      $("fEmail").hidden = true; $("fCode").hidden = false; $("cErr").textContent = ""; $("code").value = ""; $("code").focus(); resendIn(45);
       $("gateLead").textContent = "If that email holds a KAAL, a code is on its way. If its piece is not registered yet, the email brings the link to register it instead.";
     });
   });
   $("back").addEventListener("click", function () { showEmail(""); $("gateLead").textContent = "Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember."; });
+  /* The code: digits only, however it arrives (typed, pasted, filled in by
+     the phone from the email), and it sends itself once all six are in. */
+  var AUTO = 0, BUSY = false, RESEND = 0;
+  $("code").addEventListener("input", function () {
+    var v = $("code").value.replace(/\D/g, "").slice(0, 6);
+    if ($("code").value !== v) $("code").value = v;
+    clearTimeout(AUTO);
+    if (v.length === 6) AUTO = setTimeout(function () { if (!BUSY) $("fCode").requestSubmit ? $("fCode").requestSubmit() : $("cGo").click(); }, 380);
+  });
+  function resendIn(sec) {
+    var b = $("again"); if (!b) return;
+    clearInterval(RESEND); b.disabled = true;
+    var left = sec;
+    b.textContent = "Send a new code in " + left + "s";
+    RESEND = setInterval(function () { left--; if (left <= 0) { clearInterval(RESEND); b.disabled = false; b.textContent = "Send a new code"; } else b.textContent = "Send a new code in " + left + "s"; }, 1000);
+  }
+  if ($("again")) $("again").addEventListener("click", function () {
+    $("again").disabled = true;
+    K.api("POST", "/o/auth/start", { email: EMAIL }, { token: false }).then(function () { $("cErr").textContent = ""; $("code").value = ""; $("code").focus(); resendIn(45); });
+  });
   $("fCode").addEventListener("submit", function (e) {
     e.preventDefault();
+    clearTimeout(AUTO);
+    if (BUSY) return;
+    BUSY = true;
     $("cGo").disabled = true; $("cErr").textContent = "";
     K.api("POST", "/o/auth/verify", { email: EMAIL, code: $("code").value }, { token: false }).then(function (r) {
-      $("cGo").disabled = false;
+      $("cGo").disabled = false; BUSY = false;
       if (r.ok) { K.token(r.token); load(); return; }
       if (r.reason === "expired" || r.reason === "tries") { showEmail(WHY[r.reason]); return; }
       $("cErr").textContent = WHY[r.reason] || K.why[r.reason] || "That did not work. Please try again.";
@@ -77,10 +100,14 @@
     });
     var p = d.pieces[SEL], box = K.clear($("dossier")); stopClock();
 
-    /* Hero */
-    var hero = K.el("div", "piece"); hero.appendChild(K.face({ n: p.n, photo: p.photo }));
+    /* Hero: the piece inside its chapter ring, and its place in the line */
+    var hero = K.el("div", "piece hero");
+    hero.appendChild(K.el("p", "eyebrow", "The owners\u2019 room"));
+    hero.appendChild(halo(K.face({ n: p.n, photo: p.photo })));
     var no = K.el("p", "no"); no.appendChild(document.createTextNode("No. " + K.pad(p.n) + " ")); no.appendChild(K.el("small", "", "of " + p.size)); hero.appendChild(no);
-    hero.appendChild(K.el("p", "sub", p.series + " · " + p.colorway));
+    hero.appendChild(K.el("p", "sub", p.series + " \u00b7 " + p.colorway));
+    var held = K.el("p", "held"); held.appendChild(K.el("span", "", "Owner " + K.roman(p.ownerNo))); held.appendChild(document.createTextNode(" \u00b7 since " + K.day(p.registeredOn))); hero.appendChild(held);
+    hero.appendChild(K.el("p", "oneof", "One of " + numberWord(p.size) + ". Never remade."));
     box.appendChild(hero);
 
     /* What is open */
@@ -98,9 +125,9 @@
       cx.appendChild(cb); tb.appendChild(cx); box.appendChild(tb);
     }
 
-    /* The warranty */
+    /* The warranty, live, and the line it runs along */
     var w = p.warranty;
-    if (w) box.appendChild(clock(w));
+    if (w) { var wc = clock(w); wc.appendChild(lifeline(p, w)); box.appendChild(wc); }
 
     /* Ownership */
     var own = K.el("div", "card"); own.appendChild(K.el("h2", "", "Ownership"));
@@ -142,16 +169,99 @@
     g.appendChild(action("Download receipt", function () { paper("receipt", p); }));
     g.appendChild(action("Printable certificate", function () { paper("certificate", p); }));
     if (d.guide && /^https:\/\//.test(d.guide)) { var gl = K.el("a", "btn ghost", "Setting guide video"); gl.href = d.guide; gl.target = "_blank"; gl.rel = "noopener noreferrer"; g.appendChild(gl); }
-    act.appendChild(g); box.appendChild(act);
+    act.appendChild(g);
+    box.appendChild(privacy(p, d.owner));
+    box.appendChild(act);
+    Array.prototype.forEach.call(box.querySelectorAll(".card"), function (c) { c.classList.add("rv"); });
+    if (K.reveal) K.reveal(box);
     document.title = "KAAL · No. " + K.pad(p.n) + " · Owners";
   }
+  function numberWord(n) { return ({ 10: "ten", 12: "twelve", 20: "twenty", 25: "twenty-five", 50: "fifty", 100: "a hundred" })[n] || String(n); }
+
+  /* The chapter ring: sixty marks around the piece, drawn in once, turning
+     a full circle every four minutes. Time, and only time. */
+  function halo(face) {
+    var h = K.el("div", "halo"), svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 200 200"); svg.setAttribute("class", "ring"); svg.setAttribute("aria-hidden", "true");
+    var ring = document.createElementNS(NS, "circle"); ring.setAttribute("cx", "100"); ring.setAttribute("cy", "100"); ring.setAttribute("r", "97"); svg.appendChild(ring);
+    for (var i = 0; i < 60; i++) {
+      var a = i / 60 * 2 * Math.PI, five = i % 5 === 0, r1 = five ? 89 : 92, ln = document.createElementNS(NS, "line");
+      ln.setAttribute("x1", (100 + r1 * Math.cos(a)).toFixed(2)); ln.setAttribute("y1", (100 + r1 * Math.sin(a)).toFixed(2));
+      ln.setAttribute("x2", (100 + 95 * Math.cos(a)).toFixed(2)); ln.setAttribute("y2", (100 + 95 * Math.sin(a)).toFixed(2));
+      if (five) ln.setAttribute("class", "five");
+      ln.style.setProperty("--i", i);
+      svg.appendChild(ln);
+    }
+    h.appendChild(svg); h.appendChild(face);
+    return h;
+  }
+
+  /* Delivered, today, the end: where the warranty stands on one line. */
+  function lifeline(p, w) {
+    var f = K.el("div", "life"), span = w.endMs - w.startMs, now = serverNow();
+    var frac = Math.min(1, Math.max(0, (now - w.startMs) / span));
+    var tr = K.el("div", "track"), fill = K.el("i", "fill"), dot = K.el("i", "now");
+    tr.setAttribute("role", "img"); tr.setAttribute("aria-label", Math.round(frac * 100) + " percent of the warranty has run");
+    tr.appendChild(fill); tr.appendChild(dot); f.appendChild(tr);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { fill.style.transform = "scaleX(" + frac.toFixed(4) + ")"; dot.style.left = (frac * 100).toFixed(2) + "%"; }); });
+    var marks = K.el("div", "marks");
+    var a = K.el("span"); a.appendChild(K.el("b", "", "Delivered")); a.appendChild(K.el("small", "", K.day(p.deliveredOn))); marks.appendChild(a);
+    var b = K.el("span", "r"); b.appendChild(K.el("b", "", "Covered until")); b.appendChild(K.el("small", "", K.day(w.endDay))); marks.appendChild(b);
+    f.appendChild(marks);
+    f.appendChild(K.el("p", "muted small center", human(w.endMs - now) + " of cover left. The return window closed when you registered, on " + K.day(p.registeredOn) + "."));
+    return f;
+  }
+  function human(ms) {
+    var d = Math.max(0, Math.floor(ms / 86400000)), y = Math.floor(d / 365.25), m = Math.floor((d - y * 365.25) / 30.44), out = [];
+    if (y) out.push(y + (y === 1 ? " year" : " years"));
+    if (m) out.push(m + (m === 1 ? " month" : " months"));
+    if (!y && !m) out.push(d + (d === 1 ? " day" : " days"));
+    return "About " + out.join(", ");
+  }
+
+  /* How they appear on the shop, as a visitor sees it, and the two yeses
+     that change it. Both start as no; either can be taken back here. */
+  function privacy(p, o) {
+    var card = K.el("div", "card noprint"); card.appendChild(K.el("h2", "", "How you appear on the shop"));
+    card.appendChild(K.el("p", "muted", "When someone taps No. " + K.pad(p.n) + " on thekaal.co, this is the card they see. Your name, email, phone and address are never shown."));
+    var pv = K.el("div", "oc-preview"); pv.setAttribute("aria-live", "polite"); card.appendChild(pv);
+    var st = { city: !!o.showCity, name: !!o.showName };
+    function paint() {
+      K.clear(pv);
+      pv.appendChild(K.el("p", "e", "No. " + K.pad(p.n) + " \u00b7 " + p.colorway));
+      var h = K.el("p", "h"); h.appendChild(document.createTextNode("Held by ")); h.appendChild(K.el("em", "", "Owner " + K.roman(p.ownerNo))); pv.appendChild(h);
+      pv.appendChild(st.name && o.initials ? K.el("p", "who", o.initials) : K.el("p", "who priv", "A private collector"));
+      var since = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date(p.registeredOn));
+      pv.appendChild(K.el("p", "m", "Since " + since + (st.city && o.city ? " \u00b7 " + o.city : "")));
+      pv.appendChild(K.el("p", "f", "One of " + numberWord(p.size) + ". Never remade."));
+    }
+    function sw(key, label, sub, can) {
+      var l = K.el("label", "switch"), i = K.el("input"); i.type = "checkbox"; i.setAttribute("role", "switch"); i.checked = st[key]; i.disabled = !can;
+      var t = K.el("span", "t"); t.appendChild(K.el("b", "", label)); t.appendChild(K.el("small", "", sub));
+      l.appendChild(t); l.appendChild(i); l.appendChild(K.el("i", "knob"));
+      i.addEventListener("change", function () {
+        var was = st[key]; st[key] = i.checked; paint(); msg.textContent = "Saving\u2026";
+        K.api("POST", "/o/me/privacy", { showCity: st.city, showName: st.name }).then(function (r) {
+          if (r.ok) { st.city = r.showCity; st.name = r.showName; o.showCity = r.showCity; o.showName = r.showName; msg.textContent = "Saved. The shop shows this within a minute."; paint(); return; }
+          st[key] = was; i.checked = was; paint(); msg.textContent = K.why[r.reason] || "That did not save. Please try again.";
+        });
+      });
+      return l;
+    }
+    paint();
+    card.appendChild(sw("name", "Show my initials", o.initials ? "As " + o.initials + ", never your name" : "Your name is not on file yet", !!o.initials));
+    card.appendChild(sw("city", "Show my city", o.city ? o.city + ", beside your number" : "No city on file", !!o.city));
+    var msg = K.el("p", "hint"); msg.setAttribute("role", "status"); card.appendChild(msg);
+    return card;
+  }
+
   function banner(kind, bold, rest) { var b = K.el("div", "banner " + kind); b.appendChild(K.el("b", "", bold)); b.appendChild(document.createTextNode(rest)); return b; }
   function kv(dl, k, v) { var row = K.el("div"); row.appendChild(K.el("dt", "", k)); row.appendChild(K.el("dd", "", v)); dl.appendChild(row); }
   function action(label, fn) { var b = K.el("button", "btn ghost", label); b.type = "button"; b.addEventListener("click", fn); return b; }
 
   /* ── The signature: the warranty, counted down ── */
   function clock(w) {
-    var card = K.el("div", "card"); card.appendChild(K.el("h2", "", "Warranty"));
+    var card = K.el("div", "card warranty"); card.appendChild(K.el("h2", "", "Your warranty, live"));
     var span = w.endMs - w.startMs;
     if (serverNow() >= w.endMs) {
       var c = K.el("div", "concluded"); c.appendChild(K.el("p", "", "Warranty concluded on " + K.day(w.endDay)));
@@ -179,7 +289,8 @@
     });
     face.appendChild(hms); face.appendChild(lab); dial.appendChild(face); card.appendChild(dial);
     card.appendChild(K.el("p", "muted center", "Until " + K.day(w.endDay) + ", 23:59:59 India time. It runs from the day your piece reached you, and never restarts if it changes hands."));
-    var last = -1;
+    var last = -1, first = true;
+    used.setAttribute("stroke-dasharray", "0 " + C.toFixed(2));
     function tick() {
       var now = serverNow(), rem = Math.max(0, w.endMs - now);
       if (rem <= 0) { render(); return; }
@@ -188,8 +299,9 @@
         last = s;
         dn.nodeValue = String(Math.floor(s / 86400));
         hh.textContent = K.pad(Math.floor(s % 86400 / 3600)); mm.textContent = K.pad(Math.floor(s % 3600 / 60)); ss.textContent = K.pad(s % 60);
-        var frac = Math.min(1, Math.max(0, (now - w.startMs) / span));
-        used.setAttribute("stroke-dasharray", (frac * C).toFixed(2) + " " + C.toFixed(2));
+        var frac = Math.min(1, Math.max(0, (now - w.startMs) / span)), arc = (frac * C).toFixed(2) + " " + C.toFixed(2);
+        /* The first second draws the arc in from nothing; after that it only creeps. */
+        if (first) { first = false; setTimeout(function () { used.setAttribute("stroke-dasharray", arc); }, 120); } else used.setAttribute("stroke-dasharray", arc);
         dial.setAttribute("aria-label", "Warranty remaining: " + Math.floor(s / 86400) + " days");
       }
       TIMER = setTimeout(tick, 1000 - (serverNow() % 1000) + 5);   /* the next second on the server's clock */

@@ -87,6 +87,10 @@ ok(await page.locator(".chain li.mine .you").count() === 1, "owners: the chain m
 ok(/Nothing yet/.test(await page.locator("text=Service history").locator("..").innerText()), "owners: an empty service history is designed, not blank");
 const sw2 = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
 ok(sw2[0] <= sw2[1], "owners: no sideways scroll at 360px");
+/* Scroll through, as an owner would, so every part has arrived. */
+await page.evaluate(async () => { for (let y = 0; y <= document.body.scrollHeight; y += 300) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 90)); } window.scrollTo(0, 0); });
+await page.waitForTimeout(1500);
+ok(await page.evaluate(() => [...document.querySelectorAll("#dossier .card")].every(c => getComputedStyle(c).opacity === "1")), "owners: every part of the page arrives as it is scrolled to");
 await page.screenshot({ path: "/tmp/owners-dash.png", fullPage: true });
 
 /* The certificate and the receipt. */

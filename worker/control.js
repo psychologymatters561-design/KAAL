@@ -15,10 +15,11 @@
    The existing desk (/desk) keeps working beside this until the owner
    retires it.
    ══════════════════════════════════════════════════════════════════ */
+import { dossier } from "./owners.js";
 import { SW_JS, MANIFEST, iconPng, KINDS, vapidKeys, subscribe, unsubscribe, subsOf, prefsOf, savePrefs, notifyOwner } from "./push.js";
 import { authOn, adminEmail, adminOwner, startLogin, verifyLogin, sessionOf, openSession, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail, sha256, same } from "./auth.js";
 import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
-import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered } from "./orders.js";
+import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered, warrantyWindow } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
 import { lateOrders } from "./sla.js";
@@ -136,6 +137,14 @@ export async function control(request, env, ctx, path, T) {
     m = /^\/pieces\/(S\d{2}-\d{2})(\/photo)?$/.exec(route);
     if (method === "POST" && m) return m[2] ? photo(request, env, T, actor, m[1]) : piece(env, T, actor, m[1], await body(request) || {});
     if (method === "GET" && route === "/owners") return out(await listOwners(env, new URL(request.url).searchParams.get("q") || ""));
+    /* An owner's own page, exactly as they see it: the admin's view of every owner's dossier. */
+    m = /^\/owners\/(\d+)\/dossier$/.exec(route);
+    if (method === "GET" && m) {
+      const w = await env.DB.prepare("SELECT * FROM owners WHERE id = ?1 AND deleted_at IS NULL").bind(+m[1]).first();
+      if (!w) return out({ ok: false, reason: "not-found" }, 404);
+      return out(await dossier(env, w));
+    }
+    if (method === "GET" && route === "/owners/live") return out(await ownersLive(env));
     m = /^\/owners\/(\d+)(\/revoke)?$/.exec(route);
     if (method === "GET" && m && !m[2]) return out(await ownerDetail(env, +m[1]));
     if (method === "POST" && m) return m[2] ? revokeOwner(env, actor, +m[1]) : ownerUpdate(env, actor, +m[1], await body(request) || {});
@@ -640,6 +649,23 @@ async function blocked(env, actor, b) {
 }
 
 /* ══ Audit, export, backup ══ */
+/* ══ Every owner at a glance: who holds what, and each warranty's clock ══ */
+async function ownersLive(env) {
+  const rows = (await env.DB.prepare(
+    `SELECT w.id, w.name, w.email, w.city, w.show_city_publicly, w.show_name_publicly, o.owner_no, o.from_at, p.number, p.colorway, p.status, s.warranty_months,
+            (SELECT delivered_on FROM orders x WHERE x.piece_id = p.id AND x.delivered_on IS NOT NULL ORDER BY x.id LIMIT 1) AS delivered_on,
+            (SELECT COUNT(*) FROM requests r WHERE r.piece_id = p.id AND r.status IN ('open','info_needed')) AS open_requests
+       FROM ownerships o JOIN owners w ON w.id = o.owner_id JOIN pieces p ON p.id = o.piece_id JOIN series s ON s.code = o.series
+      WHERE o.to_at IS NULL AND w.deleted_at IS NULL ORDER BY p.number`
+  ).all()).results || [];
+  return { ok: true, now: Date.now(), owners: rows.map(r => {
+    const w = warrantyWindow(r.delivered_on, r.warranty_months);
+    return { id: r.id, name: r.name || "", email: r.email, city: r.city || "", n: r.number, colorway: r.colorway, ownerNo: r.owner_no, since: r.from_at,
+      status: r.status, openRequests: r.open_requests, cityPublic: !!r.show_city_publicly, initialsPublic: !!r.show_name_publicly,
+      warranty: w ? { startMs: w.startMs, endMs: w.endMs, endDay: w.endDay } : null };
+  }) };
+}
+
 /* ══ Phone alerts ══ */
 async function pushRoute(request, env, s, actor, what) {
   const method = request.method;

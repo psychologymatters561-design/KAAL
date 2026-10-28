@@ -13,6 +13,7 @@
    for what they say they are.
    ══════════════════════════════════════════════════════════════════ */
 import { audit, normPhone } from "./registry.js";
+import { notifyOwner } from "./push.js";
 import { sessionOf, issueCode, spendCode, openSession, codeEmail, adminEmail, normEmail, validEmail, b64url } from "./auth.js";
 import { queueLetter } from "./outbox.js";
 import { iso, seriesSize, setting, warrantyWindow } from "./orders.js";
@@ -98,6 +99,8 @@ export async function ownerActions(request, env, ctx, path, deps, J, readBody) {
     ).bind(piece.series, piece.piece_id, s.owner.id, type, description, media.length ? JSON.stringify(media) : null).first();
     await audit(env, "owner:" + s.owner.id, "request.new", "request:" + row.id, null, { type, piece: piece.piece_id, media: media.length }, piece.series);
     await staff(type, piece, description, row.id);
+    await notifyOwner(env, { kind: "owner", title: `${type === "warranty" ? "Warranty claim" : "Owner request"}: No. ${String(piece.number).padStart(2, "0")}`,
+      body: "An owner is waiting on you. Answer within 48 hours.", url: "/control#approvals", tag: "req-" + row.id });
     if (type === "warranty") {
       const q = await queueLetter(env, { template: "claimReceived", to: s.owner.email, series: piece.series, dedupe: `claim:${row.id}:received`, vars: { site, n: piece.number, size: piece.size } });
       if (q) deps.kick([q]);

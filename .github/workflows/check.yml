@@ -67,3 +67,6 @@ jobs:
 
       - name: Test what owners ask for (claims, uploads, stolen, transfers, recovery, Approvals)
         run: node --no-warnings tools/test-requests.mjs
+
+      - name: Test the command centre's controls (sale switch, paid recording, phone alerts, activity)
+        run: node --no-warnings tools/test-command.mjs

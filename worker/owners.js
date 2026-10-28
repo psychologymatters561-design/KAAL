@@ -26,6 +26,7 @@ import { startLogin, verifyLogin, issueCode, spendCode, openSession, sessionOf, 
 import { queueLetter } from "./outbox.js";
 import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered } from "./orders.js";
 import { ownerActions } from "./owner-actions.js";
+import { notifyOwner } from "./push.js";
 
 const CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_BODY = 20 * 1024;
@@ -236,6 +237,7 @@ async function register(env, deps, J, request, b) {
   await audit(env, "owner:" + owner.id, "owner.register", "order:" + o.id,
     { order: "delivered", piece: "delivered", return_window_ends_at: o.return_window_ends_at },
     { order: "registered", piece: "registered", owner_no: mine && mine.owner_no, email_changed: changed || undefined, show_city: showCity }, o.series);
+  await notifyOwner(env, { kind: "owner", title: `No. ${pad2(o.number)} is registered`, body: `Owner ${mine ? mine.owner_no : 1} of No. ${pad2(o.number)} just registered. The return window is closed; the warranty is on file.`, url: "/control#owners", tag: "reg-" + o.number });
 
   /* The welcome, and the session that opens the dashboard. */
   const q = await queueLetter(env, { template: "registered", to: email, series: o.series, dedupe: `registered:${o.id}`,

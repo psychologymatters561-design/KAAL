@@ -105,7 +105,7 @@ await pg.waitForFunction(() => document.querySelectorAll("#vlist .lrow").length 
 ok(true, "visitors: Everyone lists all seven");
 
 /* Insights */
-await pg.click('.tabs [data-go="insights"]');
+await pg.goto(URL0 + "#insights");
 await pg.waitForFunction(() => /Where they come from/.test(document.getElementById("view").textContent));
 text = await pg.textContent("#view");
 ok(/Instagram/.test(text) && /ChatGPT/.test(text) && /S01 Launch/.test(text) && /Maharashtra/.test(text) && /Bengaluru/.test(text) && /Where people stop/.test(text) && /Numbers looked at/.test(text),
@@ -125,9 +125,64 @@ await pg.waitForSelector('#sheet:not([hidden]) [data-go="ai"]');
 await pg.click('#sheet [data-go="ai"]');
 await pg.waitForFunction(() => /What answer engines are told/.test(document.getElementById("view").textContent));
 ok(/Ask ChatGPT/.test(await pg.textContent("#view")) && /ChatGPT/.test(await pg.textContent("#view")), "ai search: what crawlers are told, and the visitors AI sent");
+/* Activity, live: everything on one line of time */
+await pg.click('.tabs [data-go="activity"]');
+await pg.waitForSelector("#alist .arow");
+text = await pg.textContent("#view");
+ok(/Chose No\. 05/.test(text) && /Priya/.test(text) && /Instagram/.test(text) && /people/.test(text), "activity: every visitor's steps, newest first, with who it was and where from");
+await pg.click('.chip[data-p$="f=money"]');
+await pg.waitForFunction(() => /f=money/.test(location.hash) && document.querySelector("#alist .arow"));
+text = await pg.textContent("#view");
+ok(/Pressed buy/.test(text) && !/Played the box film/.test(text), "activity: Money narrows it to checkouts and payments");
+ok(await flat(), "activity: nothing wider than a phone");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/6-activity-phone.png", fullPage: true });
+await pg.click("#alist button.arow");
+await pg.waitForFunction(() => /Roughly where/.test(document.getElementById("sheetB").textContent));
+ok(true, "activity: tapping a line opens that visitor");
+await pg.keyboard.press("Escape");
+
+/* The command bar: in words, read back, then done */
+const piece = (n) => W.DB.raw.prepare("SELECT status FROM pieces WHERE number = ?").get(n).status;
+const soldKV = () => JSON.parse(W.KV.store.get("sold") || "[]");
+await pg.click('[data-act="cmd"]');
+await pg.fill("#cmdIn", "keep 12 back");
+await pg.keyboard.press("Enter");
+await pg.waitForFunction(() => /Keep No\. 12 back/.test(document.getElementById("cmdOut").textContent));
+ok(piece(12) === "available", "command: 'keep 12 back' is read back first, and nothing has changed yet");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/7-command-phone.png" });
+await pg.click('[data-act="cmdGo"]');
+await pg.waitForFunction(() => /No\. 12 is kept back/.test(document.getElementById("toast").textContent));
+ok(piece(12) === "withheld" && soldKV().includes(12), "command: Do it takes No. 12 off the shop");
+await pg.click('[data-act="cmd"]');
+await pg.fill("#cmdIn", "mark 12 unsold");
+await pg.keyboard.press("Enter");
+await pg.waitForFunction(() => /Put No\. 12 on sale/.test(document.getElementById("cmdOut").textContent));
+await pg.click('[data-act="cmdGo"]');
+await pg.waitForFunction(() => /No\. 12 is on sale/.test(document.getElementById("toast").textContent));
+ok(piece(12) === "available" && !soldKV().includes(12), "command: 'mark 12 unsold' puts it back on sale");
+await pg.click('[data-act="cmd"]');
+await pg.fill("#cmdIn", "how many are left?");
+await pg.keyboard.press("Enter");
+await pg.waitForFunction(() => /are open/.test(document.getElementById("cmdOut").textContent));
+ok(/Nos\. /.test(await pg.textContent("#cmdOut")), "command: answers how many are left, and which");
+await pg.keyboard.press("Escape");
+
+/* The twenty: No. 09, kept back, one tap to sell */
+await pg.goto(URL0 + "#pieces");
+await pg.waitForSelector('.lrow[data-id="S01-09"]');
+await pg.click('.lrow[data-id="S01-09"]');
+await pg.waitForFunction(() => /Kept back/.test(document.getElementById("sheetB").textContent));
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/8-piece-sale-phone.png" });
+await pg.click('#sheetB [data-act="sale"][data-v="1"]');
+await pg.waitForFunction(() => /No\. 09 is on sale/.test(document.getElementById("toast").textContent));
+ok(piece(9) === "available" && !soldKV().includes(9), "the twenty: Put it on sale opens No. 09 on the shop");
+
 await pg.goto(URL0 + "#settings");
-await pg.waitForFunction(() => /Sign out every device/.test(document.getElementById("view").textContent));
-ok(/this one/.test(await pg.textContent("#view")), "settings: the signed-in devices, and Sign out every device");
+await pg.waitForFunction(() => /Sign out every device/.test(document.getElementById("view").textContent) && !/Checking this device/.test(document.getElementById("view").textContent));
+text = await pg.textContent("#view");
+ok(/this one/.test(text), "settings: the signed-in devices, and Sign out every device");
+ok(/Phone alerts/.test(text) && /Turn on phone alerts|three taps|cannot show alerts/.test(text) && /A watch is paid for \(always\)/.test(text), "settings: phone alerts for this device, and which kinds");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/9-settings-phone.png", fullPage: true });
 for (const v of ["approvals", "pieces", "owners", "list", "emails", "audit", "health"]) {
   await pg.goto(URL0 + "#" + v);
   await pg.waitForFunction(() => !/Loading/.test(document.getElementById("view").textContent));
@@ -139,9 +194,13 @@ await pg.setViewportSize({ width: 1280, height: 860 });
 await pg.goto(URL0 + "#today");
 await pg.waitForSelector(".side .navb");
 ok(await pg.isVisible(".side") && !(await pg.isVisible(".tabs")), "desktop: the sidebar instead of the bar below");
-await pg.keyboard.press("4");
+await pg.keyboard.press("5");
 await pg.waitForFunction(() => /Where they come from/.test(document.getElementById("view").textContent));
-ok((await pg.textContent("#title")) === "Insights", "desktop: 4 opens Insights");
+ok((await pg.textContent("#title")) === "Insights", "desktop: 5 opens Insights");
+await pg.keyboard.press("2");
+await pg.waitForSelector("#alist .arow");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/10-activity-desktop.png", fullPage: true });
+ok((await pg.textContent("#title")) === "Activity, live", "desktop: 2 opens the live Activity");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/4-insights-desktop.png", fullPage: true });
 await pg.goto(URL0 + "#today?r=30d");
 await pg.waitForFunction(() => /vs previous 30 days/.test(document.getElementById("view").textContent));

@@ -15,6 +15,7 @@
    The existing desk (/desk) keeps working beside this until the owner
    retires it.
    ══════════════════════════════════════════════════════════════════ */
+import { SW_JS, MANIFEST, iconPng, KINDS, vapidKeys, subscribe, unsubscribe, subsOf, prefsOf, savePrefs, notifyOwner } from "./push.js";
 import { authOn, adminEmail, adminOwner, startLogin, verifyLogin, sessionOf, openSession, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail, sha256, same } from "./auth.js";
 import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
 import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered } from "./orders.js";
@@ -75,12 +76,17 @@ export async function control(request, env, ctx, path, T) {
       "Content-Security-Policy": "default-src 'none'", "Access-Control-Allow-Origin": "*" } });
   }
 
+  /* ── The Home Screen app's helper, manifest and icons (worker/push.js) ── */
+  if (method === "GET" && path === "/control/sw.js") return new Response(SW_JS, { headers: headers({ "Content-Type": "text/javascript; charset=utf-8", "Service-Worker-Allowed": "/control" }) });
+  if (method === "GET" && path === "/control/manifest.webmanifest") return new Response(MANIFEST, { headers: headers({ "Content-Type": "application/manifest+json" }) });
+  if (method === "GET" && /^\/control\/icon-(192|512)\.png$/.test(path)) return new Response(iconPng(path.slice(9)), { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800", "X-Content-Type-Options": "nosniff" } });
+
   /* ── The page ── */
   if (path === "/control" && method === "GET") {
     const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
     return new Response(controlPage(nonce, { staging: env.STAGING === "on" }), { headers: headers({
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+      "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'; worker-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
     }) });
   }
 
@@ -118,6 +124,15 @@ export async function control(request, env, ctx, path, T) {
       return refund(env, T, actor, +m[1], b);
     }
     if (method === "GET" && route === "/pieces") return out(await listPieces(env));
+    /* On sale, or kept back: the registry, the live page and the site file at once. */
+    m = /^\/pieces\/(\d{1,2})\/sale$/.exec(route);
+    if (method === "POST" && m) {
+      const b = await body(request) || {};
+      const r = await T.setOnSale(env, actor, +m[1], !!b.on, clean(b.reason, 200) || (b.on ? "put on sale from the command centre" : "kept back from the command centre"));
+      return out(r, r.ok ? 200 : 409);
+    }
+    if (method === "GET" && route === "/activity") return out(await activity(env, T, new URL(request.url).searchParams));
+    if (route.startsWith("/push/")) return pushRoute(request, env, s, actor, route.slice(6));
     m = /^\/pieces\/(S\d{2}-\d{2})(\/photo)?$/.exec(route);
     if (method === "POST" && m) return m[2] ? photo(request, env, T, actor, m[1]) : piece(env, T, actor, m[1], await body(request) || {});
     if (method === "GET" && route === "/owners") return out(await listOwners(env, new URL(request.url).searchParams.get("q") || ""));
@@ -463,10 +478,14 @@ async function piece(env, T, actor, id, b) {
   if (!cols.length) return out({ ok: true, unchanged: true });
   set.updated_at = iso(); cols.push("updated_at");
   await env.DB.prepare(`UPDATE pieces SET ${cols.map((c, i) => `${c} = ?${i + 1}`).join(", ")} WHERE id = ?${cols.length + 1}`).bind(...cols.map(c => set[c]), id).run();
-  /* Back on sale means off the live site's sold list too (staging skips it). */
-  if (set.status === "available") await T.releaseSold(env, p.number, "control room: " + clean(b.reason, 80));
   await audit(env, actor, "piece.update", "piece:" + id, { status: p.status, colorway: p.colorway, notes: p.notes ? "(set)" : null },
     { status: set.status, colorway: set.colorway, notes: b.notes !== undefined ? "(changed)" : undefined, reason: clean(b.reason, 200) || undefined }, p.series);
+  /* On sale, or kept back, is the live site's sold list too (staging skips
+     it), and the answer says whether the site file took it. */
+  if ((set.status === "available" || set.status === "withheld") && T.setOnSale) {
+    const r = await T.setOnSale(env, actor, p.number, set.status === "available", "control room: " + clean(b.reason, 80));
+    return out({ ok: true, site: r.site || "" });
+  }
   return out({ ok: true });
 }
 /* A photograph of that exact watch: JPEG, PNG or WebP, up to 3 MB, kept in
@@ -621,6 +640,85 @@ async function blocked(env, actor, b) {
 }
 
 /* ══ Audit, export, backup ══ */
+/* ══ Phone alerts ══ */
+async function pushRoute(request, env, s, actor, what) {
+  const method = request.method;
+  if (!env.KAAL_STATE) return out({ ok: false, why: "No store on this worker." }, 503);
+  if (method === "GET" && what === "state") {
+    const [v, subs, prefs] = await Promise.all([vapidKeys(env), subsOf(env), prefsOf(env)]);
+    return out({ ok: true, key: v.pub, devices: subs.map(x => ({ device: x.device, at: x.at, id: x.endpoint.slice(-12) })), endpoints: subs.map(x => x.endpoint), prefs, kinds: KINDS });
+  }
+  if (method !== "POST") return out({ ok: false, reason: "not-found" }, 404);
+  const b = await body(request) || {};
+  if (what === "subscribe") {
+    const r = await subscribe(env, b.sub, deviceLabel(request.headers.get("User-Agent")));
+    if (r.ok) await audit(env, actor, "push.subscribe", "push", null, { devices: r.devices });
+    return out(r, r.ok ? 200 : 400);
+  }
+  if (what === "unsubscribe") { const r = await unsubscribe(env, b.endpoint ? String(b.endpoint) : ""); await audit(env, actor, "push.unsubscribe", "push", null, r); return out(r); }
+  if (what === "prefs") return out({ ok: true, prefs: await savePrefs(env, b.prefs || {}) });
+  if (what === "test") {
+    const n = await notifyOwner(env, { kind: "sale", title: "KAAL · phone alerts are on", body: "This is how a sale will arrive: the number, the amount, one tap to the order.", url: "/control#today", tag: "test" });
+    return out({ ok: n > 0, sent: n, why: n ? "" : "No device took it. Turn alerts on again on this phone." });
+  }
+  return out({ ok: false, reason: "not-found" }, 404);
+}
+
+/* ══ Activity: everything, as it happens ══
+   The visitors' own steps (the Stats object keeps them), and every change
+   made by you, the owners and the system (the audit log), on one line of
+   time, newest first. `since` is a moment in ms; `f` narrows it. */
+const ACT_MONEY = /^(paid|pay_failed|pay_closed|checkout)$/, ACT_INTENT = /^(number|dial|early_dial|caseback_view|details|details_closed|gift|deeplink|ctx_cta|hero|hero_complete|film|view|list)$/;
+async function activity(env, T, q) {
+  const now = Date.now(), since = Math.max(now - 14 * 86400000, parseInt(q.get("since"), 10) || now - 86400000), f = q.get("f") || "all";
+  const wantVisitors = f !== "you" && f !== "system" && f !== "owners";
+  const [vis, aud] = await Promise.all([
+    wantVisitors && T.activity ? T.activity("since=" + since + "&lim=300") : { rows: [] },
+    f === "money" || f === "intent" || f === "visits" ? { results: [] } : env.DB.prepare("SELECT id, at, actor, action, target, after FROM audit_log WHERE at >= ?1 ORDER BY id DESC LIMIT 200").bind(new Date(since).toISOString()).all()
+  ]);
+  let rows = (vis.rows || []).map(r => Object.assign({ src: "visitor" }, r));
+  if (f === "money") rows = rows.filter(r => ACT_MONEY.test(r.e));
+  else if (f === "intent") rows = rows.filter(r => ACT_INTENT.test(r.e) || ACT_MONEY.test(r.e));
+  else if (f === "visits") rows = rows.filter(r => r.e === "visit" || r.e === "page");
+  for (const a of aud.results || []) {
+    const who = /^admin:/.test(a.actor) ? "you" : /^owner:/.test(a.actor) ? "owners" : "system";
+    if (f !== "all" && f !== who) continue;
+    rows.push({ src: who, t: Date.parse(a.at), e: a.action, txt: auditText(a), target: a.target || "" });
+  }
+  rows.sort((a, b) => b.t - a.t);
+  return { ok: true, now, since, rows: rows.slice(0, 300) };
+}
+const AUDIT_WORDS = {
+  "order.stage": "Order moved on", "order.correct": "Order corrected without email", "order.returned": "Marked returned",
+  "order.refunded": "Refunded", "order.refund.failed": "Refund failed", "order.past_sale": "A past sale recorded", "order.duplicate": "Second payment for one watch",
+  "order.link.resend": "Registration link sent", "order.link.regenerate": "New registration link sent",
+  "piece.update": "Piece changed", "piece.sale": "On sale or kept back", "piece.photo": "Photograph added", "piece.placed": "Piece placed with an order",
+  "owner.update": "Owner's details changed", "owner.revoke": "Owner signed out everywhere", "owner.register": "An owner registered their piece", "owner.recovery": "Owner recovery",
+  "auth.passcode": "Command centre opened with the passcode", "auth.code": "Signed in with an emailed code", "auth.revoke_all": "Command centre signed out everywhere",
+  "registry.import": "Brought in from Razorpay", "registry.import.asked": "Import asked for", "settings.update": "Settings changed",
+  "email.retry": "Email sent again", "email.test": "Test email sent", "push.subscribe": "Phone alerts turned on", "push.unsubscribe": "Phone alerts turned off",
+  "request.new": "An owner asked for something", "transfer.start": "Transfer started", "transfer.accept": "Transfer accepted", "transfer.cancel": "Transfer cancelled",
+  "transfer.complete": "Transfer completed", "transfer.reject": "Transfer refused", "courier.alert": "Courier alert", "courier.unmatched": "Courier event matched to no order",
+  "blocked.add": "Buyer blocked", "blocked.remove": "Buyer unblocked", "backup.download": "Backup downloaded",
+  "followup.send": "Follow-up email sent", "followup.skip": "Follow-up skipped", "followup.draft": "Follow-up drafted"
+};
+function auditText(a) {
+  let after = {};
+  try { after = JSON.parse(a.after || "{}") || {}; } catch (e) { after = {}; }
+  const base = AUDIT_WORDS[a.action] || (/^request\./.test(a.action) ? "Request " + a.action.slice(8).replace(/_/g, " ") : a.action.replace(/[._]/g, " "));
+  const bits = [];
+  if (after.status) bits.push(String(after.status).replace("_", " "));
+  if (after.to) bits.push("to " + String(after.to).slice(0, 40));
+  if (after.reason) bits.push(String(after.reason).slice(0, 80));
+  if (after.site) bits.push("site file: " + after.site);
+  const piece = /^piece:(S\d{2}-(\d{2}))$/.exec(a.target || "");
+  if (a.action === "piece.sale" && piece) {
+    const site = after.site === "ok" || after.site === "already" ? "" : after.site === "skipped" ? " (staging)" : " · the site file is behind";
+    return `No. ${piece[2]} ${after.status === "available" ? "put on sale" : "kept back"}${after.reason ? " · " + String(after.reason).slice(0, 80) : ""}${site}`;
+  }
+  return base + (piece ? " · No. " + piece[2] : "") + (bits.length ? " · " + bits.join(", ") : "");
+}
+
 async function auditList(env) {
   const rows = (await env.DB.prepare("SELECT id, at, actor, action, target, before, after FROM audit_log ORDER BY id DESC LIMIT 300").all()).results || [];
   return { ok: true, audit: rows };

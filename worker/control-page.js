@@ -31,7 +31,13 @@ export function controlPage(nonce, opts) {
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b0c0a">
 <title>KAAL · Command centre</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/control/icon-192.png">
+<link rel="manifest" href="/control/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/control/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KAAL">
 <style>
 :root{
   --bg:#0b0c0a; --side:#0e0f0d; --card:#141512; --card2:#1a1b17; --line:#25231e; --line2:#37332b;
@@ -288,7 +294,35 @@ iframe{width:100%;height:68vh;border:1px solid var(--line2);border-radius:10px;b
 .key{font-family:var(--mono);font-size:17px;letter-spacing:.06em;word-break:break-all}
 .note{font-size:13px;color:var(--mute);margin:10px 0 0}
 .copy{font-family:var(--mono);font-size:12.5px;background:#0d0e0c;border:1px solid var(--line2);border-radius:8px;padding:10px 12px;word-break:break-all}
-@media (prefers-reduced-motion:reduce){.tbar{transition:none}.dot.on{animation:none}}
+/* Activity */
+.astat{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.astat span{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:13px;color:var(--mute)}
+.astat b{color:var(--bone);font-weight:600;font-variant-numeric:tabular-nums}
+.aday{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:20px 0 6px}
+.alist{border-left:1px solid var(--line);margin-left:70px}
+.arow{display:grid;grid-template-columns:62px 1fr;gap:16px;position:relative;margin-left:-70px;padding:9px 12px 9px 0;width:calc(100% + 70px);text-align:left;background:none;border:0;border-radius:10px;color:inherit;font:inherit}
+button.arow{cursor:pointer}button.arow:hover,button.arow:focus-visible{background:var(--card)}
+.arow .at{font-size:12px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums;padding-top:1px}
+.arow::before{content:"";position:absolute;left:66px;top:15px;width:9px;height:9px;border-radius:50%;background:var(--line2);box-shadow:0 0 0 3px var(--bg)}
+.arow .tx{font-size:14px;line-height:1.4}.arow .m{font-size:12px;color:var(--faint);margin-top:2px}
+.arow.k-paid::before{background:var(--ok);box-shadow:0 0 0 3px var(--bg),0 0 12px var(--ok)}.arow.k-paid .tx{color:var(--ok);font-weight:600}
+.arow.k-money::before{background:var(--gold)}.arow.k-intent::before{background:var(--goldLit);opacity:.6}
+.arow.k-arrive::before{background:var(--mute)}.arow.k-you::before{background:#8FA8C8}.arow.k-own::before{background:#B49BD0}.arow.k-sys::before{background:var(--bad)}
+.arow.hot .m b{color:var(--goldLit)}
+.arow.fresh{animation:fresh 2.6s ease-out}
+@keyframes fresh{0%{background:var(--goldDim)}100%{background:transparent}}
+.arow .tx, .arow .m{padding-left:10px}
+/* Command bar */
+.cmdb{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line2);border-radius:99px;color:var(--mute);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;min-width:0}
+.cmdb:hover{border-color:var(--gold);color:var(--bone)}.cmdb kbd{font:11px var(--mono);border:1px solid var(--line2);border-radius:5px;padding:1px 5px;color:var(--faint)}
+.cmdex{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cmdex button{background:none;border:1px dashed var(--line2);border-radius:99px;color:var(--mute);font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
+.cmdex button:hover{border-color:var(--gold);color:var(--bone)}
+.saleBox{border:1px solid var(--line2);border-radius:var(--r);padding:14px;margin:14px 0;background:var(--card2)}
+.saleBox .big{font-family:var(--serif);font-size:20px}
+.arow .at{white-space:nowrap}
+@media (max-width:760px){.cmdb{padding:6px 9px}.cmdb span.t,.cmdb kbd{display:none}.bar [data-act="refresh"]{display:none}.alist{margin-left:62px}.arow{grid-template-columns:54px 1fr;gap:14px;margin-left:-62px;width:calc(100% + 62px)}.arow::before{left:58px}.arow .at{font-size:11px}}
+@media (prefers-reduced-motion:reduce){.tbar{transition:none}.dot.on{animation:none}.arow.fresh{animation:none}}
 </style>
 </head>
 <body>
@@ -329,6 +363,7 @@ ${staging ? '<div class="stg">Staging: Razorpay test mode. Every email goes to t
     <header class="bar">
       <div class="brand">KAAL</div>
       <h1 id="title">Today</h1>
+      <button class="cmdb" type="button" data-act="cmd" aria-label="Tell the command centre what to do"><span aria-hidden="true">&#8984;</span><span class="t">Tell it what to do</span><kbd>K</kbd></button>
       <span class="live" id="liveTop" title="People on the site now"><span class="dot" id="liveDot"></span><span id="liveN">·</span></span>
       <button class="btn sm ghost" type="button" data-act="refresh" aria-label="Refresh">Refresh</button>
     </header>
@@ -338,7 +373,7 @@ ${staging ? '<div class="stg">Staging: Razorpay test mode. Every email goes to t
     <button data-go="today"><i aria-hidden="true">&#9673;</i>Today</button>
     <button data-go="orders"><i aria-hidden="true">&#9635;</i>Orders<span class="badge" data-badge="orders" hidden></span></button>
     <button data-go="visitors"><i aria-hidden="true">&#9737;</i>Visitors<span class="badge" data-badge="visitors" hidden></span></button>
-    <button data-go="insights"><i aria-hidden="true">&#9636;</i>Insights</button>
+    <button data-go="activity"><i aria-hidden="true">&#8776;</i>Activity</button>
     <button data-act="more"><i aria-hidden="true">&#8943;</i>More<span class="badge" data-badge="more" hidden></span></button>
   </nav>
 </div>
@@ -450,6 +485,7 @@ $("out").addEventListener("click", function(){ api("POST", "/auth/logout", {}).t
 /* ══ screens ══ */
 var NAV = [
   { g:"Run",  v:"today",     t:"Today" },
+  { g:"Run",  v:"activity",  t:"Activity, live" },
   { g:"Run",  v:"orders",    t:"Orders" },
   { g:"Run",  v:"approvals", t:"Approvals" },
   { g:"Grow", v:"visitors",  t:"Visitors and leads" },
@@ -463,7 +499,7 @@ var NAV = [
   { g:"System", v:"audit",   t:"Audit and export" },
   { g:"System", v:"health",  t:"Health" }
 ];
-var KEYS = ["today","orders","visitors","insights","approvals","pieces","owners","emails","settings"];
+var KEYS = ["today","activity","orders","visitors","insights","approvals","pieces","owners","settings"];
 var VIEW = "today", PARAMS = {}, DATA = {}, BADGE = {};
 (function(){
   var g = "", h = "";
@@ -524,19 +560,26 @@ function both(a, b, done){ var got = {}, n = 2; function one(k){ return function
    Right now every ten. */
 var TP_NAME = { today:"Today", "7d":"7 days", "30d":"30 days", "90d":"90 days" };
 function tperiod(){ var r = PARAMS.r; if(!TP_NAME[r]){ try{ r = localStorage.getItem("kaal_tp"); }catch(e){} } return TP_NAME[r] ? r : "today"; }
+/* Shown the moment the first answer is in, and filled in as the rest
+   arrive: the numbers never wait on Razorpay. What the screen showed last
+   time is shown at once, then replaced. */
 LOAD.today = function(put){
-  var r = tperiod(), got = {}, left = 4;
-  function one(k){ return function(j){ got[k] = j; if(--left === 0) done(); }; }
-  api("GET", "/control/api/overview").then(one("ov")); api("GET", "/desk/data").then(one("dk"));
-  api("GET", "/desk/summary?r=" + r).then(one("sm")); api("GET", "/desk/insights?r=" + r).then(one("ins"));
-  function done(){
-    if(!got.ov.ok && !got.dk.ok && !got.sm.ok){ put(failed(got.sm)); return; }
-    DATA.overview = got.ov.ok ? got.ov : null; DATA.desk = got.dk.ok ? got.dk : null;
-    DATA.summary = got.sm.ok ? got.sm : null; DATA.tins = got.ins.ok ? got.ins : null;
-    put(RENDER.today());
-    api("GET", "/desk/visitors?r=7d&f=hot&sort=score").then(function(h){ if(h.ok){ setBadge("visitors", h.total); var e = $("hotCard"); if(e) e.innerHTML = hotCard(h); } });
-  }
+  var r = tperiod(), left = 4, shown = false;
+  if(DATA.summary && DATA.summary.r === r){ shown = true; put(RENDER.today()); hot(); }
+  function paint(){ if(VIEW !== "today") return; if(!shown){ shown = true; put(RENDER.today()); hot(); } else { var v = $("view"); if(v && !PENDING && $("sheet").hidden) v.innerHTML = RENDER.today(); } }
+  function one(k){ return function(j){
+    left--;
+    if(k === "ov" && j.ok) DATA.overview = j;
+    if(k === "dk" && j.ok) DATA.desk = j;
+    if(k === "sm" && j.ok) DATA.summary = j;
+    if(k === "ins" && j.ok) DATA.tins = j;
+    if(!shown && left === 0 && !DATA.summary && !DATA.overview && !DATA.desk){ put(failed(j)); return; }
+    if(DATA.summary || left === 0) paint();
+  }; }
+  api("GET", "/desk/summary?r=" + r).then(one("sm")); api("GET", "/control/api/overview").then(one("ov"));
+  api("GET", "/desk/insights?r=" + r).then(one("ins")); api("GET", "/desk/data").then(one("dk"));
 };
+function hot(){ api("GET", "/desk/visitors?r=7d&f=hot&sort=score").then(function(h){ if(h.ok){ setBadge("visitors", h.total); DATA.hot = h; var e = $("hotCard"); if(e) e.innerHTML = hotCard(h); } }); }
 /* The quiet refresh: only the numbers, the chart and the path, in place. */
 function refreshToday(){
   if(VIEW !== "today" || !SIGNED || document.visibilityState !== "visible" || !$("sheet").hidden || PENDING) return;
@@ -642,7 +685,7 @@ RENDER.today = function(){
     '<div id="dash" style="margin-top:12px">' + dashBody() + "</div>";
   if(n.length) h += "<h2>Needs you" + '<span class="count">' + n.length + "</span></h2>" + n.map(function(x){ return '<div class="alert' + (x.act ? " act" : "") + '"><b>' + esc(x.t) + "</b>" + (x.d ? "<p>" + esc(x.d) + "</p>" : "") + (x.b ? '<div class="row">' + x.b + "</div>" : "") + "</div>"; }).join("");
   else h += '<h2>Needs you</h2><div class="calm">&#10003; Nothing needs you right now.</div>';
-  h += '<div class="grid g2 solo" style="margin-top:12px"><div id="nowCard">' + nowCard() + '</div><div id="hotCard"><div class="card empty">Loading leads\u2026</div></div></div>';
+  h += '<div class="grid g2 solo" style="margin-top:12px"><div id="nowCard">' + nowCard() + '</div><div id="hotCard">' + (DATA.hot ? hotCard(DATA.hot) : '<div class="card empty">Loading leads\u2026</div>') + '</div></div>';
   h += '<div class="grid g2 solo" style="margin-top:12px">' + (cells ? '<div class="card go" data-go="pieces"><div class="row between"><h3>The twenty</h3><span class="muted small">' + sold + " gone \u00b7 " + (size - sold) + ' open</span></div><div class="strip half">' + cells + "</div></div>" : "<div></div>") +
     (ov.stages ? '<div class="card"><div class="row between"><h3>Orders at each stage</h3><button class="btn sm ghost" data-go="orders">Orders</button></div><div class="grid g4" style="margin-top:10px">' + ["placed","inspected","packed","dispatched"].map(function(s){
       return '<div class="stagek go" data-go="orders"><b class="num">' + (ov.stages[s] || 0) + "</b><span>" + s + "</span></div>"; }).join("") + "</div></div>" : "") + "</div>";
@@ -684,6 +727,66 @@ function live(){
 function startLive(){ stopLive(); live(); liveT = setInterval(live, 10000); }
 function stopLive(){ if(liveT) clearInterval(liveT); liveT = 0; }
 document.addEventListener("visibilitychange", function(){ if(SIGNED && document.visibilityState === "visible"){ live(); } });
+
+/* ══ ACTIVITY: everything, as it happens ══
+   Every visitor's steps, every sale, every owner's request and everything
+   you or the system changed, on one line of time, newest first. While it
+   is open it asks again every eight seconds and new lines glow once. */
+var AF = [["all","Everything"],["money","Money"],["intent","Intent"],["visits","Arrivals"],["owners","Owners"],["you","You"],["system","System"]];
+var AR = { "1h":"Last hour", today:"Today", "24h":"24 hours", "7d":"7 days" };
+var ACT_TOP = 0;
+function asince(r){ var now = Date.now(); if(r === "1h") return now - 3600000; if(r === "7d") return now - 7 * 86400000; if(r === "24h") return now - 86400000;
+  var d = new Date(now + 19800000); d.setUTCHours(0, 0, 0, 0); return d.getTime() - 19800000; }
+function aparams(){ return { r: AR[PARAMS.r] ? PARAMS.r : "today", f: PARAMS.f || "all" }; }
+LOAD.activity = function(put){
+  var p = aparams();
+  api("GET", "/control/api/activity?since=" + asince(p.r) + "&f=" + p.f).then(function(j){
+    if(!j.ok){ put(failed(j)); return; }
+    DATA.activity = j; ACT_TOP = j.rows.length ? j.rows[0].t : Date.now(); put(RENDER.activity(j, 0));
+  });
+};
+function akind(x){
+  if(x.src === "you") return "you"; if(x.src === "owners") return "own"; if(x.src === "system") return "sys";
+  if(x.e === "paid") return "paid";
+  if(/^(checkout|details|pay_failed|pay_closed|details_closed)$/.test(x.e)) return "money";
+  if(/^(number|dial|early_dial|caseback_view|gift|deeplink|ctx_cta|list)$/.test(x.e)) return "intent";
+  if(x.e === "visit") return "arrive";
+  return "browse";
+}
+function clock(t){ return new Date(t).toLocaleTimeString("en-IN", { timeZone:"Asia/Kolkata", hour:"numeric", minute:"2-digit" }); }
+function dayName(t){ return new Date(t).toLocaleDateString("en-IN", { timeZone:"Asia/Kolkata", weekday:"long", day:"numeric", month:"short" }); }
+function arow(x, fresh){
+  var k = akind(x), who = "";
+  if(x.src === "visitor") who = "<b>" + (x.name ? esc(x.name) : "Visitor " + x.k) + "</b>" + (x.name ? " \u00b7 V" + x.k : "") + " \u00b7 " + esc(cleanSrc(x.from || "")) + (x.place ? " \u00b7 " + esc(x.place) : "") + (x.dev ? " \u00b7 " + esc(x.dev) : "") + (x.hot ? " \u00b7 hot " + x.score : "");
+  else who = x.src === "you" ? "You" : x.src === "owners" ? "An owner" : "The system";
+  var tag = x.src === "visitor" && x.k ? 'button class="arow k-' + k + (x.hot ? " hot" : "") + (fresh ? " fresh" : "") + '" data-act="visitor" data-k="' + x.k + '"' : 'div class="arow k-' + k + (fresh ? " fresh" : "") + '"';
+  return "<" + tag + '><span class="at">' + clock(x.t) + '</span><span><div class="tx">' + esc(x.txt) + '</div><div class="m">' + who + "</div></span></" + tag.split(" ")[0] + ">";
+}
+function alist(rows, top){
+  if(!rows.length) return '<div class="card empty">Nothing yet in this window. It fills as people arrive.</div>';
+  var h = "", day = "";
+  rows.forEach(function(x){ var d = dayName(x.t); if(d !== day){ day = d; h += '<p class="aday">' + esc(d) + "</p>"; } h += arow(x, top && x.t > top); });
+  return '<div class="alist">' + h + "</div>";
+}
+RENDER.activity = function(j, top){
+  var p = aparams(), rows = j.rows || [], c = { arrive:0, intent:0, money:0, paid:0 }, people = {};
+  rows.forEach(function(x){ var k = akind(x); if(c[k] != null) c[k]++; if(x.k) people[x.k] = 1; });
+  var seg = Object.keys(AR).map(function(k){ return '<button data-go="activity" data-p="r=' + k + "&f=" + p.f + '" aria-pressed="' + (p.r === k) + '">' + AR[k] + "</button>"; }).join("");
+  var chips = AF.map(function(a){ return '<button class="chip" data-go="activity" data-p="r=' + p.r + "&f=" + a[0] + '" aria-pressed="' + (p.f === a[0]) + '">' + a[1] + "</button>"; }).join("");
+  return '<div class="row between"><div class="seg" role="group" aria-label="Window">' + seg + '</div><span class="live small"><span class="dot on"></span>Live \u00b7 every 8 seconds</span></div>' +
+    '<div class="chips" style="margin-top:10px">' + chips + "</div>" +
+    '<div class="astat"><span><b>' + Object.keys(people).length + "</b> " + (Object.keys(people).length === 1 ? "person" : "people") + "</span><span><b>" + c.arrive + "</b> arrivals</span><span><b>" + c.intent + "</b> chose or turned over a watch</span><span><b>" + c.money + "</b> at checkout</span><span><b>" + c.paid + '</b> paid</span></div>' +
+    '<div id="alist">' + alist(rows, top) + "</div>" + (rows.length >= 300 ? '<p class="note">The latest 300 lines. Narrow it with the filters above.</p>' : "");
+};
+setInterval(function(){
+  if(VIEW !== "activity" || !SIGNED || document.visibilityState !== "visible" || !$("sheet").hidden) return;
+  var p = aparams();
+  api("GET", "/control/api/activity?since=" + asince(p.r) + "&f=" + p.f).then(function(j){
+    if(!j.ok || VIEW !== "activity") return;
+    var top = ACT_TOP; DATA.activity = j; ACT_TOP = j.rows.length ? j.rows[0].t : ACT_TOP;
+    if(ACT_TOP > top){ var v = $("view"); if(v) v.innerHTML = RENDER.activity(j, top); }
+  });
+}, 8000);
 
 /* ══ ORDERS ══ */
 var NAMES = { inspected:"Inspected", packed:"Packed", dispatched:"Dispatched", delivered:"Delivered" };
@@ -995,9 +1098,29 @@ RENDER.pieces = function(j){
       '<div class="m">' + (interest[p.number] ? plural(interest[p.number], "visitor") + " interested" : "No recorded interest yet") + (p.notes ? " · " + esc(p.notes.slice(0, 60)) : "") + "</div></button>";
   }).join("") + "</div>";
 };
+/* On sale, or kept back: one tap, and the registry, the live page and the
+   site's own file (with what answer engines read) all change together. */
+function saleBox(p){
+  var sold = ["placed","delivered","registered"].indexOf(p.status) > -1;
+  if(sold) return '<div class="saleBox"><div class="big">Sold, with an order</div><p class="muted small" style="margin:6px 0 0">To sell it again, refund it or mark it returned in Orders first.</p></div>';
+  var on = p.status === "available" || p.status === "held";
+  return '<div class="saleBox"><div class="row between"><div><div class="big">' + (on ? "On sale" : p.status === "withheld" ? "Kept back" : esc(p.status.replace("_", " "))) + '</div><p class="muted small" style="margin:4px 0 0">' +
+    (on ? "Shown as open on the shop. Anyone can buy it." : "Shown as gone on the shop. Nobody can buy it.") + "</p></div>" +
+    (on ? '<button class="btn warn" data-act="sale" data-n="' + p.number + '" data-v="0">Keep it back</button>' : '<button class="btn go" data-act="sale" data-n="' + p.number + '" data-v="1">Put it on sale</button>') +
+    '</div><p class="note" style="margin-bottom:0">Changes the shop within seconds, and the site file, llms.txt and edition.json in one commit within a minute.</p></div>';
+}
+function saleGo(n, on, why){
+  api("POST", "/control/api/pieces/" + n + "/sale", { on: on, reason: why || "" }).then(function(j){
+    if(!j.ok){ say(j.why || "Not changed.", true); return; }
+    closeSheet();
+    var site = j.site === "ok" || j.site === "already" ? " The site file is updated too." : j.site === "skipped" ? " (Staging: the live site is untouched.)" : " The site file could not be written just now; the shop already shows it. Tap again later to retry the file.";
+    say("No. " + pad(n) + (on ? " is on sale." : " is kept back.") + site, !(j.site === "ok" || j.site === "already" || j.site === "skipped"));
+    if(VIEW === "pieces" || VIEW === "today") load();
+  });
+}
 function pieceSheet(id){
   var p = DATA.pieces.pieces.filter(function(x){ return x.id === id; })[0];
-  sheet("No. " + pad(p.number) + " · " + p.colorway,
+  sheet("No. " + pad(p.number) + " · " + p.colorway, saleBox(p) +
     (p.photo_url ? '<img src="' + esc(p.photo_url) + '" alt="No. ' + pad(p.number) + '" style="width:100%;max-width:360px;border-radius:10px">' : '<p class="muted">No photograph of this piece yet.</p>') +
     '<label for="ph">Photograph of this exact watch (JPEG, PNG or WebP, up to 3 MB)</label><input id="ph" type="file" accept="image/jpeg,image/png,image/webp">' +
     '<div class="row" style="margin-top:8px"><button class="btn" data-act="photo" data-id="' + esc(id) + '">Upload</button></div>' +
@@ -1050,7 +1173,8 @@ RENDER.emails = function(j){
 LOAD.settings = function(put){ both(api("GET", "/control/api/settings"), api("GET", "/control/api/sessions"), function(j, ss){ if(!j.ok){ put(failed(j)); return; } put(RENDER.settings(j, ss.ok ? ss.sessions : [])); }); };
 RENDER.settings = function(j, sessions){
   var s = j.settings, se = j.series[0] || {};
-  return "<h2>Security</h2>" + '<div class="card"><p style="margin:0 0 10px">This command centre opens with the passcode, for thirty days on each device. A sign-in on a device it has not seen before emails you. Change the passcode in GitHub, Settings, Secrets and variables, Actions, DESK_PASSCODE; it takes effect with the next deploy.</p>' +
+  return '<h2>Phone alerts</h2><div class="card" id="pushCard"><p class="muted small" style="margin:0">Checking this device\u2026</p></div>' +
+    "<h2>Security</h2>" + '<div class="card"><p style="margin:0 0 10px">This command centre opens with the passcode, for thirty days on each device. A sign-in on a device it has not seen before emails you. Change the passcode in GitHub, Settings, Secrets and variables, Actions, DESK_PASSCODE; it takes effect with the next deploy.</p>' +
     (sessions.length ? '<div class="card tight" style="margin:10px 0"><table><tr><th>Signed in</th><th>Device</th><th class="n">Until</th></tr>' + sessions.map(function(x){ return "<tr><td>" + esc(when(x.since)) + "</td><td>" + esc(x.device) + (x.here ? ' <span class="pill ok">this one</span>' : "") + '</td><td class="n">' + esc(when(x.until)) + "</td></tr>"; }).join("") + "</table></div>" : "") +
     '<button class="btn warn" data-act="revokeAll">Sign out every device</button></div>' +
     "<h2>The shop</h2>" + '<div class="card"><div class="check"><input type="checkbox" id="s1"' + (s.stage_emails === "1" ? " checked" : "") + '><label for="s1">Every stage change emails the buyer</label></div>' +
@@ -1064,6 +1188,51 @@ RENDER.settings = function(j, sessions){
     '<div class="card"><div class="grid g2"><div><label for="b1">Email</label><input id="b1" type="email"></div><div><label for="b2">Phone</label><input id="b2" inputmode="tel"></div></div><label for="b3">Reason</label><input id="b3"><p class="err" id="blkErr"></p><button class="btn" data-act="block">Block</button></div>';
 };
 
+/* Phone alerts: this device's subscription, the kinds, a test. */
+var PUSH = null;
+function b64uToU8(x){ x = String(x).replace(/-/g, "+").replace(/_/g, "/"); while(x.length % 4) x += "="; var b = atob(x), u = new Uint8Array(b.length); for(var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+function pushSupport(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function mySub(){ if(!pushSupport()) return Promise.resolve(null); return navigator.serviceWorker.getRegistration("/control").then(function(r){ return r ? r.pushManager.getSubscription() : null; }).catch(function(){ return null; }); }
+AFTER.settings = function(){
+  api("GET", "/control/api/push/state").then(function(j){
+    if(!j.ok){ var c0 = $("pushCard"); if(c0) c0.innerHTML = '<p class="muted small" style="margin:0">' + esc(j.why || "Alerts could not be read.") + "</p>"; return; }
+    PUSH = j;
+    mySub().then(function(sub){
+      var c = $("pushCard"); if(!c) return;
+      var on = !!(sub && j.endpoints.indexOf(sub.endpoint) > -1), h = "";
+      if(on) h += '<div class="row between"><div><b style="color:var(--ok)">On, on this device</b><p class="muted small" style="margin:2px 0 0">A sale arrives within seconds, even with this closed.</p></div><div class="row"><button class="btn sm" data-act="pushTest">Send a test</button><button class="btn sm ghost" data-act="pushOff" data-e="' + esc(sub.endpoint) + '">Turn off here</button></div></div>';
+      else if(!pushSupport() && isIOS()) h += '<p style="margin:0"><b>On iPhone, three taps first.</b> In Safari: Share, then Add to Home Screen. Open KAAL from the Home Screen, sign in, and come back here.</p>';
+      else if(!pushSupport()) h += '<p class="muted" style="margin:0">This browser cannot show alerts. Chrome on Android, or Safari from the Home Screen on iPhone, can.</p>';
+      else h += '<div class="row between"><div><b>Off on this device</b><p class="muted small" style="margin:2px 0 0">Turn it on to hear of every sale the moment it is paid.</p></div><button class="btn go" data-act="pushOn">Turn on phone alerts</button></div>';
+      h += '<div style="margin-top:12px">' + Object.keys(j.kinds).map(function(k){ return '<div class="check"><input type="checkbox" class="pk" id="pk_' + k + '" data-k="' + k + '"' + (j.prefs[k] ? " checked" : "") + (k === "sale" ? " disabled" : "") + '><label for="pk_' + k + '">' + esc(j.kinds[k]) + (k === "sale" ? " (always)" : "") + "</label></div>"; }).join("") + "</div>";
+      if(j.devices.length) h += '<p class="note" style="margin-bottom:0">' + plural(j.devices.length, "device") + " receive alerts: " + j.devices.map(function(d){ return esc(d.device || "a browser"); }).join(", ") + ".</p>";
+      c.innerHTML = h;
+      Array.prototype.forEach.call(c.querySelectorAll(".pk"), function(x){ x.addEventListener("change", function(){
+        var prefs = {}; Array.prototype.forEach.call(c.querySelectorAll(".pk"), function(y){ prefs[y.getAttribute("data-k")] = y.checked; });
+        api("POST", "/control/api/push/prefs", { prefs: prefs }).then(function(r){ say(r.ok ? "Saved." : "Not saved.", !r.ok); });
+      }); });
+    });
+  });
+};
+function pushOn(){
+  if(!pushSupport()){ say(isIOS() && !standalone() ? "On iPhone: Share, Add to Home Screen, open KAAL from there, then turn alerts on." : "This browser cannot show alerts.", true); return; }
+  if(!PUSH || !PUSH.key){ say("Reload this screen and try again.", true); return; }
+  Notification.requestPermission().then(function(perm){
+    if(perm !== "granted"){ say("Alerts are blocked for this site. Allow notifications in the browser's site settings, then try again.", true); return null; }
+    return navigator.serviceWorker.register("/control/sw.js", { scope:"/control" }).then(function(){ return navigator.serviceWorker.ready; }).then(function(reg){
+      return reg.pushManager.getSubscription().then(function(old){ return old || reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64uToU8(PUSH.key) }); });
+    }).then(function(sub){ return api("POST", "/control/api/push/subscribe", { sub: sub.toJSON() }); }).then(function(j){
+      if(!j.ok){ say(j.why || "Not turned on.", true); return; }
+      say("Phone alerts are on. Sending a test\u2026"); api("POST", "/control/api/push/test", {}); load();
+    });
+  }).catch(function(e){ say("Could not turn alerts on: " + ((e && e.message) || "the browser refused"), true); });
+}
+function pushOff(endpoint){
+  mySub().then(function(sub){ if(sub) sub.unsubscribe().catch(function(){}); return api("POST", "/control/api/push/unsubscribe", { endpoint: endpoint }); }).then(function(){ say("Alerts are off on this device."); load(); });
+}
+
 LOAD.audit = function(put){ api("GET", "/control/api/audit").then(function(j){ if(!j.ok){ put(failed(j)); return; } put(RENDER.audit(j)); }); };
 RENDER.audit = function(j){
   return '<div class="card"><h3>Export</h3><div class="oact"><a class="btn sm" href="/control/api/export/orders.csv">Orders</a><a class="btn sm" href="/control/api/export/owners.csv">Owners</a><a class="btn sm" href="/control/api/export/pieces.csv">Pieces</a><a class="btn sm" href="/desk/orders.csv">Razorpay orders, with addresses</a><a class="btn sm" href="/desk/visitors.csv?r=90d">Visitors</a><a class="btn sm" href="/desk/leads.csv">Series 02 list</a><a class="btn sm go" href="/control/api/backup">Backup now</a></div></div>' +
@@ -1074,6 +1243,65 @@ LOAD.health = function(put){ both(api("GET", "/control/api/overview"), api("GET"
   ((ov.ok && ov.health) || []).concat((dk.ok && dk.health) || []).forEach(function(h){ if(!seen[h.label]){ seen[h.label] = 1; all.push(h); } });
   if(!all.length){ put(failed(ov)); return; }
   put('<div class="card tight list">' + all.map(function(h){ return '<div class="lrow"><div class="t"><b>' + esc(h.label) + '</b><span class="pill ' + (h.ok ? "ok" : "bad") + '">' + (h.ok ? "ok" : "check") + '</span></div><div class="m">' + esc(h.detail) + "</div></div>"; }).join("") + "</div>"); }); };
+
+/* ══ THE COMMAND BAR: say it in words ══
+   "Put 9 on sale", "keep 12 back", "show hot leads", "visitor 14", "how
+   many are left". Words that change something are read back for a yes
+   first; nothing changes until you press Do it. */
+var CMD = null;
+var CMD_EX = ["Put No. 09 on sale", "Keep No. 12 back", "How many are left?", "Show hot leads", "Who is on the site?", "Orders to ship", "Visitor 1", "Turn on phone alerts"];
+function cmdSheet(){
+  CMD = null;
+  sheet("Tell it what to do", '<label for="cmdIn">In your own words</label><input id="cmdIn" autocomplete="off" placeholder="e.g. put 9 back on sale">' +
+    '<div class="cmdex">' + CMD_EX.map(function(x){ return '<button type="button" data-act="cmdEx">' + esc(x) + "</button>"; }).join("") + '</div><div id="cmdOut" style="margin-top:14px"></div>');
+  setTimeout(function(){ var i = $("cmdIn"); if(i) i.focus(); }, 30);
+  var i = $("cmdIn"); if(i) i.addEventListener("input", function(){ CMD = null; $("cmdOut").innerHTML = ""; });
+}
+function cmdParse(t){
+  t = String(t || "").toLowerCase().replace(/[\u2019']/g, "").trim();
+  var nm = /(?:no\.?|number|num|#|piece|watch)?\s*(\d{1,2})\b/.exec(t), n = nm ? +nm[1] : 0;
+  var vm = /\b(?:visitor|v)\s*#?(\d{1,6})\b/.exec(t);
+  if(vm) return { go:"visitor", k: +vm[1], say: "Opening visitor " + vm[1] + "." };
+  if(n >= 1 && n <= 20){
+    if(/\b(unsold|not sold|on sale|back on sale|for sale|available|release|relist|re-list|sell it|sell no|reopen|open it|make it open|un-?hold|unhold|free it|list it)\b/.test(t) && !/\b(keep|hold back|withhold|off sale|take .*off)\b/.test(t))
+      return { act:"sale", n:n, on:true, say: "Put No. " + pad(n) + " on sale: the shop shows it open, anyone can buy it, and the site file and llms.txt are updated." };
+    if(/\b(keep|hold|withhold|off sale|take .*off|reserve|not for sale|unavailable|mark .*sold|sold out|remove)\b/.test(t))
+      return { act:"sale", n:n, on:false, say: "Keep No. " + pad(n) + " back: the shop shows it gone and nobody can buy it." };
+    if(/\b(order|ship|dispatch|deliver)/.test(t)) return { go:"orders", say: "Opening orders." };
+    return { go:"piece", n:n, say: "Opening No. " + pad(n) + "." };
+  }
+  if(/\b(left|remain|stock|how many|available)\b/.test(t)) return { ans:"left" };
+  if(/\b(hot|lead)/.test(t)) return { go:"visitors", p:{ f:"hot" }, say:"Opening hot leads." };
+  if(/\b(who is|whos|on the site|live|right now|activity|happening|feed)\b/.test(t)) return { go:"activity", p:{ r:"1h" }, say:"Opening the live activity." };
+  if(/\b(ship|order|dispatch|deliver)/.test(t)) return { go:"orders", say:"Opening orders to ship." };
+  if(/\b(alert|notif|push|phone)/.test(t)) return { go:"settings", say:"Opening Settings: phone alerts are at the top." };
+  if(/\b(claim|warranty|approv|request)/.test(t)) return { go:"approvals", say:"Opening approvals." };
+  if(/\b(source|campaign|ad|insight|where.*from)/.test(t)) return { go:"insights", say:"Opening insights." };
+  if(/\b(owner)/.test(t)) return { go:"owners", say:"Opening owners." };
+  if(/\b(email)/.test(t)) return { go:"emails", say:"Opening emails." };
+  if(/\b(sale|sold|revenue|today|visits|dashboard)/.test(t)) return { go:"today", say:"Opening today." };
+  return null;
+}
+function cmdRun(){
+  var c = cmdParse($("cmdIn").value), o = $("cmdOut");
+  if(!c){ o.innerHTML = '<p class="muted">I did not follow that. Try one of the examples above: a number and what to do with it, or a screen.</p>'; return; }
+  if(c.ans === "left"){
+    var dk = DATA.desk || {}, ov = DATA.overview || {}, sold = dk.sold || [];
+    if(!dk.sold && ov.pieces) sold = ov.pieces.filter(function(p){ return p.state !== "available" && p.state !== "held"; }).map(function(p){ return p.number; });
+    var open = []; for(var i = 1; i <= (dk.edition || 20); i++) if(sold.indexOf(i) < 0) open.push(i);
+    o.innerHTML = '<div class="saleBox"><div class="big">' + open.length + " of " + (dk.edition || 20) + ' are open</div><p class="muted small" style="margin:6px 0 0">' + (open.length ? "Nos. " + open.map(pad).join(", ") : "All twenty are gone.") + "</p></div>"; return;
+  }
+  if(c.act){ CMD = c; o.innerHTML = '<div class="saleBox"><p style="margin:0 0 12px">' + esc(c.say) + '</p><div class="row"><button class="btn go" data-act="cmdGo">Do it</button><button class="btn ghost" data-act="close">Cancel</button></div></div>'; return; }
+  CMD = c; cmdDo();
+}
+function cmdDo(){
+  var c = CMD; if(!c) { cmdRun(); return; } CMD = null;
+  if(c.act === "sale"){ saleGo(c.n, c.on, (c.on ? "put on sale" : "kept back") + " by command: " + String($("cmdIn") ? $("cmdIn").value : "").slice(0, 80)); return; }
+  closeSheet();
+  if(c.go === "visitor"){ openVisitor(c.k); return; }
+  if(c.go === "piece"){ go("pieces"); var tries = 0, t = setInterval(function(){ tries++; if(DATA.pieces && VIEW === "pieces"){ clearInterval(t); pieceSheet("S01-" + pad(c.n)); } else if(tries > 40) clearInterval(t); }, 100); return; }
+  go(c.go, c.p);
+}
 
 /* ══ the sheet ══ */
 var FROM = null;
@@ -1168,6 +1396,15 @@ document.addEventListener("click", function(e){
   else if(a === "refund"){ var nn = el.getAttribute("data-n"), cc = prompt("Refund the full amount through Razorpay? This cannot be undone. Type " + nn + " to confirm."); if(cc === null) return;
     api("POST", "/control/api/orders/" + id + "/refund", { confirm:cc, reason: order(id).status === "returned" ? "return" : "cancel" }).then(function(j){ say(j.ok ? "Refunded: " + j.refund : (j.why || "Not refunded."), !j.ok); load(); }); }
   else if(a === "piece") pieceSheet(el.getAttribute("data-id"));
+  else if(a === "sale"){ var sn = +el.getAttribute("data-n"), son = el.getAttribute("data-v") === "1";
+    if(!son && !confirm("Keep No. " + pad(sn) + " back? The shop will show it as gone and nobody can buy it.")) return;
+    saleGo(sn, son, son ? "put on sale from the command centre" : "kept back from the command centre"); }
+  else if(a === "cmd") cmdSheet();
+  else if(a === "cmdEx"){ $("cmdIn").value = el.textContent; cmdRun(); }
+  else if(a === "cmdGo") cmdDo();
+  else if(a === "pushOn") pushOn();
+  else if(a === "pushOff") pushOff(el.getAttribute("data-e"));
+  else if(a === "pushTest") api("POST", "/control/api/push/test", {}).then(function(j){ say(j.ok ? "Sent to " + plural(j.sent, "device") + ". It should arrive in a few seconds." : (j.why || "Not sent."), !j.ok); });
   else if(a === "photo"){ var f = $("ph").files[0]; if(!f){ $("sheetErr").textContent = "Choose a photograph first."; return; }
     api("POST", "/control/api/pieces/" + el.getAttribute("data-id") + "/photo", undefined, f).then(function(j){ if(j.ok){ closeSheet(); say("Photograph saved."); load(); } else $("sheetErr").textContent = j.why || "Not saved."; }); }
   else if(a === "pieceSave"){ var pid = el.getAttribute("data-id"), p0 = DATA.pieces.pieces.filter(function(x){ return x.id === pid; })[0], b = { colorway:$("pc").value, notes:$("pn").value };
@@ -1194,12 +1431,15 @@ $("sheet").addEventListener("click", function(e){ if(e.target === $("sheet")) cl
 document.addEventListener("keydown", function(e){
   var typing = /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || "");
   if(e.key === "Escape"){ if(!$("sheet").hidden) closeSheet(); else undo(); return; }
+  if(SIGNED && (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")){ e.preventDefault(); cmdSheet(); return; }
+  if(typing && e.key === "Enter" && e.target && e.target.id === "cmdIn"){ e.preventDefault(); if(CMD) cmdDo(); else cmdRun(); return; }
   if(typing || !SIGNED || e.metaKey || e.ctrlKey || e.altKey) return;
   var v = KEYS[+e.key - 1];
   if(v){ go(v); return; }
   if(e.key === "u") undo();
   else if(e.key === "r"){ load(); live(); }
   else if(e.key === "?") shortcuts();
+  else if(e.key === "k"){ e.preventDefault(); cmdSheet(); }
   else if(e.key === "/"){ var q = $("vq") || $("oq"); if(q){ e.preventDefault(); q.focus(); } else { e.preventDefault(); go("visitors", { f:"all" }); } }
 });
 

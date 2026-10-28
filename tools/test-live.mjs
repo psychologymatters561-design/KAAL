@@ -19,7 +19,7 @@ KV.store.set("sold", "[1,2,7,9,10]");
 KV.store.set("sent:order_I10", JSON.stringify({ at: "2026-10-21T09:00:00.000Z", courier: "Delhivery", tracking: "DL10", url: "https://www.delhivery.com/track/package/DL10" }));
 KV.store.set("ship:order_I07", JSON.stringify({ src: "checkout", name: "Rahul Sharma", line1: "1 Road", city: "Delhi", state: "Delhi", pin: "110001", buyer: { name: "Rahul Sharma", email: "rahul@example.com", phone: "+919800000007" } }));
 const env = {
-  DB, KAAL_STATE: KV, EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN, REGISTRY: "on",
+  DB, KAAL_STATE: KV, EDITION: "20", OWNER_OPS: "off", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN, REGISTRY: "on",
   ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp_live_x", RAZORPAY_KEY_SECRET: "sek", RESEND_API_KEY: "re", OWNER_EMAIL: "arjun@example.com",
   AUTH_SECRET: "b".repeat(48), GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r"
 };

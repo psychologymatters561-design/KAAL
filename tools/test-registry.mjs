@@ -96,7 +96,7 @@ function world(extra) {
   let refundStatus = 200, file = "var KAAL = {\n  sold:     [1, 2],\n};";
   KV.store.set("sold", "[1,2]");
   const env = Object.assign({
-    DB, KAAL_STATE: KV, EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", ALLOW_ORIGIN: "https://thekaal.co", SITE_URL: "https://thekaal.co",
+    DB, KAAL_STATE: KV, EDITION: "20", OWNER_OPS: "off", PRICE_PAISE: "599900", CURRENCY: "INR", ALLOW_ORIGIN: "https://thekaal.co", SITE_URL: "https://thekaal.co",
     RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "wh", RESEND_API_KEY: "re", OWNER_EMAIL: "owner@thekaal.co",
     GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", META_PIXEL: "1607748840888926", META_CAPI_TOKEN: "tok",
     DIALS: JSON.stringify({ 7: "Midnight", 9: "Midnight" })

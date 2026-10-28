@@ -33,7 +33,7 @@ function ctx() { const jobs = []; return { jobs, waitUntil: p => jobs.push(p), d
 const KV = kv();
 const DIALS = JSON.stringify({ "3": "Emerald", "9": "Midnight" });
 const env = {
-  KAAL_STATE: KV, EDITION: "20", ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp", RAZORPAY_KEY_SECRET: "sek",
+  KAAL_STATE: KV, EDITION: "20", OWNER_OPS: "off", ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp", RAZORPAY_KEY_SECRET: "sek",
   RESEND_API_KEY: "re", OWNER_EMAIL: "owner@thekaal.co, me@example.org", SITE_URL: "https://thekaal.co", DIALS,
   RAZORPAY_WEBHOOK_SECRET: "wh", GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", PRICE_PAISE: "599900",
   FOLLOW_GAP_MS: "0"

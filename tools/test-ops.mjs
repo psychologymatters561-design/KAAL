@@ -22,7 +22,7 @@ function world(extra, mock) {
   const DB = d1(), KV = kv(), mails = [];
   KV.store.set("sold", "[1,2]");
   const env = Object.assign({
-    DB, KAAL_STATE: KV, EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", ALLOW_ORIGIN: SITE, SITE_URL: SITE, WORKER_URL: WORKER,
+    DB, KAAL_STATE: KV, EDITION: "20", OWNER_OPS: "off", PRICE_PAISE: "599900", CURRENCY: "INR", ALLOW_ORIGIN: SITE, SITE_URL: SITE, WORKER_URL: WORKER,
     RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "wh", RESEND_API_KEY: "re", OWNER_EMAIL: "owner@thekaal.co",
     ADMIN_EMAIL: "admin@thekaal.co", AUTH_SECRET: "a".repeat(48), SHIPROCKET_TOKEN: "shiprocket-secret-token",
     GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", DIALS: JSON.stringify({ 7: "Midnight", 8: "Midnight" })

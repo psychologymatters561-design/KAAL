@@ -51,9 +51,40 @@ thekaal.co/owners opens only your piece's dossier.
 
 ## Each screen of the command centre
 
-On a phone the bar along the bottom holds Today, Orders, Visitors, Insights
+On a phone the bar along the bottom holds Today, Orders, Visitors, Activity
 and More (everything else). On a computer the same screens are down the left.
-Keys: 1 to 9 open screens, / searches, r refreshes, u undoes, ? lists them.
+Keys: 1 to 9 open screens, k (or Ctrl/Cmd K) opens the command bar, / searches,
+r refreshes, u undoes, ? lists them.
+
+**Tell it what to do** (the ⌘ button at the top, or k). Type it in your own
+words: "put 9 on sale", "keep 12 back", "mark 9 unsold", "how many are
+left", "show hot leads", "who is on the site", "visitor 14", "orders to ship".
+Anything that changes the shop is read back to you first, and happens only
+when you press **Do it**. Putting a number on sale or keeping it back changes
+three things at once: the registry (what checkout obeys), the live shop page
+(within seconds) and the site's own file with llms.txt and edition.json (one
+commit, within a minute). A number with a paid order cannot be put back on
+sale from here: refund it or mark it returned first. The same switch is at
+the top of each number in **The twenty**.
+
+**Activity, live.** Everything as it happens, newest first, on one line of
+time: every visitor's arrival and step (with their first name once they gave
+it, where they came from, the city, the phone), every checkout and payment,
+every owner's registration or request, and every change you or the system
+made. Last hour, Today, 24 hours or 7 days; filter to Money, Intent,
+Arrivals, Owners, You or System. It asks again every eight seconds while it is
+open and new lines glow once. Tap a visitor's line for their whole history.
+
+**Phone alerts** (Settings, at the top). One tap on **Turn on phone alerts**
+and every sale reaches your phone within seconds, even with the command
+centre closed: "Sold: No. 07 · ₹5,999". You can also be told when someone
+opens the checkout (once per person in twenty minutes), when an owner
+registers or asks for something, and when something is wrong; switch any of
+those off there. Android and computers: Chrome, Edge or Firefox, just tap.
+iPhone (iOS 16.4 or later): in Safari open the command centre, tap Share,
+**Add to Home Screen**, open KAAL from the Home Screen, sign in with the
+passcode, then Settings, Turn on phone alerts. The messages are encrypted to
+your phone; nobody in between can read them.
 
 **Today.** A live sales dashboard. Choose **Today, 7 days, 30 days or 90
 days** at the top (it remembers your choice). Six numbers for that period,
@@ -178,6 +209,11 @@ owners and pieces; **Backup now**.
   failed.
 - **A buyer says they got no email.** Emails screen: sent, or failed with a
   reason. Resend only needs its sending domain verified at Resend.
+- **A sale is not showing as paid.** Since 28 Oct 2026 the sale is recorded
+  (registry, live shop, Activity, the buyer's history, your phone) before the
+  site file is written, so a slow GitHub can no longer drop it; a file that
+  failed is written by the half-hourly repair run. Activity, Money shows every
+  payment as it lands.
 - **A buyer paid and the watch is not in Orders.** The daily check against
   Razorpay brings it in within a day and emails you; or Overview, "Bring in
   paid orders from Razorpay".

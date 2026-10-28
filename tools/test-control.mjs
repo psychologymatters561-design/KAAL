@@ -19,7 +19,7 @@ const DB = d1(), KV = kv(), mails = [], refunds = [], ghPuts = [];
 let mailOk = true;
 const ORIGIN = "https://kaal-edition-staging.kaal-edition-hq.workers.dev";
 const env = {
-  DB, KAAL_STATE: KV, STAGING: "", EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN,
+  DB, KAAL_STATE: KV, STAGING: "", EDITION: "20", OWNER_OPS: "off", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN,
   ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp_test_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "wh", RESEND_API_KEY: "re",
   OWNER_EMAIL: "Arjun@Example.com, other@example.com", ADMIN_2FA: "on", AUTH_SECRET: "a".repeat(48), GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r"
 };

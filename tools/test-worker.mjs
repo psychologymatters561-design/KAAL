@@ -743,6 +743,22 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   const e4 = await (await go("/desk/visitors?r=90d&src=instagram", { headers: jar })).json();
   ok(d.total === 1 && e2.total === 1 && e3.total === 1 && e4.total === 1 && e4.rows[0].k === 1, "intel: the visitor list narrows to hot leads, one campaign, one city, one source");
 
+  /* The Today dashboard: a period against the one before, once per visit where the page says so. */
+  const cnt = (c) => go("/e", { method: "POST", headers: { Origin: "https://thekaal.co", "User-Agent": IPHONE, "Content-Type": "text/plain" }, body: JSON.stringify({ c }) });
+  await cnt({ visit: 1, visitor: 1, view: 3, s_view: 1, number: 4, s_number: 1, checkout: 2, s_checkout: 1, details: 1, s_details: 1 });
+  await cnt({ visit: 1, visitor: 1, view: 1, s_view: 1 });
+  const dayNow = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const yday = new Date(Date.now() + 5.5 * 3600000 - 86400000).toISOString().slice(0, 10);
+  await so.fetch(new Request("https://stats/add", { method: "POST", body: JSON.stringify({ day: yday, add: { visit: 5, visitor: 4, number: 3, checkout: 1 } }) }));
+  let sm = await (await go("/desk/summary?r=today", { headers: jar })).json();
+  ok(sm.ok && sm.n === 1 && sm.totals.visits === 2 && sm.totals.visitors === 2 && sm.totals.twenty === 2 && sm.totals.cart === 1 && sm.totals.checkout === 1 && sm.totals.details === 1,
+    "dashboard: today's visits, and add to cart counted once per visit, not per tap (" + JSON.stringify(sm.totals) + ")");
+  ok(sm.prev.visits === 5 && sm.prev.cart === 3 && sm.days.length === 14 && sm.days[13].day === dayNow, "dashboard: today against yesterday (whose older count is per tap), with a fortnight to chart");
+  sm = await (await go("/desk/summary?r=7d", { headers: jar })).json();
+  const sm90 = await (await go("/desk/summary?r=90d", { headers: jar })).json();
+  ok(sm.n === 7 && sm.days.length === 7 && sm.totals.visits === 7 && sm.prevTo < sm.from && sm90.n === 90 && sm90.days.length === 90 && sm90.totals.visits === 7,
+    "dashboard: 7 and 90 days, each against the period before it");
+  ok((await go("/desk/summary?r=today")).status === 401, "dashboard: nothing without the sign-in");
   await go("/desk/forget", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, jar), body: JSON.stringify({ k: ad.k }) });
 
   /* Deleted on request, and after ninety days. */

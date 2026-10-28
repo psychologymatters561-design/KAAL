@@ -1890,7 +1890,9 @@ async function sendEmail(env, to, subject, text, html, replyToOverride, headers)
 
 const IST_MS = 5.5 * 3600 * 1000;
 const COUNTED = new Set(["visit", "visitor", "hero", "hero_complete", "early_dial", "ctx_cta", "view", "dial",
-  "number", "caseback_view", "gift", "checkout", "details", "list", "film", "provenance_click", "deeplink"]);
+  "number", "caseback_view", "gift", "checkout", "details", "list", "film", "provenance_click", "deeplink",
+  /* Once per visit, however many times it happened in it: the Today dashboard's funnel. */
+  "s_view", "s_number", "s_checkout", "s_details"]);
 
 /* "2026-10-06": the calendar day in India for a moment in time. */
 function istDay(ms) { return new Date(ms + IST_MS).toISOString().slice(0, 10); }
@@ -2146,9 +2148,13 @@ export class Stats {
       return new Response("ok");
     }
     if (url.pathname === "/get") {
-      const days = (q.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 31);
+      const days = (q.get("days") || "").split(",").filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 184);
       const res = {};
-      for (const d of days) res[d] = (await this.state.storage.get("d:" + d)) || {};
+      /* Up to 128 keys a read (a Durable Object's limit); one at a time where a store cannot. */
+      for (let i = 0; i < days.length; i += 128) {
+        const part = days.slice(i, i + 128), got = await this.state.storage.get(part.map(d => "d:" + d));
+        for (const d of part) res[d] = (got instanceof Map ? got.get("d:" + d) : await this.state.storage.get("d:" + d)) || {};
+      }
       return out(res);
     }
     if (url.pathname === "/live") return out(await this.liveView());
@@ -2803,6 +2809,7 @@ async function desk(request, env, ctx, path) {
   }
   if (path === "/desk/data" && method === "GET") return deskJson(await deskData(env));
   if (path === "/desk/live" && method === "GET") return deskJson(await deskLive(env));
+  if (path === "/desk/summary" && method === "GET") return deskJson(await deskSummary(env, new URL(request.url).searchParams.get("r") || "today"));
   if (path === "/desk/visitors" && method === "GET") return deskJson(await deskVisitors(env, new URL(request.url).searchParams));
   if (path === "/desk/insights" && method === "GET") {
     const r = new URL(request.url).searchParams.get("r") || "30d";
@@ -3033,6 +3040,51 @@ async function deskVisitorsCsv(env, q, everyStep) {
     }
   }
   return csv(out, "kaal-every-step-" + r);
+}
+
+/* ── The Today dashboard: a period (today, 7, 30 or 90 days in India) and
+   the same length before it, day by day. Visits and the steps toward a sale
+   from the daily count (once per visit where the page sends it, the older
+   per-action count on days before it did); orders and revenue from the
+   registry, or Razorpay's own list where there is no registry. ── */
+const PERIODS = { today: 1, "7d": 7, "30d": 30, "90d": 90 };
+async function ordersByDay(env, fromDay, nowMs) {
+  const by = {};
+  if (registryOn(env)) {
+    const since = new Date(Date.parse(fromDay + "T00:00:00Z") - IST_MS).toISOString();
+    const r = await env.DB.prepare(
+      `SELECT substr(datetime(paid_at, '+330 minutes'), 1, 10) AS d, COUNT(*) AS n,
+              SUM(CASE WHEN refund_id IS NULL AND status NOT IN ('returned') THEN amount_paise ELSE 0 END) AS paise,
+              SUM(CASE WHEN refund_id IS NOT NULL OR status = 'returned' THEN 1 ELSE 0 END) AS back
+         FROM orders WHERE paid_at >= ?1 AND status <> 'cancelled' GROUP BY d`).bind(since).all();
+    for (const x of r.results || []) by[x.d] = { n: x.n || 0, paise: x.paise || 0, back: x.back || 0 };
+    return by;
+  }
+  const L = await ledger(env, nowMs);
+  for (const o of L.orders || []) {
+    if (!o.day || o.day < fromDay) continue;
+    const t = by[o.day] || (by[o.day] = { n: 0, paise: 0, back: 0 });
+    t.n++; if (o.refund === "full") t.back++; else t.paise += o.paise || 0;
+  }
+  return by;
+}
+async function deskSummary(env, r) {
+  const n = PERIODS[r] || 1, span = Math.max(2 * n, 14), nowMs = Date.now(), all = [];
+  for (let i = span - 1; i >= 0; i--) all.push(istDay(nowMs - i * 86400000));
+  const [counts, orders] = await Promise.all([statsFor(env, all),
+    ordersByDay(env, all[0], nowMs).catch(e => { console.log("Summary orders failed:", String(e).slice(0, 120)); return {}; })]);
+  const row = (day) => {
+    const c = counts[day] || {}, o = orders[day] || {}, once = (k) => c["s_" + k] != null ? c["s_" + k] : c[k] || 0;
+    return { day, visits: c.visit || 0, visitors: c.visitor || 0, twenty: once("view"), cart: once("number"), checkout: once("checkout"),
+      details: once("details"), orders: o.n || 0, paise: o.paise || 0, returned: o.back || 0 };
+  };
+  const rows = all.map(row);
+  const sum = (list) => list.reduce((t, x) => { for (const k of Object.keys(x)) if (k !== "day") t[k] = (t[k] || 0) + x[k]; return t; }, {});
+  const cur = rows.slice(-n), prev = rows.slice(-2 * n, -n);
+  return { ok: true, r: PERIODS[r] ? r : "today", n, today: all[all.length - 1], from: cur[0].day,
+    prevFrom: prev[0].day, prevTo: prev[prev.length - 1].day, totals: sum(cur), prev: sum(prev),
+    /* the chart: the period's days, or for Today the fortnight it ends */
+    days: n === 1 ? rows.slice(-14) : cur, counting: !!env.STATS, orders: registryOn(env) ? "registry" : "razorpay", at: nowMs };
 }
 
 async function deskLive(env) {

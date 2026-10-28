@@ -35,6 +35,15 @@ for (let i = 4; i <= 7; i++) await visit("seedvisitor00" + i, "tagaaaa00" + i, {
 await R.recordPayment(W.env, { series: "S01", n: 7, paymentId: "pay_SEED00007", orderId: "order_SEED00007", amount: 599900, email: "asha@example.com", phone: "9876543210", name: "Asha Rao",
   address: { line1: "1 Road", city: "Pune", state: "Maharashtra", pincode: "411001" }, paidAt: new Date(now - 3 * 3600000).toISOString() }).catch(e => console.log("seed order:", String(e).slice(0, 120)));
 
+/* Thirty days of the shop's daily counts: newer days with the once-a-visit flags. */
+let seeded30 = 0, seededToday = 0;
+for (let i = 0; i < 30; i++) {
+  const day = new Date(now + 5.5 * 3600000 - i * 86400000).toISOString().slice(0, 10), v = 40 + ((i * 37) % 29);
+  const add = i < 10 ? { visit: v, visitor: v - 6, view: Math.round(v * .6), s_view: Math.round(v * .5), number: 14, s_number: 6, checkout: 4, s_checkout: 3, details: 2, s_details: 2 }
+                     : { visit: v, visitor: v - 6, view: Math.round(v * .5), number: 5, checkout: 2, details: 1 };
+  await so.fetch(new Request("https://stats/add", { method: "POST", body: JSON.stringify({ day, add }) }));
+  seeded30 += v; if (i === 0) seededToday = v;
+}
 const B = await open(W);
 const pg = await B.page();
 const URL0 = WORKER + "/control";
@@ -56,11 +65,29 @@ ok(W.mails.some(m => /New sign-in to the KAAL command centre/.test(m.subject)), 
 /* Today */
 await pg.waitForFunction(() => /Hot leads|hot lead/.test(document.getElementById("view").textContent));
 let text = await pg.textContent("#view");
-ok(/Sold/.test(text) && /Visitors today/.test(text) && /Needs you/.test(text) && /Right now/.test(text) && /path to a sale/.test(text), "today: the numbers, what needs you, right now, the path to a sale");
+ok(/Visits/.test(text) && /Add to cart/.test(text) && /Checkouts/.test(text) && /Orders/.test(text) && /Revenue/.test(text) && /Conversion/.test(text) && /Needs you/.test(text) && /Right now/.test(text) && /path to a sale/.test(text),
+  "today: visits, add to cart, checkouts, orders, revenue, conversion; what needs you, right now, the path to a sale");
+const kv = async () => pg.$$eval(".kpis .kpi", (els) => Object.fromEntries(els.map(e => [e.querySelector(".l").textContent, e.querySelector(".v").textContent])));
+let K = await kv();
+ok(K.Visits === String(seededToday) && K["Add to cart"] === "6" && K.Checkouts === "3" && /Yesterday/.test(text) && /The last fourteen days/.test(text) && (await pg.locator(".chart .cday").count()) === 14,
+  "today: today's visits, add to cart counted once per visit, against yesterday, with the fortnight's chart " + JSON.stringify(K));
 ok(/Nos\. 01, 02 sold on the shop, with no order in the registry/.test(text) && /Record a past sale/.test(text), "today: numbers sold on the shop with no registry order are flagged, with the button to record them");
-ok(/4\s*\/ 20\s*Sold\s*16 remain/.test(text), "today: Sold counts what the shop shows (01, 02, the registry's 07, the withheld 09)");
+ok(/4 gone · 16 open/.test(text), "today: the twenty count what the shop shows (01, 02, the registry's 07, the withheld 09)");
 ok(await flat(), "today: nothing wider than a phone");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/1-today-phone.png", fullPage: true });
+await pg.click('[data-act="tset"][data-v="30d"]');
+await pg.waitForFunction(() => /vs previous 30 days/.test(document.getElementById("view").textContent));
+text = await pg.textContent("#view");
+K = await kv();
+ok(K.Visits === seeded30.toLocaleString("en-IN") && K["Add to cart"] === String(10 * 6 + 20 * 5) && (await pg.locator(".chart .cday").count()) === 30 && /#today\?r=30d/.test(pg.url()),
+  "today: 30 days adds up the month (once-a-visit where sent, per tap before), charts it day by day, and the period stays in the address " + JSON.stringify(K));
+ok(await flat(), "today, 30 days: nothing wider than a phone");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/1b-today-30d-phone.png", fullPage: true });
+await pg.click('[data-act="tset"][data-v="7d"]');
+await pg.waitForFunction(() => /vs previous 7 days/.test(document.getElementById("view").textContent));
+ok((await pg.locator(".chart .cday").count()) === 7 && (await pg.locator(".kpis .mini").count()) >= 5, "today: 7 days, with a small trend in each number");
+await pg.click('[data-act="tset"][data-v="today"]');
+await pg.waitForFunction(() => /Yesterday/.test(document.getElementById("view").textContent));
 
 /* Visitors: the hot list, then one visitor */
 await pg.click('.tabs [data-go="visitors"]');
@@ -116,8 +143,8 @@ await pg.keyboard.press("4");
 await pg.waitForFunction(() => /Where they come from/.test(document.getElementById("view").textContent));
 ok((await pg.textContent("#title")) === "Insights", "desktop: 4 opens Insights");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/4-insights-desktop.png", fullPage: true });
-await pg.keyboard.press("1");
-await pg.waitForFunction(() => /Needs you/.test(document.getElementById("view").textContent));
+await pg.goto(URL0 + "#today?r=30d");
+await pg.waitForFunction(() => /vs previous 30 days/.test(document.getElementById("view").textContent));
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/5-today-desktop.png", fullPage: true });
 await pg.setViewportSize({ width: 768, height: 1000 });
 await pg.goto(URL0 + "#visitors?f=all&r=7d");

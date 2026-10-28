@@ -55,16 +55,24 @@ On a phone the bar along the bottom holds Today, Orders, Visitors, Insights
 and More (everything else). On a computer the same screens are down the left.
 Keys: 1 to 9 open screens, / searches, r refreshes, u undoes, ? lists them.
 
-**Today.** Sold out of twenty (as the shop shows it), revenue, visitors today
-against yesterday, the seven day conversion, and the twenty as a strip.
-**Needs you** lists what is yours to do: late orders, courier alerts,
-approvals, failed emails, a refunded number to put back on sale or keep
-retired, a payment with no number, and any number the shop shows as sold
-with no order in the registry (with **Record a past sale** beside it).
-**Right now** shows who is on the site this minute and where on the page,
-every ten seconds. **Hot leads** are this week's visitors closest to buying.
-Then the orders at each stage, today's path to a sale against yesterday, and
-the last seven days.
+**Today.** A live sales dashboard. Choose **Today, 7 days, 30 days or 90
+days** at the top (it remembers your choice). Six numbers for that period,
+each against the same length of time before it (Today against yesterday):
+**Visits** (with how many different visitors), **Add to cart** (visits that
+chose a number), **Checkouts**, **Orders**, **Revenue** (after refunds and
+returns) and **Conversion** (orders per visitor), each with its own small
+day-by-day trend. Below them, visits and orders day by day (Today shows the
+last fourteen days), **The path to a sale** (how many got to each step, and
+how many were lost at it), and **Where they came from** (each source's
+visitors, add to carts, checkouts and sales; tap one to see those visitors).
+The numbers refresh every thirty seconds while it is open; a visit is
+counted as it ends, so the last few minutes arrive with it.
+Then **Needs you** (late orders, courier alerts, approvals, failed emails, a
+refunded number to put back on sale or keep retired, a payment with no
+number, and any number the shop shows as sold with no order in the registry,
+with **Record a past sale** beside it), **Right now** (who is on the site this
+minute and where, every ten seconds), this week's **hot leads**, the twenty
+and the orders waiting at each stage.
 
 **Visitors and leads.** Every visitor of the last ninety days, newest first,
 opening on **Hot leads**. Each carries a score out of 100, from what they did

@@ -102,7 +102,7 @@ import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
 import { sessionOf, authOn, same } from "./auth.js";
-import { houseFacts, houseDeliver, opsPublicKey } from "./house.js";
+import { houseFacts, houseDeliver, opsPublicKey, houseList } from "./house.js";
 import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay, inr } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -1480,7 +1480,7 @@ async function opsRun(request, env) {
       github = r.ok ? (j.permissions && j.permissions.push ? "can write" : "can read only") : `refused (HTTP ${r.status})`;
     } catch (e) { github = "unreachable"; }
   }
-  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], delivered, facts, shopSold: kv, github,
+  return new Response(JSON.stringify({ ok: true, sealed: houseList(env).filter(x => x.box).length, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], delivered, facts, shopSold: kv, github,
     opsKey: env.KAAL_STATE ? await opsPublicKey(env) : null }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }

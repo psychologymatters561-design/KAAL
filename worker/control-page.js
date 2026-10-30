@@ -436,7 +436,7 @@ function api(method, path, body, raw){
     return r.json().catch(function(){ return { ok:false }; }).then(function(j){ j._status = r.status; if(r.status === 401 && j.reason !== "wrong") signedOut(j.reason); return j; });
   }, function(){ return { ok:false, _status:0, why:"Could not reach the server. Check the connection." }; });
 }
-var tt = null;
+var tt = null, WA = "";
 function say(msg, bad){ var t = $("toast"); if(PENDING) return; t.className = "toast" + (bad ? " bad" : ""); t.innerHTML = '<span class="sp">' + esc(msg) + "</span>"; t.hidden = false; clearTimeout(tt); tt = setTimeout(function(){ if(!PENDING) t.hidden = true; }, 3800); }
 function copy(text){
   function fb(){ var a = document.createElement("textarea"); a.value = text; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); try{ document.execCommand("copy"); say("Copied"); }catch(e){ say("Could not copy", true); } document.body.removeChild(a); }
@@ -861,7 +861,8 @@ function orderCard(o){
   var prev = o.next ? '<button class="btn ghost sm" data-act="preview" data-id="' + o.id + '" data-to="' + o.next + '">Preview email</button>' : "";
   var ret = o.returnOpen ? '<button class="btn warn sm" data-act="returned" data-id="' + o.id + '">Mark returned</button>' : "";
   var refund = !o.refund_id && o.status !== "registered" && !/^manual:/.test(o.razorpay_payment_id || "") ? '<button class="btn warn sm" data-act="refund" data-id="' + o.id + '" data-n="' + pad(o.number) + '">Refund</button>' : "";
-  var link = o.status === "delivered" && o.email ? '<button class="btn sm" data-act="link" data-id="' + o.id + '" data-mode="send">Send registration link</button><button class="btn ghost sm" data-act="link" data-id="' + o.id + '" data-mode="regenerate">New link, cancel old</button>' : "";
+  var link = (o.status === "delivered" && o.email ? '<button class="btn sm" data-act="link" data-id="' + o.id + '" data-mode="send">Send registration link</button><button class="btn ghost sm" data-act="link" data-id="' + o.id + '" data-mode="regenerate">New link, cancel old</button>' : "") +
+    (o.status === "delivered" ? '<button class="btn ghost sm" data-act="wa" data-id="' + o.id + '">WhatsApp the link</button>' : "");
   var j = o.razorpay_order_id && dk.journeys && dk.journeys[o.razorpay_order_id];
   var addr = [o.address_line1, o.address_line2, o.city, o.state, o.pincode].filter(Boolean).join(", ");
   return '<div class="card"><div class="ohead"><b>No. ' + pad(o.number) + '</b><span class="muted">' + esc(o.colorway) + '</span><span class="sp"></span><span class="pill' + (o.status === "cancelled" || o.status === "returned" ? " bad" : o.status === "registered" ? " ok" : " gold") + '">' + esc(o.status) + (o.cancel_reason ? " · " + esc(o.cancel_reason) : "") + "</span></div>" +
@@ -902,8 +903,10 @@ function nextStage(id, to){
   }
   if(to === "delivered"){
     sheet("No. " + pad(o.number) + " delivered", '<label for="dd">Delivered on</label><input id="dd" type="date" value="' + esc(DATA.orders.today) + '" max="' + esc(DATA.orders.today) + '">' +
-      '<p class="note">This starts the warranty and the seven day return window. The owner is emailed the registration link at once.</p>' +
-      '<p class="err" id="sheetErr"></p><button class="btn go" style="margin-top:12px" data-act="deliverGo" data-id="' + id + '">Mark delivered</button>');
+      '<p class="note">This starts the warranty and the seven day return window.</p>' +
+      (o.email ? '<p class="note">The moment it saves, <b>' + esc(o.email) + '</b> is sent the letter that asks them to make No. ' + pad(o.number) + ' theirs, with their own registration link. Nothing else to do.</p>'
+        : '<p class="note"><b>This order has no email.</b> After saving, use WhatsApp the link on the order to send it yourself.</p>') +
+      '<p class="err" id="sheetErr"></p><div class="row" style="margin-top:12px"><button class="btn go" data-act="deliverGo" data-id="' + id + '">Mark delivered</button><button class="btn ghost" data-act="preview" data-id="' + id + '" data-to="delivered">Preview the letter</button></div>');
     return;
   }
   hold(id, { to: to }, "No. " + pad(o.number) + " marked " + NAMES[to] + ". The email goes in");
@@ -922,7 +925,7 @@ function commit(keepalive){
   fetch("/control/api/orders/" + p.id + "/stage", { method:"POST", credentials:"same-origin", keepalive: !!keepalive, headers:{ "X-KAAL":"1", "Content-Type":"application/json" }, body: JSON.stringify(p.payload) })
     .then(function(r){ return r.json(); }).then(function(j){
       if(!j.ok){ say(j.why || "That did not save. Nothing was sent.", true); load(); return; }
-      say(j.letter === "queued" ? "Saved. The email is on its way." : "Saved."); load();
+      say(j.letter === "queued" ? (p.payload.to === "delivered" ? "Delivered. The registration letter is on its way." : "Saved. The email is on its way.") : "Saved."); load();
     }).catch(function(){ say("That did not reach the server. Nothing was sent; try again.", true); });
 }
 addEventListener("pagehide", function(){ if(PENDING) commit(true); });
@@ -1484,6 +1487,15 @@ document.addEventListener("click", function(e){
   else if(a === "link"){ var mode = el.getAttribute("data-mode"), o2 = order(id);
     if(mode === "regenerate" && !confirm("Cancel every earlier registration link for No. " + pad(o2.number) + " and email a new one to " + (o2.email || "the buyer") + "?")) return;
     api("POST", "/control/api/orders/" + id + "/link", { mode:mode }).then(function(j){ say(j.ok ? "A registration link is on its way to " + j.to + "." : (j.why || "Not sent."), !j.ok); load(); }); }
+  else if(a === "wa"){ var ow = order(id);
+    api("POST", "/control/api/orders/" + id + "/link", { mode:"whatsapp" }).then(function(j){
+      if(!j.ok){ say(j.why || "No link was made.", true); return; }
+      WA = j.text;
+      sheet("WhatsApp No. " + pad(ow.number), '<p class="note">A fresh registration link, in a message ready to send from KAAL\'s phone. Earlier links keep working.</p>' +
+        '<textarea id="waText" rows="10" readonly style="width:100%">' + esc(j.text) + '</textarea>' +
+        '<div class="row" style="margin-top:12px">' + (j.phone ? '<a class="btn go" target="_blank" rel="noopener" href="https://wa.me/' + esc(j.phone) + '?text=' + esc(encodeURIComponent(j.text)) + '">Open WhatsApp to +' + esc(j.phone) + '</a>' : '<span class="small muted">No phone number on this order: copy it into any chat.</span>') +
+        '<button class="btn ghost" data-act="waCopy">Copy message</button></div>'); }); }
+  else if(a === "waCopy") copy(WA);
   else if(a === "returned"){ var rr = prompt("Mark No. " + pad(order(id).number) + " returned? The buyer will never be sold to again. Reason:"); if(rr === null) return;
     api("POST", "/control/api/orders/" + id + "/returned", { reason:rr }).then(function(j){ say(j.ok ? "Marked returned. Refund it next if you have not." : (j.why || "Not changed."), !j.ok); load(); }); }
   else if(a === "refund"){ var nn = el.getAttribute("data-n"), cc = prompt("Refund the full amount through Razorpay? This cannot be undone. Type " + nn + " to confirm."); if(cc === null) return;

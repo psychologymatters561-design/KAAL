@@ -2,15 +2,19 @@
    THE LETTERS (registry): the emails an order sends as it moves.
 
    The words are the brief's, VERBATIM (section 7). Do not edit them here
-   without the owner: a test (tools/test-registry.mjs) holds each one to
+   without the owner: a test (tools/test-control.mjs) holds each one to
    the brief's text. {{ }} in the brief are the fields of `d` below.
+   Delivered and the reminder were rewritten at the owner's request (Oct
+   2026) to make registering something an owner wants to do, and Placed
+   gained one line so the step is expected; see docs/ownership-emails.md.
 
    The look is the brief's too: a light page, off-white, the KAAL
    wordmark in letters (no image), generous space, one button at most,
    readable with images off, and a plain-text twin for every one.
 
    Each template takes d = { site, n, size, courier, tracking, trackingUrl,
-   claimUrl, ownerNo, registeredOn, warrantyEnd, trackUrl } and returns
+   claimUrl, ownerNo, registeredOn, warrantyEnd, trackUrl, returnDays,
+   returnEndsOn, returnClosed } and returns
    { subject, text, html }. trackUrl, when given, ends a tracking email
    with the quiet "Follow No. 07's journey" link (the /track page).
    ══════════════════════════════════════════════════════════════════ */
@@ -29,7 +33,8 @@ const C = { page: "#F4F1EA", sheet: "#FBF9F4", ink: "#1D1B18", soft: "#5C574E", 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 /* blocks: strings are paragraphs; { button: [label, url] } is the one button;
-   { quiet: [label, url] } is a small text link. */
+   { quiet: [label, url] } is a small text link; { list: [lines] } is a short
+   list (a table, so every mail client keeps its shape). */
 function render(subject, blocks, opts) {
   const o = opts || {};
   const html = [];
@@ -49,6 +54,12 @@ function render(subject, blocks, opts) {
       if (!u) continue;
       html.push(`<p style="margin:26px 0 0;font-size:13px;line-height:1.6"><a href="${esc(u)}" style="color:${C.soft}">${esc(b.quiet[0])}</a></p>`);
       text.push(`${b.quiet[0]}: ${u}`, "");
+    } else if (b.list) {
+      const items = b.list.filter(Boolean);
+      if (!items.length) continue;
+      html.push(`<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-6px 0 22px">${items.map(i =>
+        `<tr><td valign="top" style="padding:0 12px 8px 2px;font-size:16px;line-height:1.55;color:${C.gold}">&#183;</td><td style="padding:0 0 8px;font-size:15px;line-height:1.55;color:${C.ink}">${esc(i)}</td></tr>`).join("")}</table>`);
+      text.push(...items.map(i => `  · ${i}`), "");
     }
   }
   const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -65,6 +76,10 @@ ${html.join("\n")}
   return { subject, html: body, text: text.join("\n").trim() + "\n" };
 }
 
+/* A count in words where a sentence opens with it ("Twenty were made"). */
+const NUMWORD = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
+const inWords = (n) => NUMWORD[n] || String(n);
+
 const journey = (d) => d.trackUrl ? [{ quiet: [`Follow No. ${pad2(d.n)}'s journey`, d.trackUrl] }] : [];
 
 export const LETTERS = {
@@ -73,6 +88,7 @@ export const LETTERS = {
     return render(`No. ${n} is spoken for`, [
       "Owner,",
       `Your payment is received and No. ${n} of ${d.size} is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step.`,
+      `The day it reaches you, we will send one last link: the step that writes your name beside No. ${n} in the KAAL registry.`,
       "KAAL", ...journey(d)
     ], { preheader: `No. ${n} of ${d.size} is set aside for you alone.` });
   },
@@ -104,27 +120,46 @@ export const LETTERS = {
       "KAAL", ...journey(d)
     ], { preheader: `It travels with ${d.courier}.` });
   },
+  /* The letter that asks for the one step. It leads with what registering
+     gives (a name in the record of one of twenty, and the owner's room),
+     then says plainly what it closes, and leaves the choice with them:
+     the warranty never depends on it, and the link waits. */
   delivered(d) {
-    const n = pad2(d.n);
+    const n = pad2(d.n), days = d.returnDays || 7;
+    const close = d.returnClosed
+      ? `Its ${days}-day return window has already closed, so registering simply writes your name. Your warranty runs from the day of delivery either way.`
+      : `Registering is how you accept the piece, so it closes the ${days}-day return option${d.returnEndsOn ? `, which is otherwise open until ${d.returnEndsOn}` : ""}. Your warranty does not depend on it: it runs from the day of delivery either way.`;
     return render(`No. ${n} is with you. One step makes it yours.`, [
       "Owner,",
-      `No. ${n} has reached you. Before you wear it, take a minute with it. Turn it over and read the caseback.`,
-      `One step remains. Registering writes you into the KAAL registry as Owner ${roman(d.ownerNo || 1)} of No. ${n} of ${d.size}. That record stays with this piece for as long as it exists. It also opens your owner dashboard: your 2-year warranty counting down to the second, the piece's history, and its transfer if you ever pass it on.`,
-      { button: [`Register No. ${n}`, d.claimUrl] },
-      `Registering is how you accept the piece. Once you register, the 7-day return option closes and No. ${n} is yours outright. If you would rather keep it on approval for now, this link will wait for you.`,
-      `${d.size} were made. This one found you.`,
+      `No. ${n} has reached you. Before anything else, turn it over and read the caseback. That number was engraved once, for this piece, and will never be engraved again.`,
+      `Each of the ${inWords(d.size).toLowerCase()} has one line in the KAAL registry, and No. ${n}'s is still blank. Registering writes your name into it as Owner ${roman(d.ownerNo || 1)} of No. ${n} of ${d.size}. That record stays with the piece for as long as it exists. If it is ever passed on, its history begins with you.`,
+      "The moment you register, your owner's room opens:",
+      { list: [
+        "your 2-year warranty, counting down to the second, and any claim raised from there",
+        "the piece's record, kept in your name",
+        "its transfer, if you ever give it or sell it, so its history goes with it",
+        `a way to report it stolen, so that anyone who looks up No. ${n} is warned`,
+        "first word of Series 02, before anyone else"
+      ] },
+      { button: [`Make No. ${n} yours`, d.claimUrl] },
+      close,
+      d.returnClosed ? "" : `If you would like to live with No. ${n} for a few days first, do. This link will wait for you.`,
+      `${inWords(d.size)} were made. This one found you.`,
       "KAAL", ...journey(d)
-    ], { preheader: "One step makes it yours." });
+    ], { preheader: `One of ${inWords(d.size).toLowerCase()}. Its line in the registry is waiting for your name.` });
   },
+  /* The one reminder, three days on. Said once, and it says so. */
   reminder(d) {
     const n = pad2(d.n);
     return render(`No. ${n} has no name beside it yet`, [
       "Owner,",
-      `No. ${n} has been with you for three days. Its place in the registry is still empty.`,
-      { button: [`Register No. ${n}`, d.claimUrl] },
-      "Registering closes the return option and opens your warranty dashboard.",
+      `No. ${n} has been with you for three days. By now you will know whether it is yours.`,
+      `Its line in the KAAL registry is still blank. A minute fills it: your name, as Owner ${roman(d.ownerNo || 1)} of No. ${n} of ${d.size}, for as long as the piece exists. Your owner's room opens with it.`,
+      { button: [`Make No. ${n} yours`, d.claimUrl] },
+      `Registering closes the return option${d.returnEndsOn ? `, open until ${d.returnEndsOn}` : ""}. Your warranty runs from the day of delivery either way.`,
+      "We will not ask again.",
       "KAAL"
-    ], { preheader: "Its place in the registry is still empty." });
+    ], { preheader: "Its line in the registry is still blank." });
   },
   outForDelivery(d) {
     const n = pad2(d.n);
@@ -343,9 +378,25 @@ export const STAGE_LETTER = { inspected: "inspected", packed: "packed", dispatch
 /* Letters that go to the shop, not to a customer. */
 export const STAFF_LETTERS = ["sla", "courierAlert", "linkRequested", "requestNew", "requestLate"];
 
+/* The same invitation as a WhatsApp message, for the owner of the shop to
+   send from KAAL's phone (control room: "WhatsApp the link"). Plain text,
+   one link, the return option said as plainly as in the email. */
+export function whatsappNote(d) {
+  const n = pad2(d.n), days = d.returnDays || 7;
+  return [
+    `Owner, No. ${n} has reached you.`,
+    `One step makes it yours. This link writes your name into the KAAL registry as Owner ${roman(d.ownerNo || 1)} of No. ${n} of ${d.size}, and opens your owner's room: your warranty, the piece's record, and its transfer if you ever pass it on.`,
+    d.claimUrl,
+    d.returnClosed
+      ? "Its return window has closed, so registering simply writes your name. Your warranty runs from the day of delivery either way."
+      : `Registering closes the ${days}-day return option${d.returnEndsOn ? `, open until ${d.returnEndsOn}` : ""}. Your warranty runs from the day of delivery either way, and the link will wait if you would like a few days first.`,
+    "KAAL"
+  ].join("\n\n");
+}
+
 export function sample(name, site) {
   const d = { site, n: 7, size: 20, courier: "Delhivery", tracking: "SAMPLE123456", trackingUrl: "https://www.delhivery.com/track/package/SAMPLE123456",
-    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, shipUrl: `${site}/claimed.html`,
+    claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, returnDays: 7, returnEndsOn: "2 November 2026", shipUrl: `${site}/claimed.html`,
     pickup: "A courier will collect it on 28 October, between 10 am and 1 pm. Keep it in its box.", message: "A photograph of the caseback, and of the dial in daylight.", reason: "The movement is working as it should; the time it shows is a setting, not a fault.", inviteUrl: `${site}/claim/transfer`, signInUrl: `${site}/owners`, role: "to", fromYear: "2026", toYear: "2029", amount: "\u20b95,999", type: "warranty", summary: "The watch stops after an hour.", email: "owner@example.com", why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
   return LETTERS[name] ? LETTERS[name](d) : null;
 }

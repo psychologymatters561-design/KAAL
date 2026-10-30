@@ -33,7 +33,7 @@ const WHEN = {
 };
 const site = "https://thekaal.co";
 const out = ["# The registry's emails, for your approval", "",
-  "Every email the ownership system sends to an owner, exactly as it will read. Placed, Inspected, Packed, Dispatched, Delivered, the reminder and Registered are the brief's own words and are fixed. All the others are in the same voice and are mine to propose: change any line you like and tell Claude. Nothing is sent to anyone until the action that triggers it.",
+  "Every email the ownership system sends to an owner, exactly as it will read. Inspected, Packed, Dispatched and Registered are the brief's own words and are fixed. Delivered and the reminder were rewritten at the owner's request in October 2026 so that registering is something an owner wants to do, and Placed gained one line so the step is expected; the return option and the warranty are stated as plainly as before. All the others are in the same voice and are mine to propose: change any line you like and tell Claude. Nothing is sent to anyone until the action that triggers it.",
   "", "Generated from `worker/letters.js` by `tools/print-letters.mjs`.", ""];
 const order = ["placed", "inspected", "packed", "dispatched", "outForDelivery", "delivered", "reminder", "registered", "addressNeeded",
   "claimReceived", "claimApproved", "moreInfo", "claimDeclined", "serviceReturned", "transferStarted", "transferInvite", "transferComplete", "transferRejected", "stolenConfirmed", "stolenCleared", "accessReset", "recoveryDeclined", "returnProcessed"];

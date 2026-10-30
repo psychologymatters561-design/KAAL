@@ -25,6 +25,7 @@ import { registryOn, audit, normPhone, SERIES } from "./registry.js";
 import { startLogin, verifyLogin, issueCode, spendCode, openSession, sessionOf, endSession, codeEmail, adminEmail, normEmail, validEmail, sha256, authOn } from "./auth.js";
 import { queueLetter } from "./outbox.js";
 import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered } from "./orders.js";
+import { houseClaim } from "./house.js";
 import { ownerActions } from "./owner-actions.js";
 import { notifyOwner } from "./push.js";
 import { maskName } from "./registry-public.js";
@@ -69,6 +70,9 @@ export async function ownersRoute(request, env, ctx, path, deps) {
       const b = await readBody(request); if (!b) return J({ ok: false, reason: "too-big" }, 413);
       const e = normEmail(b.email);
       if (!validEmail(e)) return J({ ok: false, reason: "invalid" }, 400);
+      /* The house's own piece, held for the owner's own address (house.js):
+         made ready for it here, then the usual path below. */
+      await houseClaim(env, e);
       /* A buyer whose piece has arrived but is not registered has no code to
          sign in with: what that inbox needs is the link to register, so that
          is what it gets, at most once an hour per order. The answer on the

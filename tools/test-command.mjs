@@ -24,7 +24,7 @@ const subtle = webcrypto.subtle;
 const ROOT = new URL("../", import.meta.url);
 const files = { "index.html": readFileSync(new URL("index.html", ROOT), "utf8"), "llms.txt": readFileSync(new URL("llms.txt", ROOT), "utf8") };
 files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
-let ghDown = false, ghWrites = 0, head = "a".repeat(40), pendingTree = null;
+let ghDown = false, ghWrites = 0, head = "a".repeat(40), pendingTree = null, dispatches = 0, refundCalls = 0;
 const soldOnGitHub = () => JSON.parse("[" + /sold:\s*\[([^\]]*)\]/.exec(files["index.html"])[1] + "]");
 const payments = [], orders = {}, mails = [], pushes = [], rzpOrders = [], claudeCalls = [];
 let claudeReply = null;
@@ -34,6 +34,8 @@ globalThis.fetch = async (url, init = {}) => {
   url = String(url);
   const method = (init.method || "GET").toUpperCase();
   if (url.includes("api.resend.com")) { mails.push(JSON.parse(init.body)); return new Response("{}"); }
+  if (/\/refund$/.test(url)) refundCalls++;
+  if (url === "https://api.github.com/repos/o/r/dispatches" && method === "POST") { dispatches++; return new Response(null, { status: 204 }); }
   if (url.includes("api.github.com")) {
     if (ghDown) return new Response("down", { status: 500 });
     const path = url.replace(/^https:\/\/api\.github\.com\/repos\/o\/r/, "");
@@ -254,7 +256,7 @@ async function vapidOk(auth, aud) {
 
 /* ── 5. The owner's request, done once on the first light run after deploy ── */
 {
-  const OP = "op:2026-10-28-release-09b";
+  const OP = "op:2026-10-30-release-09c";
   const D2 = d1(), K2 = kv();
   K2.store.set("sold", "[1,2,3,4,7,9,10,15]");
   files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
@@ -264,36 +266,81 @@ async function vapidOk(auth, aud) {
   ok(D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "withheld" && !K2.store.has(OP), "owner's request: the heavy half-hourly run leaves it to the light one");
   await light(e2);
   const p9 = D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get();
-  ok(p9.status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K2.store.get("sold")).includes(9) && JSON.parse(K2.store.get(OP)).done,
+  ok(p9.status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K2.store.get("sold")).includes(9) && JSON.parse(K2.store.get(OP)).done && K2.store.get("released:9"),
     "owner's request: No. 09 goes on sale on the light run, everywhere, and is marked done");
   const n = ghWrites;
   D2.raw.prepare("UPDATE pieces SET status = 'withheld' WHERE number = 9").run();
   await light(e2);
   ok(ghWrites === n && D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "withheld", "owner's request: never again, even if No. 09 is kept back later");
-  /* Free in the registry already, but still on the shop's sold list and in the site file (a release whose GitHub write failed). */
+
+  /* Free in the registry already, still on the shop's sold list and in the site file, and GitHub down. */
   const D4 = d1(), K4 = kv();
   D4.raw.prepare("UPDATE pieces SET status = 'available' WHERE number = 9").run();
   K4.store.set("sold", "[1,2,3,4,7,9,10,15]"); K4.store.set("registry:imported", "{}");
   files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
-  ghDown = true;
+  ghDown = true; const d0 = dispatches;
   const e4 = Object.assign({}, env, { DB: D4, KAAL_STATE: K4, OWNER_OPS: "" });
   await light(e4);
   const t1 = JSON.parse(K4.store.get(OP));
-  ok(!t1.done && t1.tries === 1 && !JSON.parse(K4.store.get("sold")).includes(9), "owner's request: free in the registry but shown sold: the shop is put right at once, and a GitHub failure is tried again");
+  ok(t1.done && t1.site === "error" && !JSON.parse(K4.store.get("sold")).includes(9) && K4.store.get("released:9"),
+    "owner's request: GitHub down: the shop and the registry are put right at once, and it is done");
+  ok(dispatches === d0 + 1, "owner's request: and GitHub is asked to bring the site file into line (the stock workflow)");
   ghDown = false;
-  await light(e4);
-  ok(JSON.parse(K4.store.get(OP)).done && !soldOnGitHub().includes(9), "owner's request: the next light run writes the site file, and it is done");
+
+  /* The test order itself, recorded as a sale after a release cut short: cancelled (never refunded), then on sale. */
+  const D5 = d1(), K5 = kv();
+  K5.store.set("sold", "[1,2,3,4,7,9,10,15]"); K5.store.set("registry:imported", "{}");
+  files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
+  D5.raw.prepare("INSERT INTO orders (series, piece_id, razorpay_payment_id, email, amount_paise, status, paid_at) VALUES ('S01','S01-09','pay_Tj4nvLOHYOS1h4','arjun@example.com',599900,'placed','2026-10-02T10:00:00Z')").run();
+  const tid = D5.raw.prepare("SELECT id FROM orders WHERE razorpay_payment_id = 'pay_Tj4nvLOHYOS1h4'").get().id;
+  D5.raw.prepare("UPDATE pieces SET status = 'placed', order_ref = ? WHERE number = 9").run(tid);
+  const refundsBefore = refundCalls;
+  const e5 = Object.assign({}, env, { DB: D5, KAAL_STATE: K5, OWNER_OPS: "" });
+  await light(e5);
+  const o9 = D5.raw.prepare("SELECT status, cancel_reason FROM orders WHERE id = ?").get(tid);
+  ok(o9.status === "cancelled" && /test order/.test(o9.cancel_reason) && D5.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K5.store.get("sold")).includes(9),
+    "owner's request: the old test order, placed by mistake, is cancelled and No. 09 goes on sale");
+  ok(refundCalls === refundsBefore && JSON.parse(K5.store.get(OP)).cancelled === 1 && D5.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'order.cancel'").get().c === 1, "owner's request: nothing is refunded, and the cancellation is in the audit log");
+  await light(e5); await cron(e5);
+  ok(D5.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "available" && !JSON.parse(K5.store.get("sold")).includes(9), "owner's request: and nothing puts it back (the light run's repair, the half-hourly run)");
+
+  /* Never another buyer's order. */
+  const D6 = d1(), K6 = kv();
+  K6.store.set("registry:imported", "{}");
+  D6.raw.prepare("INSERT INTO orders (series, piece_id, razorpay_payment_id, email, amount_paise, status, paid_at) VALUES ('S01','S01-09','pay_SomeoneElse1','b@example.com',599900,'placed','2026-10-29T10:00:00Z')").run();
+  const oid6 = D6.raw.prepare("SELECT id FROM orders WHERE razorpay_payment_id = 'pay_SomeoneElse1'").get().id;
+  D6.raw.prepare("UPDATE pieces SET status = 'placed', order_ref = ? WHERE number = 9").run(oid6);
+  await light(Object.assign({}, env, { DB: D6, KAAL_STATE: K6, OWNER_OPS: "" }));
+  ok(D6.raw.prepare("SELECT status FROM orders WHERE id = ?").get(oid6).status === "placed" && /not the test order/.test(JSON.parse(K6.store.get(OP)).skipped), "owner's request: a real buyer's order for No. 09 is never touched, and Health says why");
   const D3 = d1(), K3 = kv();
-  D3.raw.prepare("UPDATE pieces SET status = 'placed' WHERE number = 9").run();
+  D3.raw.prepare("UPDATE pieces SET status = 'registered' WHERE number = 9").run();
   K3.store.set("registry:imported", "{}");
   await light(Object.assign({}, env, { DB: D3, KAAL_STATE: K3, OWNER_OPS: "" }));
-  ok(D3.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "placed" && /placed/.test(JSON.parse(K3.store.get(OP)).skipped), "owner's request: skipped, and says why, if No. 09 is no longer as it was asked about");
+  ok(D3.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "registered" && /registered/.test(JSON.parse(K3.store.get(OP)).skipped), "owner's request: skipped, and says why, if No. 09 is no longer as it was asked about");
+
   const keep = jar;
+  /* A run cut short (the worker out of time) still counts, and says so. */
+  const K7 = kv(); K7.store.set(OP, JSON.stringify({ at: new Date().toISOString(), tries: 2, started: true }));
+  const e7 = Object.assign({}, e4, { KAAL_STATE: K7 });
+  await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, undefined, e7);
+  let r = await call("GET", "/desk/data", undefined, undefined, e7);
+  ok(r.j && r.j.health && r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Try 2 of 6 was cut short/.test(h.detail)), "health: a try cut short is shown as one");
   await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" }, undefined, e4);
-  let r = await call("GET", "/control/api/pieces", undefined, undefined, e4);
+  r = await call("GET", "/control/api/pieces", undefined, undefined, e4);
   ok(r.j.ok && Array.isArray(r.j.shopSold) && !r.j.shopSold.includes(9) && r.j.shopSold.includes(15), "the twenty: the screen knows what the shop shows as gone, to offer Put it on sale where they disagree");
   r = await call("GET", "/desk/data", undefined, undefined, e4);
-  ok(r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Done/.test(h.detail)), "health: says the request for No. 09 is done");
+  ok(r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Done/.test(h.detail) && /site file follows within the hour/.test(h.detail)), "health: says the request for No. 09 is done, and that the site file follows");
+
+  /* The deploy's own run: a key it set a moment before, and an answer that names nobody. */
+  const opsEnv = Object.assign({}, e5, { OPS_KEY: "k".repeat(43) });
+  r = await call("POST", "/ops/run", undefined, { Authorization: "Bearer " + "x".repeat(43) }, opsEnv);
+  ok(r.status === 404, "ops: a wrong key is a plain not found");
+  r = await call("POST", "/ops/run", undefined, { Authorization: "Bearer short" }, Object.assign({}, e5, { OPS_KEY: "short" }));
+  ok(r.status === 404, "ops: no key worth the name, no door");
+  r = await call("POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) }, opsEnv);
+  ok(r.status === 200 && r.j.ok && r.j.ops.some(o => /No\. 09 on sale/.test(o.label) && /Done/.test(o.detail)) && r.j.facts.some(f => f.n === 9 && f.piece === "available") && Array.isArray(r.j.shopSold),
+    "ops: the right key runs the requests and says what happened");
+  ok(!/@|arjun|example\.com/i.test(r.text), "ops: the answer names no person and no address");
   jar = keep;
 }
 

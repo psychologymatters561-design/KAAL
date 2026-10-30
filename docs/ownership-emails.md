@@ -1,6 +1,6 @@
 # The registry's emails, for your approval
 
-Every email the ownership system sends to an owner, exactly as it will read. Placed, Inspected, Packed, Dispatched, Delivered, the reminder and Registered are the brief's own words and are fixed. All the others are in the same voice and are mine to propose: change any line you like and tell Claude. Nothing is sent to anyone until the action that triggers it.
+Every email the ownership system sends to an owner, exactly as it will read. Inspected, Packed, Dispatched and Registered are the brief's own words and are fixed. Delivered and the reminder were rewritten at the owner's request in October 2026 so that registering is something an owner wants to do, and Placed gained one line so the step is expected; the return option and the warranty are stated as plainly as before. All the others are in the same voice and are mine to propose: change any line you like and tell Claude. Nothing is sent to anyone until the action that triggers it.
 
 Generated from `worker/letters.js` by `tools/print-letters.mjs`.
 
@@ -14,6 +14,8 @@ Subject: No. 07 is spoken for
 Owner,
 
 Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step.
+
+The day it reaches you, we will send one last link: the step that writes your name beside No. 07 in the KAAL registry.
 
 KAAL
 
@@ -101,15 +103,25 @@ Subject: No. 07 is with you. One step makes it yours.
 ```
 Owner,
 
-No. 07 has reached you. Before you wear it, take a minute with it. Turn it over and read the caseback.
+No. 07 has reached you. Before anything else, turn it over and read the caseback. That number was engraved once, for this piece, and will never be engraved again.
 
-One step remains. Registering writes you into the KAAL registry as Owner I of No. 07 of 20. That record stays with this piece for as long as it exists. It also opens your owner dashboard: your 2-year warranty counting down to the second, the piece's history, and its transfer if you ever pass it on.
+Each of the twenty has one line in the KAAL registry, and No. 07's is still blank. Registering writes your name into it as Owner I of No. 07 of 20. That record stays with the piece for as long as it exists. If it is ever passed on, its history begins with you.
 
-Register No. 07: https://thekaal.co/claim?t=sample
+The moment you register, your owner's room opens:
 
-Registering is how you accept the piece. Once you register, the 7-day return option closes and No. 07 is yours outright. If you would rather keep it on approval for now, this link will wait for you.
+  · your 2-year warranty, counting down to the second, and any claim raised from there
+  · the piece's record, kept in your name
+  · its transfer, if you ever give it or sell it, so its history goes with it
+  · a way to report it stolen, so that anyone who looks up No. 07 is warned
+  · first word of Series 02, before anyone else
 
-20 were made. This one found you.
+Make No. 07 yours: https://thekaal.co/claim?t=sample
+
+Registering is how you accept the piece, so it closes the 7-day return option, which is otherwise open until 2 November 2026. Your warranty does not depend on it: it runs from the day of delivery either way.
+
+If you would like to live with No. 07 for a few days first, do. This link will wait for you.
+
+Twenty were made. This one found you.
 
 KAAL
 
@@ -125,11 +137,15 @@ Subject: No. 07 has no name beside it yet
 ```
 Owner,
 
-No. 07 has been with you for three days. Its place in the registry is still empty.
+No. 07 has been with you for three days. By now you will know whether it is yours.
 
-Register No. 07: https://thekaal.co/claim?t=sample
+Its line in the KAAL registry is still blank. A minute fills it: your name, as Owner I of No. 07 of 20, for as long as the piece exists. Your owner's room opens with it.
 
-Registering closes the return option and opens your warranty dashboard.
+Make No. 07 yours: https://thekaal.co/claim?t=sample
+
+Registering closes the return option, open until 2 November 2026. Your warranty runs from the day of delivery either way.
+
+We will not ask again.
 
 KAAL
 ```

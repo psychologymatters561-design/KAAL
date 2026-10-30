@@ -89,7 +89,15 @@ export async function queueDelivered(env, site, order, dedupe) {
   const o = Object.assign({}, order, { number: order.number || parseInt(String(order.piece_id).split("-")[1], 10) });
   const token = await mintClaim(env, o);
   return queueLetter(env, { template: "delivered", to: o.email, series: o.series, dedupe,
-    vars: await letterVars(env, site, o, { claimUrl: `${site}/claim?t=${token}`, ownerNo: await nextOwnerNo(env, o.piece_id) }) });
+    vars: await letterVars(env, site, o, Object.assign({ claimUrl: `${site}/claim?t=${token}`, ownerNo: await nextOwnerNo(env, o.piece_id) }, await returnVars(env, o))) });
+}
+
+/* What the registration letters say about the return option: how many
+   days, the day it closes (India time), and whether it already has. */
+export async function returnVars(env, o) {
+  const s = await env.DB.prepare("SELECT return_days FROM series WHERE code = ?1").bind(o.series || SERIES).first().catch(() => null);
+  const ends = o.return_window_ends_at ? Date.parse(o.return_window_ends_at) : NaN;
+  return { returnDays: (s && s.return_days) || 7, returnEndsOn: ends > 0 ? longDay(istDay(ends)) : "", returnClosed: ends > 0 && ends <= Date.now() };
 }
 
 /* The Placed letter: from the verified payment, with nobody pressing

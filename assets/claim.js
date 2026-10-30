@@ -31,7 +31,11 @@
     p.appendChild(K.face(j.piece));
     var no = K.el("p", "no"); no.appendChild(document.createTextNode("No. " + n + " ")); no.appendChild(K.el("small", "", "of " + j.piece.size)); p.appendChild(no);
     p.appendChild(K.el("p", "sub", j.piece.series + " · " + j.piece.colorway));
-    $("title").textContent = "Register No. " + n;
+    $("title").textContent = "Make No. " + n + " yours";
+    $("lead").textContent = "Each of the " + (j.piece.size === 20 ? "twenty" : j.piece.size) + " has one line in the KAAL registry. This writes your name into No. " + n + "’s, as Owner " + K.roman(j.ownerNo || 1) + ", for as long as the piece exists.";
+    var ul = K.clear($("opens"));
+    ["Your 2-year warranty, counting down to the second", "The piece’s record, kept in your name", "Its transfer, history intact, if you ever pass it on", "First word of Series 02, before anyone else"]
+      .forEach(function (x) { ul.appendChild(K.el("li", "", x)); });
     var dl = $("facts");
     row(dl, "Piece", "No. " + n + " of " + j.piece.size, true);
     row(dl, "Series", j.piece.series, true);
@@ -39,6 +43,13 @@
     row(dl, "Delivered", K.day(j.deliveredOn), true);
     if (j.city || j.state) row(dl, "City", [j.city, j.state].filter(Boolean).join(", "), true);
     $("name").value = j.name; $("phone").value = j.phone ? "+" + j.phone.replace(/^\+/, "") : ""; $("email").value = j.email;
+    /* Everything already on the order is shown as it will be written, not
+       as three boxes to check; one tap opens them if anything is wrong. */
+    if (j.name && j.phone && j.email) {
+      $("meName").textContent = j.name;
+      $("meMeta").textContent = $("phone").value + " · " + j.email;
+      $("me").hidden = false; $("details").hidden = true;
+    }
     var days = j.returnDays;
     var rn = $("returnNotice");
     if (j.returnOpen) {
@@ -63,10 +74,18 @@
       $("nameText").appendChild(K.el("small", "", "Optional. Otherwise the card says \u201ca private collector\u201d. Never your full name."));
     }
     nameText(); $("name").addEventListener("input", nameText);
-    $("go").textContent = "Register No. " + n;
+    $("go").textContent = "Make No. " + n + " yours";
+    $("later").textContent = j.returnOpen ? "Not ready yet? Close this page. The link keeps, and the return option stays open until " + K.day(j.returnEndsAt) + "." : "";
     $("loading").hidden = true; $("form").hidden = false;
     document.title = "KAAL · Register No. " + n;
   }
+
+  function openDetails(focus) {
+    if (!$("details").hidden) return;
+    $("details").hidden = false; $("me").hidden = true; $("editDetails").setAttribute("aria-expanded", "true");
+    if (focus) $(focus).focus();
+  }
+  $("editDetails").addEventListener("click", function () { openDetails("name"); });
 
   /* A different email has to be shown to be theirs. */
   function emailChanged() { return info && $("email").value.trim().toLowerCase() !== (info.email || "").toLowerCase(); }
@@ -91,6 +110,7 @@
       if (r.reason === "used" || r.reason === "expired" || r.reason === "unknown") { bad(r.reason); return; }
       err.textContent = r.why || K.why[r.reason] || "That did not work. Please try again.";
       var f = { name: "name", phone: "phone", email: "email", accept: "accept", consent: "consent", "email-code": "emailCode" }[r.reason];
+      if (["name", "phone", "email", "emailCode"].indexOf(f) > -1) openDetails();
       if (f && $(f)) $(f).focus();
     });
   });
@@ -104,11 +124,13 @@
       strip.appendChild(c);
     }
     $("doneH").textContent = "No. " + K.pad(r.n) + " is recorded in your name";
+    $("doneName").textContent = $("name").value.trim().replace(/\s+/g, " ");
     $("doneP").textContent = "You are Owner " + K.roman(r.ownerNo) + " of No. " + K.pad(r.n) + " of " + info.piece.size + ". Your warranty is counting down.";
     $("open").href = "/owners";
+    $("open").focus({ preventScroll: true });
     document.title = "KAAL · No. " + K.pad(r.n) + " is yours";
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.setTimeout(function () { location.href = "/owners"; }, reduce ? 2500 : 4200);
+    window.setTimeout(function () { location.href = "/owners"; }, reduce ? 4000 : 6500);
   }
 
   if (!t) { bad("unknown"); return; }

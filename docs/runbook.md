@@ -148,12 +148,15 @@ per order with its stage, the buyer's WhatsApp, Call and Email, and **Their
 journey** (the visitor history behind the order). One tap per stage:
 Inspected, Packed, Dispatched (courier, tracking number, tracking link),
 Delivered (a date, today by default: this starts the warranty and the return
-window and emails the registration link). Each tap gives you **ten seconds to
+window and emails the registration letter, "One step makes it yours"; the
+sheet names the address it goes to and has **Preview the letter**). Each tap gives you **ten seconds to
 Undo** before the buyer's email goes. If Shiprocket is connected
 (docs/courier.md) Dispatched and Delivered happen by themselves.
 Extra buttons: **Change without email** (a correction, with a reason in the
 log), **Send registration link** (emails a fresh one; earlier ones keep
-working), **New link, cancel old** (for a link that went astray), **Mark
+working), **WhatsApp the link** (a fresh link in a message ready to send
+from KAAL's phone to the buyer's number; nothing is sent until you press
+send in WhatsApp), **New link, cancel old** (for a link that went astray), **Mark
 returned** (only inside the seven days and before registering; the buyer is
 never sold to again), **Refund** (full amount, through Razorpay, after you
 type the number). **Record a past sale** is for Nos. 01 and 02.
@@ -245,6 +248,20 @@ owners and pieces; **Backup now**.
   twenty, that number: it says "Shown as gone on the shop" and offers both
   ways out. Record a past sale if it was sold before the registry; Put it on
   sale if it is still yours to sell (it asks first).
+- **The site file (index.html) still shows a number as gone after the shop
+  changed.** The shop and checkout read the live state, so buyers see the
+  truth at once. The file follows: the worker writes it in the same moment,
+  and if it cannot (Cloudflare's free plan stops a worker run at 10 ms of
+  CPU), GitHub's **stock** workflow reads the live shop and commits the file
+  within the hour, or at once when the worker asks. Actions, stock, Run
+  workflow does it by hand.
+- **Your own requests to the worker** (like "put No. 09 on sale") run on the
+  deploy itself: Actions, deploy-worker, the latest run, step "5. Your
+  requests, run now" says what happened. Health repeats it; the light run
+  (:07 and :37) retries anything unfinished.
+- **Your own No. 01** is kept for your own address (only its fingerprint is
+  in the code). Sign in at thekaal.co/owners with it: the first time, the
+  letter to register No. 01 comes to that inbox; after that, a code.
 - **A buyer paid and the watch is not in Orders.** The daily check against
   Razorpay brings it in within a day and emails you; or Overview, "Bring in
   paid orders from Razorpay".

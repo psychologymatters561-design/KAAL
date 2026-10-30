@@ -17,7 +17,7 @@
 import { registryOn } from "./registry.js";
 import { adminEmail } from "./auth.js";
 import { queueLetter, flushOutbox } from "./outbox.js";
-import { mintClaim, nextOwnerNo, seriesSize, setting, iso } from "./orders.js";
+import { mintClaim, nextOwnerNo, seriesSize, setting, iso, returnVars } from "./orders.js";
 import { expireTransfers } from "./transfers.js";
 
 const H = 3600000, D = 86400000;
@@ -84,7 +84,7 @@ export async function sweeps(env, deps) {
       if (have) continue;
       const token = await mintClaim(env, o);
       const q = await queueLetter(env, { template: "reminder", to: o.email, series: o.series, dedupe: `reminder:${o.id}`,
-        vars: { site, n: o.number, size: await seriesSize(env, o.series), claimUrl: `${site}/claim?t=${token}`, ownerNo: await nextOwnerNo(env, o.piece_id) } });
+        vars: Object.assign({ site, n: o.number, size: await seriesSize(env, o.series), claimUrl: `${site}/claim?t=${token}`, ownerNo: await nextOwnerNo(env, o.piece_id) }, await returnVars(env, o)) });
       if (q) queued.push(q);
     }
   }

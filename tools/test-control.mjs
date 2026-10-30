@@ -169,6 +169,14 @@ let oid;
   ok(r.j.ok && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 1, "link: 'New link, cancel old' leaves exactly one that works");
   r = await call("POST", "/control/api/orders/999/link", { mode: "send" });
   ok(r.status === 404, "link: an unknown order is refused");
+  const mailsBefore = mails.length;
+  r = await call("POST", `/control/api/orders/${oid}/link`, { mode: "whatsapp" });
+  ok(r.j.ok && /^Owner, No\. 07 has reached you\./.test(r.j.text) && /https:\/\/thekaal\.co\/claim\?t=[A-Za-z0-9_-]{43}/.test(r.j.text) && /closes the 7-day return option, open until /.test(r.j.text) && /warranty runs from the day of delivery either way/.test(r.j.text),
+    "link: 'WhatsApp the link' hands back the message, with a fresh link, the return option and the warranty said plainly");
+  ok(/^91\d{10}$/.test(r.j.phone) && DB.raw.prepare("SELECT COUNT(*) AS c FROM claim_tokens WHERE order_id = ? AND revoked_at IS NULL AND used_at IS NULL").get(oid).c === 2 && mails.length === mailsBefore,
+    "link: WhatsApp gives the number with its country code, adds a working link and sends no email");
+  const waLink = (/claim\?t=([A-Za-z0-9_-]{43})/.exec(r.j.text) || [])[1];
+  ok(waLink && !JSON.stringify(DB.raw.prepare("SELECT * FROM audit_log WHERE action = 'order.link.whatsapp'").all()).includes(waLink), "link: the WhatsApp link itself is never written to the audit log");
   ok(DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-07'").get().status === "delivered", "Delivered: the piece is delivered");
 
   /* Corrections, without email, and never a second stage email. */
@@ -309,17 +317,26 @@ let oid;
 {
   const d = { n: 7, size: 20, courier: "Delhivery", tracking: "DL1", trackingUrl: "https://x.example/t", claimUrl: "https://thekaal.co/claim?t=x", ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "24 October 2028" };
   const want = {
-    placed: ["No. 07 is spoken for", "Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step."],
+    placed: ["No. 07 is spoken for", "Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step.\n\nThe day it reaches you, we will send one last link: the step that writes your name beside No. 07 in the KAAL registry."],
     packed: ["No. 07 is boxed", "Every KAAL box is made for the one piece it carries. No. 07's is finished, and the piece is resting inside it with its letter."],
     dispatched: ["No. 07 is on its way to you", "Somewhere between here and you is a piece that will not be made again. When it arrives, open it slowly."],
-    delivered: ["No. 07 is with you. One step makes it yours.", "One step remains. Registering writes you into the KAAL registry as Owner I of No. 07 of 20. That record stays with this piece for as long as it exists. It also opens your owner dashboard: your 2-year warranty counting down to the second, the piece's history, and its transfer if you ever pass it on."],
-    reminder: ["No. 07 has no name beside it yet", "No. 07 has been with you for three days. Its place in the registry is still empty."],
+    delivered: ["No. 07 is with you. One step makes it yours.", "Each of the twenty has one line in the KAAL registry, and No. 07's is still blank. Registering writes your name into it as Owner I of No. 07 of 20. That record stays with the piece for as long as it exists. If it is ever passed on, its history begins with you."],
+    reminder: ["No. 07 has no name beside it yet", "No. 07 has been with you for three days. By now you will know whether it is yours."],
     registered: ["No. 07 is recorded in your name", "It is done. You are Owner I of No. 07, recorded on 26 October 2026. Your warranty runs until 24 October 2028."]
   };
   for (const k of Object.keys(want)) {
     const m = LETTERS[k](d);
-    ok(m.subject === want[k][0] && m.text.includes(want[k][1]) && m.html.includes(want[k][1].replace(/'/g, "&#39;")), `letter ${k}: the brief's subject and words`);
+    ok(m.subject === want[k][0] && m.text.includes(want[k][1]) && m.html.includes(want[k][1].split("\n\n").pop().replace(/'/g, "&#39;")), `letter ${k}: the approved subject and words`);
   }
+  /* Delivered: what it gives first, then what it closes, plainly, and the choice left with them. */
+  const dl = LETTERS.delivered(Object.assign({}, d, { returnDays: 7, returnEndsOn: "2 November 2026" })).text;
+  ok(dl.indexOf("owner's room opens") > -1 && dl.indexOf("owner's room opens") < dl.indexOf("closes the 7-day return option"), "delivered: what registering opens comes before what it closes");
+  ok(dl.includes("Registering is how you accept the piece, so it closes the 7-day return option, which is otherwise open until 2 November 2026. Your warranty does not depend on it: it runs from the day of delivery either way."), "delivered: the return option and its last day, and the warranty either way, in plain words");
+  ok(dl.includes("If you would like to live with No. 07 for a few days first, do. This link will wait for you.") && dl.includes("Make No. 07 yours: https://thekaal.co/claim?t=x") && dl.includes("Twenty were made. This one found you."), "delivered: one button, and the choice left with them");
+  ok(["2-year warranty", "the piece's record", "its transfer", "report it stolen", "Series 02"].every(x => dl.includes(x)), "delivered: the five things the owner's room opens");
+  const dc = LETTERS.delivered(Object.assign({}, d, { returnClosed: true })).text;
+  ok(/return window has already closed, so registering simply writes your name/.test(dc) && !/live with No\. 07 for a few days/.test(dc) && !/closes the 7-day/.test(dc), "delivered, sent again after the return window closed: never says registering closes it");
+  ok(!/\b(hurry|last chance|today only|discount|offer)\b/i.test(dl + LETTERS.reminder(d).text), "delivered and reminder: no pressure words");
   ok(Object.keys(LETTERS).every(k => !/—/.test(LETTERS[k](d).text + LETTERS[k](d).html)), "letters: no em dashes, no emojis by construction");
 }
 

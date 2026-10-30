@@ -75,7 +75,12 @@ async function tap(label, mailRe, who) {
   if (label === "Mark Dispatched") {
     await ap.selectOption("#cr", "Delhivery"); await ap.fill("#tn", "DL123456789"); await ap.fill("#tu", "https://www.delhivery.com/track/package/DL123456789");
     await ap.click('[data-act="dispatchGo"]');
-  } else if (label === "Mark Delivered") await ap.click('[data-act="deliverGo"]');
+  } else if (label === "Mark Delivered") {
+    const note = await ap.locator("#sheetB").innerText();
+    ok(/asha@example\.com is sent the letter that asks them to make No\. 07 theirs/.test(note) && await ap.locator('#sheetB [data-act="preview"][data-to="delivered"]').count() === 1,
+      "control: the Delivered sheet says who gets the registration letter, and offers its preview");
+    await ap.click('[data-act="deliverGo"]');
+  }
   await ap.waitForSelector("#toast:not([hidden])");
   await ap.clock.runFor(11000);                                   /* the ten seconds of Undo */
   const m = await waitMail(who || "asha@example.com", mailRe);
@@ -89,7 +94,16 @@ ok(dis && /DL123456789/.test(dis.text), "control: Dispatched with the courier an
 await bp.reload(); await bp.waitForSelector("#timeline li");
 ok((await bp.locator("#timeline li.done").count()) >= 3 && /Delhivery/.test(await bp.locator(".tl .more").innerText()), "track: the buyer's page moves with it, with the courier");
 const del = await tap("Mark Delivered", /No\. 07 is with you\. One step makes it yours\./);
-ok(del && /Once you register, the 7-day return option closes/.test(del.text), "control: Delivered, and the registration email with the return-window notice");
+ok(del && /so it closes the 7-day return option, which is otherwise open until /.test(del.text), "control: Delivered, and the registration email with the return-window notice");
+await ap.click('button[data-p="f=delivered"]');
+await ap.waitForSelector('[data-act="wa"]');
+await ap.click('[data-act="wa"]');
+await ap.waitForSelector("#waText");
+const wa = await ap.inputValue("#waText");
+const waHref = await ap.getAttribute('#sheetB a[href^="https://wa.me/"]', "href");
+ok(/^Owner, No\. 07 has reached you\./.test(wa) && /\/claim\?t=[A-Za-z0-9_-]{43}/.test(wa) && /^https:\/\/wa\.me\/919876543210\?text=Owner/.test(waHref || ""),
+  "control: WhatsApp the link opens the message, ready to send to the buyer's number");
+await ap.click('[data-act="close"]');
 const claimLink = /https:\/\/thekaal\.co(\/claim\?t=[A-Za-z0-9_-]{43})/.exec(del.text)[1];
 
 /* 3. The buyer registers. */

@@ -101,8 +101,9 @@ import { sweeps } from "./sla.js";
 import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
-import { sessionOf, authOn } from "./auth.js";
-import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay } from "./stock.js";
+import { sessionOf, authOn, same } from "./auth.js";
+import { houseFacts } from "./house.js";
+import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay, inr } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
 /* With the registry on, a hold is the brief's ten minutes, kept in D1;
@@ -133,6 +134,7 @@ export default {
     if (path === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
     /* For the six-hourly ping (.github/workflows/health.yml): the worker is up and, with the registry on, its database answers. */
     if (path === "/health") return health(env);
+    if (path === "/ops/run") return opsRun(request, env);
 
     if (request.method === "OPTIONS") return preflight(request, env);
     if (staging(env) && request.method === "GET" && path === "/staging") return stagingPage(env);
@@ -888,7 +890,7 @@ async function notifySale(env, entity, chosen, short, opts) {
     const buyerOk = buyer && validEmail(buyer.toLowerCase());
     const d = {
       site, n: known ? chosen : 0, dial: known ? DIAL_OF(env, chosen) : "",
-      amount: `₹${((entity.amount || 0) / 100).toLocaleString("en-IN")}`,
+      amount: `₹${inr((entity.amount || 0) / 100)}`,
       paymentId, orderId: entity.order_id || "",
       email: buyerOk ? buyer : "", contact: String(entity.contact || ""),
       buyerName: (address && address.buyer && address.buyer.name) || "",
@@ -1349,11 +1351,12 @@ async function repairSold(env) {
    own buttons, and written to the audit log. Each runs only while the
    piece is still exactly as it was when it was asked for. */
 const OWNER_OPS = [
-  /* No. 09 on sale. It may be "withheld" (kept back since 2 Oct), or
-     already "available" in the registry while the shop's sold list (KV,
-     the site file) still carries it, which is what a release whose GitHub
-     write failed used to leave behind. Either way: on sale, everywhere. */
-  { id: "2026-10-28-release-09b", n: 9, from: ["withheld", "available"], to: "available",
+  /* No. 09 on sale. Kept back since 2 Oct as the owner's own test order
+     (payment pay_Tj4nvLOHYOS1h4); it may still be "withheld", already
+     "available", or "placed" by that same test payment (a release whose
+     run was cut short let the daily check record it as a sale). Only that
+     payment's order is ever cancelled here, and nothing is refunded. */
+  { id: "2026-10-30-release-09c", n: 9, testPayment: "pay_Tj4nvLOHYOS1h4",
     why: "Owner's request: No. 09 (the owner's own test order, kept back since 2 Oct 2026) goes on sale." }
 ];
 const LIGHT_CRON = "7,37 * * * *";
@@ -1364,33 +1367,68 @@ async function ownerOps(env) {
     try {
       const key = "op:" + op.id;
       const was = await env.KAAL_STATE.get(key, "json").catch(() => ({ done: true }));
-      if (was && (was.done || (was.tries || 0) >= OP_TRIES)) continue;
+      if (was && (was.done || was.skipped || (was.tries || 0) >= OP_TRIES)) continue;
       const tries = ((was && was.tries) || 0) + 1, at = new Date().toISOString();
+      /* Written before anything is tried, so a run cut short still counts
+         and Health can say so. */
+      await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, started: true }));
       const pc = await env.DB.prepare("SELECT id, status, order_ref FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, op.n).first();
-      const open = await env.DB.prepare("SELECT COUNT(*) AS c FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status NOT IN ('cancelled','returned')").bind(SERIES, op.n).first();
-      if (!pc || op.from.indexOf(pc.status) < 0 || pc.order_ref || (open && open.c)) {
-        await env.KAAL_STATE.put(key, JSON.stringify({ at, done: true, skipped: pc ? `No. ${pad2(op.n)} is ${pc.status}${open && open.c ? " with an order" : ""}` : "no such piece" }));
-        console.log(`Owner op ${op.id}: skipped (${pc ? pc.status : "no piece"}).`);
+      const live = pc ? ((await env.DB.prepare("SELECT id, status, razorpay_payment_id FROM orders WHERE piece_id = ?1 AND status NOT IN ('cancelled','returned')").bind(pc.id).all()).results || []) : [];
+      const onlyTest = live.length > 0 && live.every(o => o.razorpay_payment_id === op.testPayment && o.status === "placed");
+      let skipped = "";
+      if (!pc) skipped = "no such piece";
+      else if (live.length && !onlyTest) skipped = `No. ${pad2(op.n)} has an order that is not the test order`;
+      else if (!live.length && ["withheld", "available"].indexOf(pc.status) < 0) skipped = `No. ${pad2(op.n)} is ${pc.status}`;
+      if (skipped) {
+        await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: false, skipped }));
+        console.log(`Owner op ${op.id}: skipped (${skipped}).`);
         continue;
       }
-      const r = await setOnSale(env, "system:owner-request", op.n, op.to === "available", op.why);
-      const done = r.ok && (r.site === "ok" || r.site === "already");
-      await env.KAAL_STATE.put(key, JSON.stringify({ at, done, tries, site: r.site || "", why: r.why || "" }));
-      console.log(`Owner op ${op.id}: ${done ? "done" : "not yet"} (site: ${r.site}, try ${tries}).`);
+      /* The owner's own test order, recorded as a sale by mistake: cancelled, not refunded. */
+      for (const o of live) {
+        await env.DB.prepare("UPDATE orders SET status = 'cancelled', cancel_reason = ?1, updated_at = ?2 WHERE id = ?3 AND status = 'placed'")
+          .bind("The owner's own test order (2 Oct 2026), not a sale. No. 09 put on sale at the owner's request.", at, o.id).run();
+        await env.DB.prepare("INSERT INTO audit_log (actor, action, target, before, after, series) VALUES ('system:owner-request', 'order.cancel', ?1, ?2, ?3, ?4)")
+          .bind("order:" + o.id, JSON.stringify({ status: o.status }), JSON.stringify({ status: "cancelled", refunded: false, why: "the owner's own test order" }), SERIES).run();
+      }
+      if (live.length) await env.DB.prepare("UPDATE pieces SET status = 'withheld', order_ref = NULL, updated_at = ?1 WHERE id = ?2").bind(at, pc.id).run();
+      const r = await setOnSale(env, "system:owner-request", op.n, true, op.why);
+      await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: !!r.ok, site: r.site || "", why: r.why || "", cancelled: live.length }));
+      console.log(`Owner op ${op.id}: ${r.ok ? "done" : "not yet"} (site: ${r.site}, try ${tries}).`);
     } catch (e) { console.log("Owner op threw:", String(e).slice(0, 160)); }
   }
 }
-/* What the Health screen says about each of them. */
+/* What the Health screen (and the deploy log) says about each of them. */
 async function ownerOpsHealth(env) {
   if (!env.KAAL_STATE) return [];
   return Promise.all(OWNER_OPS.map(async op => {
     const v = await env.KAAL_STATE.get("op:" + op.id, "json").catch(() => null);
     const label = `No. ${pad2(op.n)} on sale (your request)`;
     if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };
-    if (v.skipped) return { ok: true, label, detail: `Not needed: ${v.skipped}. Use The twenty to change it.` };
-    if (v.done) return { ok: true, label, detail: `Done ${indiaTime(new Date(v.at))}: on sale in the registry, on the shop and in the site file.` };
-    return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish (site file: ${v.site || "?"}${v.why ? "; " + v.why : ""}). It tries again each half hour; or tap The twenty, No. ${pad2(op.n)}, Put it on sale.` };
+    if (v.skipped) return { ok: false, label, detail: `Not done: ${v.skipped}. Use The twenty to change it.` };
+    if (v.done) return { ok: true, label, detail: `Done ${indiaTime(new Date(v.at))}: on sale in the registry and on the shop` +
+      (v.cancelled ? ", the test order cancelled (not refunded)" : "") + (v.site === "ok" || v.site === "already" ? ", and in the site file." : "; the site file follows within the hour.") };
+    if (v.started) return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} was cut short before it could finish. It tries again each half hour.` };
+    return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish${v.why ? " (" + v.why + ")" : ""}. It tries again each half hour; or tap The twenty, No. ${pad2(op.n)}, Put it on sale.` };
   }));
+}
+
+/* The deploy runs the owner's requests at once and prints what happened
+   (tools/setup-email.mjs): POST /ops/run with the key it set a moment
+   before (OPS_KEY, random, new each deploy). The answer names no person. */
+async function opsRun(request, env) {
+  const key = String(env.OPS_KEY || ""), got = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (request.method !== "POST" || key.length < 32 || !same(got, key)) return new Response("Not found", { status: 404 });
+  await ownerOps(env);
+  const facts = [];
+  if (env.DB) for (const n of [1, 9]) {
+    const pc = await env.DB.prepare("SELECT id, status FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
+    const orders = pc ? ((await env.DB.prepare("SELECT status, amount_paise FROM orders WHERE piece_id = ?1 ORDER BY id").bind(pc.id).all()).results || []) : [];
+    facts.push({ n, piece: pc ? pc.status : "none", orders: orders.map(o => o.status + (o.amount_paise ? "" : " (house, Rs 0)")) });
+  }
+  const kv = await readSold(env);
+  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], facts, shopSold: kv }),
+    { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 
 /* ON SALE, OR KEPT BACK: one number, everywhere at once. The registry
@@ -1408,15 +1446,16 @@ async function setOnSale(env, actor, n, on, reason) {
   if (on) {
     if (["placed", "delivered", "registered", "reported_stolen"].indexOf(pc.status) > -1)
       return { ok: false, why: `No. ${pad2(n)} is ${pc.status.replace("_", " ")} with an order. Refund it or mark it returned before it can go back on sale.` };
+    /* First, what a run cut short must never lose: any payment for this
+       number made before this moment (the owner's own test order, a refunded
+       sale) can never place it again (the daily check against Razorpay and a
+       late webhook both read this), and no stale hold keeps it. */
+    if (env.KAAL_STATE) {
+      await env.KAAL_STATE.put("released:" + n, new Date().toISOString()).catch(() => null);
+      await env.KAAL_STATE.delete(HOLD_PREFIX + n).catch(() => null);
+    }
     if (pc.status !== "available") await env.DB.prepare("UPDATE pieces SET status = 'available', held_by = NULL, held_until = NULL, order_ref = NULL, updated_at = ?1 WHERE id = ?2").bind(new Date().toISOString(), pc.id).run();
     const r = await releaseSold(env, n, reason || "owner");
-    /* Any payment for this number made before this moment (the owner's own
-       test order, a refunded sale) can never place it again: the daily
-       check against Razorpay and a late webhook both read this. */
-    if (env.KAAL_STATE) {
-      await env.KAAL_STATE.delete(HOLD_PREFIX + n).catch(() => null);
-      await env.KAAL_STATE.put("released:" + n, new Date().toISOString()).catch(() => null);
-    }
     await auditPiece(env, actor, pc, "available", reason, r.status);
     return { ok: true, status: "available", site: r.status };
   }
@@ -1487,7 +1526,21 @@ async function rewriteSold(env, change, message) {
      file write below still marks the number, as it always has. */
   const atomic = await commitStock(env, change, message).catch(e => { console.log("Stock commit failed:", String(e).slice(0, 160)); return { status: "error" }; });
   if (atomic.status !== "error") return atomic;
-  return rewriteIndexOnly(env, change, message);
+  const r = await rewriteIndexOnly(env, change, message);
+  if (r.status === "error") await nudgeSiteSync(env);
+  return r;
+}
+
+/* The site file follows the live shop from GitHub's side too: the stock
+   workflow (.github/workflows/stock.yml) reads /state and commits, each
+   hour and whenever this asks. A worker on the free plan has 10 ms of CPU
+   a run; a GitHub runner has minutes. */
+async function nudgeSiteSync(env) {
+  if (staging(env) || !env.GITHUB_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO) return;
+  try {
+    await fetch(`https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/dispatches`,
+      { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders(env)), body: JSON.stringify({ event_type: "stock" }) });
+  } catch (e) { console.log("Site sync nudge failed:", String(e).slice(0, 120)); }
 }
 
 const ghHeaders = (env, raw) => ({
@@ -1616,17 +1669,16 @@ async function commitSold(env, chosen, paymentId) {
 /* The other direction, and only ever on the owner's tap on the desk after
    a full refund. KV follows, so /order and the live page agree at once. */
 async function releaseSold(env, n, why) {
-  const r = await rewriteSold(env, (current) => current.indexOf(n) < 0 ? { status: "already" } : { next: current.filter(x => x !== n) },
-    `Auto: number ${n} back on sale (${why})`);
-  /* KV follows whatever GitHub says: the registry already says "on sale",
-     and the page and /order read KV, not the file. */
+  /* The shop first (the page and /order read KV, not the file), so it is
+     right even if writing the site file fails or the run is cut short. */
   if (env.KAAL_STATE) {
     try {
       const kv = (await readSold(env)) || [];
-      await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(kv.filter(x => x !== n)));
+      if (kv.indexOf(n) > -1) await env.KAAL_STATE.put(KEY_SOLD, JSON.stringify(kv.filter(x => x !== n)));
     } catch (e) { console.log("KV sold not updated after a release:", String(e).slice(0, 120)); }
   }
-  return r;
+  return rewriteSold(env, (current) => current.indexOf(n) < 0 ? { status: "already" } : { next: current.filter(x => x !== n) },
+    `Auto: number ${n} back on sale (${why})`);
 }
 
 /* ══════════ 3c. THE SERIES 02 LIST ══════════
@@ -2924,7 +2976,7 @@ async function ledger(env, nowMs) {
     const at = new Date(p.created_at * 1000);
     return {
       n, dial: n ? DIAL_OF(env, n) : "", id: p.id, orderId: p.order_id || "",
-      amount: `₹${((p.amount || 0) / 100).toLocaleString("en-IN")}`, paise: p.amount || 0,
+      amount: `₹${inr((p.amount || 0) / 100)}`, paise: p.amount || 0,
       email: p.email || "", contact: p.contact || "", ts: p.created_at, day: istDay(p.created_at * 1000), at: indiaTime(at),
       gift: notes.gift === "yes", giftNote: notes.gift_note || "",
       due: arriveBy(at), dueDay: arriveByDay(at), address, sent, after,
@@ -3403,7 +3455,7 @@ async function ordersByDay(env, fromDay, nowMs) {
       `SELECT substr(datetime(paid_at, '+330 minutes'), 1, 10) AS d, COUNT(*) AS n,
               SUM(CASE WHEN refund_id IS NULL AND status NOT IN ('returned') THEN amount_paise ELSE 0 END) AS paise,
               SUM(CASE WHEN refund_id IS NOT NULL OR status = 'returned' THEN 1 ELSE 0 END) AS back
-         FROM orders WHERE paid_at >= ?1 AND status <> 'cancelled' GROUP BY d`).bind(since).all();
+         FROM orders WHERE paid_at >= ?1 AND status <> 'cancelled' AND amount_paise > 0 GROUP BY d`).bind(since).all();
     for (const x of r.results || []) by[x.d] = { n: x.n || 0, paise: x.paise || 0, back: x.back || 0 };
     return by;
   }

@@ -270,15 +270,18 @@ export async function totpCheck(env, s, code, nowMs) {
 
 /* The email that carries a code. Plain and short; the code is in the
    subject too, so a phone shows it without opening the message. */
-export function codeEmail(code, site) {
+export function codeEmail(code, site, n) {
   const spaced = code.slice(0, 3) + " " + code.slice(3);
+  const no = n ? "No. " + (n < 10 ? "0" + n : String(n)) : "";
+  /* With a piece to register (n), the same code opens its registration. */
+  const lead = no ? `Your code is ${spaced}. Enter it on the page you asked from and ${no}'s registration opens.` : `Your sign-in code is ${spaced}.`;
   const subject = `${spaced} is your KAAL sign-in code`;
-  const text = [`Your sign-in code is ${spaced}.`, "", "It works once, for the next ten minutes.", "",
+  const text = [lead, "", "It works once, for the next ten minutes.", "",
     "If you did not ask for it, you can ignore this email. Nobody can sign in without it.", "", "KAAL"].join("\n");
   const html = `<!doctype html><html><body style="margin:0;background:#F4F1EA;padding:32px 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1d1b18">
 <div style="max-width:440px;margin:0 auto;background:#FBF9F4;padding:32px 28px;border:1px solid #E6E0D4">
 <p style="letter-spacing:.5em;font-size:13px;margin:0 0 28px">KAAL</p>
-<p style="font-size:15px;line-height:1.6;margin:0 0 12px">Your sign-in code is</p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 12px">${no ? "Your code, which opens " + no + "&rsquo;s registration, is" : "Your sign-in code is"}</p>
 <p style="font-family:Menlo,Consolas,monospace;font-size:30px;letter-spacing:.18em;margin:0 0 20px">${spaced}</p>
 <p style="font-size:14px;line-height:1.6;color:#5c574e;margin:0 0 8px">It works once, for the next ten minutes.</p>
 <p style="font-size:14px;line-height:1.6;color:#5c574e;margin:0">If you did not ask for it, you can ignore this email. Nobody can sign in without it.</p>

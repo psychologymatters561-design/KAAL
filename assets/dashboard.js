@@ -15,6 +15,7 @@
   function showEmail(note) { $("fEmail").hidden = false; $("fCode").hidden = true; $("eErr").textContent = note || ""; $("eGo").disabled = false; }
 
   /* ── Signing in ── */
+  var LEAD = "Enter the email you ordered or registered with. We will send you a six-digit code. There is no password to remember.";
   $("fEmail").addEventListener("submit", function (e) {
     e.preventDefault();
     EMAIL = $("email").value.trim();
@@ -25,10 +26,10 @@
       if (r._status === 0 || (!r.ok && r.reason !== "invalid")) { $("eErr").textContent = K.why[r.reason] || "That did not work. Please try again."; return; }
       if (!r.ok) { $("eErr").textContent = WHY[r.reason]; return; }
       $("fEmail").hidden = true; $("fCode").hidden = false; $("cErr").textContent = ""; $("code").value = ""; $("code").focus(); resendIn(45);
-      $("gateLead").textContent = "If that email holds a KAAL, a code is on its way. If its piece is not registered yet, the email brings the link to register it instead.";
+      $("gateLead").textContent = "If that email holds a KAAL, or a KAAL was delivered to it, a six-digit code is on its way. Not registered yet? The code opens your registration.";
     });
   });
-  $("back").addEventListener("click", function () { showEmail(""); $("gateLead").textContent = "Sign in with the email you registered with. We will send you a six-digit code. There is no password to remember."; });
+  $("back").addEventListener("click", function () { showEmail(""); $("gateLead").textContent = LEAD; });
   /* The code: digits only, however it arrives (typed, pasted, filled in by
      the phone from the email), and it sends itself once all six are in. */
   var AUTO = 0, BUSY = false, RESEND = 0;
@@ -57,6 +58,8 @@
     $("cGo").disabled = true; $("cErr").textContent = "";
     K.api("POST", "/o/auth/verify", { email: EMAIL, code: $("code").value }, { token: false }).then(function (r) {
       $("cGo").disabled = false; BUSY = false;
+      /* Delivered, not registered yet: the code opens that piece's registration. */
+      if (r.ok && r.register) { $("gateLead").textContent = "Opening No. " + K.pad(r.n) + "\u2019s registration."; location.href = r.register; return; }
       if (r.ok) { K.token(r.token); load(); return; }
       if (r.reason === "expired" || r.reason === "tries") { showEmail(WHY[r.reason]); return; }
       $("cErr").textContent = WHY[r.reason] || K.why[r.reason] || "That did not work. Please try again.";

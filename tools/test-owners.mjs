@@ -254,16 +254,25 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   await deliver(X, id);
   X.mails.length = 0;
   a = await call(X, "POST", "/o/auth/start", { email: "Gaurang@Example.com" });
-  const t = tokenFrom(X);
-  ok(a.j.ok && t && X.mails.every(m => m.to.includes("gaurang@example.com")) && !X.mails.some(m => /sign-in code/.test(m.subject)), "sign-in before registering: the inbox on the order gets the link to register, not a code");
-  X.mails.length = 0;
-  a = await call(X, "POST", "/o/auth/start", { email: "gaurang@example.com" });
-  ok(a.j.ok && X.mails.length === 0, "sign-in before registering: asking again within the hour sends nothing more");
+  const cm = X.mails.find(m => m.to.includes("gaurang@example.com") && /sign-in code/.test(m.subject));
+  const code = cm && cm.subject.slice(0, 7).replace(" ", "");
+  ok(a.j.ok && /^\d{6}$/.test(code || "") && /No\. 12's registration opens/.test(cm.text), "sign-in before registering: a delivered, unregistered buyer is sent a code, which says it opens No. 12's registration");
+  a = await call(X, "POST", "/o/auth/verify", { email: "gaurang@example.com", code: code === "000000" ? "111111" : "000000" });
+  ok(a.status === 401, "sign-in before registering: a wrong code is refused");
+  a = await call(X, "POST", "/o/auth/verify", { email: "gaurang@example.com", code });
+  const t = (/^\/claim\?t=([A-Za-z0-9_-]{43})$/.exec((a.j && a.j.register) || "") || [])[1];
+  ok(a.status === 200 && a.j.ok && t && a.j.n === 12 && !a.j.token, "sign-in before registering: the right code opens No. 12's registration (no session yet)");
+  const info = await call(X, "GET", "/o/claim/info?t=" + t);
+  ok(info.j && info.j.ok && info.j.piece.n === 12 && info.j.email === "gaurang@example.com", "sign-in before registering: the registration page it opens is that piece's, prefilled");
+  a = await call(X, "POST", "/o/auth/verify", { email: "gaurang@example.com", code });
+  ok(a.status === 401, "sign-in before registering: a code works once");
   const reg = await call(X, "POST", "/o/claim/register", Object.assign({ t }, good, { name: "G V", email: "gaurang@example.com" }));
-  ok(reg.j.ok, "sign-in before registering: the link it sent registers the piece");
+  ok(reg.j.ok, "sign-in before registering: and registering from there works");
   X.mails.length = 0;
   a = await call(X, "POST", "/o/auth/start", { email: "gaurang@example.com" });
-  ok(a.j.ok && X.mails.some(m => /sign-in code/.test(m.subject)) && !tokenFrom(X), "once registered, sign-in sends a code again");
+  const c2 = ((X.mails.find(m => /sign-in code/.test(m.subject)) || {}).subject || "").slice(0, 7).replace(" ", "");
+  a = await call(X, "POST", "/o/auth/verify", { email: "gaurang@example.com", code: c2 });
+  ok(/^\d{6}$/.test(c2) && a.j.ok && a.j.token && !a.j.register, "once registered, the code signs in to the owners' room");
 }
 
 /* ── The public registry (Phase 5) ── */
@@ -374,9 +383,10 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   const o1 = X.DB.raw.prepare("SELECT * FROM orders WHERE piece_id = 'S01-01'").get();
   ok(a.j.ok && o1 && o1.status === "delivered" && o1.amount_paise === 0 && o1.email === "me@example.com" && Date.parse(o1.return_window_ends_at) <= Date.now() &&
     X.DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-01'").get().status === "delivered", "house: the owner's own address: a house order of Rs 0, delivered, with nothing to return");
-  const letter = X.mails.find(m => m.to.includes("me@example.com") && /No\. 01 is with you/.test(m.subject));
-  ok(letter && /return window has already closed, so registering simply writes your name/.test(letter.text) && /claim\?t=[A-Za-z0-9_-]{43}/.test(letter.text), "house: and the letter to register it comes to that inbox");
-  const t1 = (/claim\?t=([A-Za-z0-9_-]{43})/.exec(letter ? letter.text : "") || [])[1];
+  const hc = X.mails.find(m => m.to.includes("me@example.com") && /sign-in code/.test(m.subject));
+  ok(hc && /No\. 01's registration opens/.test(hc.text), "house: and a code comes to that inbox, which opens No. 01's registration");
+  const hv = await call(X, "POST", "/o/auth/verify", { email: "me@example.com", code: hc ? hc.subject.slice(0, 7).replace(" ", "") : "" });
+  const t1 = (/^\/claim\?t=([A-Za-z0-9_-]{43})$/.exec((hv.j && hv.j.register) || "") || [])[1];
   const reg = await call(X, "POST", "/o/claim/register", { t: t1, name: "A. Owner", phone: "9876543210", email: "me@example.com", accept: true, consent: true });
   ok(reg.j && reg.j.ok && reg.j.n === 1 && reg.j.ownerNo === 1, "house: registered, as Owner I of No. 01");
   X.mails.length = 0;
@@ -435,14 +445,19 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   const reg = await call(X, "POST", "/o/claim/register", { t: t2, name: "G. Owner", phone: "9876543210", email: "g@example.com", accept: true, consent: true });
   a = await run();
   ok(reg.j && reg.j.ok && reg.j.n === 2 && a.j.delivered.some(d => d.n === 2 && d.did === "registered"), "sealed: once registered, it says so and sends nothing");
-  /* Already sent at a sign-in: never a second copy. */
+  /* Signed in first (a code): the letter, with its link, still goes once. */
   const hm = createHash("sha256").update("me@example.com").digest("hex");
   X.env.HOUSE = JSON.stringify([{ n: 4, h: hm }]);
+  X.mails.length = 0;
   await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
+  ok(X.mails.some(m => m.to.includes("me@example.com") && /sign-in code/.test(m.subject)), "sealed: signing in first sends a code");
   X.env.HOUSE = JSON.stringify([{ n: 4, h: hm, box: await seal(again.j.opsKey, "me@example.com") }]);
   X.mails.length = 0;
   a = await run();
-  ok(a.j.delivered.some(d => d.n === 4 && d.did === "letter already sent") && !X.mails.some(m => m.to.includes("me@example.com")), "sealed: a letter already sent at sign-in is not sent again");
+  ok(a.j.delivered.some(d => d.n === 4 && d.did === "letter queued") && X.mails.some(m => m.to.includes("me@example.com") && /No\. 04 is with you/.test(m.subject)), "sealed: and the letter with the registration link still goes");
+  X.mails.length = 0;
+  a = await run();
+  ok(a.j.delivered.some(d => d.n === 4 && d.did === "letter already sent") && !X.mails.length, "sealed: once");
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");

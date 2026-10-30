@@ -135,7 +135,24 @@ await p2.goto(SITE + "/owners");
 await p2.waitForSelector("#gate:not([hidden])");
 await p2.fill("#email", "stranger@example.com"); await p2.click("#eGo");
 await p2.waitForSelector("#fCode:not([hidden])");
-ok(/If that email holds a KAAL, a code is on its way/.test(await p2.locator("#gateLead").innerText()), "owners: a stranger's email gets the same answer as an owner's");
+ok(/If that email holds a KAAL, or a KAAL was delivered to it, a six-digit code is on its way/.test(await p2.locator("#gateLead").innerText()), "owners: a stranger's email gets the same answer as an owner's");
+/* Delivered, not registered yet: the desk sends a code, and the code opens the registration. */
+const r9 = await R.recordPayment(W.env, { series: "S01", n: 12, paymentId: "pay_UIOWN0012", orderId: "order_UIOWN0012", amount: 599900, email: "mira@example.com", phone: "9811122233", name: "Mira Sen",
+  paidAt: new Date(Date.now() - 5 * 86400000).toISOString() });
+W.DB.raw.prepare("UPDATE orders SET status='dispatched', dispatched_at=?, courier='Delhivery', tracking_number='DL2', tracking_url='https://x.example/t' WHERE id=?").run(new Date(Date.now() - 2 * 86400000).toISOString(), r9.order.id);
+await moveOrder(W.env, { siteUrl: () => SITE, kick: () => {} }, "admin:1", r9.order.id, { to: "delivered", day: new Date(Date.now() + 5.5 * 3600000 - 86400000).toISOString().slice(0, 10) });
+const p3 = await B2.page();
+await p3.goto(SITE + "/owners");
+await p3.waitForSelector("#gate:not([hidden])");
+await p3.fill("#email", "mira@example.com"); await p3.click("#eGo");
+await p3.waitForSelector("#fCode:not([hidden])");
+let cm = null;
+for (let i = 0; i < 40 && !cm; i++) { cm = W.mails.find(m => JSON.stringify(m.to).includes("mira@example.com") && /sign-in code/.test(m.subject)); if (!cm) await p3.waitForTimeout(100); }
+ok(cm && /No\. 12's registration opens/.test(cm.text || ""), "owners: a delivered, unregistered buyer is emailed a code at the desk");
+await p3.fill("#code", cm ? cm.subject.slice(0, 7).replace(" ", "") : "000000");
+await p3.waitForURL(/\/claim\?t=[A-Za-z0-9_-]{43}/, { timeout: 8000 }).catch(() => null);
+await p3.waitForSelector("#form:not([hidden])", { timeout: 8000 }).catch(() => null);
+ok(/\/claim\?t=/.test(p3.url()) && await p3.locator("#title").innerText().catch(() => "") === "Make No. 12 yours", "owners: the code opens No. 12's registration, ready to complete");
 ok(B.log.errors.length === 0, "owners: no script errors " + JSON.stringify(B.log.errors).slice(0, 200));
 ok(B.log.console.filter(x => !/Failed to load resource.*status of (40\d|410)/.test(x)).length === 0, "owners: no console errors " + JSON.stringify(B.log.console).slice(0, 300));
 await B2.browser.close();

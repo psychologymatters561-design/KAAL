@@ -24,7 +24,7 @@
 import { registryOn, audit, normPhone, SERIES } from "./registry.js";
 import { startLogin, verifyLogin, issueCode, spendCode, openSession, sessionOf, endSession, codeEmail, adminEmail, normEmail, validEmail, sha256, authOn } from "./auth.js";
 import { queueLetter } from "./outbox.js";
-import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered } from "./orders.js";
+import { iso, istDay, pad2, clean, seriesSize, setting, warrantyWindow, longDay, nextOwnerNo, queueDelivered, mintClaim } from "./orders.js";
 import { houseClaim } from "./house.js";
 import { ownerActions } from "./owner-actions.js";
 import { notifyOwner } from "./push.js";
@@ -58,6 +58,11 @@ async function claimOf(env, t) {
 
 const seriesOf = (env, code) => env.DB.prepare("SELECT * FROM series WHERE code = ?1").bind(code).first();
 
+/* Pieces delivered to this address and not registered yet, oldest first. */
+async function deliveredFor(env, e) {
+  return ((await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.email = ?1 AND o.status = 'delivered' ORDER BY o.id").bind(e).all()).results) || [];
+}
+
 export async function ownersRoute(request, env, ctx, path, deps) {
   const J = (body, status, extra) => deps.json(request, env, body, Object.assign({ "Cache-Control": "no-store" }, extra || {}), status);
   if (!registryOn(env) || !authOn(env)) return J({ ok: false, reason: "off" }, 503);
@@ -73,18 +78,18 @@ export async function ownersRoute(request, env, ctx, path, deps) {
       /* The house's own piece, held for the owner's own address (house.js):
          made ready for it here, then the usual path below. */
       await houseClaim(env, e);
-      /* A buyer whose piece has arrived but is not registered has no code to
-         sign in with: what that inbox needs is the link to register, so that
-         is what it gets, at most once an hour per order. The answer on the
-         screen is the same either way. */
+      /* A buyer whose piece has arrived but is not registered yet gets the
+         same six-digit code: entering it opens the piece's registration
+         (verify, below), exactly as the link in their letter does. Before
+         delivery, nothing. The answer on the screen is the same either way. */
       const holds = await env.DB.prepare("SELECT 1 AS x FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE w.email = ?1 AND w.deleted_at IS NULL AND s.to_at IS NULL LIMIT 1").bind(e).first();
-      if (!holds) {
-        const waiting = ((await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.email = ?1 AND o.status = 'delivered' ORDER BY o.id").bind(e).all()).results) || [];
+      if (!holds && e !== adminEmail(env)) {
+        const waiting = await deliveredFor(env, e);
         if (waiting.length) {
-          if ((await setting(env, "stage_emails", "1")) === "1") {
-            const hour = new Date().toISOString().slice(0, 13), ids = [];
-            for (const o of waiting) { const q = await queueDelivered(env, deps.siteUrl(env), o, `signin:${o.id}:${hour}`); if (q) ids.push(q); }
-            if (ids.length) deps.kick(ids);
+          const r = await issueCode(env, e);
+          if (r.send) {
+            const m = codeEmail(r.send.code, deps.siteUrl(env), waiting[0].number);
+            deps.kick0(deps.sendEmail(env, r.send.to, m.subject, m.text, m.html));
           }
           return J({ ok: true });
         }
@@ -99,6 +104,18 @@ export async function ownersRoute(request, env, ctx, path, deps) {
     if (method === "POST" && path === "/o/auth/verify") {
       const b = await readBody(request); if (!b) return J({ ok: false, reason: "too-big" }, 413);
       const e = normEmail(b.email);
+      /* Not registered yet, with a piece delivered to this address: the code
+         is spent and the answer is that piece's registration page. */
+      const holds = await env.DB.prepare("SELECT 1 AS x FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE w.email = ?1 AND w.deleted_at IS NULL AND s.to_at IS NULL LIMIT 1").bind(e).first();
+      if (!holds && e !== adminEmail(env)) {
+        const waiting = await deliveredFor(env, e);
+        if (waiting.length) {
+          const spent = await spendCode(env, e, b.code);
+          if (!spent.ok) return J({ ok: false, reason: spent.reason }, 401);
+          const t = await mintClaim(env, waiting[0]);
+          return J({ ok: true, register: `/claim?t=${t}`, n: waiting[0].number });
+        }
+      }
       /* Whoever holds the shop's own address may also hold a piece; the token this gives opens the owners' pages and nothing else. */
       const r = await verifyLogin(env, e, b.code, request.headers.get("user-agent"), "owner");
       if (!r.ok) return J({ ok: false, reason: r.reason }, 401);

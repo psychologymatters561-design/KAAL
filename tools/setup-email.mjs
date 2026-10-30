@@ -437,6 +437,14 @@ async function ownerRequests(key) {
     const was = existsSync(file) ? readFileSync(file, "utf8") : "";
     if (was !== next) { writeFileSync(file, next); good("the worker's public key is written to tools/ops-key.json (committed by the workflow)"); }
   }
+  if (j.mail) {
+    const m = j.mail, q = m.outbox || {};
+    if (m.last) (m.last.ok ? good : todo)(`Email: the last send ${m.last.ok ? "was accepted" : "was REFUSED (" + (m.last.status || "no answer") + (m.last.msg ? ": " + m.last.msg : "") + ")"} (${m.last.at})`);
+    else say("  · Email: no send recorded yet");
+    if (m.fail && (!m.last || !m.last.ok || m.fail.at > m.last.at)) todo(`Email: last refusal ${m.fail.at}: ${m.fail.status || "no answer"} ${m.fail.msg || ""}`);
+    say(`  · Letters queue, last 48 hours: sent ${q.sent || 0}, failed ${q.failed || 0}, waiting ${q.queued || 0}`);
+    if (m.lastFailed) todo(`Last letter that failed: ${m.lastFailed.template} (${m.lastFailed.at}): ${m.lastFailed.why}`);
+  }
   if (j.github) say(`  · The worker's GitHub key: ${j.github}`);
   if (Array.isArray(j.shopSold)) say(`  · The shop's stored list of gone numbers: ${j.shopSold.join(", ") || "none"}`);
   say("  · The twenty (registry state; orders; on the shop's gone list; last change):");

@@ -29,7 +29,7 @@ export function roman(n) {
 const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const safeUrl = (u) => (/^https:\/\/[^\s"'<>]+$/i.test(String(u || "")) ? String(u) : "");
 
-const C = { page: "#F4F1EA", sheet: "#FBF9F4", ink: "#1D1B18", soft: "#5C574E", rule: "#E6E0D4", gold: "#8A6C33" };
+const C = { page: "#F4F1EA", sheet: "#FBF9F4", ink: "#1D1B18", soft: "#5C574E", rule: "#E6E0D4", gold: "#8A6C33", button: "#7A5A1E" };
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 /* blocks: strings are paragraphs; { button: [label, url] } is the one button;
@@ -47,7 +47,16 @@ function render(subject, blocks, opts) {
     } else if (b.button) {
       const u = safeUrl(b.button[1]);
       if (!u) continue;
-      html.push(`<p style="margin:6px 0 26px"><a href="${esc(u)}" style="display:inline-block;background:${C.ink};color:${C.sheet};text-decoration:none;font-size:15px;letter-spacing:.04em;padding:14px 22px">${esc(b.button[0])}</a></p>`);
+      /* A button every mail app keeps: the colour on a table cell (bgcolor,
+         which Gmail's app, Outlook and dark modes leave alone, where they
+         strip a link's own background), a border so it reads as a button
+         even when colours are inverted, and the address beneath it as a
+         plain link, so there is always something to tap. */
+      html.push(`<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:8px 0 10px;border-collapse:separate"><tr>` +
+        `<td align="center" bgcolor="${C.button}" style="background-color:${C.button};border:2px solid #C6A15B;border-radius:4px;mso-padding-alt:15px 28px">` +
+        `<a href="${esc(u)}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:${SANS};font-size:16px;font-weight:700;line-height:1.2;letter-spacing:.03em;color:#FFFFFF;text-decoration:none;border-radius:4px"><span style="color:#FFFFFF;text-decoration:none">${esc(b.button[0])} &rarr;</span></a>` +
+        `</td></tr></table>` +
+        `<p style="margin:0 0 26px;font-size:12px;line-height:1.6;color:${C.soft}">If the button does not open, use this link:<br><a href="${esc(u)}" target="_blank" style="color:${C.button};text-decoration:underline;word-break:break-all">${esc(u)}</a></p>`);
       text.push(`${b.button[0]}: ${u}`, "");
     } else if (b.quiet) {
       const u = safeUrl(b.quiet[1]);

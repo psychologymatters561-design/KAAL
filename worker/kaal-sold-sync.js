@@ -1480,7 +1480,16 @@ async function opsRun(request, env) {
       github = r.ok ? (j.permissions && j.permissions.push ? "can write" : "can read only") : `refused (HTTP ${r.status})`;
     } catch (e) { github = "unreachable"; }
   }
-  return new Response(JSON.stringify({ ok: true, sealed: houseList(env).filter(x => x.box).length, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], delivered, facts, shopSold: kv, github,
+  /* Is email leaving? The last send, the last refusal, and the letters queue over two days. */
+  const mail = { last: null, fail: null, outbox: {} };
+  if (env.KAAL_STATE) { mail.last = await env.KAAL_STATE.get("mail:last", "json").catch(() => null); mail.fail = await env.KAAL_STATE.get("mail:fail", "json").catch(() => null); }
+  if (env.DB) {
+    const rows = (await env.DB.prepare("SELECT status, COUNT(*) AS c FROM email_outbox WHERE created_at > ?1 GROUP BY status").bind(new Date(Date.now() - 48 * 3600000).toISOString()).all().catch(() => ({ results: [] }))).results || [];
+    for (const r of rows) mail.outbox[r.status] = r.c;
+    const bad = await env.DB.prepare("SELECT template, last_error, created_at FROM email_outbox WHERE status = 'failed' ORDER BY id DESC LIMIT 1").first().catch(() => null);
+    if (bad) mail.lastFailed = { template: bad.template, at: bad.created_at, why: String(bad.last_error || "").replace(/[^\s@"'<>,;:]+@[^\s@"'<>,;:]+/g, "[address]").slice(0, 160) };
+  }
+  return new Response(JSON.stringify({ ok: true, mail, sealed: houseList(env).filter(x => x.box).length, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], delivered, facts, shopSold: kv, github,
     opsKey: env.KAAL_STATE ? await opsPublicKey(env) : null }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
@@ -2279,12 +2288,26 @@ async function sendEmail(env, to, subject, text, html, replyToOverride, headers)
         body: JSON.stringify(msg)
       });
     }
-    if (!res.ok) { console.log("Email provider refused:", res.status, (await res.text()).slice(0, 200)); return false; }
+    if (!res.ok) { const why = (await res.text()).slice(0, 200); console.log("Email provider refused:", res.status, why); await mailNote(env, false, res.status, why); return false; }
+    await mailNote(env, true);
     return true;
   } catch (e) {
     console.log("Email send threw:", String(e).slice(0, 120));
+    await mailNote(env, false, 0, String(e));
     return false;
   }
+}
+/* Whether email is leaving, for Health and the deploy's report: the last
+   result (written when it changes, or every ten minutes) and the last
+   refusal, with any address in it blanked. */
+async function mailNote(env, ok, status, why) {
+  if (!env.KAAL_STATE || staging(env)) return;
+  try {
+    const at = new Date().toISOString(), msg = String(why || "").replace(/[^\s@"'<>,;:]+@[^\s@"'<>,;:]+/g, "[address]").slice(0, 160);
+    const prev = await env.KAAL_STATE.get("mail:last", "json").catch(() => null);
+    if (!prev || prev.ok !== ok || Date.now() - Date.parse(prev.at) > 600000) await env.KAAL_STATE.put("mail:last", JSON.stringify({ at, ok, status: status || 0, msg: ok ? "" : msg }));
+    if (!ok) await env.KAAL_STATE.put("mail:fail", JSON.stringify({ at, status: status || 0, msg }));
+  } catch (e) { /* the note is never worth failing a send over */ }
 }
 
 /* ══════════ 5. THE DAILY COUNT, AND THE MORNING REPORT ══════════

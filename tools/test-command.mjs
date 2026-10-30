@@ -356,6 +356,7 @@ async function vapidOk(auth, aud) {
   ok(r.status === 200 && r.j.ok && r.j.ops.some(o => /No\. 09 on sale/.test(o.label) && /Done/.test(o.detail)) && r.j.ops.some(o => /No\. 01 kept off sale/.test(o.label)) &&
     r.j.facts.length === 20 && r.j.facts.some(f => f.n === 9 && f.piece === "available" && !f.shopGone && /piece\.sale by system/.test(f.last)) && Array.isArray(r.j.shopSold) && typeof r.j.github === "string",
     "ops: the right key runs the requests and says what happened, for all twenty, and whether GitHub takes the worker's writes");
+  ok(r.j.mail && r.j.mail.last && r.j.mail.last.ok === true && typeof r.j.mail.outbox === "object", "ops: it says whether email is leaving (the last send, the letters queue)");
   ok(!/@|arjun|example\.com/i.test(r.text), "ops: the answer names no person and no address");
   jar = keep;
 }

@@ -13,6 +13,10 @@ W.DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, 
 await R.recordPayment(W.env, { series: "S01", n: 8, paymentId: "pay_UIREG0008", orderId: "order_UIREG0008", amount: 599900, email: "ravi@example.com", name: "Ravi", paidAt: new Date().toISOString() });
 W.DB.raw.prepare("UPDATE pieces SET status='held', held_by='x', held_until=? WHERE id='S01-10'").run(Date.now() + 600000);
 W.DB.raw.prepare("UPDATE pieces SET status='reported_stolen' WHERE id='S01-15'").run();
+/* No. 12: delivered, not yet registered (the letter in the box points here). */
+const r12 = await R.recordPayment(W.env, { series: "S01", n: 12, paymentId: "pay_UIREG0012", orderId: "order_UIREG0012", amount: 599900, email: "mira@example.com", phone: "9811122233", name: "Mira Sen", paidAt: new Date().toISOString() });
+W.DB.raw.prepare("UPDATE orders SET status='delivered', delivered_on=?, return_window_ends_at=? WHERE id=?").run(new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10), new Date(Date.now() + 6 * 86400000).toISOString(), r12.order.id);
+W.DB.raw.prepare("UPDATE pieces SET status='delivered' WHERE id='S01-12'").run();
 W.DB.raw.prepare("INSERT INTO service_log (series, piece_id, date, work_done, public_line) VALUES ('S01','S01-07','2027-03-01','x','Movement replaced under warranty')").run();
 
 const B = await open(W, { viewport: { width: 360, height: 800 } });
@@ -39,6 +43,26 @@ const p3 = await B.page();
 await p3.goto(SITE + "/registry?n=03");
 await p3.waitForSelector("#panel:not([hidden])");
 ok(/Available/.test(await p3.locator("#panel").innerText()) && await p3.locator("#panel a.btn").count() === 1, "registry: an available number leads to the shop");
+/* The QR code on the letter in the box, for a piece that is with its buyer but has no name yet. */
+const p4 = await B.page();
+await p4.goto(SITE + "/registry?n=12");
+await p4.waitForSelector("#mineEmail");
+ok(/Is No\. 12 with you\?/.test(await p4.locator("#panel").innerText()) && /Waiting to be registered/.test(await p4.locator("#panel").innerText()), "registry: a delivered, unregistered number asks whether it is with you");
+ok(!/Mira|mira@|9811/.test(await p4.locator("#panel").innerText()), "registry: and shows nothing of the buyer");
+const ask = async (email) => { await p4.fill("#mineEmail", email); await p4.click("#mineGo"); await p4.waitForFunction(() => document.getElementById("mineMsg").textContent.length > 0); return p4.locator("#mineMsg").innerText(); };
+const wrong = await ask("someone@example.com");
+const right = await ask("mira@example.com");
+ok(wrong === right && /If that is the email on No\. 12/.test(right), "registry: the same answer whether or not the email matched");
+let got = null;
+for (let i = 0; i < 50 && !got; i++) { got = W.mails.find(m => JSON.stringify(m.to).includes("mira@example.com") && /No\. 12 is with you\. One step makes it yours\./.test(m.subject)); if (!got) await p4.waitForTimeout(100); }
+ok(got && /claim\?t=[A-Za-z0-9_-]{43}/.test(got.text || got.html), "registry: the right email gets the registration letter, with its link");
+ok(!W.mails.some(m => JSON.stringify(m.to).includes("someone@example.com")), "registry: a wrong email gets nothing");
+await p4.fill("#mineEmail", "not-an-email"); await p4.click("#mineGo");
+ok(/does not look like an email/.test(await p4.locator("#mineMsg").innerText()), "registry: a mistyped address is caught before anything is sent");
+const p5 = await B.page();
+await p5.goto(SITE + "/registry?n=07");
+await p5.waitForSelector("#panel:not([hidden])");
+ok(await p5.locator("#mineEmail").count() === 0, "registry: a registered number never asks");
 ok(B.log.errors.length === 0 && B.log.console.length === 0, "registry: no errors " + JSON.stringify(B.log.errors.concat(B.log.console)).slice(0, 200));
 await B.browser.close();
 const B2 = await open(W, { viewport: { width: 1280, height: 900 } });

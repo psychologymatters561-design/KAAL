@@ -37,36 +37,47 @@
       <ol class="steps" aria-label="Three steps"><li class="on">Your piece</li><li class="on">Your details</li><li>Yours</li></ol>
       <h1 class="center" id="title">Register</h1>
       <p class="muted center" id="lead">Registering writes you into the KAAL registry. That record stays with this piece for as long as it exists.</p>
+      <ul class="opens" id="opens" aria-label="What registering opens"></ul>
 
       <dl class="kv" id="facts"></dl>
 
       <form id="reg" novalidate>
-        <label for="name">Your name, as it should be written</label>
-        <input id="name" type="text" autocomplete="name" required>
-        <label for="phone">Phone</label>
-        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" required>
-        <label for="email">Email <span class="faint">(this is how you sign in)</span></label>
-        <input id="email" type="email" inputmode="email" autocomplete="email" required>
-        <div id="codeBlock" hidden>
-          <p class="hint">This is not the email on your order, so we will send a six-digit code to it first.</p>
-          <div class="row">
-            <input id="emailCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" aria-label="Six-digit code" class="short">
-            <button class="btn ghost" id="sendCode" type="button">Send the code</button>
+        <h2 class="fs-h">Written in the registry as</h2>
+        <div class="me-card" id="me" hidden>
+          <p class="me-n" id="meName"></p>
+          <p class="me-m" id="meMeta"></p>
+          <button class="linkbtn" id="editDetails" type="button" aria-controls="details" aria-expanded="false">Change these details</button>
+        </div>
+        <div id="details">
+          <label for="name">Your name, as it should be written</label>
+          <input id="name" type="text" autocomplete="name" required>
+          <label for="phone">Phone</label>
+          <input id="phone" type="tel" inputmode="tel" autocomplete="tel" required>
+          <label for="email">Email <span class="faint">(this is how you sign in)</span></label>
+          <input id="email" type="email" inputmode="email" autocomplete="email" required>
+          <div id="codeBlock" hidden>
+            <p class="hint">This is not the email on your order, so we will send a six-digit code to it first.</p>
+            <div class="row">
+              <input id="emailCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" aria-label="Six-digit code" class="short">
+              <button class="btn ghost" id="sendCode" type="button">Send the code</button>
+            </div>
+            <p class="hint" id="codeMsg" role="status"></p>
           </div>
-          <p class="hint" id="codeMsg" role="status"></p>
+          <p class="hint">There is no password. When you come back, we email you a code.</p>
         </div>
 
-        <p class="hint">There is no password. When you come back, we email you a code.</p>
-
+        <h2 class="fs-h">Your acceptance</h2>
         <div class="notice" id="returnNotice"></div>
-
         <label class="check" for="accept"><input id="accept" type="checkbox"><span id="acceptText"></span></label>
+        <label class="check" for="consent"><input id="consent" type="checkbox"><span>I have read the <a href="legal.html#data" target="_blank" rel="noopener">data notice</a> and agree to KAAL keeping my details to run my warranty and my place in the registry.</span></label>
+
+        <h2 class="fs-h">In the public registry <span class="opt">optional</span></h2>
         <label class="check" for="showCity"><input id="showCity" type="checkbox"><span id="cityText"></span></label>
         <label class="check" for="showName"><input id="showName" type="checkbox"><span id="nameText"></span></label>
-        <label class="check" for="consent"><input id="consent" type="checkbox"><span>I have read the <a href="legal.html#data" target="_blank" rel="noopener">data notice</a> and agree to KAAL keeping my details to run my warranty and my place in the registry.</span></label>
 
         <p class="err" id="err" role="alert"></p>
         <button class="btn block" id="go" type="submit">Register</button>
+        <p class="hint center" id="later"></p>
       </form>
     </section>
 
@@ -74,8 +85,9 @@
     <section id="done" hidden aria-live="polite">
       <div class="strip" id="strip" aria-hidden="true"></div>
       <h1 class="center" id="doneH"></h1>
+      <p class="center inkname" id="doneName"></p>
       <p class="muted center" id="doneP"></p>
-      <p class="center"><a class="btn" id="open" href="owners.html">Open your dashboard</a></p>
+      <p class="center"><a class="btn" id="open" href="owners.html">Open your owner's room</a></p>
     </section>
 
     <footer class="fine">Questions: <a href="mailto:connect@thekaal.co">connect@thekaal.co</a></footer>

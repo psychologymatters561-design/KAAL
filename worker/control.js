@@ -18,8 +18,8 @@
 import { dossier } from "./owners.js";
 import { SW_JS, MANIFEST, iconPng, KINDS, vapidKeys, subscribe, unsubscribe, subsOf, prefsOf, savePrefs, notifyOwner } from "./push.js";
 import { authOn, adminEmail, adminOwner, startLogin, verifyLogin, sessionOf, openSession, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail, sha256, same } from "./auth.js";
-import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample } from "./letters.js";
-import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered, warrantyWindow } from "./orders.js";
+import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample, whatsappNote } from "./letters.js";
+import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered, warrantyWindow, returnVars, longDay, nextOwnerNo, mintClaim } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
 import { lateOrders } from "./sla.js";
@@ -371,11 +371,20 @@ async function stage(env, ctx, T, actor, id, b) {
 
 /* "Resend registration link" mails the owner a fresh link and leaves the
    earlier ones working; "Regenerate" first revokes every unused one (for a
-   link that went astray). Only for a delivered, unregistered piece. */
+   link that went astray); "WhatsApp" makes a fresh link and hands back the
+   message and the number, for the owner of the shop to send from their
+   own phone (nothing is sent from here). Only for a delivered, unregistered
+   piece. */
 async function claimLink(env, ctx, T, actor, id, b) {
   const o = await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.id = ?1").bind(id).first();
   if (!o) return out({ ok: false, reason: "unknown-order" }, 404);
   if (o.status !== "delivered") return out({ ok: false, reason: "state", why: o.status === "registered" ? "This piece is already registered." : "A registration link is for a delivered piece. Mark it delivered first." }, 409);
+  if (b.mode === "whatsapp") {
+    const url = `${T.siteUrl(env)}/claim?t=${await mintClaim(env, o)}`;
+    const text = whatsappNote(Object.assign({ n: o.number, size: await seriesSize(env, o.series), claimUrl: url, ownerNo: await nextOwnerNo(env, o.piece_id) }, await returnVars(env, o)));
+    await audit(env, actor, "order.link.whatsapp", "order:" + id, { status: o.status }, { via: "whatsapp" }, o.series);
+    return out({ ok: true, text, phone: waPhone(o.phone) });
+  }
   if (!o.email) return out({ ok: false, reason: "email", why: "This order has no email address to send it to." }, 400);
   const regen = b.mode === "regenerate";
   if (regen) await env.DB.prepare("UPDATE claim_tokens SET revoked_at = ?1 WHERE order_id = ?2 AND used_at IS NULL AND revoked_at IS NULL").bind(iso(), id).run();
@@ -383,6 +392,14 @@ async function claimLink(env, ctx, T, actor, id, b) {
   if (q) kick(env, ctx, T, [q]);
   await audit(env, actor, regen ? "order.link.regenerate" : "order.link.resend", "order:" + id, { status: o.status }, { to: o.email, queued: !!q }, o.series);
   return out({ ok: true, to: o.email });
+}
+
+/* An Indian mobile as WhatsApp wants it: country code and digits only. */
+function waPhone(p) {
+  let d = String(p || "").replace(/\D/g, "");
+  if (d.length === 11 && d[0] === "0") d = d.slice(1);
+  if (d.length === 10) d = "91" + d;
+  return d.length >= 11 && d.length <= 15 ? d : "";
 }
 
 /* A sale made before the registry (Nos. 01 and 02): typed in once, from
@@ -606,7 +623,8 @@ async function preview(env, url, T) {
     const o = await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE o.id = ?1").bind(oid).first();
     if (o) m = LETTERS[t]({ site: T.siteUrl(env), n: o.number, size: await seriesSize(env, o.series), courier: url.searchParams.get("courier") || o.courier || "the courier",
       tracking: url.searchParams.get("tracking") || o.tracking_number || "(tracking number)", trackingUrl: url.searchParams.get("url") || o.tracking_url || "",
-      claimUrl: `${T.siteUrl(env)}/claim?t=(sent-with-the-email)`, ownerNo: 1, trackUrl: "" });
+      claimUrl: `${T.siteUrl(env)}/claim?t=(sent-with-the-email)`, ownerNo: await nextOwnerNo(env, o.piece_id), trackUrl: "",
+      ...(o.return_window_ends_at ? await returnVars(env, o) : { returnDays: 7, returnEndsOn: longDay(istDay(Date.now() + 7 * 86400000)) }) });
   }
   const page = url.searchParams.get("format") === "text" ? `<pre style="white-space:pre-wrap;font:14px/1.6 ui-monospace,Menlo,monospace;padding:16px">${m.text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>` : m.html;
   return new Response(page, { headers: headers({ "Content-Type": "text/html; charset=utf-8", "X-Frame-Options": "SAMEORIGIN",
@@ -727,7 +745,7 @@ async function activity(env, T, q) {
 const AUDIT_WORDS = {
   "order.stage": "Order moved on", "order.correct": "Order corrected without email", "order.returned": "Marked returned",
   "order.refunded": "Refunded", "order.refund.failed": "Refund failed", "order.past_sale": "A past sale recorded", "order.duplicate": "Second payment for one watch",
-  "order.link.resend": "Registration link sent", "order.link.regenerate": "New registration link sent",
+  "order.link.resend": "Registration link sent", "order.link.regenerate": "New registration link sent", "order.link.whatsapp": "Registration link made for WhatsApp",
   "piece.update": "Piece changed", "piece.sale": "On sale or kept back", "piece.photo": "Photograph added", "piece.placed": "Piece placed with an order",
   "owner.update": "Owner's details changed", "owner.revoke": "Owner signed out everywhere", "owner.register": "An owner registered their piece", "owner.recovery": "Owner recovery",
   "auth.passcode": "Command centre opened with the passcode", "auth.code": "Signed in with an emailed code", "auth.revoke_all": "Command centre signed out everywhere",

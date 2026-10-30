@@ -343,3 +343,18 @@ main{position:relative;z-index:1}
 .row.pair{justify-content:center;gap:1.4rem}
 @media (max-width:480px){ .warranty .dial .face{padding:0 2.6rem} .warranty .dial .cap{font-size:.5625rem;letter-spacing:.16em} .warranty .dial .days{font-size:clamp(3rem,15vw,4rem)} }
 @media (max-width:480px){ .warranty .dial .face{padding:0 2.6rem} .warranty .dial .cap{font-size:.5625rem;letter-spacing:.16em} .warranty .dial .days{font-size:clamp(3rem,15vw,4rem)} }
+
+/* /claim: what registering opens, the details as they will be written, and the name arriving in ink. */
+.opens{list-style:none;margin:1.3rem auto 1.7rem;padding:0;max-width:27rem;display:grid;gap:.5rem}
+.opens li{position:relative;padding-left:1.15rem;font-size:.95rem;line-height:1.45;color:var(--mute)}
+.opens li::before{content:"";position:absolute;left:0;top:.62em;width:.32rem;height:.32rem;border-radius:50%;background:var(--gold)}
+.fs-h{font-family:var(--body);font-size:.75rem;font-weight:400;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);margin:2.1rem 0 .3rem;line-height:1.4}
+.fs-h .opt{letter-spacing:.14em;color:var(--ghost);margin-left:.4rem}
+.me-card{border:1px solid var(--line);border-left:2px solid var(--gold);border-radius:3px;background:var(--void-2);padding:1rem 1.1rem .4rem;margin:.8rem 0 0}
+.me-card .me-n{font-family:var(--display);font-size:1.6rem;line-height:1.15;margin:0;color:var(--bone);overflow-wrap:anywhere}
+.me-card .me-m{font-size:.875rem;color:var(--mute);margin:.35rem 0 0;overflow-wrap:anywhere}
+.me-card .linkbtn{font-size:.875rem}
+.inkname{font-family:var(--display);font-style:italic;font-size:clamp(1.9rem,7vw,2.7rem);line-height:1.2;color:var(--gold-lit);margin:.1rem 0 .5rem;overflow-wrap:anywhere}
+.js .inkname{clip-path:inset(0 100% 0 0);animation:ink 1.9s var(--ease) .45s forwards}
+@keyframes ink{to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){.js .inkname{clip-path:none;animation:none}}

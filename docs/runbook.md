@@ -148,12 +148,15 @@ per order with its stage, the buyer's WhatsApp, Call and Email, and **Their
 journey** (the visitor history behind the order). One tap per stage:
 Inspected, Packed, Dispatched (courier, tracking number, tracking link),
 Delivered (a date, today by default: this starts the warranty and the return
-window and emails the registration link). Each tap gives you **ten seconds to
+window and emails the registration letter, "One step makes it yours"; the
+sheet names the address it goes to and has **Preview the letter**). Each tap gives you **ten seconds to
 Undo** before the buyer's email goes. If Shiprocket is connected
 (docs/courier.md) Dispatched and Delivered happen by themselves.
 Extra buttons: **Change without email** (a correction, with a reason in the
 log), **Send registration link** (emails a fresh one; earlier ones keep
-working), **New link, cancel old** (for a link that went astray), **Mark
+working), **WhatsApp the link** (a fresh link in a message ready to send
+from KAAL's phone to the buyer's number; nothing is sent until you press
+send in WhatsApp), **New link, cancel old** (for a link that went astray), **Mark
 returned** (only inside the seven days and before registering; the buyer is
 never sold to again), **Refund** (full amount, through Razorpay, after you
 type the number). **Record a past sale** is for Nos. 01 and 02.

@@ -177,7 +177,7 @@ function KV_SHIP(W, orderId, yes) {
   const d = W.DB.raw.prepare("SELECT status, delivered_on, return_window_ends_at FROM orders WHERE id = ?").get(o7);
   ok(r.j.delivered && d.status === "delivered" && d.delivered_on === today && d.return_window_ends_at, "courier: delivered -> Delivered today, the return window set");
   const dm = W.mails.find(m => m.subject === "No. 07 is with you. One step makes it yours.");
-  ok(dm && /claim\?t=[A-Za-z0-9_-]{43}/.test(dm.text) && dm.text.includes("Once you register, the 7-day return option closes"), "courier: delivered -> the registration email, with the return-window notice");
+  ok(dm && /claim\?t=[A-Za-z0-9_-]{43}/.test(dm.text) && dm.text.includes("so it closes the 7-day return option, which is otherwise open until"), "courier: delivered -> the registration email, with the return-window notice");
   ok(W.DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-07'").get().status === "delivered", "courier: the piece is delivered too");
   const count = W.mails.length;
   await shiprocket(W, Object.assign({}, sr, { current_status: "DELIVERED", current_status_id: 7, current_timestamp: nowStamp }));
@@ -248,7 +248,10 @@ function KV_SHIP(W, orderId, yes) {
   await run();
   const rem = W.mails.filter(m => /has no name beside it yet/.test(m.subject));
   ok(rem.length === 1 && rem[0].subject === "No. 11 has no name beside it yet" && /claim\?t=/.test(rem[0].text), "reminder: one, to the unregistered owner 72 hours on, with a fresh link");
-  ok(rem[0].text.includes("Registering closes the return option and opens your warranty dashboard.") && !/—/.test(rem[0].text), "reminder: the brief's words");
+  const endsOn = (() => { const d = new Date(Date.parse(open) + 5.5 * 3600000); return d.getUTCDate() + " " + ["January","February","March","April","May","June","July","August","September","October","November","December"][d.getUTCMonth()] + " " + d.getUTCFullYear(); })();
+  ok(rem[0].text.includes("Registering closes the return option, open until " + endsOn + ". Your warranty runs from the day of delivery either way.") && !/—/.test(rem[0].text),
+    "reminder: says what registering closes, the day the return option ends, and that the warranty stands either way");
+  ok(/By now you will know whether it is yours\./.test(rem[0].text) && /We will not ask again\./.test(rem[0].text) && /Make No\. 11 yours: https:/.test(rem[0].text), "reminder: leaves the choice with them, and says it is the only one");
   await run(); await run();
   ok(W.mails.filter(m => /has no name beside it yet/.test(m.subject)).length === 1, "reminder: never a second");
   void s4; void ov;

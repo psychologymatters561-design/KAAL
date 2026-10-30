@@ -362,11 +362,15 @@ async function live() {
   if (names.has("AUTH_SECRET")) good("AUTH_SECRET already set (kept)");
   else await put("AUTH_SECRET", randomBytes(48).toString("base64url"));
   for (const k of ["ADMIN_EMAIL", "OWNER_EMAIL", "RESEND_API_KEY", "DESK_PASSCODE", "ANTHROPIC_API_KEY"]) if (env[k]) await put(k, env[k]);
+  /* A new key each deploy, never printed, for step 5 alone. */
+  const opsKey = randomBytes(32).toString("base64url");
+  await put("OPS_KEY", opsKey);
 
   await deploy();
   await ensureMeta();
   await ensureCourier();
   await liveCheck();
+  await ownerRequests(opsKey);
   const who = env.ADMIN_EMAIL || String(env.OWNER_EMAIL || "connect@thekaal.co").split(",")[0];
   step("Done. The registry is live");
   say(`  1. Open ${WORKER_URL}/control on your phone and sign in with ${who}.`);
@@ -395,6 +399,33 @@ async function deploy() {
   const url = /https:\/\/\S+workers\.dev/.exec(r.out);
   good(`deployed${url ? " to " + url[0] : ""}`);
 }
+/* 5. The owner's own requests (worker OWNER_OPS and the house's pieces),
+   run at once on the worker just deployed, and what happened, in words.
+   The answer names no person, so this public log can show it. */
+async function ownerRequests(key) {
+  step("5. Your requests, run now");
+  let j = null;
+  for (let i = 0; i < 4 && !j; i++) {
+    if (i) await new Promise(r => setTimeout(r, 6000));
+    try {
+      const r = await fetch(WORKER_URL + "/ops/run", { method: "POST", headers: { Authorization: "Bearer " + key }, signal: AbortSignal.timeout(30000) });
+      j = r.ok ? await r.json().catch(() => null) : null;
+      if (!j) say(`  • not yet (HTTP ${r.status}${r.status === 503 || r.status >= 520 ? ": the worker ran out of time or failed" : ""}); trying again`);
+    } catch (e) { say(`  • could not reach the worker (${e.cause ? e.cause.code : e.name}); trying again`); }
+  }
+  if (!j) { todo("no answer: the light run (:07 and :37) does the same within half an hour; Health in the command centre says how it went."); return; }
+  for (const o of j.ops || []) (o.ok ? good : todo)(`${o.label}: ${o.detail}`);
+  for (const h of j.house || []) {
+    const n = "No. " + String(h.n).padStart(2, "0");
+    if (h.owner === "your address") good(`${n} is registered to your own address. Sign in at thekaal.co/owners with it.`);
+    else if (h.owner === "none yet") good(`${n} (${h.piece}) is kept for your own address: sign in at thekaal.co/owners with it, and the letter to register it comes to that inbox.`);
+    else if (h.owner === "the shop's address") good(`${n} is held by the shop's address; signing in at thekaal.co/owners with your own moves it there.`);
+    else todo(`${n}: ${h.owner === "another owner" ? "held by another owner, so it was left alone" : h.state || h.owner}.`);
+  }
+  for (const f of j.facts || []) say(`  · No. ${String(f.n).padStart(2, "0")}: ${f.piece}${f.orders && f.orders.length ? "; orders: " + f.orders.join(", ") : "; no order"}`);
+  if (Array.isArray(j.shopSold)) say(`  · The shop shows as gone: ${j.shopSold.join(", ") || "none"}`);
+}
+
 async function liveCheck() {
   step("4. The live worker");
   try {

@@ -248,6 +248,20 @@ owners and pieces; **Backup now**.
   twenty, that number: it says "Shown as gone on the shop" and offers both
   ways out. Record a past sale if it was sold before the registry; Put it on
   sale if it is still yours to sell (it asks first).
+- **The site file (index.html) still shows a number as gone after the shop
+  changed.** The shop and checkout read the live state, so buyers see the
+  truth at once. The file follows: the worker writes it in the same moment,
+  and if it cannot (Cloudflare's free plan stops a worker run at 10 ms of
+  CPU), GitHub's **stock** workflow reads the live shop and commits the file
+  within the hour, or at once when the worker asks. Actions, stock, Run
+  workflow does it by hand.
+- **Your own requests to the worker** (like "put No. 09 on sale") run on the
+  deploy itself: Actions, deploy-worker, the latest run, step "5. Your
+  requests, run now" says what happened. Health repeats it; the light run
+  (:07 and :37) retries anything unfinished.
+- **Your own No. 01** is kept for your own address (only its fingerprint is
+  in the code). Sign in at thekaal.co/owners with it: the first time, the
+  letter to register No. 01 comes to that inbox; after that, a code.
 - **A buyer paid and the watch is not in Orders.** The daily check against
   Razorpay brings it in within a day and emails you; or Overview, "Bring in
   paid orders from Razorpay".

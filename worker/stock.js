@@ -56,41 +56,48 @@ export function stockOf(cfg) {
   return { edition: cfg.edition, price: cfg.price, dials: cfg.dials, gone, open, remaining: open.length, byDial };
 }
 
-/* ── index.html ── */
+/* ── index.html ──
+   Every change is found in the page as it stands, then all are written in
+   one pass. Twenty replace() calls on a 300 KB page each copied the whole
+   page (about 10 ms warm, 40 ms cold), and a Cloudflare worker on the free
+   plan is stopped at 10 ms: a release or a sale's commit died half done.
+   Each pattern below matches its own place only, so finding them all in
+   the original and writing them together gives the same page as replacing
+   them one after another (tools/test-stock.mjs proves it on many lists). */
 export function applyStockHtml(html) {
   const cfg = configOf(html);
   if (!cfg) return html;
   const st = stockOf(cfg);
   const w = word(st.remaining), total = word(st.edition).toLowerCase();
-  let out = html;
+  const edits = [];
+  const one = (re, fn) => { const m = re.exec(html); if (m) edits.push([m.index, m.index + m[0].length, fn(m)]); };
 
-  out = out.replace(/(<title>KAAL Watches India · Series 01 · )[^<]*(<\/title>)/, `$1${w.toLowerCase()} of ${total} remain$2`);
-  for (const id of ["navRem", "remWord", "dockRem"]) out = out.replace(new RegExp(`(<span id="${id}">)[^<]*(</span>)`), `$1${w}$2`);
-  out = out.replace(/(<span id="heroLeft">)[^<]*(<\/span>)/, `$1${st.remaining}$2`);
+  one(/(<title>KAAL Watches India · Series 01 · )[^<]*(<\/title>)/, m => `${m[1]}${w.toLowerCase()} of ${total} remain${m[2]}`);
+  for (const id of ["navRem", "remWord", "dockRem"]) one(new RegExp(`(<span id="${id}">)[^<]*(</span>)`), m => `${m[1]}${w}${m[2]}`);
+  one(/(<span id="heroLeft">)[^<]*(<\/span>)/, m => `${m[1]}${st.remaining}${m[2]}`);
 
   /* Each dial: the early pick ("4 left" / "Gone") and the story's link. */
   for (const d of DIALS) {
     const n = st.byDial[d].open.length, made = st.byDial[d].made;
-    out = out.replace(new RegExp(`(<button type="button" class="early-pick" data-face="${d}" aria-pressed="false")(?: disabled)?>`),
-      `$1${n ? "" : " disabled"}>`);
-    out = out.replace(new RegExp(`(<span class="ep-left" data-early-left="${d}">)[^<]*(</span>)`), `$1${n ? n + " left" : "Gone"}$2`);
-    out = out.replace(new RegExp(`<a class="ctx(?: placed)?" href="#twenty" data-ctx="${d}"[^>]*>[^<]*</a>`),
+    one(new RegExp(`(<button type="button" class="early-pick" data-face="${d}" aria-pressed="false")(?: disabled)?>`), m => `${m[1]}${n ? "" : " disabled"}>`);
+    one(new RegExp(`(<span class="ep-left" data-early-left="${d}">)[^<]*(</span>)`), m => `${m[1]}${n ? n + " left" : "Gone"}${m[2]}`);
+    one(new RegExp(`<a class="ctx(?: placed)?" href="#twenty" data-ctx="${d}"[^>]*>[^<]*</a>`), () =>
       n ? `<a class="ctx" href="#twenty" data-ctx="${d}">${NAME[d]} &middot; ${n} of ${made} remain &rarr; Choose yours</a>`
         : `<a class="ctx placed" href="#twenty" data-ctx="${d}" aria-disabled="true" tabindex="-1">${NAME[d]} &middot; placed</a>`);
   }
 
   /* The twenty, as printed for a reader that never runs the script. */
   const gone = new Set(st.gone);
-  out = out.replace(/<li><button type="button" class="pick" data-n="(\d+)" aria-pressed="false"(?: disabled)?\n(\s+)style="([^"]*)" aria-label="[^"]*">(\d+)(<span class="dot"[^>]*><\/span>)(?:<span class="placed">Placed<\/span>)?<\/button><\/li>/g,
-    (all, n, indent, style, label, dot) => {
-      const k = parseInt(n, 10), name = NAME[st.dials[k]] || NAME.ivory, g = gone.has(k);
-      return `<li><button type="button" class="pick" data-n="${n}" aria-pressed="false"${g ? " disabled" : ""}\n${indent}style="${style}" aria-label="` +
-        (g ? `Number ${pad(k)}, ${name} dial, already gone` : `Choose number ${pad(k)}, ${name} dial`) + `">${label}${dot}${g ? '<span class="placed">Placed</span>' : ""}</button></li>`;
-    });
+  for (const m of html.matchAll(/<li><button type="button" class="pick" data-n="(\d+)" aria-pressed="false"(?: disabled)?\n(\s+)style="([^"]*)" aria-label="[^"]*">(\d+)(<span class="dot"[^>]*><\/span>)(?:<span class="placed">Placed<\/span>)?<\/button><\/li>/g)) {
+    const [all, n, indent, style, label, dot] = m;
+    const k = parseInt(n, 10), name = NAME[st.dials[k]] || NAME.ivory, g = gone.has(k);
+    edits.push([m.index, m.index + all.length, `<li><button type="button" class="pick" data-n="${n}" aria-pressed="false"${g ? " disabled" : ""}\n${indent}style="${style}" aria-label="` +
+      (g ? `Number ${pad(k)}, ${name} dial, already gone` : `Choose number ${pad(k)}, ${name} dial`) + `">${label}${dot}${g ? '<span class="placed">Placed</span>' : ""}</button></li>`]);
+  }
 
   /* The structured data: the same graph the script builds, so the two
      agree from the first byte. */
-  out = out.replace(/(<script type="application\/ld\+json" id="ld">\n?)([\s\S]*?)(<\/script>)/, (all, open, raw, close) => {
+  one(/(<script type="application\/ld\+json" id="ld">\n?)([\s\S]*?)(<\/script>)/, ([all, open, raw, close]) => {
     let g;
     try { g = JSON.parse(raw); } catch (e) { return all; }
     const group = (g["@graph"] || []).find(x => x["@type"] === "ProductGroup");
@@ -110,7 +117,11 @@ export function applyStockHtml(html) {
     });
     return open + JSON.stringify(g, null, 2) + "\n" + close;
   });
-  return out;
+
+  edits.sort((a, b) => a[0] - b[0]);
+  let out = "", at = 0;
+  for (const [from, to, text] of edits) { if (from < at) continue; out += html.slice(at, from) + text; at = to; }
+  return out + html.slice(at);
 }
 
 /* ── llms.txt: one section, replaced whole ── */
@@ -122,6 +133,12 @@ function longDate(day) {
 function nos(list) {
   if (!list.length) return "none";
   return (list.length === 1 ? "No. " : "Nos. ") + list.map(pad).join(", ");
+}
+/* 5999 -> "5,999", 125000 -> "1,25,000": Indian grouping by hand, because
+   the first toLocaleString("en-IN") in a fresh worker costs over 10 ms. */
+export function inr(n) {
+  const d = String(Math.round(n)), last = d.slice(-3), rest = d.slice(0, -3);
+  return rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + last : last;
 }
 export function llmsStatus(st, day) {
   const dial = DIALS.map(d => {
@@ -137,7 +154,7 @@ export function llmsStatus(st, day) {
     `- **Available now**: ${st.remaining} of ${st.edition}${st.remaining ? " (" + nos(st.open) + ")" : ""}`,
     `- **No longer available**: ${st.gone.length} of ${st.edition}${st.gone.length ? " (" + nos(st.gone) + ")" : ""}`,
     `- **Available by dial**: ${dial}`,
-    `- **Status**: ${st.remaining ? `on sale at thekaal.co, ₹${st.price.toLocaleString("en-IN")} each` : "retired: all twenty are gone and the design will not be made again"}`,
+    `- **Status**: ${st.remaining ? `on sale at thekaal.co, ₹${inr(st.price)} each` : "retired: all twenty are gone and the design will not be made again"}`,
     `- **As of**: ${longDate(day)}`,
     ""
   ].join("\n");

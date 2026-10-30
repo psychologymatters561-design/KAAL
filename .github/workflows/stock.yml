@@ -1,0 +1,55 @@
+# ══════════════════════════════════════════════════════════════════
+# The site file follows the live shop.
+#
+# The worker writes index.html, llms.txt and edition.json in the commit of
+# every sale or release. A worker on Cloudflare's free plan has 10 ms of
+# CPU a run, and a run cut short leaves the shop right (KV and the
+# registry, which the page and checkout read) but the file behind. This
+# workflow closes that gap: it asks the live shop what is gone (/state),
+# writes the three files to match and commits. Every hour, whenever the
+# worker asks (repository_dispatch "stock"), or by hand (Actions, stock,
+# Run workflow). It changes nothing when they already agree.
+# ══════════════════════════════════════════════════════════════════
+name: stock
+
+on:
+  schedule:
+    - cron: "41 * * * *"
+  repository_dispatch:
+    types: [stock]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock
+  cancel-in-progress: false
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Make the site file say what the live shop says
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            node tools/sync-stock.mjs --live
+            if git diff --quiet -- index.html llms.txt edition.json; then echo "Nothing to change."; exit 0; fi
+            node tools/sync-stock.mjs --check
+            gone=$(grep -o "sold: *\[[^]]*\]" index.html | head -1)
+            git add index.html llms.txt edition.json
+            git commit -q -m "Auto: the site file follows the live shop ($gone)"
+            git push -q origin HEAD:main && exit 0
+            echo "main moved; reading it again"
+          done
+          exit 1

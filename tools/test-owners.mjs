@@ -11,6 +11,7 @@ import * as R from "../worker/registry.js";
 import { warrantyWindow, moveOrder } from "../worker/orders.js";
 import { flushOutbox } from "../worker/outbox.js";
 import { d1, kv, ctx } from "./d1-shim.mjs";
+import { createHash } from "node:crypto";
 
 let failed = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed++; };
@@ -359,6 +360,51 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   await call(Y, "POST", "/o/claim/register", Object.assign({ t: tokenFrom(Y) }, good, { name: "Meera Shah", email: "y@example.com", showName: true }));
   const y8 = (await call(Y, "GET", "/registry/data")).j.pieces.find(p => p.n === 8);
   ok(y8.owner.initials === "M\u2022\u2022\u2022\u2022 S\u2022\u2022\u2022", "initials: ticked at registration, shown from the start");
+}
+
+/* ── The house's own piece (worker/house.js): No. 01, kept for the owner's own address ── */
+{
+  const HOUSE = JSON.stringify([{ n: 1, h: createHash("sha256").update("me@example.com").digest("hex") }]);
+  const X = world(); X.env.HOUSE = HOUSE;
+  X.DB.raw.prepare("UPDATE pieces SET status = 'placed', notes = 'Sold before the registry' WHERE id = 'S01-01'").run();
+  let a = await call(X, "POST", "/o/auth/start", { email: "someone@example.com" });
+  ok(a.j.ok && !X.DB.raw.prepare("SELECT COUNT(*) AS c FROM orders WHERE piece_id = 'S01-01'").get().c && !X.mails.length, "house: any other address changes nothing and gets nothing");
+  a = await call(X, "POST", "/o/auth/start", { email: "Me@Example.com" });
+  const o1 = X.DB.raw.prepare("SELECT * FROM orders WHERE piece_id = 'S01-01'").get();
+  ok(a.j.ok && o1 && o1.status === "delivered" && o1.amount_paise === 0 && o1.email === "me@example.com" && Date.parse(o1.return_window_ends_at) <= Date.now() &&
+    X.DB.raw.prepare("SELECT status FROM pieces WHERE id = 'S01-01'").get().status === "delivered", "house: the owner's own address: a house order of Rs 0, delivered, with nothing to return");
+  const letter = X.mails.find(m => m.to.includes("me@example.com") && /No\. 01 is with you/.test(m.subject));
+  ok(letter && /return window has already closed, so registering simply writes your name/.test(letter.text) && /claim\?t=[A-Za-z0-9_-]{43}/.test(letter.text), "house: and the letter to register it comes to that inbox");
+  const t1 = (/claim\?t=([A-Za-z0-9_-]{43})/.exec(letter ? letter.text : "") || [])[1];
+  const reg = await call(X, "POST", "/o/claim/register", { t: t1, name: "A. Owner", phone: "9876543210", email: "me@example.com", accept: true, consent: true });
+  ok(reg.j && reg.j.ok && reg.j.n === 1 && reg.j.ownerNo === 1, "house: registered, as Owner I of No. 01");
+  X.mails.length = 0;
+  a = await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
+  ok(X.mails.some(m => m.to.includes("me@example.com") && /sign-in code/.test(m.subject)) && X.DB.raw.prepare("SELECT COUNT(*) AS c FROM orders WHERE piece_id = 'S01-01'").get().c === 1,
+    "house: from then on, signing in sends a code, and nothing more is written");
+  const audits = X.DB.raw.prepare("SELECT after FROM audit_log WHERE action = 'order.house'").all();
+  ok(audits.length === 1 && !/me@example/.test(audits[0].after), "house: the change is in the audit log, without the address");
+}
+{
+  /* Held by the shop's own address: moved to the owner's own, same place in the line, details kept. */
+  const X = world(); X.env.HOUSE = JSON.stringify([{ n: 1, h: createHash("sha256").update("me@example.com").digest("hex") }]);
+  X.DB.raw.prepare("INSERT INTO owners (email, name, phone, data_consent_at) VALUES ('admin@thekaal.co', 'A. Owner', '919876543210', '2026-10-23T00:00:00Z')").run();
+  X.DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via) VALUES ('S01', 'S01-01', 1, 1, '2026-10-23T00:00:00Z', 'purchase')").run();
+  X.DB.raw.prepare("UPDATE pieces SET status = 'registered' WHERE id = 'S01-01'").run();
+  await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
+  const held = X.DB.raw.prepare("SELECT w.email, w.name, w.data_consent_at, s.owner_no FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = 'S01-01' AND s.to_at IS NULL").get();
+  ok(held.email === "me@example.com" && held.owner_no === 1 && held.name === "A. Owner" && held.data_consent_at, "house: held by the shop's address, it moves to the owner's own, still Owner I, details kept");
+  ok(X.mails.some(m => m.to.includes("me@example.com") && /sign-in code/.test(m.subject)), "house: and a code goes at once");
+}
+{
+  /* Held by anyone else: never touched. */
+  const X = world(); X.env.HOUSE = JSON.stringify([{ n: 1, h: createHash("sha256").update("me@example.com").digest("hex") }]);
+  X.DB.raw.prepare("INSERT INTO owners (email, name) VALUES ('b@example.com', 'B')").run();
+  X.DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via) VALUES ('S01', 'S01-01', 1, 1, '2026-10-23T00:00:00Z', 'purchase')").run();
+  X.DB.raw.prepare("UPDATE pieces SET status = 'registered' WHERE id = 'S01-01'").run();
+  await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
+  ok(X.DB.raw.prepare("SELECT w.email FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = 'S01-01'").get().email === "b@example.com" && !X.mails.length,
+    "house: a piece another owner holds is never touched");
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");

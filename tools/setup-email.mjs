@@ -54,7 +54,7 @@
    ══════════════════════════════════════════════════════════════════ */
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -422,6 +422,14 @@ async function ownerRequests(key) {
     else if (h.owner === "none yet") good(`${n} (${h.piece}) is kept for your own address: sign in at thekaal.co/owners with it, and the letter to register it comes to that inbox.`);
     else if (h.owner === "the shop's address") good(`${n} is held by the shop's address; signing in at thekaal.co/owners with your own moves it there.`);
     else todo(`${n}: ${h.owner === "another owner" ? "held by another owner, so it was left alone" : h.state || h.owner}.`);
+  }
+  for (const d of j.delivered || []) (/letter (queued|already sent)|registered/.test(d.did) ? good : todo)(`No. ${String(d.n).padStart(2, "0")}: ${d.did === "letter queued" ? "the registration letter has gone to its owner's address" : d.did === "letter already sent" ? "its registration letter went earlier" : d.did === "registered" ? "registered by its owner" : d.did}`);
+  /* The public half of the worker's own key: kept in the repository so an
+     owner's address can be sealed to it (tools/seal-email.mjs). */
+  if (j.opsKey && j.opsKey.x) {
+    const file = new URL("ops-key.json", import.meta.url), next = JSON.stringify(j.opsKey, null, 2) + "\n";
+    const was = existsSync(file) ? readFileSync(file, "utf8") : "";
+    if (was !== next) { writeFileSync(file, next); good("the worker's public key is written to tools/ops-key.json (committed by the workflow)"); }
   }
   if (j.github) say(`  · The worker's GitHub key: ${j.github}`);
   if (Array.isArray(j.shopSold)) say(`  · The shop's stored list of gone numbers: ${j.shopSold.join(", ") || "none"}`);

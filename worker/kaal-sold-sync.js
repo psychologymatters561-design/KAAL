@@ -102,7 +102,7 @@ import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
 import { sessionOf, authOn, same } from "./auth.js";
-import { houseFacts } from "./house.js";
+import { houseFacts, houseDeliver, opsPublicKey } from "./house.js";
 import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay, inr } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -176,7 +176,7 @@ export default {
        owner's own requests, on their own, so nothing heavier in the same
        run can starve them. */
     if (event && event.cron === LIGHT_CRON) {
-      if (registryOn(env)) ctx.waitUntil(repairSold(env).then(() => ownerOps(env)).catch(e => console.log("Light run failed:", String(e).slice(0, 160))));
+      if (registryOn(env)) ctx.waitUntil(repairSold(env).then(() => ownerOps(env)).then(() => deliverHeld(env)).catch(e => console.log("Light run failed:", String(e).slice(0, 160))));
       return;
     }
     ctx.waitUntil(followUps(env));
@@ -1364,7 +1364,12 @@ const OWNER_OPS = [
      in the registry with no order: off sale at once, kept for the owner's
      own address until they register it (worker/house.js). */
   { id: "2026-10-30-keep-01", n: 1, kind: "keep",
-    why: "Owner's request: No. 01 is the owner's own, never for sale; kept for their own address." }
+    why: "Owner's request: No. 01 is the owner's own, never for sale; kept for their own address." },
+  /* No. 02 was sold before the registry (30 Oct 2026, the owner): the deploy
+     found it "available" with no order. Off sale at once, held for its
+     owner's address (worker/house.js). */
+  { id: "2026-10-30-keep-02", n: 2, kind: "keep",
+    why: "Owner's request: No. 02 was sold before the registry, never for sale; kept for its owner's address." }
 ];
 const LIGHT_CRON = "7,37 * * * *";
 const OP_TRIES = 6;
@@ -1419,7 +1424,7 @@ async function ownerOpsHealth(env) {
   if (!env.KAAL_STATE) return [];
   return Promise.all(OWNER_OPS.map(async op => {
     const v = await env.KAAL_STATE.get("op:" + op.id, "json").catch(() => null);
-    const label = op.kind === "keep" ? `No. ${pad2(op.n)} kept off sale for you (your request)` : `No. ${pad2(op.n)} on sale (your request)`;
+    const label = op.kind === "keep" ? `No. ${pad2(op.n)} kept off sale for its owner (your request)` : `No. ${pad2(op.n)} on sale (your request)`;
     const file = (x) => x.site === "ok" || x.site === "already" ? ", and in the site file." : "; the site file follows when GitHub takes the commit.";
     if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };
     if (v.skipped) return { ok: false, label, detail: `Not done: ${v.skipped}. Use The twenty to change it.` };
@@ -1432,6 +1437,16 @@ async function ownerOpsHealth(env) {
   }));
 }
 
+/* Pieces held for a sealed address (worker/house.js): made ready and their
+   registration letters sent, at once. */
+async function deliverHeld(env) {
+  if (staging(env) || env.OWNER_OPS === "off") return [];
+  const out = await houseDeliver(env, siteUrl(env)).catch(e => { console.log("House delivery threw:", String(e).slice(0, 160)); return []; });
+  const ids = out.map(x => x.id).filter(Boolean);
+  if (ids.length) await flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html), ids).catch(() => null);
+  return out.map(x => ({ n: x.n, did: x.did }));
+}
+
 /* The deploy runs the owner's requests at once and prints what happened
    (tools/setup-email.mjs): POST /ops/run with the key it set a moment
    before (OPS_KEY, random, new each deploy). The answer names no person:
@@ -1441,6 +1456,7 @@ async function opsRun(request, env) {
   const key = String(env.OPS_KEY || ""), got = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (request.method !== "POST" || key.length < 32 || !same(got, key)) return new Response("Not found", { status: 404 });
   await ownerOps(env);
+  const delivered = await deliverHeld(env);
   const kv = await readSold(env);
   const facts = [];
   if (env.DB) {
@@ -1464,7 +1480,8 @@ async function opsRun(request, env) {
       github = r.ok ? (j.permissions && j.permissions.push ? "can write" : "can read only") : `refused (HTTP ${r.status})`;
     } catch (e) { github = "unreachable"; }
   }
-  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], facts, shopSold: kv, github }),
+  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], delivered, facts, shopSold: kv, github,
+    opsKey: env.KAAL_STATE ? await opsPublicKey(env) : null }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 

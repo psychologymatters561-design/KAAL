@@ -12,6 +12,7 @@ import { warrantyWindow, moveOrder } from "../worker/orders.js";
 import { flushOutbox } from "../worker/outbox.js";
 import { d1, kv, ctx } from "./d1-shim.mjs";
 import { createHash } from "node:crypto";
+import { seal } from "./seal-email.mjs";
 
 let failed = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed++; };
@@ -405,6 +406,35 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
   ok(X.DB.raw.prepare("SELECT w.email FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = 'S01-01'").get().email === "b@example.com" && !X.mails.length,
     "house: a piece another owner holds is never touched");
+}
+
+{
+  /* A sealed address (house.js): the worker makes its key, the address is sealed to it in Node, and only the worker opens it. */
+  const X = world(); X.env.OWNER_OPS = ""; X.env.OPS_KEY = "k".repeat(43);
+  const run = () => call(X, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) });
+  let a = await run();
+  ok(a.status === 200 && a.j.opsKey && a.j.opsKey.crv === "P-256" && a.j.opsKey.x && !a.j.opsKey.d, "sealed: the worker makes its own key and gives out only the public half");
+  const again = await run();
+  ok(again.j.opsKey.x === a.j.opsKey.x, "sealed: the same key every time after");
+  const h = createHash("sha256").update("g@example.com").digest("hex");
+  X.env.HOUSE = JSON.stringify([{ n: 2, h, box: await seal(a.j.opsKey, "g@example.com") }, { n: 3, h: "0".repeat(64), box: await seal(a.j.opsKey, "x@example.com") }]);
+  X.mails.length = 0;
+  a = await call(X, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) });
+  const raw = JSON.stringify(a.j);
+  const o2 = X.DB.raw.prepare("SELECT * FROM orders WHERE piece_id = 'S01-02'").get();
+  ok(a.j.delivered.some(d => d.n === 2 && d.did === "letter queued") && o2 && o2.status === "delivered" && o2.amount_paise === 0 && o2.email === "g@example.com",
+    "sealed: No. 02 is made ready for its owner's address, delivered, Rs 0");
+  const letter = X.mails.find(m => m.to.includes("g@example.com") && /No\. 02 is with you\. One step makes it yours\./.test(m.subject));
+  ok(letter && /claim\?t=[A-Za-z0-9_-]{43}/.test(letter.text) && /return window has already closed/.test(letter.text), "sealed: and its registration letter goes to that address at once");
+  ok(a.j.delivered.some(d => d.n === 3 && /does not match/.test(d.did)) && !X.DB.raw.prepare("SELECT COUNT(*) AS c FROM orders WHERE piece_id = 'S01-03'").get().c, "sealed: an address that does not match its fingerprint changes nothing");
+  ok(!/g@example|x@example/.test(raw), "sealed: the deploy's report never shows the address");
+  X.mails.length = 0;
+  a = await run();
+  ok(a.j.delivered.some(d => d.n === 2 && d.did === "letter already sent") && !X.mails.some(m => m.to.includes("g@example.com")), "sealed: the letter goes once, never again");
+  const t2 = (/claim\?t=([A-Za-z0-9_-]{43})/.exec(letter ? letter.text : "") || [])[1];
+  const reg = await call(X, "POST", "/o/claim/register", { t: t2, name: "G. Owner", phone: "9876543210", email: "g@example.com", accept: true, consent: true });
+  a = await run();
+  ok(reg.j && reg.j.ok && reg.j.n === 2 && a.j.delivered.some(d => d.n === 2 && d.did === "registered"), "sealed: once registered, it says so and sends nothing");
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");

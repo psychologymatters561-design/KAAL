@@ -334,6 +334,9 @@ let oid;
   ok(dl.includes("Registering is how you accept the piece, so it closes the 7-day return option, which is otherwise open until 2 November 2026. Your warranty does not depend on it: it runs from the day of delivery either way."), "delivered: the return option and its last day, and the warranty either way, in plain words");
   ok(dl.includes("If you would like to live with No. 07 for a few days first, do. This link will wait for you.") && dl.includes("Make No. 07 yours: https://thekaal.co/claim?t=x") && dl.includes("Twenty were made. This one found you."), "delivered: one button, and the choice left with them");
   ok(["2-year warranty", "the piece's record", "its transfer", "report it stolen", "Series 02"].every(x => dl.includes(x)), "delivered: the five things the owner's room opens");
+  const dh = LETTERS.delivered(Object.assign({}, d, { returnDays: 7, returnEndsOn: "2 November 2026" })).html;
+  ok(/<td align="center" bgcolor="#[0-9A-F]{6}"[^>]*border:2px solid[^>]*><a href="https:\/\/thekaal\.co\/claim\?t=x"[^>]*color:#FFFFFF[^>]*><span style="color:#FFFFFF/.test(dh) &&
+    /If the button does not open, use this link:<br><a href="https:\/\/thekaal\.co\/claim\?t=x"/.test(dh), "letters: the button is a coloured cell with a border every mail app keeps, white text, and the link beneath it");
   const dc = LETTERS.delivered(Object.assign({}, d, { returnClosed: true })).text;
   ok(/return window has already closed, so registering simply writes your name/.test(dc) && !/live with No\. 07 for a few days/.test(dc) && !/closes the 7-day/.test(dc), "delivered, sent again after the return window closed: never says registering closes it");
   ok(!/\b(hurry|last chance|today only|discount|offer)\b/i.test(dl + LETTERS.reminder(d).text), "delivered and reminder: no pressure words");

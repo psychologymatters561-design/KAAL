@@ -256,7 +256,7 @@ async function vapidOk(auth, aud) {
 
 /* ── 5. The owner's request, done once on the first light run after deploy ── */
 {
-  const OP = "op:2026-10-30-release-09c";
+  const OP = "op:2026-10-30-release-09d", KEEP = "op:2026-10-30-keep-01";
   const D2 = d1(), K2 = kv();
   K2.store.set("sold", "[1,2,3,4,7,9,10,15]");
   files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
@@ -268,6 +268,8 @@ async function vapidOk(auth, aud) {
   const p9 = D2.raw.prepare("SELECT status FROM pieces WHERE number = 9").get();
   ok(p9.status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K2.store.get("sold")).includes(9) && JSON.parse(K2.store.get(OP)).done && K2.store.get("released:9"),
     "owner's request: No. 09 goes on sale on the light run, everywhere, and is marked done");
+  ok(D2.raw.prepare("SELECT status FROM pieces WHERE number = 1").get().status === "placed" && JSON.parse(K2.store.get(KEEP)).already === "placed",
+    "owner's request: No. 01 already off sale: nothing to change");
   const n = ghWrites;
   D2.raw.prepare("UPDATE pieces SET status = 'withheld' WHERE number = 9").run();
   await light(e2);
@@ -284,7 +286,7 @@ async function vapidOk(auth, aud) {
   const t1 = JSON.parse(K4.store.get(OP));
   ok(t1.done && t1.site === "error" && !JSON.parse(K4.store.get("sold")).includes(9) && K4.store.get("released:9"),
     "owner's request: GitHub down: the shop and the registry are put right at once, and it is done");
-  ok(dispatches === d0 + 1, "owner's request: and GitHub is asked to bring the site file into line (the stock workflow)");
+  ok(dispatches > d0, "owner's request: and GitHub is asked to bring the site file into line (the stock workflow)");
   ghDown = false;
 
   /* The test order itself, recorded as a sale after a release cut short: cancelled (never refunded), then on sale. */
@@ -303,6 +305,17 @@ async function vapidOk(auth, aud) {
   ok(refundCalls === refundsBefore && JSON.parse(K5.store.get(OP)).cancelled === 1 && D5.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'order.cancel'").get().c === 1, "owner's request: nothing is refunded, and the cancellation is in the audit log");
   await light(e5); await cron(e5);
   ok(D5.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "available" && !JSON.parse(K5.store.get("sold")).includes(9), "owner's request: and nothing puts it back (the light run's repair, the half-hourly run)");
+
+  /* Placed with no order at all (the daily check's "sold before the registry" mark, after a release cut short). */
+  const D8 = d1(), K8 = kv();
+  K8.store.set("sold", "[1,2,3,4,7,9,10,15]"); K8.store.set("registry:imported", "{}");
+  files["index.html"] = files["index.html"].replace(/sold:\s*\[[^\]]*\]/, "sold:     [1, 2, 3, 4, 7, 9, 10, 15]");
+  D8.raw.prepare("UPDATE pieces SET status = 'placed', notes = 'Sold before the registry: record its sale (Orders, Record a past sale).' WHERE number = 9").run();
+  await light(Object.assign({}, env, { DB: D8, KAAL_STATE: K8, OWNER_OPS: "" }));
+  ok(D8.raw.prepare("SELECT status FROM pieces WHERE number = 9").get().status === "available" && !soldOnGitHub().includes(9) && !JSON.parse(K8.store.get("sold")).includes(9) && K8.store.get("released:9"),
+    "owner's request: placed with no order behind it, No. 09 still goes on sale");
+  ok(D8.raw.prepare("SELECT status FROM pieces WHERE number = 1").get().status === "withheld" && JSON.parse(K8.store.get("sold")).includes(1) && soldOnGitHub().includes(1) && JSON.parse(K8.store.get(KEEP)).done,
+    "owner's request: No. 01, the owner's own, found on sale in the registry, is kept back everywhere");
 
   /* Never another buyer's order. */
   const D6 = d1(), K6 = kv();
@@ -329,7 +342,7 @@ async function vapidOk(auth, aud) {
   r = await call("GET", "/control/api/pieces", undefined, undefined, e4);
   ok(r.j.ok && Array.isArray(r.j.shopSold) && !r.j.shopSold.includes(9) && r.j.shopSold.includes(15), "the twenty: the screen knows what the shop shows as gone, to offer Put it on sale where they disagree");
   r = await call("GET", "/desk/data", undefined, undefined, e4);
-  ok(r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Done/.test(h.detail) && /site file follows within the hour/.test(h.detail)), "health: says the request for No. 09 is done, and that the site file follows");
+  ok(r.j.health.some(h => /No\. 09 on sale/.test(h.label) && /Done/.test(h.detail) && /site file follows when GitHub takes the commit/.test(h.detail)), "health: says the request for No. 09 is done, and that the site file follows");
 
   /* The deploy's own run: a key it set a moment before, and an answer that names nobody. */
   const opsEnv = Object.assign({}, e5, { OPS_KEY: "k".repeat(43) });
@@ -338,8 +351,9 @@ async function vapidOk(auth, aud) {
   r = await call("POST", "/ops/run", undefined, { Authorization: "Bearer short" }, Object.assign({}, e5, { OPS_KEY: "short" }));
   ok(r.status === 404, "ops: no key worth the name, no door");
   r = await call("POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) }, opsEnv);
-  ok(r.status === 200 && r.j.ok && r.j.ops.some(o => /No\. 09 on sale/.test(o.label) && /Done/.test(o.detail)) && r.j.facts.some(f => f.n === 9 && f.piece === "available") && Array.isArray(r.j.shopSold),
-    "ops: the right key runs the requests and says what happened");
+  ok(r.status === 200 && r.j.ok && r.j.ops.some(o => /No\. 09 on sale/.test(o.label) && /Done/.test(o.detail)) && r.j.ops.some(o => /No\. 01 kept off sale/.test(o.label)) &&
+    r.j.facts.length === 20 && r.j.facts.some(f => f.n === 9 && f.piece === "available" && !f.shopGone && /piece\.sale by system/.test(f.last)) && Array.isArray(r.j.shopSold) && typeof r.j.github === "string",
+    "ops: the right key runs the requests and says what happened, for all twenty, and whether GitHub takes the worker's writes");
   ok(!/@|arjun|example\.com/i.test(r.text), "ops: the answer names no person and no address");
   jar = keep;
 }

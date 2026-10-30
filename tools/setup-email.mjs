@@ -418,12 +418,15 @@ async function ownerRequests(key) {
   for (const h of j.house || []) {
     const n = "No. " + String(h.n).padStart(2, "0");
     if (h.owner === "your address") good(`${n} is registered to your own address. Sign in at thekaal.co/owners with it.`);
+    else if (h.owner === "none yet" && h.piece === "available") todo(`${n} is still on sale in the registry; signing in at thekaal.co/owners with your own address takes it off sale and sends the letter to register it.`);
     else if (h.owner === "none yet") good(`${n} (${h.piece}) is kept for your own address: sign in at thekaal.co/owners with it, and the letter to register it comes to that inbox.`);
     else if (h.owner === "the shop's address") good(`${n} is held by the shop's address; signing in at thekaal.co/owners with your own moves it there.`);
     else todo(`${n}: ${h.owner === "another owner" ? "held by another owner, so it was left alone" : h.state || h.owner}.`);
   }
-  for (const f of j.facts || []) say(`  · No. ${String(f.n).padStart(2, "0")}: ${f.piece}${f.orders && f.orders.length ? "; orders: " + f.orders.join(", ") : "; no order"}`);
-  if (Array.isArray(j.shopSold)) say(`  · The shop shows as gone: ${j.shopSold.join(", ") || "none"}`);
+  if (j.github) say(`  · The worker's GitHub key: ${j.github}`);
+  if (Array.isArray(j.shopSold)) say(`  · The shop's stored list of gone numbers: ${j.shopSold.join(", ") || "none"}`);
+  say("  · The twenty (registry state; orders; on the shop's gone list; last change):");
+  for (const f of j.facts || []) say(`      No. ${String(f.n).padStart(2, "0")}  ${f.piece.padEnd(10)} ${(f.orders && f.orders.length ? f.orders.join(", ") : "no order").padEnd(28)} ${f.shopGone ? "gone on shop" : "open on shop"}${f.last ? "  · " + f.last : ""}`);
 }
 
 async function liveCheck() {

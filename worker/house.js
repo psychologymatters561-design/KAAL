@@ -86,8 +86,9 @@ async function ready(env, n, e) {
     await audit(env, actor, "order.house", "order:" + o.id, before, { status: "delivered", why: "the owner's own piece, ready to register at their own address" }, pc.series);
     return "ready";
   }
-  /* Sold before the registry and never recorded: a house order, ₹0. */
-  if (pc.order_ref || ["placed", "withheld"].indexOf(pc.status) < 0) return `piece is ${pc.status}`;
+  /* Sold before the registry and never recorded, kept back, or even still
+     offered (it is the owner's own): a house order, ₹0, takes it off sale. */
+  if (pc.order_ref || ["placed", "withheld", "available"].indexOf(pc.status) < 0) return `piece is ${pc.status}`;
   const row = await env.DB.prepare(
     `INSERT INTO orders (series, piece_id, razorpay_payment_id, email, amount_paise, status, paid_at, delivered_on, return_window_ends_at, created_at, updated_at)
      VALUES (?1, ?2, ?3, ?4, 0, 'delivered', ?5, ?6, ?5, ?5, ?5) RETURNING id`

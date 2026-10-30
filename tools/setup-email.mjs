@@ -404,13 +404,19 @@ async function deploy() {
    The answer names no person, so this public log can show it. */
 async function ownerRequests(key) {
   step("5. Your requests, run now");
+  /* A new version takes a few seconds to reach every Cloudflare location, and
+     the one just before it would answer with what it knew. It is the new one
+     when it holds as many sealed addresses as worker/house.js does. */
+  const want = (readFileSync(new URL("../worker/house.js", import.meta.url), "utf8").split("const HOUSE = [")[1] || "").split("];")[0].split('box: "').length - 1;
   let j = null;
-  for (let i = 0; i < 4 && !j; i++) {
-    if (i) await new Promise(r => setTimeout(r, 6000));
+  for (let i = 0; i < 8 && !(j && (j.sealed === undefined ? want === 0 : j.sealed >= want)); i++) {
+    if (i) await new Promise(r => setTimeout(r, i < 2 ? 6000 : 10000));
     try {
       const r = await fetch(WORKER_URL + "/ops/run", { method: "POST", headers: { Authorization: "Bearer " + key }, signal: AbortSignal.timeout(30000) });
-      j = r.ok ? await r.json().catch(() => null) : null;
-      if (!j) say(`  • not yet (HTTP ${r.status}${r.status === 503 || r.status >= 520 ? ": the worker ran out of time or failed" : ""}); trying again`);
+      const got = r.ok ? await r.json().catch(() => null) : null;
+      if (got) j = got;
+      if (!got) say(`  • not yet (HTTP ${r.status}${r.status === 503 || r.status >= 520 ? ": the worker ran out of time or failed" : ""}); trying again`);
+      else if (want && !(got.sealed >= want)) say("  • the new version has not reached every location yet; asking again");
     } catch (e) { say(`  • could not reach the worker (${e.cause ? e.cause.code : e.name}); trying again`); }
   }
   if (!j) { todo("no answer: the light run (:07 and :37) does the same within half an hour; Health in the command centre says how it went."); return; }

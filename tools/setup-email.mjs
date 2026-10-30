@@ -417,10 +417,10 @@ async function ownerRequests(key) {
   for (const o of j.ops || []) (o.ok ? good : todo)(`${o.label}: ${o.detail}`);
   for (const h of j.house || []) {
     const n = "No. " + String(h.n).padStart(2, "0");
-    if (h.owner === "your address") good(`${n} is registered to your own address. Sign in at thekaal.co/owners with it.`);
-    else if (h.owner === "none yet" && h.piece === "available") todo(`${n} is still on sale in the registry; signing in at thekaal.co/owners with your own address takes it off sale and sends the letter to register it.`);
-    else if (h.owner === "none yet") good(`${n} (${h.piece}) is kept for your own address: sign in at thekaal.co/owners with it, and the letter to register it comes to that inbox.`);
-    else if (h.owner === "the shop's address") good(`${n} is held by the shop's address; signing in at thekaal.co/owners with your own moves it there.`);
+    if (h.owner === "your address") good(`${n} is registered to its owner's address; they sign in at thekaal.co/owners with it.`);
+    else if (h.owner === "none yet" && h.piece === "available") todo(`${n} is still on sale in the registry; its owner signing in at thekaal.co/owners takes it off sale and sends the letter to register it.`);
+    else if (h.owner === "none yet") good(`${n} (${h.piece}) is kept for its owner's address; the letter to register it goes to that inbox.`);
+    else if (h.owner === "the shop's address") good(`${n} is held by the shop's address; signing in at thekaal.co/owners with its owner's own moves it there.`);
     else todo(`${n}: ${h.owner === "another owner" ? "held by another owner, so it was left alone" : h.state || h.owner}.`);
   }
   for (const d of j.delivered || []) (/letter (queued|already sent)|registered/.test(d.did) ? good : todo)(`No. ${String(d.n).padStart(2, "0")}: ${d.did === "letter queued" ? "the registration letter has gone to its owner's address" : d.did === "letter already sent" ? "its registration letter went earlier" : d.did === "registered" ? "registered by its owner" : d.did}`);

@@ -6,10 +6,10 @@
 
      node tools/sync-stock.mjs           write the files, today's date
      node tools/sync-stock.mjs --check   change nothing; exit 1 if any disagrees
-     node tools/sync-stock.mjs --live    first set KAAL.sold to what the live
-                                         shop says is gone (the worker's /state),
-                                         then write the files; the stock workflow
-                                         (.github/workflows/stock.yml) runs this */
+     node tools/sync-stock.mjs --live    first add to KAAL.sold what the live
+                                         shop says is gone (the worker's /state;
+                                         never removes one), then write the files;
+                                         the stock workflow runs this */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, llmsAgrees, editionAgrees, istDay } from "../worker/stock.js";
 
@@ -32,9 +32,13 @@ if (process.argv.includes("--live")) {
   try { const r = await fetch(url, { headers: { Origin: "https://thekaal.co" }, signal: AbortSignal.timeout(20000) }); j = r.ok ? await r.json() : null; } catch (e) { j = null; }
   const live = soldFromState(j, c0 ? c0.edition : 20);
   if (!live) { console.log("The live shop did not answer with a sold list; nothing changed."); process.exit(0); }
+  /* Only ever adds: a number gone by either account stays gone in the file
+     (the page itself merges the two the same way). Putting a number back on
+     sale is the worker's own commit, never this. */
   const was = c0 ? c0.sold : [];
-  if (live.join(",") !== was.join(",")) console.log(`The live shop says gone: ${live.join(", ")} (the file said ${was.join(", ")}).`);
-  html = html.replace(/sold:\s*\[[^\]]*\]/, `sold:     [${live.join(", ")}]`);
+  const next = [...new Set(was.concat(live))].sort((a, b) => a - b);
+  if (next.join(",") !== was.join(",")) console.log(`The live shop has also gone: ${next.filter(n => was.indexOf(n) < 0).join(", ")}.`);
+  html = html.replace(/sold:\s*\[[^\]]*\]/, `sold:     [${next.join(", ")}]`);
 }
 const cfg = configOf(html);
 if (!cfg) { console.error("index.html has no KAAL.sold list."); process.exit(1); }

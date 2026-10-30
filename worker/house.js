@@ -1,11 +1,16 @@
 /* ══════════════════════════════════════════════════════════════════
-   THE HOUSE'S OWN PIECES: a number the owner of the shop keeps, held by
-   their own address so they can sign in at /owners and see it exactly as
-   an owner does.
+   PIECES HELD FOR A NAMED ADDRESS: the shop owner's own (No. 01) and those
+   sold before the registry existed (No. 02), each kept for its owner's
+   email so they register and sign in at /owners like every other owner.
 
-   The address is not written here (this repository is public): only its
-   SHA-256. The first time that address asks to sign in at /owners, the
-   piece is made ready for it, then the usual path takes over:
+   The address is never written here in the open (this repository is
+   public): only its SHA-256, and, so the worker can send the registration
+   letter itself, the address sealed to the worker's own key (`box`: ECDH
+   P-256 with a one-time key, HKDF-SHA-256, AES-256-GCM). The private half
+   of that key was made by the worker and never leaves its store (KV); the
+   public half is in tools/ops-key.json, and tools/seal-email.mjs seals an
+   address to it. The piece is made ready for the address, then the usual
+   path takes over:
      already that address's               nothing to do; a code goes
      held by the shop's own address       moved to this one (same person,
        (connect@, ADMIN_EMAIL, OWNER_EMAIL) same place in the line); a code goes
@@ -20,10 +25,14 @@
    ══════════════════════════════════════════════════════════════════ */
 import { SERIES, audit } from "./registry.js";
 import { normEmail, adminEmail, hex } from "./auth.js";
-import { iso, istDay } from "./orders.js";
+import { iso, istDay, queueDelivered } from "./orders.js";
 
-/* No. 01: the owner's own, at their own request (30 Oct 2026). */
-const HOUSE = [{ n: 1, h: "60da370d17acfe076bef122f31391954e023b1893e9d4653f8a852f787a8a612" }];
+/* At the shop owner's request (30 Oct 2026): No. 01 is their own; No. 02
+   was sold before the registry. */
+const HOUSE = [
+  { n: 1, h: "60da370d17acfe076bef122f31391954e023b1893e9d4653f8a852f787a8a612" },
+  { n: 2, h: "12724459e45e02cb86ca1e797ae1faab12733c90894f39b7f1e9e7676bfa0eb5" }
+];
 
 export function houseList(env) {
   if (env.HOUSE) { try { return JSON.parse(env.HOUSE); } catch (e) { return []; } }
@@ -108,6 +117,65 @@ export async function houseFacts(env) {
     const cur = await env.DB.prepare("SELECT w.email FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = ?1 AND s.to_at IS NULL").bind(pc.id).first();
     const mine = cur && (await sha(normEmail(cur.email))) === x.h;
     out.push({ n: x.n, piece: pc.status, owner: !cur ? "none yet" : mine ? "your address" : shopAddress(env, cur.email) ? "the shop's address" : "another owner" });
+  }
+  return out;
+}
+
+/* ── The worker's own key, for addresses sealed to it ──
+   Made once, on the first deploy that asks, and kept in KV. Only the
+   public half ever leaves (the deploy writes it to tools/ops-key.json). */
+const KEY = "ops:ecdh";
+const ALG = { name: "ECDH", namedCurve: "P-256" };
+async function keyPair(env) {
+  const have = await env.KAAL_STATE.get(KEY, "json").catch(() => null);
+  if (have && have.pub && have.priv) return have;
+  const k = await crypto.subtle.generateKey(ALG, true, ["deriveBits"]);
+  const made = { pub: await crypto.subtle.exportKey("jwk", k.publicKey), priv: await crypto.subtle.exportKey("jwk", k.privateKey), at: iso() };
+  await env.KAAL_STATE.put(KEY, JSON.stringify(made));
+  return made;
+}
+export async function opsPublicKey(env) {
+  if (!env.KAAL_STATE) return null;
+  const { pub } = await keyPair(env);
+  return { kty: pub.kty, crv: pub.crv, x: pub.x, y: pub.y };
+}
+const unb64 = (s) => Uint8Array.from(atob(String(s).replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+/* box = base64url of JSON { e: one-time public key {x, y}, iv, c } */
+async function openBox(env, box) {
+  const { priv } = await keyPair(env);
+  const b = JSON.parse(new TextDecoder().decode(unb64(box)));
+  const mine = await crypto.subtle.importKey("jwk", priv, ALG, false, ["deriveBits"]);
+  const theirs = await crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", x: b.e.x, y: b.e.y, ext: true }, ALG, false, []);
+  const shared = await crypto.subtle.deriveBits({ name: "ECDH", public: theirs }, mine, 256);
+  const hk = await crypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const aes = await crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: new TextEncoder().encode("kaal owner address") },
+    hk, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(b.iv) }, aes, unb64(b.c)));
+}
+
+/* Each piece held for a sealed address: made ready for it and its
+   registration letter sent, once (the letter's dedupe key). Run by the
+   deploy and every light run until it has gone. Says what it did, never
+   to whom. */
+export async function houseDeliver(env, site) {
+  const out = [];
+  if (!env.DB || !env.KAAL_STATE) return out;
+  for (const x of houseList(env).filter(x => x.box)) {
+    try {
+      const e = normEmail(await openBox(env, x.box));
+      if ((await sha(e)) !== x.h) { out.push({ n: x.n, did: "sealed address does not match its fingerprint" }); continue; }
+      const did = await ready(env, x.n, e);
+      if (did === "registered") { out.push({ n: x.n, did: "registered" }); continue; }
+      if (did === "held by another owner" || did === "moved") { out.push({ n: x.n, did }); continue; }
+      const o = await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status = 'delivered' AND o.email = ?3 ORDER BY o.id DESC LIMIT 1")
+        .bind(SERIES, x.n, e).first();
+      if (!o) { out.push({ n: x.n, did: "not ready: " + did }); continue; }
+      const q = await queueDelivered(env, site, o, `house:${x.n}:letter`);
+      out.push({ n: x.n, did: q ? "letter queued" : "letter already sent", id: q || 0 });
+    } catch (err) {
+      console.log("House delivery failed:", String(err).slice(0, 160));
+      out.push({ n: x.n, did: "could not open the sealed address" });
+    }
   }
   return out;
 }

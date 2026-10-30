@@ -316,6 +316,8 @@ async function vapidOk(auth, aud) {
     "owner's request: placed with no order behind it, No. 09 still goes on sale");
   ok(D8.raw.prepare("SELECT status FROM pieces WHERE number = 1").get().status === "withheld" && JSON.parse(K8.store.get("sold")).includes(1) && soldOnGitHub().includes(1) && JSON.parse(K8.store.get(KEEP)).done,
     "owner's request: No. 01, the owner's own, found on sale in the registry, is kept back everywhere");
+  ok(D8.raw.prepare("SELECT status FROM pieces WHERE number = 2").get().status === "withheld" && JSON.parse(K8.store.get("sold")).includes(2) && soldOnGitHub().includes(2) && JSON.parse(K8.store.get("op:2026-10-30-keep-02")).done,
+    "owner's request: No. 02, sold before the registry, found on sale, is kept back everywhere");
 
   /* Never another buyer's order. */
   const D6 = d1(), K6 = kv();

@@ -81,14 +81,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node tools/setup-email.mjs --live
 
-      - name: Keep the store's id in wrangler.toml
+      - name: Keep the store's id in wrangler.toml, and the worker's public key
         if: ${{ steps.what.outputs.go == 'yes' }}
         continue-on-error: true
         run: |
-          if git diff --quiet -- wrangler.toml; then echo "wrangler.toml unchanged."; exit 0; fi
+          if [ -z "$(git status --porcelain -- wrangler.toml tools/ops-key.json)" ]; then echo "wrangler.toml and tools/ops-key.json unchanged."; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add wrangler.toml
-          git commit -m "Bind the worker's stores in wrangler.toml (deploy-worker)"
+          git add wrangler.toml tools/ops-key.json
+          git commit -m "Bind the worker's stores in wrangler.toml, keep its public key (deploy-worker)"
           git pull --rebase origin main
           git push origin HEAD:main

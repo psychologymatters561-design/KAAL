@@ -6,7 +6,8 @@
 # CPU a run, and a run cut short leaves the shop right (KV and the
 # registry, which the page and checkout read) but the file behind. This
 # workflow closes that gap: it asks the live shop what is gone (/state),
-# writes the three files to match and commits. Every hour, whenever the
+# adds those numbers to the file (it never takes one off: putting a number
+# back on sale is the worker's own commit) and commits. Every hour, whenever the
 # worker asks (repository_dispatch "stock"), or by hand (Actions, stock,
 # Run workflow). It changes nothing when they already agree.
 # ══════════════════════════════════════════════════════════════════

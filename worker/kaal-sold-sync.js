@@ -1352,12 +1352,19 @@ async function repairSold(env) {
    piece is still exactly as it was when it was asked for. */
 const OWNER_OPS = [
   /* No. 09 on sale. Kept back since 2 Oct as the owner's own test order
-     (payment pay_Tj4nvLOHYOS1h4); it may still be "withheld", already
-     "available", or "placed" by that same test payment (a release whose
-     run was cut short let the daily check record it as a sale). Only that
-     payment's order is ever cancelled here, and nothing is refunded. */
-  { id: "2026-10-30-release-09c", n: 9, testPayment: "pay_Tj4nvLOHYOS1h4",
-    why: "Owner's request: No. 09 (the owner's own test order, kept back since 2 Oct 2026) goes on sale." }
+     (payment pay_Tj4nvLOHYOS1h4). The deploy of 30 Oct found it "placed"
+     with no order behind it: the daily check's "sold before the registry"
+     mark, made because a release was cut short before its marker was
+     written. It may also still be "withheld", "available", or placed by
+     that same test payment, whose order is then cancelled (never refunded).
+     Any other order is never touched. */
+  { id: "2026-10-30-release-09d", n: 9, kind: "release", testPayment: "pay_Tj4nvLOHYOS1h4",
+    why: "Owner's request: No. 09 (the owner's own test order, kept back since 2 Oct 2026) goes on sale." },
+  /* No. 01 is the owner's own (30 Oct 2026). The deploy found it "available"
+     in the registry with no order: off sale at once, kept for the owner's
+     own address until they register it (worker/house.js). */
+  { id: "2026-10-30-keep-01", n: 1, kind: "keep",
+    why: "Owner's request: No. 01 is the owner's own, never for sale; kept for their own address." }
 ];
 const LIGHT_CRON = "7,37 * * * *";
 const OP_TRIES = 6;
@@ -1374,11 +1381,19 @@ async function ownerOps(env) {
       await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, started: true }));
       const pc = await env.DB.prepare("SELECT id, status, order_ref FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, op.n).first();
       const live = pc ? ((await env.DB.prepare("SELECT id, status, razorpay_payment_id FROM orders WHERE piece_id = ?1 AND status NOT IN ('cancelled','returned')").bind(pc.id).all()).results || []) : [];
+      if (op.kind === "keep") {
+        if (!pc) { await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, skipped: "no such piece" })); continue; }
+        if (pc.status !== "available") { await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: true, already: pc.status })); continue; }
+        const r = await setOnSale(env, "system:owner-request", op.n, false, op.why);
+        await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: !!r.ok, site: r.site || "", why: r.why || "" }));
+        console.log(`Owner op ${op.id}: ${r.ok ? "done" : "not yet"} (site: ${r.site}, try ${tries}).`);
+        continue;
+      }
       const onlyTest = live.length > 0 && live.every(o => o.razorpay_payment_id === op.testPayment && o.status === "placed");
       let skipped = "";
       if (!pc) skipped = "no such piece";
       else if (live.length && !onlyTest) skipped = `No. ${pad2(op.n)} has an order that is not the test order`;
-      else if (!live.length && ["withheld", "available"].indexOf(pc.status) < 0) skipped = `No. ${pad2(op.n)} is ${pc.status}`;
+      else if (!live.length && ["withheld", "available", "placed"].indexOf(pc.status) < 0) skipped = `No. ${pad2(op.n)} is ${pc.status}`;
       if (skipped) {
         await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: false, skipped }));
         console.log(`Owner op ${op.id}: skipped (${skipped}).`);
@@ -1391,7 +1406,8 @@ async function ownerOps(env) {
         await env.DB.prepare("INSERT INTO audit_log (actor, action, target, before, after, series) VALUES ('system:owner-request', 'order.cancel', ?1, ?2, ?3, ?4)")
           .bind("order:" + o.id, JSON.stringify({ status: o.status }), JSON.stringify({ status: "cancelled", refunded: false, why: "the owner's own test order" }), SERIES).run();
       }
-      if (live.length) await env.DB.prepare("UPDATE pieces SET status = 'withheld', order_ref = NULL, updated_at = ?1 WHERE id = ?2").bind(at, pc.id).run();
+      /* Placed (by that order, or by the "sold before the registry" mark with none): kept back first, then released. */
+      if (pc.status === "placed") await env.DB.prepare("UPDATE pieces SET status = 'withheld', order_ref = NULL, updated_at = ?1 WHERE id = ?2").bind(at, pc.id).run();
       const r = await setOnSale(env, "system:owner-request", op.n, true, op.why);
       await env.KAAL_STATE.put(key, JSON.stringify({ at, tries, done: !!r.ok, site: r.site || "", why: r.why || "", cancelled: live.length }));
       console.log(`Owner op ${op.id}: ${r.ok ? "done" : "not yet"} (site: ${r.site}, try ${tries}).`);
@@ -1403,31 +1419,52 @@ async function ownerOpsHealth(env) {
   if (!env.KAAL_STATE) return [];
   return Promise.all(OWNER_OPS.map(async op => {
     const v = await env.KAAL_STATE.get("op:" + op.id, "json").catch(() => null);
-    const label = `No. ${pad2(op.n)} on sale (your request)`;
+    const label = op.kind === "keep" ? `No. ${pad2(op.n)} kept off sale for you (your request)` : `No. ${pad2(op.n)} on sale (your request)`;
+    const file = (x) => x.site === "ok" || x.site === "already" ? ", and in the site file." : "; the site file follows when GitHub takes the commit.";
     if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };
     if (v.skipped) return { ok: false, label, detail: `Not done: ${v.skipped}. Use The twenty to change it.` };
+    if (v.done && v.already) return { ok: true, label, detail: `Already off sale (${v.already}); nothing to change.` };
+    if (v.done && op.kind === "keep") return { ok: true, label, detail: `Done ${indiaTime(new Date(v.at))}: kept back in the registry and on the shop` + file(v) };
     if (v.done) return { ok: true, label, detail: `Done ${indiaTime(new Date(v.at))}: on sale in the registry and on the shop` +
-      (v.cancelled ? ", the test order cancelled (not refunded)" : "") + (v.site === "ok" || v.site === "already" ? ", and in the site file." : "; the site file follows within the hour.") };
+      (v.cancelled ? ", the test order cancelled (not refunded)" : "") + file(v) };
     if (v.started) return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} was cut short before it could finish. It tries again each half hour.` };
-    return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish${v.why ? " (" + v.why + ")" : ""}. It tries again each half hour; or tap The twenty, No. ${pad2(op.n)}, Put it on sale.` };
+    return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish${v.why ? " (" + v.why + ")" : ""}. It tries again each half hour; or use The twenty, No. ${pad2(op.n)}.` };
   }));
 }
 
 /* The deploy runs the owner's requests at once and prints what happened
    (tools/setup-email.mjs): POST /ops/run with the key it set a moment
-   before (OPS_KEY, random, new each deploy). The answer names no person. */
+   before (OPS_KEY, random, new each deploy). The answer names no person:
+   for each of the twenty, its state in the registry, its orders' states,
+   whether the shop's stored list calls it gone, and its last change. */
 async function opsRun(request, env) {
   const key = String(env.OPS_KEY || ""), got = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (request.method !== "POST" || key.length < 32 || !same(got, key)) return new Response("Not found", { status: 404 });
   await ownerOps(env);
-  const facts = [];
-  if (env.DB) for (const n of [1, 9]) {
-    const pc = await env.DB.prepare("SELECT id, status FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
-    const orders = pc ? ((await env.DB.prepare("SELECT status, amount_paise FROM orders WHERE piece_id = ?1 ORDER BY id").bind(pc.id).all()).results || []) : [];
-    facts.push({ n, piece: pc ? pc.status : "none", orders: orders.map(o => o.status + (o.amount_paise ? "" : " (house, Rs 0)")) });
-  }
   const kv = await readSold(env);
-  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], facts, shopSold: kv }),
+  const facts = [];
+  if (env.DB) {
+    const pieces = (await env.DB.prepare("SELECT id, number, status FROM pieces WHERE series = ?1 ORDER BY number").bind(SERIES).all()).results || [];
+    const orders = (await env.DB.prepare("SELECT piece_id, status, amount_paise, razorpay_payment_id FROM orders WHERE series = ?1 ORDER BY id").bind(SERIES).all()).results || [];
+    const last = (await env.DB.prepare(
+      `SELECT target, action, actor, at FROM audit_log a WHERE target LIKE 'piece:%' AND id = (SELECT MAX(id) FROM audit_log b WHERE b.target = a.target)`).all().catch(() => ({ results: [] }))).results || [];
+    for (const p of pieces) {
+      const os = orders.filter(o => o.piece_id === p.id).map(o => o.status + (/^manual:/.test(o.razorpay_payment_id || "") ? (o.amount_paise ? " (recorded by hand)" : " (house)") : ""));
+      const l = last.find(x => x.target === "piece:" + p.id);
+      facts.push({ n: p.number, piece: p.status, orders: os, shopGone: !!(kv && kv.indexOf(p.number) > -1),
+        last: l ? `${l.action} by ${String(l.actor || "").split(":")[0]} on ${String(l.at || "").slice(0, 10)}` : "" });
+    }
+  }
+  /* Can the worker still write to GitHub? (A key that expired would explain a site file that stopped moving.) */
+  let github = "not set";
+  if (env.GITHUB_TOKEN && env.GITHUB_OWNER && env.GITHUB_REPO) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`, { headers: ghHeaders(env) });
+      const j = await r.json().catch(() => ({}));
+      github = r.ok ? (j.permissions && j.permissions.push ? "can write" : "can read only") : `refused (HTTP ${r.status})`;
+    } catch (e) { github = "unreachable"; }
+  }
+  return new Response(JSON.stringify({ ok: true, ops: await ownerOpsHealth(env), house: env.DB ? await houseFacts(env) : [], facts, shopSold: kv, github }),
     { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 

@@ -435,6 +435,14 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   const reg = await call(X, "POST", "/o/claim/register", { t: t2, name: "G. Owner", phone: "9876543210", email: "g@example.com", accept: true, consent: true });
   a = await run();
   ok(reg.j && reg.j.ok && reg.j.n === 2 && a.j.delivered.some(d => d.n === 2 && d.did === "registered"), "sealed: once registered, it says so and sends nothing");
+  /* Already sent at a sign-in: never a second copy. */
+  const hm = createHash("sha256").update("me@example.com").digest("hex");
+  X.env.HOUSE = JSON.stringify([{ n: 4, h: hm }]);
+  await call(X, "POST", "/o/auth/start", { email: "me@example.com" });
+  X.env.HOUSE = JSON.stringify([{ n: 4, h: hm, box: await seal(again.j.opsKey, "me@example.com") }]);
+  X.mails.length = 0;
+  a = await run();
+  ok(a.j.delivered.some(d => d.n === 4 && d.did === "letter already sent") && !X.mails.some(m => m.to.includes("me@example.com")), "sealed: a letter already sent at sign-in is not sent again");
 }
 
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");

@@ -30,8 +30,10 @@ import { iso, istDay, queueDelivered } from "./orders.js";
 /* At the shop owner's request (30 Oct 2026): No. 01 is their own; No. 02
    was sold before the registry. */
 const HOUSE = [
-  { n: 1, h: "60da370d17acfe076bef122f31391954e023b1893e9d4653f8a852f787a8a612" },
-  { n: 2, h: "12724459e45e02cb86ca1e797ae1faab12733c90894f39b7f1e9e7676bfa0eb5" }
+  { n: 1, h: "60da370d17acfe076bef122f31391954e023b1893e9d4653f8a852f787a8a612",
+    box: "eyJlIjp7IngiOiJrSDdObmI1bGM3SGcxbDBfNHl0dDZ1bzVxWnBlTEdVbHF4d3podzhmdDRjIiwieSI6Im8yWU1kdS0wcGY5TDZsSUxNWGFZdXBhTzB5RS1yV0p5OFpBbjV0SnVRT00ifSwiaXYiOiJnNkpGVTlZdmF1cUZsb2NvIiwiYyI6ImhlaWk4YjhDbk1ZNUhiYmxCVGZ3QjNkbEZMaEZRcGphTkRQdldMdTdaRk51X3ljQl83TVoifQ" },
+  { n: 2, h: "12724459e45e02cb86ca1e797ae1faab12733c90894f39b7f1e9e7676bfa0eb5",
+    box: "eyJlIjp7IngiOiJnbzV3OUJsa2c1akdfTV9zUWVlRTBIQ1MzdFVhR2ZjeUtHWnhhdkx6bXNzIiwieSI6Ik5KNjcyNjFKS1FUQklCeHJmanRpREZrTmtLWXlOaDFHMTZqNm5NQjZoOEEifSwiaXYiOiJKU1RQUjljZy1EUFpKNFVzIiwiYyI6Il90ZTN3eWExTVlBR3YtOWgzMHFEWWNKcHJheVR6d3BfSmNsVG9BYXAwd3BEXzQzbDRnakoifQ" }
 ];
 
 export function houseList(env) {
@@ -170,6 +172,10 @@ export async function houseDeliver(env, site) {
       const o = await env.DB.prepare("SELECT o.*, p.number FROM orders o JOIN pieces p ON p.id = o.piece_id WHERE p.series = ?1 AND p.number = ?2 AND o.status = 'delivered' AND o.email = ?3 ORDER BY o.id DESC LIMIT 1")
         .bind(SERIES, x.n, e).first();
       if (!o) { out.push({ n: x.n, did: "not ready: " + did }); continue; }
+      /* Its registration letter already went (Delivered, a sign-in, a resend): never a second unasked. */
+      const sent = await env.DB.prepare("SELECT 1 AS x FROM email_outbox WHERE dedupe_key = ?1 OR dedupe_key = ?2 OR dedupe_key LIKE ?3 OR dedupe_key LIKE ?4 OR dedupe_key LIKE ?5 LIMIT 1")
+        .bind(`house:${x.n}:letter`, `stage:${o.id}:delivered`, `signin:${o.id}:%`, `link:${o.id}:%`, `asked:${o.id}:%`).first();
+      if (sent) { out.push({ n: x.n, did: "letter already sent" }); continue; }
       const q = await queueDelivered(env, site, o, `house:${x.n}:letter`);
       out.push({ n: x.n, did: q ? "letter queued" : "letter already sent", id: q || 0 });
     } catch (err) {

@@ -5,11 +5,10 @@
   "edition": 20,
   "priceINR": 5999,
   "status": "on sale",
-  "available": 10,
-  "gone": 10,
+  "available": 9,
+  "gone": 11,
   "availableNumbers": [
     9,
-    11,
     12,
     13,
     14,
@@ -29,6 +28,7 @@
     7,
     8,
     10,
+    11,
     15
   ],
   "dials": {
@@ -46,9 +46,8 @@
     },
     "Champagne": {
       "made": 4,
-      "available": 4,
+      "available": 3,
       "availableNumbers": [
-        11,
         12,
         13,
         14
@@ -66,5 +65,5 @@
       ]
     }
   },
-  "asOf": "2026-10-30"
+  "asOf": "2026-10-31"
 }

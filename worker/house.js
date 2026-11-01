@@ -24,8 +24,9 @@
    figures leave it out.
    ══════════════════════════════════════════════════════════════════ */
 import { SERIES, audit } from "./registry.js";
-import { normEmail, adminEmail, hex } from "./auth.js";
-import { iso, istDay, queueDelivered } from "./orders.js";
+import { normEmail, validEmail, adminEmail, hex } from "./auth.js";
+import { iso, istDay, longDay, queueDelivered, warrantyWindow } from "./orders.js";
+import { queueLetter } from "./outbox.js";
 
 /* At the shop owner's request (30 Oct 2026): No. 01 is their own; No. 02
    was sold before the registry. */
@@ -184,4 +185,92 @@ export async function houseDeliver(env, site) {
     }
   }
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LETTERS THE SHOP OWNER ASKED FOR, to whoever holds a piece.
+
+   The address is never written here: the worker finds it in the registry,
+   the piece's registered owner or, before registering, the buyer on its
+   live order. The name the letter is addressed to is sealed (as above),
+   and the letter goes only when the registry agrees with that name (its
+   first word, any title aside) and with the warranty day the letter
+   states. Nothing goes to the shop's own address. Once (its dedupe key),
+   tried on the deploy and each light run until it is queued, at most
+   ASK_TRIES times. Says what it did, never to whom.
+   ══════════════════════════════════════════════════════════════════ */
+const ASKED = [
+  /* 1 Nov 2026, the shop owner's own words: No. 10's owner's privileges. */
+  { id: "2026-11-01-privileges-10", n: 10, template: "privileges", label: "the owner's privileges letter", warrantyEnd: "2028-11-01",
+    nameBox: "eyJlIjp7IngiOiJHcW5hdmMyQWQ1R0RjMXd5R0JhcXdpLTNOTWtPV185OE44OGt3VTdKSkRvIiwieSI6InFBYWNrd0h0TE96V3BxalBZbGVnaUpJSzR0NDBONkRfdWREUFl1UG5vUWMifSwiaXYiOiJfRWJjc05mY2NhZTBZVVdZIiwiYyI6Ijc2Zi03TmNXa2h6Q0tHOHM2NU1SVTQxbGludVkifQ" }
+];
+const ASK_TRIES = 6;
+export function askedList(env) {
+  if (env.OWNER_LETTERS) { try { return JSON.parse(env.OWNER_LETTERS); } catch (e) { return []; } }
+  return ASKED;
+}
+const pad2 = (n) => (n < 10 ? "0" + n : String(n));
+const firstName = (s) => String(s || "").trim().replace(/^(mr|mrs|ms|miss|dr|shri|smt|sri)\.?\s+/i, "").split(/\s+/)[0] || "";
+
+async function askedOne(env, x) {
+  const n = pad2(x.n);
+  const pc = await env.DB.prepare("SELECT p.id, p.status, s.warranty_months FROM pieces p JOIN series s ON s.code = p.series WHERE p.series = ?1 AND p.number = ?2").bind(SERIES, x.n).first();
+  if (!pc) return { skipped: "no such piece" };
+  if (pc.status === "reported_stolen") return { skipped: `No. ${n} is flagged as stolen` };
+  const held = await env.DB.prepare("SELECT w.email, w.name FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = ?1 AND s.to_at IS NULL AND w.deleted_at IS NULL").bind(pc.id).first();
+  const order = held ? null : await env.DB.prepare("SELECT email, buyer_name AS name FROM orders WHERE piece_id = ?1 AND status NOT IN ('cancelled','returned') ORDER BY id DESC LIMIT 1").bind(pc.id).first();
+  const who = held || order, to = normEmail(who && who.email);
+  if (!who || !validEmail(to)) return { skipped: `No. ${n} has no owner's address in the registry` };
+  if (shopAddress(env, to)) return { skipped: `No. ${n} is held by the shop's own address` };
+  let name;
+  try { name = String(await openBox(env, x.nameBox)).trim(); } catch (e) { return { skipped: "the sealed name could not be opened" }; }
+  const theirs = firstName(who.name);
+  if (!theirs) return { skipped: `the registry has no name for No. ${n}` };
+  if (!name || theirs.toLowerCase() !== name.toLowerCase()) return { skipped: `the name in the registry for No. ${n} is not the one the letter is addressed to` };
+  const first = await env.DB.prepare("SELECT delivered_on FROM orders WHERE piece_id = ?1 AND delivered_on IS NOT NULL ORDER BY id LIMIT 1").bind(pc.id).first();
+  const w = first ? warrantyWindow(first.delivered_on, pc.warranty_months || 24) : null;
+  if (!w) return { skipped: `No. ${n} has no delivery day in the registry yet` };
+  if (w.endDay !== x.warrantyEnd) return { skipped: `the registry's warranty for No. ${n} ends ${longDay(w.endDay)}; the letter says ${longDay(x.warrantyEnd)}` };
+  const row = await queueLetter(env, { template: x.template, to, series: SERIES, dedupe: "letter:" + x.id, vars: { n: x.n, name, warrantyEnd: longDay(x.warrantyEnd) } });
+  return { queued: true, row, piece: pc.id, holder: held ? "its registered owner" : "the buyer on its order" };
+}
+
+/* Returns [{ n, id, did, row }]; row is the outbox id to send now. */
+export async function sendAsked(env) {
+  const out = [];
+  if (!env.DB || !env.KAAL_STATE) return out;
+  for (const x of askedList(env)) {
+    const key = "letter:" + x.id;
+    try {
+      const was = await env.KAAL_STATE.get(key, "json").catch(() => null);
+      if (was && (was.queued || (was.tries || 0) >= ASK_TRIES)) { out.push({ n: x.n, id: x.id, did: was.queued ? "already queued" : "not sent: " + was.skipped }); continue; }
+      const tries = ((was && was.tries) || 0) + 1;
+      const r = await askedOne(env, x);
+      await env.KAAL_STATE.put(key, JSON.stringify(Object.assign({ at: iso(), tries }, r, { row: undefined })));
+      if (r.queued && r.row) await audit(env, "system:owner-request", "letter.asked", "piece:" + r.piece, null, { letter: x.template, to: r.holder }, SERIES);
+      out.push({ n: x.n, id: x.id, did: r.queued ? (r.row ? "letter queued" : "already queued") : "not sent: " + r.skipped, row: r.row || 0 });
+    } catch (err) {
+      console.log("Asked letter failed:", String(err).slice(0, 160));
+      out.push({ n: x.n, id: x.id, did: "error" });
+    }
+  }
+  return out;
+}
+
+/* What Health and the deploy log say about each: never an address or a name. */
+export async function askedHealth(env) {
+  if (!env.KAAL_STATE) return [];
+  return Promise.all(askedList(env).map(async x => {
+    const label = `No. ${pad2(x.n)}: ${x.label || "the letter"} (your request)`;
+    const v = await env.KAAL_STATE.get("letter:" + x.id, "json").catch(() => null);
+    if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };
+    if (v.queued) {
+      const r = env.DB ? await env.DB.prepare("SELECT status, sent_at FROM email_outbox WHERE dedupe_key = ?1").bind("letter:" + x.id).first().catch(() => null) : null;
+      if (r && r.status === "sent") return { ok: true, label, detail: `Sent ${longDay(istDay(Date.parse(r.sent_at)))} to ${v.holder}, from connect@thekaal.co, replies to it.` };
+      if (r && r.status === "failed") return { ok: false, label, detail: "The email provider refused it every time. Retry it from the control room's letters." };
+      return { ok: true, label, detail: `Queued for ${v.holder}; the outbox sends it within minutes.` };
+    }
+    if ((v.tries || 0) >= ASK_TRIES) return { ok: false, label, detail: `Not sent, and it will not try again: ${v.skipped}. Nothing went to anyone.` };
+    return { ok: false, label, detail: `Not sent yet: ${v.skipped}. Nothing went to anyone. It looks again each half hour (try ${v.tries} of ${ASK_TRIES}).` };
+  }));
 }

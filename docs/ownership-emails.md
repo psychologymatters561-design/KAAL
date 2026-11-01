@@ -430,6 +430,53 @@ Thank you for trying it.
 KAAL
 ```
 
+## privileges
+
+**When:** Only when you ask for it, for one piece: sent by the worker to the holder the registry has, and only if the registry agrees with the name and the warranty day it states.
+
+Subject: No. 07: your owner's privileges
+
+```
+Dear Asha,
+
+As committed, please find your owner's privileges below.
+
+Timepiece: KAAL Series 01, No. 07
+Registered owner: Asha
+Movement warranty: valid until 23:59 on 24 October 2028
+
+1. Owner's Service
+
+One complimentary service, with no expiry, covering:
+
+  · Battery replacement
+  · Movement inspection and timekeeping check
+  · Case and bracelet cleaning
+  · Gasket check and resealing
+  · Shipping both ways within India, arranged by KAAL
+
+2. First Right to No. 07
+
+In each future KAAL series, No. 07 will be offered to you before anyone else, at that series' listed price. The offer stays open for 72 hours from our notification.
+
+Terms
+
+  · Both privileges are personal to the registered owner and cannot be transferred, exchanged or redeemed for cash.
+  · The Owner's Service does not cover damage from impact, crystal breakage, water exposure, tampering, or repair by a third party.
+  · Service is subject to the availability of compatible parts.
+  · These privileges are in addition to the standard warranty and do not change it.
+
+To use either privilege, reply to this email.
+
+Warm regards,
+
+Arjun Dixit
+KAAL
+
+connect@thekaal.co
++91 93114 16678
+```
+
 ## For you only (never to an owner)
 
 - `sla`: No. 07 is late: Placed more than 48 hours ago, not inspected

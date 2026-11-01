@@ -66,9 +66,10 @@ function render(subject, blocks, opts) {
     } else if (b.list) {
       const items = b.list.filter(Boolean);
       if (!items.length) continue;
+      const mark = b.mark || "\u00b7";   /* the house's middle dot, unless a letter's own words use another */
       html.push(`<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-6px 0 22px">${items.map(i =>
-        `<tr><td valign="top" style="padding:0 12px 8px 2px;font-size:16px;line-height:1.55;color:${C.gold}">&#183;</td><td style="padding:0 0 8px;font-size:15px;line-height:1.55;color:${C.ink}">${esc(i)}</td></tr>`).join("")}</table>`);
-      text.push(...items.map(i => `  · ${i}`), "");
+        `<tr><td valign="top" style="padding:0 12px 8px 2px;font-size:16px;line-height:1.55;color:${C.gold}">${esc(mark)}</td><td style="padding:0 0 8px;font-size:15px;line-height:1.55;color:${C.ink}">${esc(i)}</td></tr>`).join("")}</table>`);
+      text.push(...items.map(i => `  ${mark} ${i}`), "");
     } else if (b.head) {
       html.push(`<p style="margin:28px 0 10px;font-size:16px;line-height:1.5;font-weight:700;color:${C.ink}">${esc(b.head)}</p>`);
       text.push(b.head, "");
@@ -359,11 +360,11 @@ export const LETTERS = {
       { lines: [`Timepiece: KAAL Series 01, No. ${n}`, `Registered owner: ${who}`, d.warrantyEnd ? `Movement warranty: valid until ${d.warrantyEnd}` : ""] },
       { head: "1. Owner's Service" },
       "One complimentary service, with no expiry, covering:",
-      { list: ["Battery replacement", "Movement inspection and timekeeping check", "Case and bracelet cleaning", "Gasket check and resealing", "Shipping both ways within India, arranged by KAAL"] },
+      { mark: "\u2022", list: ["Battery replacement", "Movement inspection and timekeeping check", "Case and bracelet cleaning", "Gasket check and resealing", "Shipping both ways within India, arranged by KAAL"] },
       { head: `2. First Right to No. ${n}` },
       `In each future KAAL series, No. ${n} will be offered to you before anyone else, at that series' listed price. The offer stays open for 72 hours from our notification.`,
       { head: "Terms" },
-      { list: [
+      { mark: "\u2022", list: [
         "Both privileges are personal to the registered owner and cannot be transferred, exchanged or redeemed for cash.",
         "The Owner's Service does not cover damage from impact, crystal breakage, water exposure, tampering, or repair by a third party.",
         "Service is subject to the availability of compatible parts.",

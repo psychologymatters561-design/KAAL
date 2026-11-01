@@ -449,11 +449,11 @@ Movement warranty: valid until 23:59 on 24 October 2028
 
 One complimentary service, with no expiry, covering:
 
-  · Battery replacement
-  · Movement inspection and timekeeping check
-  · Case and bracelet cleaning
-  · Gasket check and resealing
-  · Shipping both ways within India, arranged by KAAL
+  • Battery replacement
+  • Movement inspection and timekeeping check
+  • Case and bracelet cleaning
+  • Gasket check and resealing
+  • Shipping both ways within India, arranged by KAAL
 
 2. First Right to No. 07
 
@@ -461,10 +461,10 @@ In each future KAAL series, No. 07 will be offered to you before anyone else, at
 
 Terms
 
-  · Both privileges are personal to the registered owner and cannot be transferred, exchanged or redeemed for cash.
-  · The Owner's Service does not cover damage from impact, crystal breakage, water exposure, tampering, or repair by a third party.
-  · Service is subject to the availability of compatible parts.
-  · These privileges are in addition to the standard warranty and do not change it.
+  • Both privileges are personal to the registered owner and cannot be transferred, exchanged or redeemed for cash.
+  • The Owner's Service does not cover damage from impact, crystal breakage, water exposure, tampering, or repair by a third party.
+  • Service is subject to the availability of compatible parts.
+  • These privileges are in addition to the standard warranty and do not change it.
 
 To use either privilege, reply to this email.
 

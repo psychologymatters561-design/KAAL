@@ -477,8 +477,8 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(m.length === 1 && m[0].to.includes("k@example.com"), "asked: the letter goes to the buyer the registry has for No. 10");
   const t = m.length ? m[0].text : "", h = m.length ? m[0].html : "";
   ok(/^Dear Kiran,/.test(t) && /Timepiece: KAAL Series 01, No\. 10\nRegistered owner: Kiran\nMovement warranty: valid until 1 November 2028/.test(t) &&
-    /1\. Owner's Service/.test(t) && /  · Gasket check and resealing/.test(t) && /2\. First Right to No\. 10/.test(t) && /72 hours from our notification/.test(t) &&
-    /  · These privileges are in addition to the standard warranty and do not change it\./.test(t) && /To use either privilege, reply to this email\./.test(t) &&
+    /1\. Owner's Service/.test(t) && /  • Gasket check and resealing/.test(t) && /2\. First Right to No\. 10/.test(t) && /72 hours from our notification/.test(t) &&
+    /  • These privileges are in addition to the standard warranty and do not change it\./.test(t) && /To use either privilege, reply to this email\./.test(t) &&
     /Warm regards,\n\nArjun Dixit\nKAAL\n\nconnect@thekaal\.co\n\+91 93114 16678/.test(t), "asked: in the shop owner's words, with the name, the number and the warranty day");
   ok(/Arjun Dixit<br>KAAL/.test(h) && /font-weight:700[^>]*>Terms</.test(h) && !/Kiran Rao/.test(t + h), "asked: the HTML keeps the signature together and the headings bold; the registry's full name is never used");
   ok(a.j.ops.some(o => /privileges letter/.test(o.label) && /^Sent .* to the buyer on its order/.test(o.detail)) && !/k@example|Kiran/i.test(JSON.stringify(a.j)), "asked: the deploy's report says it went, and to whom by role only: no address, no name");

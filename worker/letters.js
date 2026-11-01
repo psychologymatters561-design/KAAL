@@ -66,9 +66,19 @@ function render(subject, blocks, opts) {
     } else if (b.list) {
       const items = b.list.filter(Boolean);
       if (!items.length) continue;
+      const mark = b.mark || "\u00b7";   /* the house's middle dot, unless a letter's own words use another */
       html.push(`<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-6px 0 22px">${items.map(i =>
-        `<tr><td valign="top" style="padding:0 12px 8px 2px;font-size:16px;line-height:1.55;color:${C.gold}">&#183;</td><td style="padding:0 0 8px;font-size:15px;line-height:1.55;color:${C.ink}">${esc(i)}</td></tr>`).join("")}</table>`);
-      text.push(...items.map(i => `  · ${i}`), "");
+        `<tr><td valign="top" style="padding:0 12px 8px 2px;font-size:16px;line-height:1.55;color:${C.gold}">${esc(mark)}</td><td style="padding:0 0 8px;font-size:15px;line-height:1.55;color:${C.ink}">${esc(i)}</td></tr>`).join("")}</table>`);
+      text.push(...items.map(i => `  ${mark} ${i}`), "");
+    } else if (b.head) {
+      html.push(`<p style="margin:28px 0 10px;font-size:16px;line-height:1.5;font-weight:700;color:${C.ink}">${esc(b.head)}</p>`);
+      text.push(b.head, "");
+    } else if (b.lines) {
+      /* Lines kept together in one paragraph: a signature, a short record. */
+      const items = b.lines.filter(Boolean);
+      if (!items.length) continue;
+      html.push(`<p style="margin:0 0 18px;font-size:16px;line-height:1.65;color:${C.ink}">${items.map(esc).join("<br>")}</p>`);
+      text.push(...items, "");
     }
   }
   const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -338,6 +348,35 @@ export const LETTERS = {
     ], { preheader: "Your refund is on its way." });
   },
 
+  /* The owner's privileges, in the shop owner's own words (1 Nov 2026).
+     Sent only by worker/house.js (sendAsked), to the piece's holder in the
+     registry, and only when the registry agrees with the name and the
+     warranty day it states. */
+  privileges(d) {
+    const n = pad2(d.n), who = d.name || "Owner";
+    return render(`No. ${n}: your owner's privileges`, [
+      `Dear ${who},`,
+      "As committed, please find your owner's privileges below.",
+      { lines: [`Timepiece: KAAL Series 01, No. ${n}`, `Registered owner: ${who}`, d.warrantyEnd ? `Movement warranty: valid until ${d.warrantyEnd}` : ""] },
+      { head: "1. Owner's Service" },
+      "One complimentary service, with no expiry, covering:",
+      { mark: "\u2022", list: ["Battery replacement", "Movement inspection and timekeeping check", "Case and bracelet cleaning", "Gasket check and resealing", "Shipping both ways within India, arranged by KAAL"] },
+      { head: `2. First Right to No. ${n}` },
+      `In each future KAAL series, No. ${n} will be offered to you before anyone else, at that series' listed price. The offer stays open for 72 hours from our notification.`,
+      { head: "Terms" },
+      { mark: "\u2022", list: [
+        "Both privileges are personal to the registered owner and cannot be transferred, exchanged or redeemed for cash.",
+        "The Owner's Service does not cover damage from impact, crystal breakage, water exposure, tampering, or repair by a third party.",
+        "Service is subject to the availability of compatible parts.",
+        "These privileges are in addition to the standard warranty and do not change it."
+      ] },
+      "To use either privilege, reply to this email.",
+      "Warm regards,",
+      { lines: ["Arjun Dixit", "KAAL"] },
+      { lines: ["connect@thekaal.co", "+91 93114 16678"] }
+    ], { preheader: `One complimentary service, and the first right to No. ${n} in every future series.` });
+  },
+
   /* ── For the shop's own inbox, never a customer's. Plain and short. ── */
   sla(d) {
     const n = pad2(d.n);
@@ -406,6 +445,6 @@ export function whatsappNote(d) {
 export function sample(name, site) {
   const d = { site, n: 7, size: 20, courier: "Delhivery", tracking: "SAMPLE123456", trackingUrl: "https://www.delhivery.com/track/package/SAMPLE123456",
     claimUrl: `${site}/claim?t=sample`, ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "23:59 on 24 October 2028", trackUrl: `${site}/track?o=1&s=sample`, returnDays: 7, returnEndsOn: "2 November 2026", shipUrl: `${site}/claimed.html`,
-    pickup: "A courier will collect it on 28 October, between 10 am and 1 pm. Keep it in its box.", message: "A photograph of the caseback, and of the dial in daylight.", reason: "The movement is working as it should; the time it shows is a setting, not a fault.", inviteUrl: `${site}/claim/transfer`, signInUrl: `${site}/owners`, role: "to", fromYear: "2026", toYear: "2029", amount: "\u20b95,999", type: "warranty", summary: "The watch stops after an hour.", email: "owner@example.com", why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
+    pickup: "A courier will collect it on 28 October, between 10 am and 1 pm. Keep it in its box.", message: "A photograph of the caseback, and of the dial in daylight.", reason: "The movement is working as it should; the time it shows is a setting, not a fault.", inviteUrl: `${site}/claim/transfer`, signInUrl: `${site}/owners`, role: "to", fromYear: "2026", toYear: "2029", amount: "\u20b95,999", name: "Asha", type: "warranty", summary: "The watch stops after an hour.", email: "owner@example.com", why: "Placed more than 48 hours ago, not inspected", paidOn: "20 October 2026", status: "placed", controlUrl: `${site}/control`, awb: "SAMPLE123456" };
   return LETTERS[name] ? LETTERS[name](d) : null;
 }

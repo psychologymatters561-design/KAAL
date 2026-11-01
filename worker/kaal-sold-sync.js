@@ -102,7 +102,7 @@ import { trackRoute } from "./track.js";
 import { ownersRoute } from "./owners.js";
 import { registryRoute, since } from "./registry-public.js";
 import { sessionOf, authOn, same } from "./auth.js";
-import { houseFacts, houseDeliver, opsPublicKey, houseList } from "./house.js";
+import { houseFacts, houseDeliver, opsPublicKey, houseList, sendAsked, askedHealth } from "./house.js";
 import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, istDay as stockDay, inr } from "./stock.js";
 
 const HOLD_SECONDS = 12 * 60;
@@ -1422,7 +1422,7 @@ async function ownerOps(env) {
 /* What the Health screen (and the deploy log) says about each of them. */
 async function ownerOpsHealth(env) {
   if (!env.KAAL_STATE) return [];
-  return Promise.all(OWNER_OPS.map(async op => {
+  return (await Promise.all(OWNER_OPS.map(async op => {
     const v = await env.KAAL_STATE.get("op:" + op.id, "json").catch(() => null);
     const label = op.kind === "keep" ? `No. ${pad2(op.n)} kept off sale for its owner (your request)` : `No. ${pad2(op.n)} on sale (your request)`;
     const file = (x) => x.site === "ok" || x.site === "already" ? ", and in the site file." : "; the site file follows when GitHub takes the commit.";
@@ -1434,7 +1434,7 @@ async function ownerOpsHealth(env) {
       (v.cancelled ? ", the test order cancelled (not refunded)" : "") + file(v) };
     if (v.started) return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} was cut short before it could finish. It tries again each half hour.` };
     return { ok: false, label, detail: `Try ${v.tries} of ${OP_TRIES} did not finish${v.why ? " (" + v.why + ")" : ""}. It tries again each half hour; or use The twenty, No. ${pad2(op.n)}.` };
-  }));
+  }))).concat(await askedHealth(env).catch(() => []));
 }
 
 /* Pieces held for a sealed address (worker/house.js): made ready and their
@@ -1442,7 +1442,10 @@ async function ownerOpsHealth(env) {
 async function deliverHeld(env) {
   if (staging(env) || env.OWNER_OPS === "off") return [];
   const out = await houseDeliver(env, siteUrl(env)).catch(e => { console.log("House delivery threw:", String(e).slice(0, 160)); return []; });
-  const ids = out.map(x => x.id).filter(Boolean);
+  /* The letters the shop owner asked for (worker/house.js, sendAsked), with them. */
+  const asked = await sendAsked(env).catch(e => { console.log("Asked letters threw:", String(e).slice(0, 160)); return []; });
+  for (const a of asked) console.log(`Asked letter ${a.id}: ${a.did}.`);
+  const ids = out.map(x => x.id).concat(asked.map(a => a.row)).filter(Boolean);
   if (ids.length) await flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html), ids).catch(() => null);
   return out.map(x => ({ n: x.n, did: x.did }));
 }

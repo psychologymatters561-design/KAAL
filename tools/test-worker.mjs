@@ -1289,7 +1289,8 @@ const person = (s) => sha(s).slice(0, 32);
   const S = await import("../worker/stock.js");
   const files = { "index.html": fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"), "llms.txt": fs.readFileSync(new URL("../llms.txt", import.meta.url), "utf8") };
   const before = S.configOf(files["index.html"]).sold;
-  const open = [5, 6, 8, 11].find(n => before.indexOf(n) < 0);
+  /* Any number the live page still offers: the shop sells, so a fixed few run out. */
+  const open = [5, 6, 8, 11, 12, 13, 14, 16, 17, 18, 20, 3, 4, 7, 15, 19].find(n => before.indexOf(n) < 0);
   const base = globalThis.fetch;
   let trees = [], patches = [], puts = [], race = 0, refDown = false;
   globalThis.fetch = async (url, init) => {

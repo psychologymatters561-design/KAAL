@@ -460,5 +460,60 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(a.j.delivered.some(d => d.n === 4 && d.did === "letter already sent") && !X.mails.length, "sealed: once");
 }
 
+{
+  /* A letter the shop owner asked for (house.js, sendAsked): found in the registry, checked, sent once. */
+  const X = world(); X.env.OWNER_OPS = ""; X.env.OPS_KEY = "k".repeat(43); X.env.HOUSE = "[]";
+  const run = () => call(X, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) });
+  const key = (await run()).j.opsKey;
+  const ask = async (name, end, id) => { X.env.OWNER_LETTERS = JSON.stringify([{ id: id || "t-10", n: 10, template: "privileges", label: "the owner's privileges letter", warrantyEnd: end, nameBox: await seal(key, name) }]); };
+  const order = (email, name, day, pay) => X.DB.raw.prepare("INSERT INTO orders (series, piece_id, razorpay_payment_id, email, buyer_name, amount_paise, status, paid_at, delivered_on) VALUES ('S01','S01-10',?,?,?,599900,'delivered','2026-10-28T10:00:00Z',?)").run(pay || "pay_Ten0000001", email, name, day);
+  const letters = () => X.mails.filter(m => /No\. 10: your owner's privileges/.test(m.subject));
+  await ask("Kiran", "2028-11-01");
+  let a = await run();
+  ok(!letters().length && a.j.ops.some(o => /No\. 10: the owner's privileges letter/.test(o.label) && /no owner's address/.test(o.detail) && /looks again/.test(o.detail)), "asked: nobody holds No. 10 yet: nothing goes, Health says why and that it looks again");
+  order("k@example.com", "Kiran Rao", "2026-11-01");
+  a = await run();
+  const m = letters();
+  ok(m.length === 1 && m[0].to.includes("k@example.com"), "asked: the letter goes to the buyer the registry has for No. 10");
+  const t = m.length ? m[0].text : "", h = m.length ? m[0].html : "";
+  ok(/^Dear Kiran,/.test(t) && /Timepiece: KAAL Series 01, No\. 10\nRegistered owner: Kiran\nMovement warranty: valid until 1 November 2028/.test(t) &&
+    /1\. Owner's Service/.test(t) && /  • Gasket check and resealing/.test(t) && /2\. First Right to No\. 10/.test(t) && /72 hours from our notification/.test(t) &&
+    /  • These privileges are in addition to the standard warranty and do not change it\./.test(t) && /To use either privilege, reply to this email\./.test(t) &&
+    /Warm regards,\n\nArjun Dixit\nKAAL\n\nconnect@thekaal\.co\n\+91 93114 16678/.test(t), "asked: in the shop owner's words, with the name, the number and the warranty day");
+  ok(/Arjun Dixit<br>KAAL/.test(h) && /font-weight:700[^>]*>Terms</.test(h) && !/Kiran Rao/.test(t + h), "asked: the HTML keeps the signature together and the headings bold; the registry's full name is never used");
+  ok(a.j.ops.some(o => /privileges letter/.test(o.label) && /^Sent .* to the buyer on its order/.test(o.detail)) && !/k@example|Kiran/i.test(JSON.stringify(a.j)), "asked: the deploy's report says it went, and to whom by role only: no address, no name");
+  ok(X.DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'letter.asked'").get().c === 1, "asked: and it is in the audit log");
+  X.mails.length = 0; await run(); await run();
+  ok(!letters().length, "asked: once, never again");
+
+  /* Registered: it goes to the registered owner, not the order's old address. */
+  X.DB.raw.prepare("INSERT INTO owners (email, name) VALUES ('r@example.com', 'Dr. Kiran Mehta')").run();
+  const oid = X.DB.raw.prepare("SELECT id FROM owners WHERE email = 'r@example.com'").get().id;
+  X.DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via) VALUES ('S01','S01-10',?,1,'2026-11-01T00:00:00Z','purchase')").run(oid);
+  await ask("Kiran", "2028-11-01", "t-10b"); X.mails.length = 0;
+  await run();
+  ok(letters().length === 1 && letters()[0].to.includes("r@example.com") && !letters()[0].to.includes("k@example.com"), "asked: registered, it goes to the registered owner (a title before the name is no matter)");
+
+  /* Not the person the letter is addressed to: nothing goes. */
+  await ask("Ravi", "2028-11-01", "t-10c"); X.mails.length = 0;
+  a = await run();
+  ok(!letters().length && a.j.ops.some(o => /privileges letter/.test(o.label) && /not the one the letter is addressed to/.test(o.detail) && /Nothing went to anyone/.test(o.detail)) && !/Ravi|Mehta/.test(JSON.stringify(a.j)),
+    "asked: a name that is not the registry's: nothing goes, and Health names nobody");
+  /* A warranty day the registry does not have: nothing goes. */
+  await ask("Kiran", "2028-10-31", "t-10d"); X.mails.length = 0;
+  a = await run();
+  ok(!letters().length && a.j.ops.some(o => /ends 1 November 2028; the letter says 31 October 2028/.test(o.detail)), "asked: a warranty day the registry disagrees with: nothing goes, and Health says both");
+  for (let i = 0; i < 8; i++) await run();
+  a = await run();
+  ok(a.j.ops.some(o => /will not try again/.test(o.detail)), "asked: it stops looking after six tries");
+  /* The shop's own address never gets one. */
+  const Y = world(); Y.env.OWNER_OPS = ""; Y.env.OPS_KEY = "k".repeat(43); Y.env.HOUSE = "[]";
+  const ky = (await call(Y, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) })).j.opsKey;
+  Y.env.OWNER_LETTERS = JSON.stringify([{ id: "t-10e", n: 10, template: "privileges", warrantyEnd: "2028-11-01", nameBox: await seal(ky, "Kiran") }]);
+  Y.DB.raw.prepare("INSERT INTO orders (series, piece_id, razorpay_payment_id, email, buyer_name, amount_paise, status, paid_at, delivered_on) VALUES ('S01','S01-10','pay_Ten0000009','admin@thekaal.co','Kiran',0,'delivered','2026-10-28T10:00:00Z','2026-11-01')").run();
+  a = await call(Y, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) });
+  ok(!Y.mails.some(m => /privileges/.test(m.subject)) && a.j.ops.some(o => /shop's own address/.test(o.detail)), "asked: never to the shop's own address");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");
 process.exit(failed ? 1 : 0);

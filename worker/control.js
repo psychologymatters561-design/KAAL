@@ -177,6 +177,7 @@ export async function control(request, env, ctx, path, T) {
     if (method === "GET" && route === "/audit") return out(await auditList(env));
     m = /^\/export\/(orders|owners|pieces)\.csv$/.exec(route);
     if (method === "GET" && m) return exportCsv(env, m[1]);
+    if (method === "GET" && route === "/export/shiprocket.csv") return shiprocketCsv(env, actor, new URL(request.url));
     if (method === "GET" && route === "/backup") return backup(env, actor);
     if (method === "GET" && route === "/sessions") {
       const r = await env.DB.prepare("SELECT created_at, expires_at, user_agent, CASE WHEN id = ?2 THEN 1 ELSE 0 END AS here FROM sessions WHERE owner_id = ?1 AND scope = 'control' AND revoked_at IS NULL AND expires_at > ?3 ORDER BY created_at DESC LIMIT 20")
@@ -792,6 +793,84 @@ async function exportCsv(env, what) {
   const cols = rows.length ? Object.keys(rows[0]) : [];
   const text = "﻿" + [cols, ...rows.map(r => cols.map(c => r[c]))].map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   return new Response(text, { headers: headers({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="kaal-${what}-${istDay()}.csv"` }) });
+}
+/* ── Shiprocket's bulk order file (Orders, Add Order, Bulk Upload) ──
+   One order per watch, so each has its own tracking number, and its Order
+   Id is "KAAL-S01-04": the form courier.js reads back from Shiprocket's
+   tracking, so each piece's Dispatched and Delivered follow on their own.
+   Prepaid, the address and phone as the order has them, Shiprocket's own
+   messages off (KAAL writes its own), the box as given and kept for next
+   time. Only a paid order not yet with a courier, with a full address: any
+   number that is not is refused by name, and no file is made, so a half
+   file is never uploaded. No byte-order mark: Shiprocket reads the first
+   header by its name. Each download is in the audit log. */
+const SR_HEAD = ["*Order Id", "Order Date as dd-mm-yyyy hh:MM", "*Channel", "*Payment Method(COD/Prepaid)", "*Customer First Name", "Customer Last Name",
+  "Email (Optional)", "*Customer Mobile", "Customer Alternate Mobile", "*Shipping Address Line 1", "Shipping Address Line 2", "*Shipping Address Country",
+  "*Shipping Address State", "*Shipping Address City", "*Shipping Address Postcode", "Billing Address Line 1", "Billing Address Line 2",
+  "Billing Address Country", "Billing Address State", "Billing Address City", "Billing Address Postcode", "*Master SKU", "*Product Name",
+  "*Product Quantity", "Tax %", "*Selling Price(Per Unit Item, Inclusive of Tax)", "Discount(Per Unit Item)", "Shipping Charges(Per Order)",
+  "COD Charges(Per Order)", "Gift Wrap Charges(Per Order)", "Total Discount (Per Order)", "*Length (cm)", "*Breadth (cm)", "*Height (cm)",
+  "*Weight Of Shipment(kg)", "Send Notification(True/False)", "Comment", "HSN Code", "Location Id", "Reseller Name", "Company Name", "latitude",
+  "longitude", "Verified Order", "Is documents", "Order Type", "Order tag"];
+const SHIPPABLE = ["placed", "inspected", "packed"];
+export function srMobile(v) {
+  let d = String(v == null ? "" : v).replace(/\D/g, "");
+  if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+  else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+  return /^[6-9]\d{9}$/.test(d) ? d : "";
+}
+export function srDate(isoAt) {
+  const ms = Date.parse(isoAt || "");
+  if (!(ms > 0)) return "";
+  const t = new Date(ms + 5.5 * 3600000).toISOString();
+  return `${t.slice(8, 10)}-${t.slice(5, 7)}-${t.slice(0, 4)} ${t.slice(11, 16)}`;
+}
+async function shiprocketCsv(env, actor, url) {
+  const q = url.searchParams;
+  const say = (msg, status) => new Response(msg + "\n", { status: status || 400, headers: headers({ "Content-Type": "text/plain; charset=utf-8" }) });
+  const nums = [...new Set(String(q.get("n") || "").split(/[^0-9]+/).filter(Boolean).map(Number))].filter(n => n >= 1 && n <= 99).sort((a, b) => a - b);
+  if (!nums.length) return say("Say which numbers go in the file, for example: 4, 8");
+  const given = ["l", "b", "h", "kg"].some(k => String(q.get(k) || "").trim());
+  let box = { l: q.get("l"), b: q.get("b"), h: q.get("h"), kg: q.get("kg") };
+  if (!given) { try { box = JSON.parse(await setting(env, "ship_box", "null")) || {}; } catch (e) { box = {}; } }
+  const dim = (v, max) => { const x = parseFloat(String(v == null ? "" : v).trim().replace(",", ".")); return x > 0 && x <= max ? Math.round(x * 1000) / 1000 : 0; };
+  const L = dim(box.l, 200), B = dim(box.b, 200), H = dim(box.h, 200), KG = dim(box.kg, 30);
+  if (!(L && B && H && KG)) return say("Shiprocket needs the box: length, breadth and height in cm, and the packed weight in kg. Fill all four (they are kept for next time).");
+
+  const rows = (await env.DB.prepare(
+    `SELECT o.*, p.number, p.colorway FROM orders o JOIN pieces p ON p.id = o.piece_id
+      WHERE p.series = ?1 AND p.number IN (${nums.map((_, i) => "?" + (i + 2)).join(",")}) AND o.status NOT IN ('cancelled','returned') ORDER BY p.number, o.id DESC`
+  ).bind(SERIES, ...nums).all()).results || [];
+  const problems = [], lines = [];
+  for (const n of nums) {
+    const o = rows.find(r => r.number === n), no = "No. " + pad2(n);
+    if (!o) { problems.push(`${no} has no paid order.`); continue; }
+    if (SHIPPABLE.indexOf(o.status) < 0) { problems.push(`${no} is already ${o.status}${o.tracking_number ? " (tracking " + o.tracking_number + ")" : ""}: it is not shipped again.`); continue; }
+    if (!(o.amount_paise > 0)) { problems.push(`${no} is a house order of Rs 0, not a sale to ship.`); continue; }
+    const mobile = srMobile(o.phone), pin = String(o.pincode || "").replace(/\s/g, "");
+    const miss = [!String(o.buyer_name || "").trim() && "name", !String(o.address_line1 || "").trim() && "address", !String(o.city || "").trim() && "city",
+      !String(o.state || "").trim() && "state", !/^[1-9]\d{5}$/.test(pin) && "6-digit pincode", !mobile && "10-digit mobile"].filter(Boolean);
+    if (miss.length) { problems.push(`${no}'s order is missing its ${miss.join(", ")}. Add it on the order first.`); continue; }
+    const name = String(o.buyer_name).trim().split(/\s+/);
+    const row = {
+      "*Order Id": `KAAL-${SERIES}-${pad2(n)}`, "Order Date as dd-mm-yyyy hh:MM": srDate(o.paid_at), "*Channel": "CUSTOM", "*Payment Method(COD/Prepaid)": "Prepaid",
+      "*Customer First Name": name[0], "Customer Last Name": name.slice(1).join(" "), "Email (Optional)": o.email || "", "*Customer Mobile": mobile,
+      "*Shipping Address Line 1": String(o.address_line1).trim(), "Shipping Address Line 2": String(o.address_line2 || "").trim(), "*Shipping Address Country": "India",
+      "*Shipping Address State": String(o.state).trim(), "*Shipping Address City": String(o.city).trim(), "*Shipping Address Postcode": pin,
+      "*Master SKU": `KAAL-${SERIES}-${pad2(n)}`, "*Product Name": `KAAL Series ${SERIES.slice(1)}, No. ${pad2(n)}${o.colorway ? " (" + o.colorway + ")" : ""}`,
+      "*Product Quantity": 1, "*Selling Price(Per Unit Item, Inclusive of Tax)": String(o.amount_paise / 100),
+      "*Length (cm)": L, "*Breadth (cm)": B, "*Height (cm)": H, "*Weight Of Shipment(kg)": KG, "Send Notification(True/False)": "False",
+      "Order tag": `KAAL ${SERIES}`
+    };
+    lines.push(SR_HEAD.map(h => row[h] == null ? "" : row[h]));
+  }
+  if (problems.length) return say("No file was made, so nothing half-done reaches Shiprocket:\n\n" + problems.join("\n"), 409);
+  if (given) await env.DB.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('ship_box', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = ?1, updated_at = ?2")
+    .bind(JSON.stringify({ l: L, b: B, h: H, kg: KG }), iso()).run();
+  await audit(env, actor, "export.shiprocket", "orders", null, { numbers: nums, box: { l: L, b: B, h: H, kg: KG } });
+  const text = [SR_HEAD, ...lines].map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return new Response(text, { headers: headers({ "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="kaal-shiprocket-${nums.map(pad2).join("-")}-${istDay()}.csv"` }) });
 }
 /* Everything the registry holds, as one JSON file, except what must
    never leave it: sign-in codes, sessions and the authenticator secret. */

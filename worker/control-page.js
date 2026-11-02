@@ -1331,6 +1331,11 @@ function pushOff(endpoint){
 LOAD.audit = function(put){ api("GET", "/control/api/audit").then(function(j){ if(!j.ok){ put(failed(j)); return; } put(RENDER.audit(j)); }); };
 RENDER.audit = function(j){
   return '<div class="card"><h3>Export</h3><div class="oact"><a class="btn sm" href="/control/api/export/orders.csv">Orders</a><a class="btn sm" href="/control/api/export/owners.csv">Owners</a><a class="btn sm" href="/control/api/export/pieces.csv">Pieces</a><a class="btn sm" href="/desk/orders.csv">Razorpay orders, with addresses</a><a class="btn sm" href="/desk/visitors.csv?r=90d">Visitors</a><a class="btn sm" href="/desk/leads.csv">Series 02 list</a><a class="btn sm go" href="/control/api/backup">Backup now</a></div></div>' +
+    '<div class="card"><h3>Shiprocket bulk file</h3><p class="small muted">For Shiprocket, Orders, Add Order, Bulk Upload. One prepaid order per watch, its Order Id KAAL-S01-NN, so each keeps its own tracking. Only paid orders not yet dispatched. The box is kept: leave it empty next time to use the same one.</p>' +
+    '<form method="get" action="/control/api/export/shiprocket.csv"><label for="srn">Numbers</label><input id="srn" name="n" placeholder="4, 8" inputmode="numeric" autocomplete="off" required>' +
+    '<div class="grid g4"><div><label for="srl">Length (cm)</label><input id="srl" name="l" inputmode="decimal" autocomplete="off"></div><div><label for="srb">Breadth (cm)</label><input id="srb" name="b" inputmode="decimal" autocomplete="off"></div>' +
+    '<div><label for="srh">Height (cm)</label><input id="srh" name="h" inputmode="decimal" autocomplete="off"></div><div><label for="srk">Packed weight (kg)</label><input id="srk" name="kg" inputmode="decimal" autocomplete="off"></div></div>' +
+    '<div class="row" style="margin-top:12px"><button class="btn go" type="submit">Download the Shiprocket file</button></div></form></div>' +
     '<h2>Every admin action</h2><div class="card tight scroll"><table>' + j.audit.map(function(a){ return '<tr><td class="small faint" style="white-space:nowrap">' + esc(when(a.at)) + '</td><td class="small">' + esc(a.action) + '<div class="muted">' + esc(a.target || "") + " · " + esc(a.actor) + '</div></td><td class="small muted" style="word-break:break-word">' + esc((a.after || "").slice(0, 160)) + "</td></tr>"; }).join("") + "</table></div>";
 };
 

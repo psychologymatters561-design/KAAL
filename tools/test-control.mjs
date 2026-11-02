@@ -277,6 +277,50 @@ let oid;
   const dump = JSON.parse(r.text);
   ok(dump.tables.orders.length >= 4 && !("sessions" in dump.tables) && !("login_codes" in dump.tables) && dump.tables.owners.every(o => !o.totp_secret_enc || o.totp_secret_enc === "(withheld)"),
     "backup: every table, never the sessions, codes or the authenticator secret");
+
+  /* Shiprocket's bulk order file: one prepaid order per watch, the registry's own address, the box kept. */
+  const o4 = (await seed("pay_SR4", 4, "four@example.com")).order.id;
+  const o5 = (await seed("pay_SR5", 5, "five@example.com")).order.id;
+  DB.raw.prepare("UPDATE orders SET buyer_name = 'Meera K Iyer', address_line2 = 'Near the old banyan, Baner', phone = '+91 98450 12345', status = 'inspected' WHERE id = ?").run(o5);
+  const SR = "/control/api/export/shiprocket.csv";
+  r = await call("GET", SR);
+  ok(r.status === 400 && /which numbers/.test(r.text), "shiprocket: says which numbers are needed");
+  r = await call("GET", SR + "?n=4,5");
+  ok(r.status === 400 && /length, breadth and height in cm, and the packed weight in kg/.test(r.text), "shiprocket: no box yet: asks for all four measures, makes no file");
+  r = await call("GET", SR + "?n=4,%205&l=15&b=12&h=9&kg=0.6");
+  const lines = r.text.trim().split("\r\n");
+  const parse = (l) => { const out = []; let cur = "", q = false; for (let i = 0; i < l.length; i++) { const c = l[i];
+    if (q) { if (c === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === ",") { out.push(cur); cur = ""; } else cur += c; } out.push(cur); return out; };
+  const cells = lines.map(parse);
+  ok(r.status === 200 && /text\/csv/.test(r.headers.get("Content-Type")) && /filename="kaal-shiprocket-04-05-\d{4}-\d{2}-\d{2}\.csv"/.test(r.headers.get("Content-Disposition")) &&
+    r.text.charCodeAt(0) === 42 && lines.length === 3, "shiprocket: one file, a header and one order per watch, no byte-order mark before *Order Id");
+  ok(cells[0].length === 47 && cells[0][0] === "*Order Id" && cells[0][34] === "*Weight Of Shipment(kg)" && cells[0][46] === "Order tag", "shiprocket: Shiprocket's 47 columns, in its order");
+  const col = (row, h) => cells[row][cells[0].indexOf(h)];
+  ok(col(1, "*Order Id") === "KAAL-S01-04" && col(1, "*Master SKU") === "KAAL-S01-04" && col(1, "*Product Name") === "KAAL Series 01, No. 04 (Emerald)" && col(1, "*Channel") === "CUSTOM" &&
+    col(1, "*Payment Method(COD/Prepaid)") === "Prepaid" && col(1, "*Product Quantity") === "1" && col(1, "*Selling Price(Per Unit Item, Inclusive of Tax)") === "5999",
+    "shiprocket: Order Id KAAL-S01-04 (what the courier link reads back), prepaid, the watch named, one, at Rs 5999");
+  ok(col(1, "*Customer First Name") === "Asha" && col(1, "Customer Last Name") === "Rao" && col(1, "*Customer Mobile") === "9876543210" && col(1, "*Shipping Address Line 1") === "1 Road" &&
+    col(1, "*Shipping Address City") === "Pune" && col(1, "*Shipping Address State") === "Maharashtra" && col(1, "*Shipping Address Postcode") === "411001" && col(1, "*Shipping Address Country") === "India" &&
+    col(1, "Email (Optional)") === "four@example.com", "shiprocket: the registry's own name, mobile and address");
+  ok(col(2, "*Customer First Name") === "Meera" && col(2, "Customer Last Name") === "K Iyer" && col(2, "*Customer Mobile") === "9845012345" && /Near the old banyan, Baner/.test(lines[2]),
+    "shiprocket: a +91 mobile becomes ten digits; a comma in the address stays in its cell");
+  ok(col(1, "*Length (cm)") === "15" && col(1, "*Breadth (cm)") === "12" && col(1, "*Height (cm)") === "9" && col(1, "*Weight Of Shipment(kg)") === "0.6" && col(1, "Send Notification(True/False)") === "False" &&
+    /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}$/.test(col(1, "Order Date as dd-mm-yyyy hh:MM")), "shiprocket: the box, Shiprocket's own messages off, the paid date as dd-mm-yyyy hh:MM");
+  r = await call("GET", SR + "?n=5");
+  ok(r.status === 200 && /,15,12,9,0\.6,/.test(r.text), "shiprocket: the box is kept: next time, empty means the same box");
+  DB.raw.prepare("UPDATE orders SET status = 'dispatched', tracking_number = 'AWB123' WHERE id = ?").run(o5);
+  r = await call("GET", SR + "?n=4,5,9");
+  ok(r.status === 409 && /No\. 05 is already dispatched \(tracking AWB123\)/.test(r.text) && /No\. 09 has no paid order/.test(r.text) && !/KAAL-S01-04/.test(r.text),
+    "shiprocket: a watch already with a courier, or with no order, is named, and no file is made");
+  DB.raw.prepare("UPDATE orders SET status = 'inspected', phone = '12345' WHERE id = ?").run(o5);
+  r = await call("GET", SR + "?n=5");
+  ok(r.status === 409 && /missing its 10-digit mobile/.test(r.text), "shiprocket: an order without a usable mobile is refused by name");
+  ok(DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'export.shiprocket'").get().c === 2, "shiprocket: every file made is in the audit log");
+  const kept = jar; jar = "";
+  r = await call("GET", SR + "?n=4&l=1&b=1&h=1&kg=1");
+  ok(r.status === 401 && !/Asha|411001/.test(r.text), "shiprocket: signed out, nothing");
+  jar = kept;
 }
 
 /* ── 8. Who may not ── */

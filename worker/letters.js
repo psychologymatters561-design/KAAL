@@ -377,6 +377,25 @@ export const LETTERS = {
     ], { preheader: `One complimentary service, and the first right to No. ${n} in every future series.` });
   },
 
+  /* Diwali, 8 Nov 2026, in the shop owner's own words. Only "Owner" in
+     "Dear Owner," changes: to the owner's first name, when the registry
+     has one. Sent only by worker/house.js (sendAsked), once to each owner;
+     ns are the numbers they hold (one letter names both of two). */
+  diwali(d) {
+    const ns = (d.ns || (d.n ? [d.n] : [])).map(pad2);
+    const which = ns.length > 1 ? `Nos. ${ns.slice(0, -1).join(", ")} and ${ns[ns.length - 1]}` : ns.length ? `No. ${ns[0]}` : "";
+    return render(d.name ? `Happy Diwali, ${d.name}` : "Happy Diwali from KAAL", [
+      `Dear ${d.name || "Owner"},`,
+      { lines: [
+        "Wishing you and your family a very happy Diwali.",
+        "It is a privilege to count you among the owners of KAAL.",
+        "May the year ahead be worthy of you.",
+        "And may the light you carry be your own."
+      ] },
+      { lines: ["With respect,", "KAAL"] }
+    ], { preheader: which ? `For the owner of ${which}.` : "Wishing you and your family a very happy Diwali." });
+  },
+
   /* ── For the shop's own inbox, never a customer's. Plain and short. ── */
   sla(d) {
     const n = pad2(d.n);

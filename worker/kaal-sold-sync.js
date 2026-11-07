@@ -1445,8 +1445,13 @@ async function deliverHeld(env) {
   /* The letters the shop owner asked for (worker/house.js, sendAsked), with them. */
   const asked = await sendAsked(env).catch(e => { console.log("Asked letters threw:", String(e).slice(0, 160)); return []; });
   for (const a of asked) console.log(`Asked letter ${a.id}: ${a.did}.`);
-  const ids = out.map(x => x.id).concat(asked.map(a => a.row)).filter(Boolean);
-  if (ids.length) await flushOutbox(env, (to, subject, text, html) => sendEmail(env, to, subject, text, html), ids).catch(() => null);
+  const ids = out.map(x => x.id).concat(...asked.map(a => a.rows || [a.row])).filter(Boolean);
+  /* Resend takes two a second: a letter to every owner goes out spaced. */
+  const pace = ids.length > 2;
+  if (ids.length) await flushOutbox(env, async (to, subject, text, html) => {
+    if (pace) await new Promise(r => setTimeout(r, 600));
+    return sendEmail(env, to, subject, text, html);
+  }, ids).catch(() => null);
   return out.map(x => ({ n: x.n, did: x.did }));
 }
 

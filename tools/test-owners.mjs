@@ -515,5 +515,59 @@ ok(r.j.ok && W.mails.length === 0, "claim: asking with a link we never issued te
   ok(!Y.mails.some(m => /privileges/.test(m.subject)) && a.j.ops.some(o => /shop's own address/.test(o.detail)), "asked: never to the shop's own address");
 }
 
+{
+  /* The Diwali greeting (house.js, an "every" letter): every owner the registry has, once, from its hour, never late. */
+  const X = world(); X.env.OWNER_OPS = ""; X.env.OPS_KEY = "k".repeat(43); X.env.HOUSE = "[]";
+  const run = () => call(X, "POST", "/ops/run", undefined, { Authorization: "Bearer " + "k".repeat(43) });
+  const H = 3600000;
+  const set = (from, until, id) => { X.env.OWNER_LETTERS = JSON.stringify([{ id: id || "t-dw", every: true, template: "diwali", label: "the Diwali greeting to every owner", skip: [1],
+    from: new Date(Date.now() + from).toISOString(), until: new Date(Date.now() + until).toISOString(), when: "8:00 AM on 8 November" }]); };
+  const order = (n, email, name, pay, status) => X.DB.raw.prepare("INSERT INTO orders (series, piece_id, razorpay_payment_id, email, buyer_name, amount_paise, status, paid_at) VALUES ('S01',?,?,?,?,599900,?,'2026-10-28T10:00:00Z')")
+    .run("S01-" + String(n).padStart(2, "0"), pay, email, name, status || "delivered");
+  order(1, "me@example.com", "Arjun Dixit", "pay_Dw00000001");
+  order(3, "a@example.com", "Mrs. asha rao", "pay_Dw00000003");
+  order(4, "A@Example.com ", "Asha Rao", "pay_Dw00000004");
+  order(5, "connect@thekaal.co", "KAAL", "pay_Dw00000005");
+  order(6, "b@example.com", "Ravi", "pay_Dw00000006", "cancelled");
+  order(7, "z@example.com", "", "pay_Dw00000007");
+  order(8, "s@example.com", "Sam Stop", "pay_Dw00000008");
+  order(10, "k@example.com", "Kiran Rao", "pay_Dw00000010");
+  order(11, "t@example.com", "Tara", "pay_Dw00000011");
+  X.DB.raw.prepare("UPDATE pieces SET status = 'reported_stolen' WHERE id = 'S01-11'").run();
+  X.DB.raw.prepare("INSERT INTO owners (email, name) VALUES ('r@example.com', 'Dr. kiran mehta')").run();
+  const oid = X.DB.raw.prepare("SELECT id FROM owners WHERE email = 'r@example.com'").get().id;
+  X.DB.raw.prepare("INSERT INTO ownerships (series, piece_id, owner_id, owner_no, from_at, acquired_via) VALUES ('S01','S01-10',?,1,'2026-11-01T00:00:00Z','purchase')").run(oid);
+  X.KV.store.set("stop:" + createHash("sha256").update("s@example.com").digest("hex").slice(0, 32), "1");
+  const greet = () => X.mails.filter(m => /Happy Diwali/.test(m.subject));
+  const to = (e) => greet().filter(m => m.to.includes(e));
+
+  set(H, 2 * H);
+  let a = await run();
+  ok(!greet().length && a.j.ops.some(o => o.label === "The Diwali greeting to every owner (your request)" && /Waiting for 8:00 AM on 8 November/.test(o.detail) && /Nothing has gone yet/.test(o.detail)),
+    "diwali: before its hour nothing goes, and Health says when it will");
+
+  set(-60000, H); X.mails.length = 0;
+  a = await run();
+  ok(greet().length === 3, "diwali: from its hour, one letter to each owner (three people here)");
+  const asha = to("a@example.com"), kiran = to("r@example.com"), anon = to("z@example.com");
+  ok(asha.length === 1 && asha[0].subject === "Happy Diwali, Asha" && /^Dear Asha,\n/.test(asha[0].text) && /For the owner of Nos\. 03 and 04\./.test(asha[0].html),
+    "diwali: two pieces, one person, one letter naming both; a title is dropped, the first name title-cased");
+  ok(kiran.length === 1 && /^Dear Kiran,/.test(kiran[0].text) && !to("k@example.com").length, "diwali: a registered piece goes to its registered owner, not the order's old address");
+  ok(anon.length === 1 && anon[0].subject === "Happy Diwali from KAAL" && /^Dear Owner,\n/.test(anon[0].text), "diwali: no name in the registry: the owner's own \"Dear Owner,\"");
+  ok(asha.length && asha[0].text === "Dear Asha,\n\nWishing you and your family a very happy Diwali.\nIt is a privilege to count you among the owners of KAAL.\nMay the year ahead be worthy of you.\nAnd may the light you carry be your own.\n\nWith respect,\nKAAL\n",
+    "diwali: the shop owner's words, exactly, and nothing else");
+  ok(!["me@example.com", "connect@thekaal.co", "b@example.com", "s@example.com", "t@example.com"].some(e => to(e).length),
+    "diwali: never to No. 01, the shop's own address, a cancelled order, anyone who asked us to stop, or a piece flagged stolen");
+  ok(a.j.ops.some(o => /Diwali/.test(o.label) && /^Sent to 3 owners, from connect@thekaal\.co/.test(o.detail) && /No\. 05 is held by the shop's own address/.test(o.detail) && /No\. 11 is flagged as stolen/.test(o.detail)) &&
+    !/@example|Asha|Kiran|Mehta|Sam|Tara/i.test(JSON.stringify(a.j.ops)), "diwali: Health counts it and says why some did not go, naming nobody");
+  ok(X.DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'letter.asked' AND target = 'letters:t-dw'").get().c === 1, "diwali: and it is in the audit log");
+  X.mails.length = 0; await run(); await run();
+  ok(!greet().length, "diwali: once, never again");
+
+  set(-2 * H, -60000, "t-dw-late"); X.mails.length = 0;
+  a = await run();
+  ok(!greet().length && a.j.ops.some(o => /Diwali/.test(o.label) && /its day had passed/.test(o.detail)), "diwali: once its day is over it never goes, and Health says so");
+}
+
 console.log(failed ? `\n${failed} failed.` : "\nAll Phase 4 tests passed.");
 process.exit(failed ? 1 : 0);

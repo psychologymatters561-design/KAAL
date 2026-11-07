@@ -477,6 +477,24 @@ connect@thekaal.co
 +91 93114 16678
 ```
 
+## diwali
+
+**When:** Only when you ask for it: the worker writes once to every owner the registry has (8 Nov 2026, from 8:00 AM IST), "Dear Owner," becoming their first name when it has one.
+
+Subject: Happy Diwali, Asha
+
+```
+Dear Asha,
+
+Wishing you and your family a very happy Diwali.
+It is a privilege to count you among the owners of KAAL.
+May the year ahead be worthy of you.
+And may the light you carry be your own.
+
+With respect,
+KAAL
+```
+
 ## For you only (never to an owner)
 
 - `sla`: No. 07 is late: Placed more than 48 hours ago, not inspected

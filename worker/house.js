@@ -202,7 +202,12 @@ export async function houseDeliver(env, site) {
 const ASKED = [
   /* 1 Nov 2026, the shop owner's own words: No. 10's owner's privileges. */
   { id: "2026-11-01-privileges-10", n: 10, template: "privileges", label: "the owner's privileges letter", warrantyEnd: "2028-11-01",
-    nameBox: "eyJlIjp7IngiOiJHcW5hdmMyQWQ1R0RjMXd5R0JhcXdpLTNOTWtPV185OE44OGt3VTdKSkRvIiwieSI6InFBYWNrd0h0TE96V3BxalBZbGVnaUpJSzR0NDBONkRfdWREUFl1UG5vUWMifSwiaXYiOiJfRWJjc05mY2NhZTBZVVdZIiwiYyI6Ijc2Zi03TmNXa2h6Q0tHOHM2NU1SVTQxbGludVkifQ" }
+    nameBox: "eyJlIjp7IngiOiJHcW5hdmMyQWQ1R0RjMXd5R0JhcXdpLTNOTWtPV185OE44OGt3VTdKSkRvIiwieSI6InFBYWNrd0h0TE96V3BxalBZbGVnaUpJSzR0NDBONkRfdWREUFl1UG5vUWMifSwiaXYiOiJfRWJjc05mY2NhZTBZVVdZIiwiYyI6Ijc2Zi03TmNXa2h6Q0tHOHM2NU1SVTQxbGludVkifQ" },
+  /* 8 Nov 2026, the shop owner's own words: the Diwali greeting to every
+     owner, from 8:00 AM IST that day (the first light run after it, 8:07),
+     and not at all once the day is over. No. 01 is the shop owner's own. */
+  { id: "2026-11-08-diwali", every: true, template: "diwali", label: "the Diwali greeting to every owner", skip: [1],
+    from: "2026-11-08T02:30:00Z", until: "2026-11-08T18:30:00Z", when: "8:00 AM on 8 November" }
 ];
 const ASK_TRIES = 6;
 export function askedList(env) {
@@ -235,12 +240,83 @@ async function askedOne(env, x) {
   return { queued: true, row, piece: pc.id, holder: held ? "its registered owner" : "the buyer on its order" };
 }
 
+/* A letter to every owner (`every`): the registered owner of each piece
+   or, before registering, the buyer on its live order. One letter per
+   person (two pieces, one letter naming both). Never to the shop's own
+   address, a piece flagged stolen, a number it skips, or anyone who asked
+   us to stop (stop:<hash>, set on the desk). Not before `from`, and not
+   at all after `until`: a greeting a day late is worse than none. Once:
+   done is written when all are queued, and each row has its own dedupe
+   key, so a run cut short never sends anyone two. Names nobody. */
+const greetName = (s) => {
+  const f = firstName(s);
+  return f.length < 2 || /[@\d]/.test(f) ? "" : f.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+};
+async function askedEvery(env, x) {
+  const key = "letter:" + x.id, now = Date.now();
+  const was = await env.KAAL_STATE.get(key, "json").catch(() => null);
+  if (was && was.done) return { n: 0, id: x.id, did: was.expired ? "not sent: its day had passed" : "already queued", rows: [] };
+  if (x.from && now < Date.parse(x.from)) return { n: 0, id: x.id, did: "waiting for " + (x.when || x.from), rows: [] };
+  if (x.until && now >= Date.parse(x.until)) {
+    await env.KAAL_STATE.put(key, JSON.stringify({ at: iso(), done: true, expired: true, queued: 0 }));
+    return { n: 0, id: x.id, did: "not sent: its day had passed", rows: [] };
+  }
+  const pieces = (await env.DB.prepare("SELECT id, number, status FROM pieces WHERE series = ?1 ORDER BY number").bind(SERIES).all()).results || [];
+  const people = new Map(), left = [];
+  for (const pc of pieces) {
+    if ((x.skip || []).indexOf(pc.number) > -1) continue;
+    const held = await env.DB.prepare("SELECT w.email, w.name FROM ownerships s JOIN owners w ON w.id = s.owner_id WHERE s.piece_id = ?1 AND s.to_at IS NULL AND w.deleted_at IS NULL").bind(pc.id).first();
+    const order = held ? null : await env.DB.prepare("SELECT email, buyer_name AS name FROM orders WHERE piece_id = ?1 AND status NOT IN ('cancelled','returned') ORDER BY id DESC LIMIT 1").bind(pc.id).first();
+    const who = held || order, to = normEmail(who && who.email);
+    if (!who) continue;                                   /* nobody holds it: no one to write to */
+    if (pc.status === "reported_stolen") { left.push(`No. ${pad2(pc.number)} is flagged as stolen`); continue; }
+    if (!validEmail(to)) { left.push(`No. ${pad2(pc.number)} has no owner's address`); continue; }
+    if (shopAddress(env, to)) { left.push(`No. ${pad2(pc.number)} is held by the shop's own address`); continue; }
+    const p = people.get(to) || { ns: [], name: "" };
+    p.ns.push(pc.number);
+    if (!p.name) p.name = greetName(who.name);
+    people.set(to, p);
+  }
+  const rows = [];
+  let queued = 0;
+  for (const [to, p] of people) {
+    const h = await sha(to);
+    if (await env.KAAL_STATE.get("stop:" + h.slice(0, 32)).catch(() => null)) { left.push("an owner who asked us to stop writing"); continue; }
+    const row = await queueLetter(env, { template: x.template, to, series: SERIES, dedupe: "letter:" + x.id + ":" + h.slice(0, 16), vars: { name: p.name, ns: p.ns } });
+    queued++;
+    if (row) rows.push(row);
+  }
+  await env.KAAL_STATE.put(key, JSON.stringify({ at: iso(), done: true, queued, left }));
+  await audit(env, "system:owner-request", "letter.asked", "letters:" + x.id, null, { letter: x.template, owners: queued }, SERIES);
+  return { n: 0, id: x.id, did: `${queued} letter${queued === 1 ? "" : "s"} queued`, rows };
+}
+
+async function everyHealth(env, x) {
+  const label = (x.label || "the letter").replace(/^./, c => c.toUpperCase()) + " (your request)";
+  const v = await env.KAAL_STATE.get("letter:" + x.id, "json").catch(() => null);
+  if (!v) return { ok: true, label, detail: x.from && Date.now() < Date.parse(x.from)
+    ? `Waiting for ${x.when || x.from} (India time); the first light run after it, at 7 minutes past, sends it. Nothing has gone yet.`
+    : "Waiting for the next light run (every half hour, at :07 and :37)." };
+  if (v.expired) return { ok: false, label, detail: "Not sent: its day had passed before it could go. Nothing went to anyone." };
+  const c = env.DB ? (await env.DB.prepare("SELECT status, COUNT(*) AS c FROM email_outbox WHERE dedupe_key LIKE ?1 GROUP BY status").bind("letter:" + x.id + ":%").all().catch(() => ({ results: [] }))).results || [] : [];
+  const k = (s) => (c.find(r => r.status === s) || {}).c || 0;
+  const sent = k("sent"), queued = k("queued"), failed = k("failed"), all = sent + queued + failed;
+  const not = v.left && v.left.length ? ` Not sent for: ${v.left.join("; ")}.` : "";
+  if (failed) return { ok: false, label, detail: `Sent to ${sent} of ${all} owners; the email provider refused ${failed}. Retry from the control room's letters.` + not };
+  if (queued) return { ok: true, label, detail: `Sent to ${sent} of ${all} owners so far; the outbox sends the rest within minutes.` + not };
+  return { ok: true, label, detail: `Sent to ${sent} owner${sent === 1 ? "" : "s"}, from connect@thekaal.co, replies to it.` + not };
+}
+
 /* Returns [{ n, id, did, row }]; row is the outbox id to send now. */
 export async function sendAsked(env) {
   const out = [];
   if (!env.DB || !env.KAAL_STATE) return out;
   for (const x of askedList(env)) {
     const key = "letter:" + x.id;
+    if (x.every) {
+      try { out.push(await askedEvery(env, x)); } catch (err) { console.log("Asked letter failed:", String(err).slice(0, 160)); out.push({ n: 0, id: x.id, did: "error" }); }
+      continue;
+    }
     try {
       const was = await env.KAAL_STATE.get(key, "json").catch(() => null);
       if (was && (was.queued || (was.tries || 0) >= ASK_TRIES)) { out.push({ n: x.n, id: x.id, did: was.queued ? "already queued" : "not sent: " + was.skipped }); continue; }
@@ -261,6 +337,7 @@ export async function sendAsked(env) {
 export async function askedHealth(env) {
   if (!env.KAAL_STATE) return [];
   return Promise.all(askedList(env).map(async x => {
+    if (x.every) return everyHealth(env, x);
     const label = `No. ${pad2(x.n)}: ${x.label || "the letter"} (your request)`;
     const v = await env.KAAL_STATE.get("letter:" + x.id, "json").catch(() => null);
     if (!v) return { ok: true, label, detail: "Waiting for the next light run (every half hour, at :07 and :37)." };

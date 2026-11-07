@@ -30,14 +30,15 @@ const WHEN = {
   accessReset: "You verify a locked-out owner and move their sign-in. (The brief's \"passcode reset\": there are no passcodes here, only emailed codes.)",
   recoveryDeclined: "You decline a recovery request (with your reason).",
   returnProcessed: "A return is processed and refunded.",
-  privileges: "Only when you ask for it, for one piece: sent by the worker to the holder the registry has, and only if the registry agrees with the name and the warranty day it states."
+  privileges: "Only when you ask for it, for one piece: sent by the worker to the holder the registry has, and only if the registry agrees with the name and the warranty day it states.",
+  diwali: "Only when you ask for it: the worker writes once to every owner the registry has (8 Nov 2026, from 8:00 AM IST), \"Dear Owner,\" becoming their first name when it has one."
 };
 const site = "https://thekaal.co";
 const out = ["# The registry's emails, for your approval", "",
   "Every email the ownership system sends to an owner, exactly as it will read. Inspected, Packed, Dispatched and Registered are the brief's own words and are fixed. Delivered and the reminder were rewritten at the owner's request in October 2026 so that registering is something an owner wants to do, and Placed gained one line so the step is expected; the return option and the warranty are stated as plainly as before. All the others are in the same voice and are mine to propose: change any line you like and tell Claude. Nothing is sent to anyone until the action that triggers it.",
   "", "Generated from `worker/letters.js` by `tools/print-letters.mjs`.", ""];
 const order = ["placed", "inspected", "packed", "dispatched", "outForDelivery", "delivered", "reminder", "registered", "addressNeeded",
-  "claimReceived", "claimApproved", "moreInfo", "claimDeclined", "serviceReturned", "transferStarted", "transferInvite", "transferComplete", "transferRejected", "stolenConfirmed", "stolenCleared", "accessReset", "recoveryDeclined", "returnProcessed", "privileges"];
+  "claimReceived", "claimApproved", "moreInfo", "claimDeclined", "serviceReturned", "transferStarted", "transferInvite", "transferComplete", "transferRejected", "stolenConfirmed", "stolenCleared", "accessReset", "recoveryDeclined", "returnProcessed", "privileges", "diwali"];
 for (const k of order) {
   if (!LETTERS[k]) continue;
   const m = k === "transferComplete" ? null : sample(k, site);

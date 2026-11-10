@@ -54,6 +54,16 @@ SERIES02_EMAIL = "on"
 ARRIVAL_EMAIL  = "on"
 SETTLED_EMAIL  = "on"
 YEAR_EMAIL     = "on"
+# The nearly-bought note on WhatsApp instead of email, for someone who
+# ticked "one WhatsApp message" at checkout (worker/whatsapp.js,
+# docs/whatsapp.md). Still one note, ever; the email goes if WhatsApp
+# refuses it. Needs ABANDON_EMAIL "on" and the four WHATSAPP_ secrets;
+# until they are set it does nothing. "off" and deploy to stop it.
+WHATSAPP_NEARLY   = "on"
+# The template Meta approved, its language, and the Graph API version.
+WHATSAPP_TEMPLATE = "kaal_nearly"
+WHATSAPP_LANG     = "en"
+WHATSAPP_GRAPH    = "v23.0"
 
 # The owner's end-of-day report (worker section 5): the day's visitors,
 # add-to-carts, checkouts, orders, unfinished checkouts and Series 02 leads,

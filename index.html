@@ -1569,6 +1569,10 @@ a{color:inherit}
 .details input:focus{border-color:var(--gold);outline:none}
 .details input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .details input[aria-invalid="true"]{border-color:#C9775F}
+/* The one tick that lets the nearly-bought note go to WhatsApp. Unticked
+   until they tick it: consent is theirs to give (worker/whatsapp.js). */
+.details label.det-wa{display:flex;align-items:flex-start;gap:.7rem;font-size:.8125rem;letter-spacing:0;text-transform:none;color:var(--mute);line-height:1.5;cursor:pointer}
+.details .det-wa input{flex:none;width:1.1rem;height:1.1rem;min-height:0;margin:.15rem 0 0;padding:0;accent-color:var(--gold);color-scheme:dark}
 .det-msg{margin:0;min-height:1.3em;font-size:.875rem;color:var(--bone)}
 .details .buy{width:100%;justify-content:center;cursor:pointer;border:0;font:inherit}
 .det-back{justify-self:center;min-height:44px;padding:.4rem 1rem;background:none;border:0;color:var(--mute);font:inherit;font-size:.875rem;cursor:pointer;text-decoration:underline;text-underline-offset:.2em}
@@ -2480,6 +2484,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
             <label class="wide">Full name<input name="name" autocomplete="name" required maxlength="80"></label>
             <label>Phone<input name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="15" placeholder="+91"></label>
             <label>Email<input name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label>
+            <label class="wide det-wa"><input name="wa" type="checkbox" value="yes"><span>If I stop before paying, KAAL may send one WhatsApp message about this number to this phone. Only one, and never if I reply stop.</span></label>
           </fieldset>
           <fieldset>
             <legend id="detWhere">Delivery address</legend>
@@ -5051,8 +5056,12 @@ paintCtx();
 /* ── #nX. A link that names a number opens the twenty on it: the email
       that says "it is here: thekaal.co/#n7" has to land on 07 and nowhere
       else. A number that has gone since opens its dial instead. ────── */
+var qsNUsed = false;
 function fromHash(){
-  var m = /^#n(\d{1,2})$/.exec(location.hash || "");
+  /* ?n=7 too, on arrival only: WhatsApp's button can add to a link's
+     end, not its #. A later #twenty or #choose must not jump back to it. */
+  var m = /^#n(\d{1,2})$/.exec(location.hash || "") || (!qsNUsed && /^(\d{1,2})$/.exec(qs.get("n") || ""));
+  qsNUsed = true;
   if(!m) return;
   var n = parseInt(m[1], 10);
   if(!n || n < 1 || n > KAAL.edition) return;
@@ -5421,6 +5430,7 @@ function openDetails(n, el, msg){
 function readDetails(){
   var f = detForm.elements, g = giftInfo(), b = {}, bad = [];
   BUYER_FIELDS.forEach(function(k){ b[k] = String(f[k].value || "").replace(/\s+/g, " ").trim(); f[k].removeAttribute("aria-invalid"); });
+  b.wa = !!(f.wa && f.wa.checked);
   b.pin = b.pin.replace(/\D/g, "");
   function need(k, good){ if(!good){ bad.push(k); f[k].setAttribute("aria-invalid", "true"); } }
   need("name", b.name.length >= 2);

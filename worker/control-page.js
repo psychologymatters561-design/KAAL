@@ -89,6 +89,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bar h1{font-family:var(--serif);font-weight:400;font-size:22px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar .brand{display:none}
 .live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--mute);white-space:nowrap}
+.livebtn{background:none;border:0;border-radius:99px;padding:6px 8px;cursor:pointer;font:inherit;font-size:13px;color:var(--mute)}
+.livebtn:hover{background:var(--card);color:var(--bone)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--line2)}
 .dot.on{background:var(--ok);box-shadow:0 0 0 0 rgba(134,181,146,.5);animation:pulse 2s ease-out infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(134,181,146,.45)}100%{box-shadow:0 0 0 9px rgba(134,181,146,0)}}
@@ -117,6 +119,7 @@ h2{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
 h2 .count{color:var(--faint);letter-spacing:0;margin-left:6px;font-weight:400}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 .card+.card{margin-top:10px}
+.grid>.card+.card{margin-top:0}
 .card.tight{padding:4px 0}
 .card h3{margin:0 0 4px;font-size:15px;font-weight:600}
 .empty{color:var(--mute);text-align:center;padding:26px 16px}
@@ -328,6 +331,64 @@ button.arow{cursor:pointer}button.arow:hover,button.arow:focus-visible{backgroun
 .saleBox .big{font-family:var(--serif);font-size:20px}
 .arow .at{white-space:nowrap}
 @media (max-width:760px){.cmdb{padding:6px 9px}.cmdb span.t,.cmdb kbd{display:none}.bar [data-act="refresh"]{display:none}.alist{margin-left:62px}.arow{grid-template-columns:54px 1fr;gap:14px;margin-left:-62px;width:calc(100% + 62px)}.arow::before{left:58px}.arow .at{font-size:11px}}
+/* People: a row is the person (one button) beside their quick actions */
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0}
+.prow>button{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:13px 16px;min-width:0}
+.prow>button:hover,.prow>button:focus-visible{background:var(--card2)}
+.qa{display:flex;gap:6px;padding:0 14px 0 4px}
+.ib{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--line2);color:var(--bone);font-size:12.5px;text-decoration:none!important;background:var(--card2);white-space:nowrap}
+.ib.wa{background:var(--gold);border-color:var(--gold);color:#111;font-weight:600}
+.pstg{display:flex;gap:3px;margin-top:9px;flex-wrap:wrap}
+.pstg span{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--card2);color:var(--faint);white-space:nowrap}
+.pstg span.on{background:var(--goldDim);color:var(--goldLit)}
+.pstg span.ok{background:var(--okDim);color:var(--ok)}
+.pstg span.bad{background:var(--badDim);color:var(--bad)}
+@media (max-width:640px){.prow{grid-template-columns:minmax(0,1fr)}.prow>button{padding-bottom:8px}.prow .qa{padding:0 16px 12px 66px}}
+.lv{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ok);white-space:nowrap;font-weight:500}
+.lv .dot{width:7px;height:7px}
+.cnt{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cnt button{background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px;color:var(--mute);cursor:pointer;font:inherit;font-size:12.5px}
+.cnt button b{color:var(--bone);font-family:var(--mono);margin-right:4px;font-weight:600}
+.cnt button:hover{border-color:var(--gold)}
+.pday{width:auto;min-height:36px;padding:5px 10px;font-size:13px}
+.prow .t{display:flex;align-items:baseline;gap:10px;justify-content:space-between}
+.prow .m{font-size:13px;color:var(--mute);margin-top:2px}
+.tw{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+@media (max-width:900px){.tw{grid-template-columns:1fr}}
+/* the person */
+.phead{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.pname{font-family:var(--serif);font-weight:400;font-size:28px;line-height:1.2;color:var(--bone);margin:0;word-break:break-word;text-transform:none;letter-spacing:0}
+.tl-m{margin:-2px 0 8px;font-size:13px;color:var(--mute)}
+.stat{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.miles{list-style:none;margin:0;padding:0}
+.miles li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.miles li:first-child{border-top:0}
+.miles i{font-style:normal;color:var(--faint);text-align:center}
+.miles li.on i{color:var(--gold)}.miles li.ok i{color:var(--ok)}.miles li.bad i{color:var(--bad)}
+.miles li.no{color:var(--faint)}
+.miles .w{font-family:var(--mono);font-size:12px;color:var(--faint);white-space:nowrap;text-align:right}
+.tl li .tx{flex:1;min-width:0}
+.tl .gap{font-family:var(--mono);font-size:11px;color:var(--faint);padding-left:8px;white-space:nowrap}
+/* live */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+.lcard{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;color:inherit;font:inherit;cursor:pointer}
+.lcard:hover,.lcard:focus-visible{border-color:var(--line2)}
+.lcard.hot{border-color:#6a5530;box-shadow:inset 3px 0 0 var(--gold)}
+.lcard.pay{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--goldLit),0 0 0 1px rgba(198,161,91,.3)}
+.lcard[disabled]{cursor:default}
+.lcard .t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.lcard .t b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard .m{font-size:13px;color:var(--mute);margin-top:3px}
+.ptrack{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;margin-top:11px}
+.ptrack span{font-size:10.5px;text-align:center;padding-top:6px;border-top:3px solid var(--line2);color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptrack span.on{border-top-color:var(--gold);color:var(--mute)}
+.ptrack span.now{border-top-color:var(--goldLit);color:var(--bone);font-weight:600}
+.lv2{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:900px){.lv2{grid-template-columns:1fr}}
+.bigN{font-family:var(--mono);font-size:40px;line-height:1}
+.feed{max-height:70vh;overflow-y:auto}
+@media (max-width:900px){.feed{max-height:none}}
 @media (prefers-reduced-motion:reduce){.tbar{transition:none}.dot.on{animation:none}.arow.fresh{animation:none}}
 </style>
 </head>
@@ -370,16 +431,16 @@ ${staging ? '<div class="stg">Staging: Razorpay test mode. Every email goes to t
       <div class="brand">KAAL</div>
       <h1 id="title">Today</h1>
       <button class="cmdb" type="button" data-act="cmd" aria-label="Tell the command centre what to do"><span aria-hidden="true">&#8984;</span><span class="t">Tell it what to do</span><kbd>K</kbd></button>
-      <span class="live" id="liveTop" title="People on the site now"><span class="dot" id="liveDot"></span><span id="liveN">·</span></span>
+      <button class="live livebtn" id="liveTop" type="button" data-go="live" title="People on the site now: open Live"><span class="dot" id="liveDot"></span><span id="liveN">·</span></button>
       <button class="btn sm ghost" type="button" data-act="refresh" aria-label="Refresh">Refresh</button>
     </header>
     <main class="view" id="view"></main>
   </div>
   <nav class="tabs" id="tabs" aria-label="Screens">
     <button data-go="today"><i aria-hidden="true">&#9673;</i>Today</button>
+    <button data-go="live"><i aria-hidden="true">&#9679;</i>Live</button>
+    <button data-go="visitors"><i aria-hidden="true">&#9737;</i>People<span class="badge" data-badge="visitors" hidden></span></button>
     <button data-go="orders"><i aria-hidden="true">&#9635;</i>Orders<span class="badge" data-badge="orders" hidden></span></button>
-    <button data-go="visitors"><i aria-hidden="true">&#9737;</i>Visitors<span class="badge" data-badge="visitors" hidden></span></button>
-    <button data-go="activity"><i aria-hidden="true">&#8776;</i>Activity</button>
     <button data-act="more"><i aria-hidden="true">&#8943;</i>More<span class="badge" data-badge="more" hidden></span></button>
   </nav>
 </div>
@@ -489,24 +550,27 @@ $("fTotp").addEventListener("submit", function(e){ e.preventDefault();
 $("out").addEventListener("click", function(){ api("POST", "/auth/logout", {}).then(function(){ gate("pass"); }); });
 
 /* ══ screens ══ */
+/* Four screens run the day: Today, Live, People, Orders. The rest are a
+   tap further, under More on a phone. */
 var NAV = [
   { g:"Run",  v:"today",     t:"Today" },
-  { g:"Run",  v:"activity",  t:"Activity, live" },
+  { g:"Run",  v:"live",      t:"Live" },
+  { g:"Run",  v:"visitors",  t:"People" },
   { g:"Run",  v:"orders",    t:"Orders" },
   { g:"Run",  v:"approvals", t:"Approvals" },
-  { g:"Grow", v:"visitors",  t:"Visitors and leads" },
   { g:"Grow", v:"insights",  t:"Insights" },
   { g:"Grow", v:"followups", t:"Follow-ups" },
   { g:"Grow", v:"ai",        t:"AI search" },
-  { g:"Keep", v:"pieces",    t:"The twenty" },
-  { g:"Keep", v:"owners",    t:"Owners" },
-  { g:"Keep", v:"list",      t:"Series 02 list" },
+  { g:"Shop", v:"pieces",    t:"The twenty" },
+  { g:"Shop", v:"owners",    t:"Owners" },
+  { g:"Shop", v:"list",      t:"Series 02 list" },
+  { g:"System", v:"activity", t:"Activity log" },
   { g:"System", v:"emails",  t:"Emails" },
   { g:"System", v:"settings",t:"Settings" },
   { g:"System", v:"audit",   t:"Audit and export" },
   { g:"System", v:"health",  t:"Health" }
 ];
-var KEYS = ["today","activity","orders","visitors","insights","approvals","pieces","owners","settings"];
+var KEYS = ["today","live","visitors","orders","insights","approvals","pieces","owners","settings"];
 var VIEW = "today", PARAMS = {}, DATA = {}, BADGE = {};
 (function(){
   var g = "", h = "";
@@ -517,7 +581,7 @@ var VIEW = "today", PARAMS = {}, DATA = {}, BADGE = {};
   });
   $("sideNav").innerHTML = h + "</div>";
 })();
-function titleOf(v){ for(var i = 0; i < NAV.length; i++) if(NAV[i].v === v) return NAV[i].t; return "KAAL"; }
+function titleOf(v){ if(v === "person") return "Person"; for(var i = 0; i < NAV.length; i++) if(NAV[i].v === v) return NAV[i].t; return "KAAL"; }
 function setBadge(k, n, bad){
   BADGE[k] = n || 0;
   Array.prototype.forEach.call(document.querySelectorAll('[data-badge="' + k + '"]'), function(b){ b.hidden = !n; b.textContent = n > 99 ? "99+" : n; b.className = "badge" + (bad ? " bad" : ""); });
@@ -544,7 +608,8 @@ function route(){
   VIEW = v;
   $("title").textContent = titleOf(v);
   document.title = titleOf(v) + " · KAAL";
-  Array.prototype.forEach.call(document.querySelectorAll("[data-go]"), function(b){ if(b.getAttribute("data-go") === v) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+  var nv = v === "person" ? "visitors" : v;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-go]"), function(b){ if(b.getAttribute("data-go") === nv && !b.hasAttribute("data-p")) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   $("view").innerHTML = '<div class="card empty">Loading…</div>';
   window.scrollTo(0, 0);
   load();
@@ -559,19 +624,20 @@ function failed(j){ return '<div class="card empty"><p>' + esc((j && j.why) || "
 var LOAD = {}, RENDER = {}, AFTER = {};
 function both(a, b, done){ var got = {}, n = 2; function one(k){ return function(j){ got[k] = j; if(--n === 0) done(got.a, got.b); }; } a.then(one("a")); b.then(one("b")); }
 
-/* ══ TODAY: the live dashboard ══
-   A period (Today, 7, 30, 90 days in India), its numbers against the same
-   length before it, the chart, the path to a sale and where sales came
-   from; then what needs you, who is here now, the hot leads, the twenty.
-   The numbers refresh every thirty seconds while the screen is open;
-   Right now every ten. */
+/* ══ TODAY: the day at a glance ══
+   A period (Today, 7, 30, 90 days in India) and its numbers against the
+   same length before it; what needs you; who is interested, with their
+   name and number when they gave them and one tap to call; who is here
+   now; the twenty and the orders; then the chart, the path to a sale and
+   where sales came from. The numbers and the list refresh every thirty
+   seconds while the screen is open; Right now every ten. */
 var TP_NAME = { today:"Today", "7d":"7 days", "30d":"30 days", "90d":"90 days" };
 function tperiod(){ var r = PARAMS.r; if(!TP_NAME[r]){ try{ r = localStorage.getItem("kaal_tp"); }catch(e){} } return TP_NAME[r] ? r : "today"; }
 /* Shown the moment the first answer is in, and filled in as the rest
    arrive: the numbers never wait on Razorpay. What the screen showed last
    time is shown at once, then replaced. */
 LOAD.today = function(put){
-  var r = tperiod(), left = 4, shown = false;
+  var r = tperiod(), left = 5, shown = false;
   if(DATA.summary && DATA.summary.r === r){ shown = true; put(RENDER.today()); hot(); }
   function paint(){ if(VIEW !== "today") return; if(!shown){ shown = true; put(RENDER.today()); hot(); } else { var v = $("view"); if(v && !PENDING && $("sheet").hidden) v.innerHTML = RENDER.today(); } }
   function one(k){ return function(j){
@@ -580,20 +646,30 @@ LOAD.today = function(put){
     if(k === "dk" && j.ok) DATA.desk = j;
     if(k === "sm" && j.ok) DATA.summary = j;
     if(k === "ins" && j.ok) DATA.tins = j;
+    if(k === "pp" && (j.ok || j.on === false)){ j.r0 = r; DATA.tint = j; }
     if(!shown && left === 0 && !DATA.summary && !DATA.overview && !DATA.desk){ put(failed(j)); return; }
     if(DATA.summary || left === 0) paint();
   }; }
   api("GET", "/desk/summary?r=" + r).then(one("sm")); api("GET", "/control/api/overview").then(one("ov"));
+  api("GET", "/desk/visitors?r=" + r + "&f=interested&sort=intent&lim=8").then(one("pp"));
   api("GET", "/desk/insights?r=" + r).then(one("ins")); api("GET", "/desk/data").then(one("dk"));
 };
-function hot(){ api("GET", "/desk/visitors?r=7d&f=hot&sort=score").then(function(h){ if(h.ok){ setBadge("visitors", h.total); DATA.hot = h; var e = $("hotCard"); if(e) e.innerHTML = hotCard(h); } }); }
-/* The quiet refresh: only the numbers, the chart and the path, in place. */
+/* The People badge: hot leads of the last seven days who have not bought. */
+function hot(){ api("GET", "/desk/visitors?r=7d&f=hot&sort=score&lim=1").then(function(h){ if(h.ok) setBadge("visitors", h.total); }); }
+/* The quiet refresh: the numbers, the list, the chart and the path, in place. */
 function refreshToday(){
   if(VIEW !== "today" || !SIGNED || document.visibilityState !== "visible" || !$("sheet").hidden || PENDING) return;
-  api("GET", "/desk/summary?r=" + tperiod()).then(function(j){
+  var r = tperiod();
+  api("GET", "/desk/summary?r=" + r).then(function(j){
     if(!j.ok || VIEW !== "today") return;
     DATA.summary = j;
     var a = $("dash"); if(a) a.innerHTML = dashBody();
+    var b = $("dash2"); if(b) b.innerHTML = dashMore();
+  });
+  api("GET", "/desk/visitors?r=" + r + "&f=interested&sort=intent&lim=8").then(function(j){
+    if(!j.ok || VIEW !== "today" || tperiod() !== r) return;
+    j.r0 = r; DATA.tint = j;
+    var c = $("intCard"); if(c) c.innerHTML = intCard();
   });
 }
 setInterval(refreshToday, 30000);
@@ -608,7 +684,7 @@ function needs(){
     if(dk && dk.sold && ov.pieces){
       var st = {}; ov.pieces.forEach(function(p){ st[p.number] = p.status; });
       var gap = dk.sold.filter(function(n){ return st[n] === "available" || st[n] === "held"; });
-      if(gap.length) out.push({ act:1, t: (gap.length === 1 ? "No. " : "Nos. ") + gap.map(pad).join(", ") + " sold on the shop, with no order in the registry", d:"Sold before the registry existed. Record each one so its owner can register, see their warranty and transfer it.", b:'<button class="btn sm gold" data-act="pastSale">Record a past sale</button>' });
+      if(gap.length) out.push({ act:1, t: (gap.length === 1 ? "No. " : "Nos. ") + gap.map(pad).join(", ") + " sold on the shop, with no order in the registry", d:"Sold before the registry existed, or paid outside the checkout. Record each one so its owner can register, see their warranty and transfer it.", b:'<button class="btn sm gold" data-act="paid">Mark as paid</button><button class="btn sm ghost" data-act="pastSale">Record a past sale</button>' });
     }
   }
   if(dk){
@@ -622,62 +698,77 @@ function needs(){
   }
   return out;
 }
-function hotCard(h){
-  var rows = (h.rows || []).slice(0, 4);
-  if(!h.total) return '<div class="card"><h3>Hot leads</h3><p class="muted small" style="margin:0">Nobody close to buying in the last seven days. When someone opens checkout, gives their details or comes back for a number, they appear here.</p></div>';
-  return '<div class="card"><div class="row between"><h3>' + plural(h.total, "hot lead") + ' this week</h3><button class="btn sm" data-go="visitors" data-p="f=hot">See all</button></div>' +
-    '<div class="list" style="margin:8px -16px -16px">' + rows.map(function(v){ return vrow(v); }).join("") + "</div></div>";
-}
 function kdelta(cur, prev, r){
   if(r === "today") return '<span class="faint">Yesterday ' + prev + "</span>";
   if(!prev) return cur ? '<span class="up">new</span> <span class="faint">vs previous ' + TP_NAME[r] + "</span>" : '<span class="faint">none in either period</span>';
   var d = Math.round((cur - prev) / prev * 100);
-  return '<span class="' + (d > 0 ? "up" : d < 0 ? "down" : "faint") + '">' + (d > 0 ? "\u25b2 " : d < 0 ? "\u25bc " : "") + Math.abs(d) + '%</span> <span class="faint">vs previous ' + TP_NAME[r] + "</span>";
+  return '<span class="' + (d > 0 ? "up" : d < 0 ? "down" : "faint") + '">' + (d > 0 ? "▲ " : d < 0 ? "▼ " : "") + Math.abs(d) + '%</span> <span class="faint">vs previous ' + TP_NAME[r] + "</span>";
 }
 function mini(days, key){
   if(!days || days.length < 2) return "";
   var top = 1; days.forEach(function(x){ top = Math.max(top, x[key] || 0); });
   return '<div class="mini" aria-hidden="true">' + days.map(function(x){ var v = x[key] || 0; return '<i class="' + (v ? "" : "z") + '" style="height:' + (v ? Math.max(10, Math.round(v / top * 100)) : 6) + '%"></i>'; }).join("") + "</div>";
 }
+/* The six numbers, each against the period before. */
 function dashBody(){
   var sm = DATA.summary;
   if(!sm) return '<div class="card empty">The numbers could not be read just now. They try again in thirty seconds.</div>';
   var r = sm.r, t = sm.totals || {}, p = sm.prev || {}, days = r === "today" ? null : sm.days;
-  function conv(o, v){ return v ? (o / v * 100).toFixed(o / v >= 0.1 ? 0 : 1) + "%" : "\u2013"; }
-  function kpi(label, v, pv, sub, key, go){
-    return '<div class="kpi' + (go ? " go" : "") + '"' + (go ? ' data-go="' + go + '"' : "") + '><div class="l">' + label + '</div><div class="v">' + v + "</div>" +
+  function conv(o, v){ return v ? (o / v * 100).toFixed(o / v >= 0.1 ? 0 : 1) + "%" : "–"; }
+  function kpi(label, v, pv, sub, key, go, gp){
+    return '<div class="kpi' + (go ? " go" : "") + '"' + (go ? ' data-go="' + go + '"' + (gp ? ' data-p="' + gp + '"' : "") : "") + '><div class="l">' + label + '</div><div class="v">' + v + "</div>" +
       '<div class="d">' + sub + '</div><div class="d">' + kdelta(pv ? pv[0] : t[key] || 0, pv ? pv[1] : p[key] || 0, r) + "</div>" + (key ? mini(days, key) : "") + "</div>";
   }
   var h = '<div class="kpis">' +
-    kpi("Visits", (t.visits || 0).toLocaleString("en-IN"), null, (t.visitors || 0).toLocaleString("en-IN") + " " + (t.visitors === 1 ? "visitor" : "visitors") + (r === "today" ? " today" : " (unique each day)"), "visits", "insights") +
-    kpi("Add to cart", (t.cart || 0).toLocaleString("en-IN"), null, pct(t.cart || 0, t.visits || 0) + " of visits chose a number", "cart", "visitors") +
-    kpi("Checkouts", (t.checkout || 0).toLocaleString("en-IN"), null, pct(t.checkout || 0, t.cart || 0) + " of add to carts", "checkout", "orders") +
+    kpi("Visits", (t.visits || 0).toLocaleString("en-IN"), null, (t.visitors || 0).toLocaleString("en-IN") + " " + (t.visitors === 1 ? "visitor" : "visitors") + (r === "today" ? " today" : " (unique each day)"), "visits", "visitors", "r=" + r + "&f=all") +
+    kpi("Add to cart", (t.cart || 0).toLocaleString("en-IN"), null, pct(t.cart || 0, t.visits || 0) + " of visits chose a number", "cart", "visitors", "r=" + r + "&f=number") +
+    kpi("Checkouts", (t.checkout || 0).toLocaleString("en-IN"), null, pct(t.checkout || 0, t.cart || 0) + " of add to carts", "checkout", "visitors", "r=" + r + "&f=checkout") +
     kpi("Orders", (t.orders || 0).toLocaleString("en-IN"), null, (t.returned ? plural(t.returned, "returned or refunded", "returned or refunded") : pct(t.orders || 0, t.checkout || 0) + " of checkouts paid"), "orders", "orders") +
     kpi("Revenue", rupees(t.paise || 0), [t.paise || 0, p.paise || 0], "after refunds and returns", "paise", null) +
     kpi("Conversion", conv(t.orders || 0, t.visitors || 0), [Math.round((t.orders || 0) * 1000 / Math.max(1, t.visitors || 0)), Math.round((p.orders || 0) * 1000 / Math.max(1, p.visitors || 0))], "orders per visitor", null, "insights") + "</div>";
-  h += '<p class="note">' + (r === "today" ? "Today so far, India time. " : esc(TP_NAME[r]) + " to today, against the " + esc(TP_NAME[r]) + " before. ") +
-    "A visit is counted as it ends, so the last few minutes arrive with it; Right now, below, is live. Add to cart is a visit that chose a number." + (sm.orders === "razorpay" ? " Orders from Razorpay." : "") + "</p>";
-  /* the chart */
-  var cd = sm.days || [], top = 1, otop = 0;
-  cd.forEach(function(x){ top = Math.max(top, x.visits || 0); otop = Math.max(otop, x.orders || 0); });
-  h += '<div class="card" style="margin-top:12px"><div class="row between"><h3>' + (r === "today" ? "The last fourteen days" : "Visits and orders, day by day") + '</h3><span class="legend"><i class="lv"></i>Visits <i class="lo"></i>Orders</span></div>' +
+  return h + '<p class="note">' + (r === "today" ? "Today so far, India time. " : esc(TP_NAME[r]) + " to today, against the " + esc(TP_NAME[r]) + " before. ") +
+    "A visit is counted as it ends, so the last few minutes arrive with it; Right now is live. Add to cart is a visit that chose a number. Tap a number to see the people behind it." + (sm.orders === "razorpay" ? " Orders from Razorpay." : "") + "</p>";
+}
+/* The chart, the path to a sale and where they came from. */
+function dashMore(){
+  var sm = DATA.summary;
+  if(!sm) return "";
+  var r = sm.r, t = sm.totals || {};
+  var cd = sm.days || [], top = 1;
+  cd.forEach(function(x){ top = Math.max(top, x.visits || 0); });
+  var h = '<div class="card" style="margin-top:12px"><div class="row between"><h3>' + (r === "today" ? "The last fourteen days" : "Visits and orders, day by day") + '</h3><span class="legend"><i class="lv"></i>Visits <i class="lo"></i>Orders</span></div>' +
     '<div class="chart" role="img" aria-label="Visits and orders each day">' + cd.map(function(x){
       var hv = x.visits ? Math.max(3, Math.round(x.visits / top * 100)) : 1;
       return '<div class="cday' + (x.day === sm.today ? " now" : "") + '" title="' + esc(dayShort(x.day)) + ": " + plural(x.visits || 0, "visit") + ", " + plural(x.cart || 0, "add to cart", "add to carts") + ", " + plural(x.orders || 0, "order") + (x.paise ? ", " + rupees(x.paise) : "") + '">' +
         (x.orders ? '<b class="o">' + x.orders + "</b>" : "") + '<i class="b" style="height:' + hv + '%"></i></div>'; }).join("") + "</div>" +
     '<div class="axis"><span>' + esc(cd.length ? dayShort(cd[0].day) : "") + "</span><span>" + esc(cd.length > 2 ? dayShort(cd[Math.floor(cd.length / 2)].day) : "") + "</span><span>" + (cd.length ? (cd[cd.length - 1].day === sm.today ? "Today" : esc(dayShort(cd[cd.length - 1].day))) : "") + "</span></div></div>";
-  /* the path to a sale */
   var steps = [["Visits", t.visits || 0], ["Reached the twenty", t.twenty || 0], ["Added to cart", t.cart || 0], ["Opened checkout", t.checkout || 0], ["Gave their details", t.details || 0], ["Ordered", t.orders || 0]];
   var v0 = Math.max(steps[0][1], 1);
   var path = '<div class="card funnel"><h3 style="margin-bottom:6px">The path to a sale</h3>' + steps.map(function(x, i){
     var drop = i ? steps[i - 1][1] - x[1] : 0;
-    return '<div class="st"><span>' + x[0] + '</span><span class="track"><i style="width:' + Math.min(100, Math.max(x[1] ? 1 : 0, Math.round(x[1] / v0 * 100))) + '%"></i></span><span class="val">' + x[1].toLocaleString("en-IN") + (i && steps[0][1] ? "<small>" + pct(x[1], steps[0][1]) + "</small>" : "") + (i && drop > 0 ? '<small class="down" title="Lost at this step">\u2212' + drop + "</small>" : "") + "</span></div>"; }).join("") + "</div>";
+    return '<div class="st"><span>' + x[0] + '</span><span class="track"><i style="width:' + Math.min(100, Math.max(x[1] ? 1 : 0, Math.round(x[1] / v0 * 100))) + '%"></i></span><span class="val">' + x[1].toLocaleString("en-IN") + (i && steps[0][1] ? "<small>" + pct(x[1], steps[0][1]) + "</small>" : "") + (i && drop > 0 ? '<small class="down" title="Lost at this step">−' + drop + "</small>" : "") + "</span></div>"; }).join("") + "</div>";
   var ins = DATA.tins, src = ins && ins.sources ? ins.sources.slice(0, 6) : [];
   var from = '<div class="card"><div class="row between"><h3>Where they came from</h3><button class="btn sm ghost" data-go="insights" data-p="r=' + esc(r) + '">Insights</button></div>' +
     (src.length ? '<div class="scroll" style="margin:6px -16px -16px"><table><tr><th>Source</th><th class="n">Visitors</th><th class="n">Cart</th><th class="n">Checkout</th><th class="n">Sold</th></tr>' + src.map(function(x){
       return '<tr class="go" data-go="visitors" data-p="f=all&r=' + esc(r) + "&src=" + esc(x.s) + '"><td>' + esc(cleanSrc(x.k)) + '</td><td class="n">' + x.v + '</td><td class="n">' + x.num + '</td><td class="n">' + x.co + '</td><td class="n">' + (x.paid ? '<b class="up">' + x.paid + "</b>" : 0) + "</td></tr>"; }).join("") + "</table></div>"
       : '<p class="muted small" style="margin:6px 0 0">' + (ins ? "Nobody yet in this period." : "The sources could not be read just now.") + "</p>") + "</div>";
   return h + '<div class="grid g2 solo" style="margin-top:12px">' + path + from + "</div>";
+}
+/* Who is interested: everyone in the period who chose a number, opened
+   checkout, gave their details, bought, or scored warm, in the order to
+   call them, with what each did and one tap to reach them. */
+var TINT_T = { today:"Interested today", "7d":"Interested, last 7 days", "30d":"Interested, last 30 days", "90d":"Interested, last 90 days" };
+function intCard(){
+  var j = DATA.tint, r = tperiod();
+  if(!j || j.r0 !== r) return '<div class="card empty">Finding who is interested…</div>';
+  if(!j.on) return '<div class="card"><h3>' + TINT_T[r] + '</h3><p class="muted small" style="margin:0">Visitor histories start once the visitor counter is connected (Health).</p></div>';
+  var c = j.counts || {}, rows = j.rows || [];
+  function cn(f, n, label){ return n ? '<button data-go="visitors" data-p="r=' + r + "&f=" + f + '"><b>' + n + "</b>" + label + "</button>" : ""; }
+  var h = '<div class="card tight"><div style="padding:12px 16px 6px"><div class="row between"><h3 style="margin:0">' + TINT_T[r] + ' <span class="faint" style="font-weight:400">' + (j.total || 0) + '</span></h3><button class="btn sm" data-go="visitors" data-p="r=' + r + '&f=interested&sort=intent">See all</button></div>' +
+    '<div class="cnt">' + cn("all", c.all, r === "today" ? " visited today" : " visited") + cn("number", c.number, " chose a number") + cn("checkout", c.checkout, " opened checkout") + cn("details", c.details, " gave details") + cn("failed", c.failed, " payment failed") + cn("bought", c.bought, " bought") + cn("live", c.live, " on the site now") + "</div></div>";
+  if(!rows.length) return h + '<p class="muted small" style="margin:6px 16px 14px">Nobody has chosen a number or opened checkout ' + (r === "today" ? "today" : "in this period") + " yet. They appear here as they do, with their name and number once they give them.</p></div>";
+  return h + '<div style="border-top:1px solid var(--line)">' + rows.map(pRow).join("") + "</div>" +
+    (j.total > rows.length ? '<div style="padding:10px 16px;border-top:1px solid var(--line)"><button class="btn sm ghost" data-go="visitors" data-p="r=' + r + '&f=interested&sort=intent">' + (j.total - rows.length) + " more interested</button></div>" : "") + "</div>";
 }
 RENDER.today = function(){
   var ov = DATA.overview || {}, dk = DATA.desk || {}, r = tperiod();
@@ -688,50 +779,177 @@ RENDER.today = function(){
   setBadge("orders", (ov.stages ? (ov.stages.placed || 0) + (ov.stages.inspected || 0) + (ov.stages.packed || 0) : 0));
   setBadge("approvals", ov.approvals || 0, true);
   var seg = Object.keys(TP_NAME).map(function(k){ return '<button data-act="tset" data-v="' + k + '" aria-pressed="' + (r === k) + '">' + TP_NAME[k] + "</button>"; }).join("");
-  var h = '<div class="row between"><div class="seg" role="group" aria-label="Period">' + seg + '</div><span class="live small"><span class="dot on"></span><span id="dashAt">Live \u00b7 updates every 30 seconds</span></span></div>' +
+  var h = '<div class="row between"><div class="seg" role="group" aria-label="Period">' + seg + '</div><span class="live small"><span class="dot on"></span><span id="dashAt">Live · updates every 30 seconds</span></span></div>' +
     '<div id="dash" style="margin-top:12px">' + dashBody() + "</div>";
   if(n.length) h += "<h2>Needs you" + '<span class="count">' + n.length + "</span></h2>" + n.map(function(x){ return '<div class="alert' + (x.act ? " act" : "") + '"><b>' + esc(x.t) + "</b>" + (x.d ? "<p>" + esc(x.d) + "</p>" : "") + (x.b ? '<div class="row">' + x.b + "</div>" : "") + "</div>"; }).join("");
   else h += '<h2>Needs you</h2><div class="calm">&#10003; Nothing needs you right now.</div>';
-  h += '<div class="grid g2 solo" style="margin-top:12px"><div id="nowCard">' + nowCard() + '</div><div id="hotCard">' + (DATA.hot ? hotCard(DATA.hot) : '<div class="card empty">Loading leads\u2026</div>') + '</div></div>';
-  h += '<div class="grid g2 solo" style="margin-top:12px">' + (cells ? '<div class="card go" data-go="pieces"><div class="row between"><h3>The twenty</h3><span class="muted small">' + sold + " gone \u00b7 " + (size - sold) + ' open</span></div><div class="strip half">' + cells + "</div></div>" : "<div></div>") +
+  h += '<div class="grid tw" style="margin-top:14px"><div id="intCard">' + intCard() + '</div><div id="nowCard">' + nowCard() + "</div></div>";
+  h += '<div class="grid g2 solo" style="margin-top:12px">' + (cells ? '<div class="card go" data-go="pieces"><div class="row between"><h3>The twenty</h3><span class="muted small">' + sold + " gone · " + (size - sold) + ' open</span></div><div class="strip half">' + cells + "</div></div>" : "<div></div>") +
     (ov.stages ? '<div class="card"><div class="row between"><h3>Orders at each stage</h3><button class="btn sm ghost" data-go="orders">Orders</button></div><div class="grid g4" style="margin-top:10px">' + ["placed","inspected","packed","dispatched"].map(function(s){
       return '<div class="stagek go" data-go="orders"><b class="num">' + (ov.stages[s] || 0) + "</b><span>" + s + "</span></div>"; }).join("") + "</div></div>" : "") + "</div>";
+  h += '<div id="dash2">' + dashMore() + "</div>";
   if(ov.returnWindows && ov.returnWindows.length) h += '<h2>Delivered, return window open</h2><div class="card tight"><table>' + ov.returnWindows.map(function(w){ return "<tr><td>" + esc(w.piece) + '</td><td class="n">' + esc(w.delivered) + '</td><td class="n">' + plural(w.daysLeft, "day") + " left</td></tr>"; }).join("") + "</table></div>";
   return h;
 };
 
-/* ══ RIGHT NOW: the live view, every ten seconds ══ */
-var LV = null, liveT = 0, LAST_PAID = 0;
+/* ══ PEOPLE, as every screen shows them ══
+   One person in one line: who, where from, how far they got, and the
+   buttons to reach them. The row opens their whole journey. */
+var STEPS_P = [["twenty","The twenty"],["num","A number"],["co","Checkout"],["det","Details"],["paid","Paid"]];
+var VIA = { upi:"UPI", bank:"Bank transfer", cash:"Cash", card:"Card machine", link:"Payment link", other:"Paid outside the checkout" };
+function whoName(v){ return v.name || "Visitor " + v.k; }
+function hasDet(v){ return !!(v.name || v.phone || v.email || v.details); }
+function stageStrip(v){
+  var paid = (v.paid || []).length > 0, nums = v.numbers || [];
+  var on = { twenty: !!v.twenty || nums.length > 0, num: nums.length > 0, co: !!v.checkout, det: hasDet(v), paid: paid };
+  /* Someone who only looked gets no strip: the line above says enough. */
+  if(!on.twenty && !v.failed) return "";
+  return '<div class="pstg">' + STEPS_P.map(function(x){
+    var label = x[0] === "num" && nums.length ? "No. " + nums.slice(-2).map(esc).join(", ") : x[0] === "paid" && paid ? "Paid · No. " + v.paid.map(esc).join(", ") : x[1];
+    return '<span class="' + (on[x[0]] ? (x[0] === "paid" ? "ok" : "on") : "") + '">' + label + "</span>";
+  }).join("") + (v.failed && !paid ? '<span class="bad">Payment failed</span>' : "") + "</div>";
+}
+function liveTag(l){ return l ? '<span class="lv"><span class="dot on"></span>' + esc(WHERE[l.w] || "On the site") + "</span>" : ""; }
+function quick(v){
+  var w = waNum(v.phone), h = "";
+  if(w) h += '<a class="ib wa" href="https://wa.me/' + w + '" target="_blank" rel="noopener" aria-label="WhatsApp ' + esc(whoName(v)) + '">WhatsApp</a>';
+  if(v.phone) h += '<a class="ib" href="tel:' + esc(v.phone) + '" aria-label="Call ' + esc(whoName(v)) + '">Call</a>';
+  return h ? '<div class="qa">' + h + "</div>" : "";
+}
+function pRow(v){
+  var bits = [];
+  if(place(v)) bits.push(esc(place(v)));
+  bits.push(esc(srcName(v)) + (v.cmp ? ' <span class="faint">(ad: ' + esc(v.cmp) + ")</span>" : ""));
+  if(devName(v)) bits.push(esc(devName(v)));
+  bits.push(plural(v.visits || 1, "visit") + (v.time >= 5000 ? ", " + took(v.time) : ""));
+  var seen = v.live ? liveTag(v.live) : '<span class="faint small">' + seenAt(v.day && v.day.last ? v.day.last : v.last) + "</span>";
+  return '<div class="prow"><button data-act="visitor" data-k="' + v.k + '"><div class="vr">' + scoreTag(v) + '<div class="body"><div class="t"><b>' + esc(whoName(v)) + "</b>" + seen + "</div>" +
+    '<div class="m">' + bits.join(" · ") + "</div>" + stageStrip(v) + "</div></div></button>" + quick(v) + "</div>";
+}
+
+/* ══ LIVE: who is on the site this minute, and everything they do ══
+   Everyone on the site now, each as a card: who they are when they have
+   said (their history knows), where they are from, where on the page they
+   are, what they have done this visit, how close they are to buying.
+   Beside it, every step of the last hour as it is taken, and below, who
+   just left. The screen asks every five seconds while it is open. */
+var LV = null, liveT = 0, LAST_PAID = 0, LF = "all", LTICK = 0;
 var WHERE = { film:"Watching the film", story:"Reading the story", twenty:"At the twenty", below:"Below the twenty", details:"Giving their details", pay:"Paying now" };
+var LORDER = { pay:5, details:4, twenty:3, below:2, story:1, film:0 };
+function sortHere(here){ return here.slice().sort(function(a, b){ return (LORDER[b.w] || 0) - (LORDER[a.w] || 0) || ((b.who || {}).score || 0) - ((a.who || {}).score || 0) || a.since - b.since; }); }
+function liveName(v){ var w = v.who || {}; return w.name || (v.vk ? "Visitor " + v.vk : "A visitor"); }
+function whereChips(here){
+  var by = {}, i; for(i = 0; i < here.length; i++){ var w = here[i].w || "film"; by[w] = (by[w] || 0) + 1; }
+  return '<div class="wherechips">' + ["pay","details","twenty","below","story","film"].filter(function(k){ return by[k]; }).map(function(k){ return "<span><b>" + by[k] + "</b> " + WHERE[k].toLowerCase() + "</span>"; }).join("") + "</div>";
+}
+function spark(mins){
+  mins = mins || []; var top = 1, i; for(i = 0; i < mins.length; i++) top = Math.max(top, mins[i]);
+  return '<div class="spark" role="img" aria-label="People on the site each minute, the last half hour">' + mins.map(function(x){ return '<i class="' + (x ? "" : "z") + '" style="height:' + (x ? Math.max(8, Math.round(x / top * 100)) : 4) + '%"></i>'; }).join("") + '</div><div class="axis"><span>30 min ago</span><span>now</span></div>';
+}
+var TRACK = [["film","Film"],["story","Story"],["twenty","Twenty"],["details","Details"],["pay","Paying"]];
+function ptrack(w){
+  var at = { film:0, story:1, twenty:2, below:2, details:3, pay:4 }[w]; if(at == null) at = 0;
+  return '<div class="ptrack" aria-label="Where on the page: ' + esc(WHERE[w] || "on the site") + '">' + TRACK.map(function(x, i){ return '<span class="' + (i === at ? "now" : i < at ? "on" : "") + '">' + (i === at && w === "below" ? "Below" : x[1]) + "</span>"; }).join("") + "</div>";
+}
+function didPills(v){
+  var out = [], seen = {};
+  (v.steps || []).forEach(function(e){
+    var k = "", t = "", cls = "";
+    if((e.e === "dial" || e.e === "early_dial") && e.dial){ k = "d" + e.dial; t = e.dial; }
+    else if(e.e === "number" && e.no){ k = "n" + e.no; t = "No. " + e.no; cls = "gold"; }
+    else if(e.e === "caseback_view"){ k = "cb"; t = "Turned to the back"; }
+    else if(e.e === "hero_complete"){ k = "fm"; t = "Watched the film"; }
+    else if(e.e === "gift"){ k = "g"; t = "A gift"; }
+    else if(e.e === "checkout"){ k = "co"; t = "Pressed buy"; cls = "gold"; }
+    else if(e.e === "details"){ k = "dt"; t = "Gave details"; cls = "gold"; }
+    else if(e.e === "pay_failed"){ k = "pf"; t = "Payment failed"; cls = "bad"; }
+    else if(e.e === "pay_closed" || e.e === "details_closed"){ k = "pc"; t = "Closed without paying"; cls = "bad"; }
+    if(k && !seen[k]){ seen[k] = 1; out.push('<span class="pill' + (cls ? " " + cls : "") + '">' + esc(t) + "</span>"); }
+  });
+  return out.join("");
+}
+function lcard(v, now){
+  var w = v.who || {}, cls = v.w === "pay" ? " pay" : (v.w === "details" || (w.score || 0) >= 50) ? " hot" : "";
+  var meta = [w.place, srcName(v) + (w.cmp ? " (ad: " + w.cmp + ")" : ""), devName(v)].filter(Boolean).map(esc).join(" · ");
+  var tags = (w.paid ? '<span class="pill ok">Has bought</span>' : "") + (v.vk ? (w.visits > 1 ? '<span class="pill">Visit ' + w.visits + "</span>" : '<span class="pill">First visit</span>') : "") +
+    (w.det && !w.paid && !(v.steps || []).some(function(e){ return e.e === "details"; }) ? '<span class="pill gold">Gave their details</span>' : "") + didPills(v);
+  return '<button class="lcard' + cls + '" data-act="visitor" data-k="' + (v.vk || "") + '"' + (v.vk ? "" : " disabled") + '>' +
+    '<div class="t"><b>' + esc(liveName(v)) + "</b>" + (v.vk && v.who && (w.score || w.paid) ? scoreTag({ score: w.score || 0, paid: w.paid ? [1] : [] }) : "") + "</div>" +
+    '<div class="m">' + meta + '</div><div class="m faint">Here ' + took(now - v.since) + (v.n ? " · looking at No. " + pad(v.n) : "") + "</div>" + ptrack(v.w) + (tags ? '<div class="pills">' + tags + "</div>" : "") + "</button>";
+}
+function fkind(e){ if(e === "paid") return "paid"; if(/^(checkout|details|pay_failed|pay_closed|details_closed)$/.test(e)) return "money"; if(/^(number|dial|early_dial|caseback_view|gift|deeplink|ctx_cta|list)$/.test(e)) return "intent"; if(e === "visit") return "arrive"; return "x"; }
+function feedHtml(L, top){
+  var by = {}; (L.here || []).concat(L.left || []).forEach(function(v){ if(v.vk && !by[v.vk]) by[v.vk] = v; });
+  var rows = (L.feed || []).filter(function(x){ return LF === "all" || fkind(x.e) !== "x" && fkind(x.e) !== "arrive"; });
+  if(!rows.length) return '<p class="muted small" style="margin:6px 0">Nothing in the last hour' + (LF === "all" ? "" : " that points to buying") + ". Each step lands here seconds after it is taken.</p>";
+  return '<div class="alist">' + rows.map(function(x){
+    var v = by[x.vk] || {}, w = v.who || {};
+    var who = x.e === "paid" && !x.vk ? "A sale" : "<b>" + esc(x.nm || (x.vk ? "Visitor " + x.vk : "A visitor")) + "</b>" + [w.place, v.s != null ? srcName(v) : ""].filter(Boolean).map(function(t){ return " · " + esc(t); }).join("");
+    var tag = x.vk ? 'button class="arow k-' + fkind(x.e) + (top && x.ts > top ? " fresh" : "") + '" data-act="visitor" data-k="' + x.vk + '"' : 'div class="arow k-' + fkind(x.e) + (top && x.ts > top ? " fresh" : "") + '"';
+    return "<" + tag + '><span class="at">' + clock(x.ts) + '</span><span><div class="tx">' + esc(x.txt) + '</div><div class="m">' + who + "</div></span></" + tag.split(" ")[0] + ">";
+  }).join("") + "</div>";
+}
+function leftHtml(L){
+  var left = L.left || [];
+  if(!left.length) return "";
+  return '<h2>Left in the last hour<span class="count">' + left.length + '</span></h2><div class="card tight list">' + left.slice(0, 15).map(function(v){
+    var w = v.who || {};
+    return '<button class="lrow" data-act="visitor" data-k="' + (v.vk || "") + '"' + (v.vk ? "" : " disabled") + '><div class="t"><b>' + esc(liveName(v)) + '</b><span class="faint small">left ' + clock(v.last) + '</span></div><div class="m">' +
+      [w.place, srcName(v), "stayed " + took(v.last - v.since), "last: " + (WHERE[v.w] || "on the site").toLowerCase()].filter(Boolean).map(esc).join(" · ") + (v.n ? " · No. " + pad(v.n) : "") + "</div></button>";
+  }).join("") + "</div>";
+}
+function lvHead(){
+  if(!LV) return '<div class="card"><p class="muted" style="margin:0">Connecting to the live view…</p></div>';
+  if(!LV.live) return '<div class="card"><p class="muted" style="margin:0">' + (LV.counting ? "The live view could not be read just now. It tries again in five seconds." : "The live view starts once the visitor counter is connected (Health).") + "</p></div>";
+  var L = LV.live, here = L.here || [], sales = (L.paid || []).length;
+  return '<div class="card"><div class="row between"><div><span class="bigN">' + here.length + '</span> <span class="muted">' + (here.length === 1 ? "person on the site now" : "people on the site now") + "</span>" + (sales ? ' <span class="up">· ' + plural(sales, "sale") + " this hour</span>" : "") +
+    '</div><span class="live small"><span class="dot on"></span>Live · every 5 seconds</span></div>' + whereChips(here) + spark(L.minutes) + "</div>";
+}
+function lvHere(){
+  if(!LV || !LV.live) return "";
+  var here = sortHere(LV.live.here || []), now = LV.live.now || Date.now();
+  if(!here.length) return '<div class="card empty">Nobody is on the site this minute. Whoever comes appears here within seconds, and who just left is below.</div>';
+  return '<div class="lgrid">' + here.map(function(v){ return lcard(v, now); }).join("") + "</div>";
+}
+LOAD.live = function(put){ put(RENDER.live()); live(); };
+RENDER.live = function(){
+  return '<div id="lvHead">' + lvHead() + '</div><div class="lv2" style="margin-top:14px"><div><h2 style="margin-top:4px">On the site now</h2><div id="lvHere">' + lvHere() + '</div><div id="lvLeft">' + (LV && LV.live ? leftHtml(LV.live) : "") + "</div></div>" +
+    '<div><h2 style="margin-top:4px">As it happens</h2><div class="chips" style="margin-bottom:8px"><button class="chip" data-act="lf" data-v="all" aria-pressed="' + (LF === "all") + '">Everything</button><button class="chip" data-act="lf" data-v="buy" aria-pressed="' + (LF === "buy") + '">Buying signals</button></div>' +
+    '<div class="card feed" id="lvFeed">' + (LV && LV.live ? feedHtml(LV.live, 0) : '<p class="muted small" style="margin:0">Connecting…</p>') + "</div></div></div>";
+};
+/* Right now, on Today: how many, where, and the first few by name. */
 function nowCard(){
   if(!LV) return '<div class="card"><h3>Right now</h3><p class="muted small" style="margin:0">Connecting…</p></div>';
   if(!LV.live) return '<div class="card"><h3>Right now</h3><p class="muted small" style="margin:0">' + (LV.counting ? "The live view could not be read just now." : "The live view starts once the visitor counter is connected.") + "</p></div>";
-  var L = LV.live, here = L.here || [], by = {}, mins = L.minutes || [], top = 1, i;
-  for(i = 0; i < here.length; i++){ var w = here[i].w || "film"; by[w] = (by[w] || 0) + 1; }
-  for(i = 0; i < mins.length; i++) top = Math.max(top, mins[i]);
-  var sales = (L.paid || []).length;
-  var h = '<div class="card"><div class="row between"><h3>Right now</h3><span class="live"><span class="dot on"></span>Live</span></div>' +
+  var L = LV.live, here = sortHere(L.here || []), sales = (L.paid || []).length, now = L.now || Date.now();
+  var h = '<div class="card"><div class="row between"><h3>Right now</h3><button class="btn sm" data-go="live">Open Live</button></div>' +
     '<div style="margin-top:6px"><span class="num" style="font-size:30px">' + here.length + '</span> <span class="muted">' + (here.length === 1 ? "person on the site" : "people on the site") + (sales ? ' · <span class="up">' + plural(sales, "sale") + " this hour</span>" : "") + "</span></div>" +
-    '<div class="wherechips">' + ["pay","details","twenty","story","film","below"].filter(function(k){ return by[k]; }).map(function(k){ return "<span><b>" + by[k] + "</b> " + WHERE[k].toLowerCase() + "</span>"; }).join("") + "</div>" +
-    '<div class="spark" role="img" aria-label="People on the site each minute, the last half hour">' + mins.map(function(x){ return '<i class="' + (x ? "" : "z") + '" style="height:' + (x ? Math.max(8, Math.round(x / top * 100)) : 4) + '%"></i>'; }).join("") + '</div><div class="axis"><span>30 min ago</span><span>now</span></div>';
+    whereChips(here) + spark(L.minutes);
   if(here.length) h += '<div class="list" style="margin:12px -16px -16px;border-top:1px solid var(--line)">' + here.slice(0, 6).map(function(v){
-    return '<button class="lrow" data-act="visitor" data-k="' + (v.vk || "") + '"' + (v.vk ? "" : " disabled") + '><div class="t"><b>' + (v.vk ? "Visitor " + v.vk : "A visitor") + '</b><span class="faint small">' + took((L.now || Date.now()) - v.since) + '</span></div><div class="m">' +
-      esc(srcName(v)) + (devName(v) ? " · " + esc(devName(v)) : "") + " · " + esc(WHERE[v.w] || "On the site") + (v.n ? " · No. " + pad(v.n) : "") + "</div></button>"; }).join("") + "</div>";
+    var w = v.who || {};
+    return '<button class="lrow" data-act="visitor" data-k="' + (v.vk || "") + '"' + (v.vk ? "" : " disabled") + '><div class="t"><b>' + esc(liveName(v)) + '</b><span class="lv"><span class="dot on"></span>' + esc(WHERE[v.w] || "On the site") + '</span></div><div class="m">' +
+      [w.place, srcName(v), devName(v), "here " + took(now - v.since)].filter(Boolean).map(esc).join(" · ") + (v.n ? " · No. " + pad(v.n) : "") + "</div></button>"; }).join("") + "</div>";
   return h + "</div>";
 }
 function live(){
   if(!SIGNED || document.visibilityState !== "visible") return;
   api("GET", "/desk/live").then(function(j){
     if(!j.ok && !j.live) { $("liveDot").className = "dot"; $("liveN").textContent = "·"; return; }
+    var top = LV && LV.live && LV.live.feed && LV.live.feed.length ? LV.live.feed[0].ts : 0;
     LV = j;
     var n = j.live && j.live.here ? j.live.here.length : 0;
     $("liveDot").className = "dot" + (j.live ? " on" : ""); $("liveN").textContent = j.live ? n + " live" : "·";
-    var e = $("nowCard"); if(e && VIEW === "today") e.innerHTML = nowCard();
+    if(VIEW === "today"){ var e = $("nowCard"); if(e) e.innerHTML = nowCard(); }
+    if(VIEW === "live" && $("sheet").hidden){
+      var a = $("lvHead"), b = $("lvHere"), c = $("lvFeed"), d = $("lvLeft");
+      if(a) a.innerHTML = lvHead(); if(b) b.innerHTML = lvHere(); if(c && j.live) c.innerHTML = feedHtml(j.live, top); if(d) d.innerHTML = j.live ? leftHtml(j.live) : "";
+    }
     var p = j.live && j.live.paid && j.live.paid[0];
     if(p && p.ts > LAST_PAID){ if(LAST_PAID){ say("A sale just came in" + (p.no ? ": No. " + p.no : "")); if(VIEW === "today" || VIEW === "orders") load(); } LAST_PAID = p.ts; }
   });
 }
-function startLive(){ stopLive(); live(); liveT = setInterval(live, 10000); }
+/* Every five seconds on Live, every ten anywhere else; never while hidden. */
+function startLive(){ stopLive(); live(); liveT = setInterval(function(){ LTICK++; if(VIEW === "live" || LTICK % 2 === 0) live(); }, 5000); }
 function stopLive(){ if(liveT) clearInterval(liveT); liveT = 0; }
 document.addEventListener("visibilitychange", function(){ if(SIGNED && document.visibilityState === "visible"){ live(); } });
 
@@ -858,7 +1076,7 @@ RENDER.orders = function(){
   function chip(k, t){ return '<button class="chip" data-go="orders" data-p="f=' + k + '" aria-pressed="' + (f === k) + '">' + t + (counts[k] != null ? " · " + counts[k] : "") + "</button>"; }
   var h = '<div class="row between"><div class="chips">' + chip("todo", "To ship") + chip("delivered", "Delivered, not registered") + chip("done", "Finished") + chip("all", "All") +
     '<button class="chip" data-go="orders" data-p="f=nearly" aria-pressed="' + (f === "nearly") + '">Nearly bought · ' + nearly.length + "</button></div>" +
-    '<div class="row"><button class="btn sm" data-act="import">Bring in from Razorpay</button><button class="btn sm" data-act="pastSale">Record a past sale</button></div></div>';
+    '<div class="row"><button class="btn sm gold" data-act="paid">Mark as paid</button><button class="btn sm" data-act="import">Bring in from Razorpay</button><button class="btn sm ghost" data-act="pastSale">Record a past sale</button></div></div>';
   if(f === "nearly") return h + '<div style="margin-top:12px">' + nearlyList(nearly, dk) + "</div>";
   var list = all.filter(function(o){ return ofilter(o, f); });
   if(!list.length) return h + '<div class="card empty" style="margin-top:12px">' + (f === "todo" ? "Nothing waiting to ship." : "None here.") + "</div>";
@@ -880,7 +1098,7 @@ function orderCard(o){
     '<div><b style="font-weight:500">' + esc(o.buyer_name || "") + '</b> <span class="muted small">' + esc(o.email || "") + " " + esc(o.phone || "") + "</span></div>" +
     (addr ? '<div class="small muted">' + esc(addr) + "</div>" : "") +
     (o.gift ? '<div class="small" style="margin-top:4px"><span class="pill gold">gift</span> ' + esc(o.gift_note || "") + "</div>" : "") +
-    '<div class="small faint" style="margin-top:4px">Paid ' + esc(when(o.paid_at)) + " · " + rupees(o.amount_paise) + (o.tracking_number ? " · " + esc(o.courier) + " " + esc(o.tracking_number) : "") + (o.delivered_on ? " · delivered " + esc(o.delivered_on) : "") + (o.refund_id ? " · refunded " + esc(o.refund_id) : "") + "</div>" +
+    '<div class="small faint" style="margin-top:4px">Paid ' + esc(when(o.paid_at)) + " · " + rupees(o.amount_paise) + (o.paid_via ? " · " + "paid by " + esc(VIA[o.paid_via] || o.paid_via) + (o.paid_ref ? " (ref " + esc(o.paid_ref) + ")" : "") : "") + (o.tracking_number ? " · " + esc(o.courier) + " " + esc(o.tracking_number) : "") + (o.delivered_on ? " · delivered " + esc(o.delivered_on) : "") + (o.refund_id ? " · refunded " + esc(o.refund_id) : "") + "</div>" +
     '<div class="oact">' + next + contactBtns(o.email, o.phone) + "</div>" +
     '<div class="oact">' + prev + '<button class="btn ghost sm" data-act="correct" data-id="' + o.id + '">Change without email</button>' + link + ret + refund +
     (j ? '<button class="btn ghost sm" data-act="visitor" data-k="' + j.k + '">Their journey · ' + esc(srcName(j)) + "</button>" : "") + "</div></div>";
@@ -888,14 +1106,15 @@ function orderCard(o){
 function nearlyList(u, dk){
   if(!dk.razorpay) return '<div class="card empty">Needs the Razorpay keys on the worker.</div>';
   if(!u.length) return '<div class="card empty">Every checkout opened today and yesterday was paid, or none were opened.</div>';
-  return '<p class="muted small" style="margin:0 0 10px">Checkouts opened today or yesterday that did not end in a payment. One follow-up email goes on its own when there is an email; WhatsApp is yours to send.</p>' +
-    u.map(function(x){
+  return '<p class="muted small" style="margin:0 0 10px">Checkouts opened today or yesterday that did not end in a payment. One follow-up email goes on its own when there is an email; WhatsApp is yours to send. If they paid you another way (UPI, a bank transfer), Mark as paid makes it a sale.</p>' +
+    u.map(function(x, i){
       var w = waNum(x.contact);
       return '<div class="card"><div class="ohead"><b>No. ' + pad(x.n) + "</b>" + (x.dial ? '<span class="muted">' + esc(x.dial) + "</span>" : "") + '<span class="sp"></span><span class="faint small">' + esc(x.at) + "</span></div>" +
         (x.name ? '<div style="margin-top:6px"><b style="font-weight:500">' + esc(x.name) + "</b>" + (x.city ? ' <span class="muted small">' + esc(x.city) + "</span>" : "") + "</div>" : "") +
         '<div class="small muted">' + esc(x.stage) + (x.followed ? " · follow-up sent " + esc(x.followed) : "") + "</div>" +
         '<div class="oact">' + (x.wa && w ? '<a class="btn sm gold" href="https://wa.me/' + w + "?text=" + encodeURIComponent(x.wa) + '" target="_blank" rel="noopener">WhatsApp, note written</a>' + (x.contact ? '<a class="btn sm" href="tel:' + esc(x.contact) + '">Call</a>' : "") : contactBtns(x.email, x.contact)) +
         (x.email ? '<button class="btn ghost sm" data-act="stop" data-email="' + esc(x.email) + '" data-v="' + (x.stopped ? "undo" : "stop") + '">' + (x.stopped ? "Emails stopped · undo" : "Stop emails") + "</button>" : "") +
+        '<button class="btn sm go" data-act="paid" data-src="lead" data-i="' + i + '">Mark as paid</button>' +
         (x.orderId && dk.journeys && dk.journeys[x.orderId] ? '<button class="btn ghost sm" data-act="visitor" data-k="' + dk.journeys[x.orderId].k + '">Their journey</button>' : "") + "</div></div>";
     }).join("");
 }
@@ -940,69 +1159,142 @@ function commit(keepalive){
 }
 addEventListener("pagehide", function(){ if(PENDING) commit(true); });
 
-/* ══ VISITORS AND LEADS ══ */
+/* ══ PEOPLE: everyone who came, and each one's whole journey ══
+   A day (today, yesterday, any date) or the last 7, 30 or 90 days;
+   narrowed to who chose a number, opened checkout, gave their details,
+   failed to pay, bought, came back, or is on the site now, each with how
+   many; sorted latest first, or in the order to call them. A row opens
+   the person: everything they did, in order, with their orders and the
+   emails they were sent. */
 var VROWS = [], VTOTAL = 0;
-var FILTERS = [["hot","Hot leads"],["warm","Warm"],["all","Everyone"],["bought","Bought"],["checkout","Opened checkout"],["details","Gave details"],["back","Came back"]];
+var PF = [["all","Everyone"],["interested","Interested"],["details","Gave details"],["checkout","Opened checkout"],["number","Chose a number"],["failed","Payment failed"],["bought","Bought"],["hot","Hot"],["back","Came back"],["live","On the site now"]];
+var PFN = {}; PF.forEach(function(x){ PFN[x[0]] = x[1]; }); PFN.warm = "Warm";
+var PR = [["today","Today"],["yesterday","Yesterday"],["7d","7 days"],["30d","30 days"],["90d","90 days"]];
 var NARROW = { src:"Source", cmp:"Campaign", ad:"Ad", region:"State", city:"City", os:"Phone", br:"Browser", dev:"Device" };
+function vsort(){ var f = PARAMS.f || "all"; return PARAMS.sort || (f === "hot" || f === "warm" ? "score" : f === "interested" ? "intent" : "recent"); }
 function vparams(off){
-  var p = { r: PARAMS.r || "7d", f: PARAMS.f || "hot", q: PARAMS.q || "", sort: PARAMS.sort || ((PARAMS.f || "hot") === "hot" || PARAMS.f === "warm" ? "score" : ""), off: off || 0 };
+  var f = PARAMS.f || "all", s = vsort();
+  var p = { r: PARAMS.r || "today", d: PARAMS.r === "day" ? PARAMS.d || "" : "", f: f, q: PARAMS.q || "", sort: s === "recent" ? "" : s, off: off || 0 };
   Object.keys(NARROW).forEach(function(k){ if(PARAMS[k]) p[k] = PARAMS[k]; });
   return Object.keys(p).filter(function(k){ return p[k] !== "" && p[k] != null; }).map(function(k){ return k + "=" + encodeURIComponent(p[k]); }).join("&");
 }
 LOAD.visitors = function(put){
+  /* An old link to one visitor (#visitors?k=12) opens them. */
+  if(PARAMS.k){ var k0 = PARAMS.k; setTimeout(function(){ go("person", { k: k0 }); }, 0); return; }
   api("GET", "/desk/visitors?" + vparams(0)).then(function(j){
     if(!j.ok && !j.on){ put(failed(j)); return; }
-    VROWS = j.rows || []; VTOTAL = j.total || 0;
-    if(PARAMS.k) setTimeout(function(){ openVisitor(+PARAMS.k); }, 0);
+    VROWS = j.rows || []; VTOTAL = j.total || 0; DATA.people = j;
     put(RENDER.visitors(j));
   });
 };
-function vrow(v){
-  var bits = [esc(srcName(v))];
-  if(v.cmp) bits.push("ad: " + esc(v.cmp) + (v.ad ? " / " + esc(v.ad) : ""));
-  if(place(v)) bits.push(esc(place(v)));
-  if(devName(v)) bits.push(esc(devName(v)) + (v.br && v.br.indexOf("app") < 0 ? ", " + esc(v.br) : ""));
-  bits.push(plural(v.visits, "visit") + (v.time >= 5000 ? ", " + took(v.time) : ""));
-  var p = [];
-  (v.numbers || []).forEach(function(n){ p.push('<span class="pill gold">No. ' + esc(n) + "</span>"); });
-  (v.dials || []).forEach(function(d){ p.push('<span class="pill">' + esc(d) + "</span>"); });
-  if(v.checkout) p.push('<span class="pill gold">Opened checkout</span>');
-  if(v.details) p.push('<span class="pill gold">Gave details</span>');
-  (v.paid || []).forEach(function(n){ p.push('<span class="pill ok">Paid · No. ' + esc(n) + "</span>"); });
-  return '<button class="lrow" data-act="visitor" data-k="' + v.k + '"><div class="vr">' + scoreTag(v) + '<div class="body"><div class="t"><b>Visitor ' + v.k + (v.name ? " · " + esc(v.name) : "") + '</b><span class="faint small">' + seenAt(v.last) + '</span></div><div class="m">' + bits.join(" · ") + "</div>" +
-    (p.length ? '<div class="pills">' + p.join("") + "</div>" : "") + "</div></div></button>";
+function vrow(v){ return pRow(v); }
+function plabel(j, r){
+  if(r === "day" && j.day) return "on " + dayLong(j.day);
+  if(r === "yesterday") return "yesterday";
+  if(r === "today" || !r) return "today";
+  return "in the last " + String(r).replace("d", " days");
 }
 RENDER.visitors = function(j){
-  var r = PARAMS.r || "7d", f = PARAMS.f || "hot";
+  var r = PARAMS.r || "today", f = PARAMS.f || "all", c = j.counts || {}, s = vsort();
   function seg(k, t){ return '<button data-act="vset" data-k="r" data-v="' + k + '" aria-pressed="' + (r === k) + '">' + t + "</button>"; }
   var narrowed = Object.keys(NARROW).filter(function(k){ return PARAMS[k]; }).map(function(k){ return '<button class="chip x" data-act="vset" data-k="' + k + '" data-v="">' + NARROW[k] + ": " + esc(PARAMS[k]) + " &times;</button>"; }).join("");
-  var h = '<div class="row between"><div class="seg" role="group" aria-label="Period">' + seg("today", "Today") + seg("7d", "7 days") + seg("30d", "30 days") + seg("90d", "90 days") + "</div>" +
-    '<input id="vq" type="search" placeholder="Name, phone, email, city, campaign or visitor number" value="' + esc(PARAMS.q || "") + '" aria-label="Search visitors" style="flex:1;min-width:220px;max-width:420px"></div>' +
-    '<div class="chips" style="margin-top:10px">' + FILTERS.map(function(x){ return '<button class="chip" data-act="vset" data-k="f" data-v="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + "</button>"; }).join("") + narrowed + "</div>";
+  var chips = PF.concat(f === "warm" ? [["warm","Warm"]] : []).map(function(x){ var n = c[x[0]]; return '<button class="chip" data-act="vset" data-k="f" data-v="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + (n != null ? " · " + n : "") + "</button>"; }).join("");
+  var h = '<div class="row between"><div class="row"><div class="seg" role="group" aria-label="When">' + PR.map(function(x){ return seg(x[0], x[1]); }).join("") + "</div>" +
+    '<input id="pday" class="pday" type="date" aria-label="Pick a day" title="Pick a day" max="' + esc(j.today || "") + '" value="' + esc(r === "day" ? PARAMS.d || "" : "") + '"></div>' +
+    '<input id="vq" type="search" placeholder="Name, phone, email, city, campaign or visitor number" value="' + esc(PARAMS.q || "") + '" aria-label="Search people" style="flex:1;min-width:220px;max-width:380px"></div>' +
+    '<div class="chips" style="margin-top:10px">' + chips + narrowed + "</div>";
   if(!j.on) return h + '<div class="card empty" style="margin-top:12px">Visitor histories start once the visitor counter is connected (Health).</div>';
-  h += '<p class="muted small" style="margin:12px 0 8px">' + plural(VTOTAL, "visitor") + (f === "hot" ? " close to buying who have not yet. Score out of 100 from what they did: 50 and over is hot." : "") + "</p>";
-  if(!VROWS.length) return h + '<div class="card empty">' + (PARAMS.q ? "No visitor matches that." : f === "hot" ? "Nobody hot in this period. Widen the period, or see Everyone." : "Nobody here in this period.") + "</div>";
-  return h + '<div class="card tight list" id="vlist">' + VROWS.map(vrow).join("") + "</div>" +
+  var label = plabel(j, r);
+  h += '<div class="row between" style="margin:12px 0 8px"><p class="muted small" style="margin:0">' + plural(VTOTAL, "person", "people") + " " + esc(label) + (f !== "all" ? " · " + esc((PFN[f] || f).toLowerCase()) : "") +
+    (f === "hot" ? ". Score out of 100 from what they did: 50 and over is hot." : "") + "</p>" +
+    '<div class="seg" role="group" aria-label="Order"><button data-act="vset" data-k="sort" data-v="recent" aria-pressed="' + (s === "recent") + '">Latest first</button><button data-act="vset" data-k="sort" data-v="intent" aria-pressed="' + (s !== "recent") + '">Call first</button></div></div>';
+  if(!VROWS.length) return h + '<div class="card empty">' + (PARAMS.q ? "Nobody matches that." : f === "all" ? "Nobody came " + esc(label) + "." : "Nobody here " + esc(label) + ". Try Everyone, or a longer period.") + "</div>";
+  return h + '<div class="card tight" id="vlist">' + VROWS.map(pRow).join("") + "</div>" +
     (VTOTAL > VROWS.length ? '<div class="row" style="margin-top:10px"><button class="btn sm" data-act="vmore">Show more (' + (VTOTAL - VROWS.length) + " left)</button></div>" : "") +
-    '<div class="row" style="margin-top:16px"><a class="btn sm ghost" href="/desk/visitors.csv?r=' + esc(r) + '">Spreadsheet: one row per visitor</a><a class="btn sm ghost" href="/desk/steps.csv?r=' + esc(r) + '">Spreadsheet: every step</a></div>';
+    '<div class="row" style="margin-top:16px"><a class="btn sm ghost" href="/desk/visitors.csv?r=' + esc(r === "day" || r === "yesterday" ? "7d" : r) + '">Spreadsheet: one row per visitor</a><a class="btn sm ghost" href="/desk/steps.csv?r=' + esc(r === "day" || r === "yesterday" ? "7d" : r) + '">Spreadsheet: every step</a></div>';
 };
 AFTER.visitors = function(){
-  var q = $("vq"), t = 0; if(!q) return;
-  q.addEventListener("input", function(){ clearTimeout(t); t = setTimeout(function(){ var p = copyParams(); p.q = q.value.trim(); go("visitors", p); }, 450); });
+  var q = $("vq"), t = 0, d = $("pday");
+  if(q) q.addEventListener("input", function(){ clearTimeout(t); t = setTimeout(function(){ var p = copyParams(); p.q = q.value.trim(); go("visitors", p); }, 450); });
+  if(d) d.addEventListener("change", function(){ if(!d.value) return; var p = copyParams(); p.r = "day"; p.d = d.value; go("visitors", p); });
 };
 function copyParams(){ var p = {}; Object.keys(PARAMS).forEach(function(k){ if(k !== "k") p[k] = PARAMS[k]; }); return p; }
-function openVisitor(k){
-  if(!k) return;
-  sheet("Visitor " + k, '<div class="empty">Loading…</div>');
-  api("GET", "/desk/visitor?k=" + k).then(function(j){
-    if($("sheet").hidden) return;
-    if(!j.ok){ $("sheetB").innerHTML = '<div class="empty">This visitor is no longer kept (ninety days after they were last seen, or deleted on request).</div>'; return; }
-    var v = j.v, s = v.paid && v.paid.length ? 100 : v.score || 0;
-    $("sheetT").textContent = "Visitor " + v.k + (v.name ? " · " + v.name : "");
-    var h = '<div class="row between"><div>' + scoreTag(v) + ' <span class="muted small">' + (s >= 100 ? "Bought" : s >= 50 ? "Hot: close to buying" : s >= 25 ? "Warm" : "Browsing") + '</span></div><span class="faint small">First seen ' + dayAt(v.first) + ", last " + seenAt(v.last) + '</span></div><div class="meter"><i style="width:' + s + '%"></i></div>';
-    if(v.name || v.phone || v.email) h += '<div class="card" style="margin-top:14px"><b>' + esc(v.name || "Gave contact details") + "</b>" + (v.city ? ' <span class="muted small">' + esc(v.city) + "</span>" : "") +
-      '<div class="muted small">' + [esc(v.phone), esc(v.email)].filter(Boolean).join(" · ") + '</div><div class="oact">' + contactBtns(v.email, v.phone) + "</div></div>";
-    h += '<div class="facts">' +
+
+/* ── One person ── */
+LOAD.person = function(put){
+  var k = parseInt(PARAMS.k, 10);
+  if(!(k > 0)){ put('<div class="card empty">Choose someone from People.</div>'); return; }
+  api("GET", "/desk/person?k=" + k).then(function(j){
+    if(!j.ok){ put('<div class="card empty"><p>' + (j.on === false ? "Visitor histories start once the visitor counter is connected (Health)." : "This visitor is no longer kept (ninety days after they were last seen, or deleted on request).") + '</p><button class="btn sm" data-go="visitors">People</button></div>'); return; }
+    DATA.person = j;
+    $("title").textContent = whoName(j.v); document.title = whoName(j.v) + " · KAAL";
+    put(RENDER.person(j));
+  });
+};
+/* The moments that matter, each at the first time it happened. */
+function milestones(v){
+  var st = v.steps || [];
+  function first(f){ for(var i = 0; i < st.length; i++) if(f(st[i])) return st[i]; return null; }
+  function count(e){ return st.filter(function(x){ return x.e === e; }).length; }
+  var paid = first(function(e){ return e.e === "paid"; }), rows = [];
+  function add(e, label, cls, extra){ rows.push('<li class="' + (e ? cls || "on" : "no") + '"><i>' + (e ? (cls === "bad" ? "✕" : "✓") : "○") + "</i><span>" + label + (extra ? ' <span class="faint">' + extra + "</span>" : "") + '</span><span class="w">' + (e ? esc(seenAt(e.t)) : "") + "</span></li>"); }
+  var arr = first(function(e){ return e.e === "visit"; });
+  add(arr || { t: v.first }, "Arrived" + (arr ? " from " + esc(srcName({ s: arr.s, app: arr.app })) + (arr.c ? " (ad: " + esc(arr.c) + ")" : "") : ""), "on");
+  add(first(function(e){ return e.e === "view"; }), "Reached the twenty");
+  var dl = first(function(e){ return (e.e === "dial" || e.e === "early_dial") && e.dial; });
+  add(dl, "Chose a dial", "on", (v.dials || []).length ? esc(v.dials.join(", ")) : "");
+  add(first(function(e){ return e.e === "number"; }), "Chose a number", "on", (v.numbers || []).length ? "No. " + v.numbers.map(esc).join(", ") : "");
+  add(first(function(e){ return e.e === "caseback_view"; }), "Turned it to its engraved back");
+  var co = first(function(e){ return e.e === "checkout"; }), nco = count("checkout");
+  add(co, "Pressed buy", "on", nco > 1 ? nco + " times" : "");
+  add(first(function(e){ return e.e === "details"; }) || (v.name || v.phone || v.email ? { t: v.last } : null), "Gave their name and number");
+  var pf = first(function(e){ return e.e === "pay_failed"; }), npf = count("pay_failed");
+  if(pf) add(pf, "Payment failed", "bad", (npf > 1 ? npf + " times" : "") + (pf.x ? (npf > 1 ? ": " : "") + esc(pf.x) : ""));
+  var cl = first(function(e){ return e.e === "pay_closed" || e.e === "details_closed"; });
+  if(cl && !paid) add(cl, "Closed checkout without paying", "bad", count("pay_closed") + count("details_closed") > 1 ? (count("pay_closed") + count("details_closed")) + " times" : "");
+  add(paid, "Paid", "ok", paid ? (v.paid || []).map(function(n){ return "No. " + esc(n); }).join(", ") : "");
+  return '<ul class="miles">' + rows.join("") + "</ul>";
+}
+/* Every visit, every step, with the time between. */
+function timeline(v){
+  var st = (v.steps || []).filter(function(e){ return e.e !== "early_dial"; }), visits = [], cur = null;
+  st.forEach(function(e){ if(e.e === "visit" || !cur){ cur = { head: e.e === "visit" ? e : null, steps: [] }; visits.push(cur); } if(e.e !== "visit") cur.steps.push(e); });
+  var h = "", n = 0;
+  visits.forEach(function(g){
+    n++;
+    var a = g.head, start = a ? a.t : (g.steps[0] || {}).t, end = g.steps.length ? g.steps[g.steps.length - 1].t : start;
+    var bits = [dayAt(start) + ", " + clock(start)];
+    if(a){ bits.push("from " + srcName({ s: a.s, app: a.app }) + (a.c ? " (ad: " + a.c + ")" : "")); if(a.g) bits.push("near " + a.g); if(a.os || a.dev) bits.push(devName({ os: a.os, dev: a.dev })); }
+    if(end > start) bits.push(took(end - start));
+    h += '<p class="tl-v">Visit ' + n + '</p><p class="tl-m">' + esc(bits.filter(Boolean).join(" · ")) + '</p><ul class="tl">';
+    if(a && a.x && a.x !== "home") h += '<li><span class="tm">' + clock(a.t) + '</span><span class="tx">Landed on ' + esc(PAGESN[a.x] || a.x) + "</span></li>";
+    var prev = start;
+    g.steps.forEach(function(e){
+      var cls = e.e === "paid" ? "p" : /^(number|checkout|details)$/.test(e.e) ? "k" : "", gap = e.t - prev;
+      h += '<li class="' + cls + '"><span class="tm">' + clock(e.t) + '</span><span class="tx">' + esc(e.txt || e.e) + "</span>" + (gap >= 60000 ? '<span class="gap">+' + took(gap) + "</span>" : "") + "</li>";
+      prev = e.t;
+    });
+    if(!g.steps.length) h += '<li><span class="tm">' + clock(start) + '</span><span class="tx">Looked, and left</span></li>';
+    h += "</ul>";
+  });
+  return h || '<p class="muted small">No steps kept.</p>';
+}
+RENDER.person = function(j){
+  var v = j.v, paid = (v.paid || []).length > 0, s = paid ? 100 : v.score || 0;
+  var status = paid ? "Bought" : s >= 50 ? "Hot: close to buying" : s >= 25 ? "Warm" : "Browsing";
+  var h = '<div class="row" style="margin:-4px 0 12px"><button class="btn sm ghost" data-act="back">← Back</button></div>';
+  h += '<div class="phead"><div style="min-width:0"><h2 class="pname">' + esc(whoName(v)) + '</h2><div class="stat">' + scoreTag(v) + '<span class="muted small">' + status + "</span>" + (v.live ? liveTag(v.live) : "") + "</div>" +
+    '<div class="faint small" style="margin-top:6px">Visitor ' + v.k + " · first seen " + esc(dayAt(v.first)) + " · last seen " + esc(seenAt(v.last)) + "</div></div></div>" +
+    '<div class="meter" style="margin-top:12px"><i style="width:' + s + '%"></i></div>';
+  if(v.live) h += '<div class="alert" style="margin-top:14px;border-left-color:var(--ok)"><b>On the site right now</b><p>' + esc(WHERE[v.live.w] || "On the site") + (v.live.n ? ", looking at No. " + pad(v.live.n) : "") + ", for " + esc(took(Date.now() - v.live.since)) + ".</p></div>";
+  var acts = contactBtns(v.email, v.phone) + (v.phone ? '<button class="btn sm ghost" data-act="copy" data-text="' + esc(v.phone) + '">Copy number</button>' : "") +
+    (!paid ? '<button class="btn sm go" data-act="paid" data-src="person">Mark as paid</button>' : "") +
+    (v.email ? '<button class="btn sm ghost" data-act="stop" data-email="' + esc(v.email) + '" data-v="' + (j.stopped ? "undo" : "stop") + '">' + (j.stopped ? "Automatic emails stopped · undo" : "Stop automatic emails") + "</button>" : "");
+  if(v.name || v.phone || v.email) h += '<div class="card" style="margin-top:14px"><b>' + esc(v.name || "Gave contact details") + "</b>" + (v.city ? ' <span class="muted small">' + esc(v.city) + "</span>" : "") +
+    '<div class="muted small">' + [esc(v.phone), esc(v.email)].filter(Boolean).join(" · ") + '</div><div class="oact">' + acts + "</div></div>";
+  else h += '<div class="card" style="margin-top:14px"><p class="muted small" style="margin:0">They have not given a name or number yet: everything they did is below. If they paid you outside the site, you can still record it.</p><div class="oact">' + acts + "</div></div>";
+  h += '<div class="grid g2 solo" style="margin-top:12px"><div class="card"><h3>How far they got</h3>' + milestones(v) + "</div>" +
+    '<div class="card"><h3>Who they are</h3><div class="facts">' +
       "<div><span>Came from</span><b>" + esc(srcName(v)) + "</b></div>" +
       "<div><span>Ad</span><b>" + (v.cmp ? esc(v.cmp) + (v.ad ? " / " + esc(v.ad) : "") : '<span class="faint">none tagged</span>') + "</b></div>" +
       "<div><span>Roughly where</span><b>" + (place(v) ? esc(place(v)) : '<span class="faint">not known</span>') + "</b></div>" +
@@ -1010,19 +1302,67 @@ function openVisitor(k){
       "<div><span>Visits</span><b>" + v.visits + "</b></div>" +
       "<div><span>Time on the site</span><b>" + stay(v.time) + "</b></div>" +
       "<div><span>Landed on</span><b>" + esc(PAGESN[v.landed] || v.landed) + "</b></div>" +
-      "<div><span>Looked at</span><b>" + (v.numbers.length ? "No. " + v.numbers.map(esc).join(", ") : "") + (v.dials.length ? (v.numbers.length ? "; " : "") + v.dials.map(esc).join(", ") : "") + (!v.numbers.length && !v.dials.length ? '<span class="faint">no number yet</span>' : "") + "</b></div></div>";
-    var visit = 0, open = false;
-    (v.steps || []).forEach(function(e){
-      if(e.e === "early_dial") return;
-      if(e.e === "visit"){ if(open) h += "</ul>"; visit++; open = true; h += '<p class="tl-v">Visit ' + visit + " · " + dayAt(e.t) + '</p><ul class="tl">'; }
-      else if(!open){ open = true; h += '<ul class="tl">'; }
-      var cls = e.e === "paid" ? "p" : (e.e === "number" || e.e === "checkout" || e.e === "details") ? "k" : "";
-      h += '<li class="' + cls + '"><span class="tm">' + clock(e.t) + "</span><span>" + esc(e.txt || e.e) + "</span></li>";
+      "<div><span>Looked at</span><b>" + ((v.numbers || []).length ? "No. " + v.numbers.map(esc).join(", ") : "") + ((v.dials || []).length ? ((v.numbers || []).length ? "; " : "") + v.dials.map(esc).join(", ") : "") + (!(v.numbers || []).length && !(v.dials || []).length ? '<span class="faint">no number yet</span>' : "") + "</b></div></div></div></div>";
+  if((j.orders || []).length) h += "<h2>Their orders</h2>" + j.orders.map(function(o){
+    return '<div class="card"><div class="ohead"><b>No. ' + pad(o.number) + '</b><span class="muted">' + esc(o.colorway) + '</span><span class="sp"></span><span class="pill' + (o.status === "cancelled" || o.status === "returned" ? " bad" : o.status === "registered" || o.status === "delivered" ? " ok" : " gold") + '">' + esc(o.status) + (o.cancel_reason ? " · " + esc(o.cancel_reason) : "") + "</span></div>" +
+      '<div class="small faint" style="margin-top:6px">Paid ' + esc(when(o.paid_at)) + " · " + rupees(o.amount_paise) + (o.paid_via ? " · " + "paid by " + esc(VIA[o.paid_via] || o.paid_via) + (o.paid_ref ? " (ref " + esc(o.paid_ref) + ")" : "") : "") + (o.tracking_number ? " · " + esc(o.courier || "") + " " + esc(o.tracking_number) : "") + (o.delivered_on ? " · delivered " + esc(o.delivered_on) : "") + (o.refund_id ? " · refunded" : "") + "</div>" +
+      '<div class="oact"><button class="btn sm ghost" data-go="orders" data-p="f=all">Open in Orders</button></div></div>'; }).join("");
+  var mails = j.emails || [];
+  if(mails.length || j.followup) h += "<h2>Emails to them</h2>" + '<div class="card tight"><table>' + (j.followup ? '<tr><td>The one follow-up note' + (j.followup.subject ? ": " + esc(j.followup.subject) : "") + '</td><td class="n">' + esc(j.followup.at) + '</td><td class="n"><span class="pill ok">sent</span></td></tr>' : "") +
+    mails.map(function(m){ return "<tr><td>" + esc(m.subject) + '</td><td class="n">' + esc(when(m.sent_at || m.created_at)) + '</td><td class="n"><span class="pill' + (m.status === "sent" ? " ok" : m.status === "failed" ? " bad" : "") + '">' + esc(m.status) + "</span></td></tr>"; }).join("") + "</table></div>";
+  h += "<h2>Everything they did<span class=\"count\">" + plural((v.steps || []).filter(function(e){ return e.e !== "visit" && e.e !== "early_dial"; }).length, "step") + " · " + plural(v.visits || 1, "visit") + "</span></h2>" + timeline(v);
+  h += '<div class="row" style="margin-top:26px;padding-top:14px;border-top:1px solid var(--line)"><button class="btn sm warn" data-act="forget" data-k="' + v.k + '">Delete this visitor</button><span class="faint tiny">For when someone asks. Their orders stay in Razorpay and the registry.</span></div>';
+  return h;
+};
+
+/* ══ MARK AS PAID ══
+   For money taken outside the checkout (UPI, a bank transfer, cash). One
+   sheet, filled in from what they already gave: their checkout, or their
+   history. Saving makes it a sale like any other: the order, the number
+   gone from the shop, Paid on their journey, and their confirmation. */
+function paidSheet(o){
+  o = o || {};
+  /* A history keeps "Pune, Maharashtra" as one: the sheet wants them apart. */
+  var cs = String(o.city || "").split(/,\s*/);
+  o.city = cs[0] || ""; o.state = o.state || cs.slice(1).join(", ");
+  var ov = DATA.overview || {}, dk = DATA.desk || {}, size = dk.edition || ov.size || 20, today = (DATA.orders || {}).today || (DATA.person || {}).today || (DATA.people || {}).today || "";
+  var st = {}; (ov.pieces || []).forEach(function(p){ st[p.number] = p; });
+  var opts = '<option value="">Choose</option>';
+  for(var i = 1; i <= size; i++){ var p = st[i]; opts += '<option value="' + i + '"' + (+o.n === i ? " selected" : "") + ">No. " + pad(i) + (p ? " · " + esc(p.colorway) + (p.state && p.state !== "available" ? " · " + esc(p.state) : "") : "") + "</option>"; }
+  sheet("Mark as paid", '<p class="note" style="margin-top:0">For money you received outside the checkout: UPI, a bank transfer, cash. A payment through the site records itself. This makes it a sale like any other: the order, the number gone from the shop, Paid on their journey.</p>' +
+    '<div class="grid g2"><div><label for="pnum">Number they paid for</label><select id="pnum">' + opts + '</select></div><div><label for="pamt">Amount paid (₹)</label><input id="pamt" inputmode="decimal" autocomplete="off" placeholder="The series price"></div></div>' +
+    '<p class="note" id="pfState" role="status"></p>' +
+    '<label for="pnm">Buyer\'s name</label><input id="pnm" autocomplete="off" value="' + esc(o.name || "") + '">' +
+    '<div class="grid g2"><div><label for="pph">Phone</label><input id="pph" inputmode="tel" autocomplete="off" value="' + esc(o.phone || "") + '"></div><div><label for="pem">Email (their sign-in to the registry)</label><input id="pem" type="email" autocomplete="off" value="' + esc(o.email || "") + '"></div></div>' +
+    '<label for="pa1">Delivery address</label><input id="pa1" autocomplete="off" placeholder="House, street"><input id="pa2" autocomplete="off" placeholder="Area, landmark (optional)" style="margin-top:6px">' +
+    '<div class="grid g3"><div><label for="pci">City</label><input id="pci" value="' + esc(o.city || "") + '"></div><div><label for="pst">State</label><input id="pst" value="' + esc(o.state || "") + '"></div><div><label for="ppin">PIN</label><input id="ppin" inputmode="numeric" maxlength="6"></div></div>' +
+    '<div class="grid g2"><div><label for="pvia">How they paid</label><select id="pvia"><option value="upi">UPI</option><option value="bank">Bank transfer</option><option value="cash">Cash</option><option value="card">Card machine</option><option value="link">Payment link</option><option value="other">Other</option></select></div>' +
+    '<div><label for="pref">Reference (UPI or bank)</label><input id="pref" autocomplete="off" placeholder="Optional"></div></div>' +
+    '<div class="grid g2"><div><label for="pdt">Paid on</label><input id="pdt" type="date" value="' + esc(today) + '" max="' + esc(today) + '"></div><div><label for="pdl">Delivered on (only if it already has)</label><input id="pdl" type="date" max="' + esc(today) + '"></div></div>' +
+    '<label for="pnote">Private note (optional)</label><input id="pnote" autocomplete="off">' +
+    '<div class="check"><input type="checkbox" id="psend" checked><label for="psend">Email them the order confirmation</label></div>' +
+    '<p class="err" id="sheetErr" role="alert"></p><button class="btn go" style="margin-top:8px;width:100%" data-act="paidGo" data-rzp="' + esc(o.rzp || "") + '" data-k="' + esc(o.k || "") + '">Mark as paid</button>');
+  function check(fill){
+    var n = $("pnum") ? $("pnum").value : "";
+    api("GET", "/control/api/orders/prefill?n=" + encodeURIComponent(n) + (o.rzp ? "&rzp=" + encodeURIComponent(o.rzp) : "")).then(function(j){
+      var e = $("pfState"); if(!e || !j.ok) return;
+      if(j.price && $("pamt") && !$("pamt").value) $("pamt").placeholder = (j.price / 100).toLocaleString("en-IN");
+      e.className = "note" + (j.free === false ? " err" : "");
+      e.textContent = !n ? "" : j.free ? "No. " + pad(n) + (j.colorway ? " (" + j.colorway + ")" : "") + " is free to sell." + (j.heldNow ? " Someone is at checkout for it right now: marking it paid ends their hold." : "") : j.why;
+      if(fill && j.buyer){ var b = j.buyer, map = { pnm: b.name, pph: b.phone, pem: b.email, pa1: b.line1, pa2: b.line2, pci: b.city, pst: b.state, ppin: b.pin };
+        Object.keys(map).forEach(function(id){ var x = $(id); if(x && !x.value && map[id]) x.value = map[id]; }); }
     });
-    if(open) h += "</ul>";
-    h += '<div class="row" style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line)"><button class="btn sm warn" data-act="forget" data-k="' + v.k + '">Delete this visitor</button><span class="faint tiny">For when someone asks. Their orders stay in Razorpay.</span></div>';
-    $("sheetB").innerHTML = h;
-  });
+  }
+  check(true);
+  $("pnum").addEventListener("change", function(){ check(false); });
+}
+function paidFrom(src, el){
+  if(src === "person" && DATA.person){ var v = DATA.person.v, co = DATA.person.checkouts || [];
+    return { n: v.n || ((v.numbers || []).length ? +v.numbers[v.numbers.length - 1] : ""), name: v.name, phone: v.phone, email: v.email, city: v.city, k: v.k, rzp: co.length ? co[co.length - 1] : "" }; }
+  if(src === "lead"){ var x = ((DATA.desk || {}).unfinished || [])[+el.getAttribute("data-i")] || {};
+    var jn = x.orderId && (DATA.desk || {}).journeys ? (DATA.desk.journeys[x.orderId] || {}) : {};
+    return { n: x.n, name: x.name, phone: x.contact, email: x.email, city: x.city, rzp: x.orderId, k: jn.k || "" }; }
+  return {};
 }
 
 /* ══ INSIGHTS ══ */
@@ -1376,8 +1716,11 @@ function cmdParse(t){
     return { go:"piece", n:n, say: "Opening No. " + pad(n) + "." };
   }
   if(/\b(left|remain|stock|how many|available)\b/.test(t)) return { ans:"left" };
-  if(/\b(hot|lead)/.test(t)) return { go:"visitors", p:{ f:"hot" }, say:"Opening hot leads." };
-  if(/\b(who is|whos|on the site|live|right now|activity|happening|feed)\b/.test(t)) return { go:"activity", p:{ r:"1h" }, say:"Opening the live activity." };
+  if(/\b(hot|lead)/.test(t)) return { go:"visitors", p:{ r:"7d", f:"hot" }, say:"Opening hot leads." };
+  if(/\b(people|visitor|interested|journey)/.test(t)) return { go:"visitors", p:{ r:"today", f:"interested", sort:"intent" }, say:"Opening People: today's interested." };
+  if(/\b(who is|whos|on the site|live|right now|happening|feed)\b/.test(t)) return { go:"live", say:"Opening Live: who is on the site now." };
+  if(/\b(activity|log)\b/.test(t)) return { go:"activity", p:{ r:"1h" }, say:"Opening the activity log." };
+  if(/\b(paid|upi|bank transfer|cash)\b/.test(t)) return { go:"orders", say:"Opening orders: Mark as paid is at the top." };
   if(/\b(ship|order|dispatch|deliver)/.test(t)) return { go:"orders", say:"Opening orders to ship." };
   if(/\b(alert|notif|push|phone)/.test(t)) return { go:"settings", say:"Opening Settings: phone alerts are at the top." };
   if(/\b(claim|warranty|approv|request)/.test(t)) return { go:"approvals", say:"Opening approvals." };
@@ -1404,7 +1747,7 @@ function cmdDo(){
   var c = CMD; if(!c) { cmdRun(); return; } CMD = null;
   if(c.act === "sale"){ saleGo(c.n, c.on, (c.on ? "put on sale" : "kept back") + " by command: " + String($("cmdIn") ? $("cmdIn").value : "").slice(0, 80)); return; }
   closeSheet();
-  if(c.go === "visitor"){ openVisitor(c.k); return; }
+  if(c.go === "visitor"){ go("person", { k: c.k }); return; }
   if(c.go === "piece"){ go("pieces"); var tries = 0, t = setInterval(function(){ tries++; if(DATA.pieces && VIEW === "pieces"){ clearInterval(t); pieceSheet("S01-" + pad(c.n)); } else if(tries > 40) clearInterval(t); }, 100); return; }
   go(c.go, c.p);
 }
@@ -1415,7 +1758,7 @@ function sheet(title, html){ FROM = document.activeElement; $("sheetT").textCont
 function closeSheet(){ if($("sheet").hidden) return; $("sheet").hidden = true; $("sheetB").innerHTML = ""; document.body.style.overflow = ""; if(FROM && FROM.focus && document.body.contains(FROM)) FROM.focus(); }
 function frame(src){ sheet("Preview", '<iframe src="' + esc(src) + '" title="Email preview"></iframe><p><a href="' + esc(src) + '&format=text" target="_blank" rel="noopener">The plain-text version</a></p>'); }
 function moreSheet(){
-  sheet("Everything", '<div class="more">' + NAV.filter(function(n){ return ["today","orders","visitors","insights"].indexOf(n.v) < 0; }).map(function(n){ return '<button class="btn" data-go="' + n.v + '">' + n.t + (BADGE[n.v] ? ' <span class="badge">' + BADGE[n.v] + "</span>" : "") + "</button>"; }).join("") +
+  sheet("Everything", '<div class="more">' + NAV.filter(function(n){ return ["today","live","visitors","orders"].indexOf(n.v) < 0; }).map(function(n){ return '<button class="btn" data-go="' + n.v + '">' + n.t + (BADGE[n.v] ? ' <span class="badge">' + BADGE[n.v] + "</span>" : "") + "</button>"; }).join("") +
     '<button class="btn warn" id="out2" data-act="signout">Sign out</button></div>');
 }
 function decideSheet(kind, id, d){
@@ -1455,13 +1798,29 @@ document.addEventListener("click", function(e){
   else if(a === "signout") api("POST", "/auth/logout", {}).then(function(){ closeSheet(); gate("pass"); });
   else if(a === "undo") undo();
   else if(a === "copy") copy(el.getAttribute("data-text").replace(/&amp;/g, "&"));
-  else if(a === "visitor"){ e.preventDefault(); openVisitor(+el.getAttribute("data-k")); }
-  else if(a === "vset"){ var vp = copyParams(); vp[el.getAttribute("data-k")] = el.getAttribute("data-v"); if(el.getAttribute("data-k") === "f") vp.sort = ""; go("visitors", vp); }
+  else if(a === "visitor"){ e.preventDefault(); var vk = +el.getAttribute("data-k"); if(vk){ closeSheet(); go("person", { k: vk }); } }
+  else if(a === "back"){ if(history.length > 1) history.back(); else go("visitors"); }
+  else if(a === "lf"){ LF = el.getAttribute("data-v") === "buy" ? "buy" : "all"; var lc = $("lvFeed"); if(lc && LV && LV.live) lc.innerHTML = feedHtml(LV.live, 0);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-act="lf"]'), function(b){ b.setAttribute("aria-pressed", String(b.getAttribute("data-v") === LF)); }); }
+  else if(a === "paid") paidSheet(paidFrom(el.getAttribute("data-src"), el));
+  else if(a === "paidGo"){
+    var pb = { n:$("pnum").value, name:$("pnm").value, phone:$("pph").value, email:$("pem").value, line1:$("pa1").value, line2:$("pa2").value, city:$("pci").value, state:$("pst").value, pin:$("ppin").value,
+      amount_rupees:$("pamt").value, via:$("pvia").value, ref:$("pref").value, paid_on:$("pdt").value, delivered_on:$("pdl").value, note:$("pnote").value, send:$("psend").checked,
+      rzp: el.getAttribute("data-rzp") || "", k: el.getAttribute("data-k") || "" };
+    if(!pb.n){ $("sheetErr").textContent = "Choose the number they paid for."; return; }
+    el.disabled = true; el.textContent = "Saving…";
+    api("POST", "/control/api/orders/paid", pb).then(function(j){
+      if(!j.ok){ el.disabled = false; el.textContent = "Mark as paid"; $("sheetErr").textContent = j.why || "Not saved. Nothing was changed."; return; }
+      closeSheet(); DATA.orders = null;
+      say("No. " + pad(j.n) + " is marked paid" + (j.letter === "queued" ? ". Their confirmation is on its way." : pb.email && pb.send ? "." : ". No email was sent."));
+      load();
+    }); }
+  else if(a === "vset"){ var vp = copyParams(), vkk = el.getAttribute("data-k"); vp[vkk] = el.getAttribute("data-v"); if(vkk === "f") vp.sort = ""; if(vkk === "r") delete vp.d; go("visitors", vp); }
   else if(a === "vmore"){ el.disabled = true; api("GET", "/desk/visitors?" + vparams(VROWS.length)).then(function(j){ VROWS = VROWS.concat(j.rows || []); $("view").innerHTML = RENDER.visitors(j); AFTER.visitors(); }); }
   else if(a === "iset") go("insights", { r: el.getAttribute("data-v") });
   else if(a === "tset"){ var tv = el.getAttribute("data-v"); try{ localStorage.setItem("kaal_tp", tv); }catch(e){} go("today", { r: tv }); }
   else if(a === "forget"){ var fk = +el.getAttribute("data-k"); if(!confirm("Delete everything kept about Visitor " + fk + "? Their history, and their name and contact on it, go for good.")) return;
-    api("POST", "/desk/forget", { k: fk }).then(function(j){ if(j.ok){ closeSheet(); say("Visitor " + fk + " deleted"); load(); } else say("Not deleted.", true); }); }
+    api("POST", "/desk/forget", { k: fk }).then(function(j){ if(j.ok){ closeSheet(); say("Visitor " + fk + " deleted"); if(VIEW === "person") go("visitors"); else load(); } else say("Not deleted.", true); }); }
   else if(a === "release"){ var rn = +el.getAttribute("data-n"), what = el.getAttribute("data-v");
     if(what === "sell" && !confirm("Put No. " + pad(rn) + " back on sale? Anyone can buy it on thekaal.co within a minute.")) return;
     el.disabled = true; api("POST", "/desk/release", { n: rn, action: what }).then(function(j){ say(j.ok ? (what === "sell" ? "No. " + pad(rn) + " is back on sale" : "No. " + pad(rn) + " stays retired") : "Not changed (" + (j.reason || j._status) + ")", !j.ok); load(); }); }

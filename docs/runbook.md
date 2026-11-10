@@ -51,10 +51,12 @@ thekaal.co/owners opens only your piece's dossier.
 
 ## Each screen of the command centre
 
-On a phone the bar along the bottom holds Today, Orders, Visitors, Activity
-and More (everything else). On a computer the same screens are down the left.
-Keys: 1 to 9 open screens, k (or Ctrl/Cmd K) opens the command bar, / searches,
-r refreshes, u undoes, ? lists them.
+On a phone the bar along the bottom holds Today, Live, People, Orders and
+More (everything else). On a computer the same screens are down the left.
+Keys: 1 Today, 2 Live, 3 People, 4 Orders, 5 Insights, 6 Approvals, 7 The
+twenty, 8 Owners, 9 Settings; k (or Ctrl/Cmd K) opens the command bar, /
+searches, r refreshes, u undoes, ? lists them. The "N live" at the top opens
+Live from any screen.
 
 **Tell it what to do** (the ⌘ button at the top, or k). Type it in your own
 words: "put 9 on sale", "keep 12 back", "mark 9 unsold", "how many are
@@ -67,13 +69,13 @@ commit, within a minute). A number with a paid order cannot be put back on
 sale from here: refund it or mark it returned first. The same switch is at
 the top of each number in **The twenty**.
 
-**Activity, live.** Everything as it happens, newest first, on one line of
+**Activity log** (under System). Everything as it happens, newest first, on one line of
 time: every visitor's arrival and step (with their first name once they gave
 it, where they came from, the city, the phone), every checkout and payment,
 every owner's registration or request, and every change you or the system
 made. Last hour, Today, 24 hours or 7 days; filter to Money, Intent,
 Arrivals, Owners, You or System. It asks again every eight seconds while it is
-open and new lines glow once. Tap a visitor's line for their whole history.
+open and new lines glow once. Tap a visitor's line for their whole journey.
 
 **Phone alerts** (Settings, at the top). One tap on **Turn on phone alerts**
 and every sale reaches your phone within seconds, even with the command
@@ -101,12 +103,43 @@ counted as it ends, so the last few minutes arrive with it.
 Then **Needs you** (late orders, courier alerts, approvals, failed emails, a
 refunded number to put back on sale or keep retired, a payment with no
 number, and any number the shop shows as sold with no order in the registry,
-with **Record a past sale** beside it), **Right now** (who is on the site this
-minute and where, every ten seconds), this week's **hot leads**, the twenty
-and the orders waiting at each stage.
+with **Mark as paid** and **Record a past sale** beside it), then **Interested
+today** (everyone in the period who chose a number, opened checkout, gave
+their details, failed to pay or bought, in the order to call them: someone
+who gave their details and has not paid comes first; each with where they are
+from, how far they got, and WhatsApp and Call), **Right now** (who is on the
+site this minute, by name once they gave it, every ten seconds), the twenty
+and the orders waiting at each stage. Tap any of the first three numbers
+(Visits, Add to cart, Checkouts) to see the people behind it.
 
-**Visitors and leads.** Every visitor of the last ninety days, newest first,
-opening on **Hot leads**. Each carries a score out of 100, from what they did
+**Live.** Everyone on the site this minute, each as a card: their name once
+they gave it (otherwise their visitor number), roughly where they are, which
+source or ad brought them, their phone, how long they have been here, where on
+the page they are now (Film, Story, Twenty, Details, Paying), whether this is
+their first visit, and what they have done this visit (the dial, the number,
+turned to the back, pressed buy, a failed payment). Someone paying or giving
+their details is at the top, outlined in gold. Beside them, **As it happens**:
+every step of the last hour seconds after it is taken (**Buying signals**
+leaves out the browsing), and below, who left in the last hour, how long they
+stayed and how far they got. It asks every five seconds while it is open. Tap
+anyone for their whole journey.
+
+**People.** Everyone who came, opening on **Today**: Yesterday, 7, 30 or 90
+days, or any one day from the date box. Narrow it to Interested, Gave
+details, Opened checkout, Chose a number, Payment failed, Bought, Hot, Came
+back or On the site now, each with how many it holds; sort **Latest first** or
+**Call first**. A row shows who (their name once given), where, which source
+and ad, the phone, visits and time on the site, a strip of how far they got
+(the twenty, the number, checkout, details, paid) and WhatsApp and Call when
+they left a number. Tap a person for their whole journey, on its own page:
+whether they are on the site right now and where, **How far they got** (each
+step at the first time they reached it: arrived, the twenty, a dial, a number,
+the engraved back, pressed buy, gave their details, payment failed and why,
+paid), who they are, **Their orders** (with how each was paid), **Emails to
+them** (every email the shop sent them, and the one follow-up), and
+**Everything they did**, visit by visit, every step with its time and the
+gaps between. From there: WhatsApp, Call, Email, Copy number, **Mark as paid**,
+Stop automatic emails, and Delete this visitor. Each person carries a score out of 100, from what they did
 and nothing else: reached the twenty 10, chose a dial 10, chose a number 15,
 turned to the caseback 10, watched the film through 5, read three or more of
 the story 5, opened checkout 20, gave their details 15, came back another day
@@ -118,6 +151,21 @@ ad, roughly where (a city and state from their connection, never their
 address), phone and browser, every visit, every step, and WhatsApp, Call and
 Email buttons when they gave their details. **Delete this visitor** is for
 when someone asks.
+
+**Mark as paid.** For money taken outside the checkout: someone whose card
+failed paid you on UPI, by bank transfer or in cash. It is on Orders (at the
+top, and on each **Nearly bought** checkout), on a person's journey, and in
+Needs you. The sheet fills itself from what they already gave (their checkout
+or their history) and says whether the number is free to sell (an abandoned
+checkout no longer blocks it; it warns you if someone is paying for that
+number right now). Choose how they paid and add the UPI or bank reference.
+Saving makes it a sale like any other: an order in the registry (Orders shows
+"paid by UPI" and the reference), the number gone from the shop within
+seconds, Paid on their journey and in Live, out of Nearly bought, no
+"you nearly bought" email, and, if ticked, the order confirmation emailed to
+them. It is never refunded through Razorpay (the money did not come through
+it). If a Razorpay payment for the same checkout arrives later, it is treated
+as a second payment for one watch and refunded automatically.
 
 **Insights.** Today, 7, 30 or 90 days. Where people stop on the way to a
 sale; every source with visitors, numbers chosen, checkouts, sales and hot

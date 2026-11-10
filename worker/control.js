@@ -19,7 +19,7 @@ import { dossier } from "./owners.js";
 import { SW_JS, MANIFEST, iconPng, KINDS, vapidKeys, subscribe, unsubscribe, subsOf, prefsOf, savePrefs, notifyOwner } from "./push.js";
 import { authOn, adminEmail, adminOwner, startLogin, verifyLogin, sessionOf, openSession, endSession, revokeAll, sessionCookie, clearCookie, totpEnroll, totpCheck, twoFactorOn, codeEmail, normEmail, sha256, same } from "./auth.js";
 import { LETTERS, STAGE_LETTER, STAFF_LETTERS, sample, whatsappNote } from "./letters.js";
-import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered, warrantyWindow, returnVars, longDay, nextOwnerNo, mintClaim } from "./orders.js";
+import { STAGES, ORDER_STATUSES, iso, istDay, pad2, clean, windowEnds, setting, seriesSize, moveOrder, queueDelivered, queuePlaced, warrantyWindow, returnVars, longDay, nextOwnerNo, mintClaim } from "./orders.js";
 import { queueLetter, flushOutbox, retryLetter } from "./outbox.js";
 import { controlPage } from "./control-page.js";
 import { lateOrders } from "./sla.js";
@@ -114,7 +114,9 @@ export async function control(request, env, ctx, path, T) {
       await audit(env, actor, "registry.import.asked", "registry", null, { ok: r.ok });
       return out(r, r.ok ? 200 : 502);
     }
-    if (method === "POST" && route === "/orders/manual") return pastSale(env, actor, await body(request) || {});
+    if (method === "POST" && route === "/orders/manual") return pastSale(env, actor, await body(request) || {}, T, ctx);
+    if (method === "POST" && route === "/orders/paid") return paidByHand(env, ctx, T, actor, await body(request) || {});
+    if (method === "GET" && route === "/orders/prefill") return out(await paidPrefill(env, new URL(request.url).searchParams));
     let m = /^\/orders\/(\d+)\/link$/.exec(route);
     if (method === "POST" && m) return claimLink(env, ctx, T, actor, +m[1], await body(request) || {});
     m = /^\/orders\/(\d+)\/(stage|returned|refund)$/.exec(route);
@@ -348,7 +350,7 @@ async function listOrders(env) {
     `SELECT o.id, o.piece_id, p.number, p.colorway, o.status, o.cancel_reason, o.buyer_name, o.email, o.phone, o.city, o.state, o.pincode,
             o.address_line1, o.address_line2, o.gift, o.gift_note, o.amount_paise, o.razorpay_payment_id, o.razorpay_order_id, o.paid_at,
             o.inspected_at, o.packed_at, o.dispatched_at, o.delivered_on, o.return_window_ends_at, o.registered_at,
-            o.courier, o.tracking_number, o.tracking_url, o.refund_id
+            o.courier, o.tracking_number, o.tracking_url, o.refund_id, o.paid_via, o.paid_ref, o.paid_note
        FROM orders o JOIN pieces p ON p.id = o.piece_id ORDER BY o.id DESC LIMIT 200`
   ).all()).results || [];
   const sent = {};
@@ -402,17 +404,45 @@ function waPhone(p) {
   return d.length >= 11 && d.length <= 15 ? d : "";
 }
 
+/* ══ A sale recorded by hand ══
+   Whether a number can be sold by hand now, and if not, why, in words.
+   What matters is whether a live order holds it (anything not cancelled
+   or returned), not the piece's last state: a checkout that was opened
+   and abandoned leaves the piece "held" long after the ten minutes are
+   over, and a number kept back for someone is "withheld". Both are free
+   to sell. Registered, stolen and retired pieces are not. */
+const LIVE_ORDER = "status NOT IN ('cancelled','returned')";
+const HAND_OK = ["available", "held", "withheld", "placed", "returned", "delivered"];
+async function sellable(env, n) {
+  const p = n >= 1 ? await env.DB.prepare("SELECT * FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first() : null;
+  if (!p) return { code: 400, reason: "piece", why: "No such number." };
+  const live = await env.DB.prepare(`SELECT id, status, buyer_name FROM orders WHERE piece_id = ?1 AND ${LIVE_ORDER} ORDER BY id DESC LIMIT 1`).bind(p.id).first();
+  if (live) return { p, code: 409, reason: "taken", why: `No. ${pad2(n)} already has an order (${live.status}${live.buyer_name ? ", " + live.buyer_name : ""}). It is in Orders.` };
+  if (HAND_OK.indexOf(p.status) < 0) {
+    const why = { registered: "is registered to its owner", reported_stolen: "is flagged as stolen", retired: "is retired: put it back on sale first (The twenty)" }[p.status] || "is " + p.status;
+    return { p, code: 409, reason: "taken", why: `No. ${pad2(n)} ${why}.` };
+  }
+  return { p };
+}
+/* The piece is the new order's, unless another live order took it a
+   moment ago (then the new order is taken back out). */
+async function placeByHand(env, p, orderId, status) {
+  return env.DB.prepare(
+    `UPDATE pieces SET status = ?1, order_ref = ?2, held_by = NULL, held_until = NULL, updated_at = ?3
+      WHERE id = ?4 AND status IN (${HAND_OK.map(s => `'${s}'`).join(",")})
+        AND (order_ref IS NULL OR order_ref = ?2 OR order_ref NOT IN (SELECT id FROM orders WHERE piece_id = ?4 AND ${LIVE_ORDER} AND id <> ?2))
+      RETURNING id`).bind(status, orderId, iso(), p.id).first();
+}
+
 /* A sale made before the registry (Nos. 01 and 02): typed in once, from
    the owner's own records, and kept like any other order, except that it
    can never be refunded from here (no payment of this checkout's exists).
-   Only for a piece that has no order yet. No email is sent to anyone. */
-async function pastSale(env, actor, b) {
+   Only for a piece that has no live order. No email is sent to anyone. */
+async function pastSale(env, actor, b, T, ctx) {
   const n = parseInt(b.n, 10);
-  const p = await env.DB.prepare("SELECT * FROM pieces WHERE series = ?1 AND number = ?2").bind(SERIES, n).first();
-  if (!p) return out({ ok: false, reason: "piece", why: "No such number." }, 400);
-  if (p.order_ref || ["available", "placed", "delivered"].indexOf(p.status) < 0) {
-    return out({ ok: false, reason: "taken", why: `No. ${pad2(n)} already has an order, or is ${p.status}.` }, 409);
-  }
+  const s = await sellable(env, n);
+  if (s.why) return out({ ok: false, reason: s.reason, why: s.why }, s.code);
+  const p = s.p;
   const name = clean(b.name, 80), email = normEmail(b.email), phone = normPhone(b.phone);
   const today = istDay(), paid = String(b.paid_on || ""), del = String(b.delivered_on || "");
   if (!name) return out({ ok: false, reason: "name", why: "The buyer's name." }, 400);
@@ -429,14 +459,91 @@ async function pastSale(env, actor, b) {
   ).bind(p.series, p.id, "manual:" + crypto.randomUUID(), name, email, phone || null, clean(b.line1, 120) || null, clean(b.city, 60) || null, clean(b.state, 40) || null,
     String(b.pin || "").replace(/\D/g, "").slice(0, 6) || null, amount, status, iso(Date.parse(paid + "T12:00:00.000+05:30")),
     del || null, del ? windowEnds(del, (series && series.return_days) || 7) : null, iso()).first();
-  const placed = await env.DB.prepare("UPDATE pieces SET status = ?1, order_ref = ?2, held_by = NULL, held_until = NULL, updated_at = ?3 WHERE id = ?4 AND order_ref IS NULL RETURNING id")
-    .bind(del ? "delivered" : "placed", row.id, iso(), p.id).first();
+  const placed = await placeByHand(env, p, row.id, del ? "delivered" : "placed");
   if (!placed) {
     await env.DB.prepare("DELETE FROM orders WHERE id = ?1").bind(row.id).run();
     return out({ ok: false, reason: "taken", why: `No. ${pad2(n)} was given an order a moment ago.` }, 409);
   }
   await audit(env, actor, "order.past_sale", "order:" + row.id, { piece: p.status }, { piece: p.id, status, paid_on: paid, delivered_on: del || null, email }, p.series);
+  /* Sold is sold: the shop stops offering it, whatever it showed before. */
+  if (T && T.soldByHand) await T.soldByHand(ctx, { n, paise: amount, pid: "manual", email, phone, quiet: true });
   return out({ ok: true, id: row.id });
+}
+
+/* Mark as paid: the owner was paid outside the checkout (UPI, a bank
+   transfer, cash, a card machine, a payment link), usually by someone
+   whose payment failed on the site. One sheet, filled in from what they
+   already gave (their checkout, or their visitor history), and the sale
+   is then everything a sale through the checkout is: an order in the
+   registry, the piece placed, the number gone from the shop within
+   seconds (KV now; the site file follows), "Paid" on their history and
+   in the live view, and, when asked, the Placed letter to the buyer.
+   A Razorpay payment for the same checkout arriving later is then a
+   second payment for one watch, which the webhook already refunds.
+   Never refundable from here: the money did not come through Razorpay. */
+const PAID_VIA = { upi: "UPI", bank: "Bank transfer", cash: "Cash", card: "Card machine", link: "Payment link", other: "Other" };
+async function paidByHand(env, ctx, T, actor, b) {
+  const n = parseInt(b.n, 10);
+  const today = istDay(), paid = String(b.paid_on || today), del = String(b.delivered_on || "");
+  const name = clean(b.name, 80), email = normEmail(b.email), phone = normPhone(b.phone);
+  const via = PAID_VIA[b.via] ? String(b.via) : "upi", ref = clean(b.ref, 80), note = clean(b.note, 300);
+  const rzp = /^order_\w{6,40}$/.test(String(b.rzp || "")) ? String(b.rzp) : null;
+  if (!(n >= 1)) return out({ ok: false, reason: "piece", why: "Which number they paid for." }, 400);
+  if (!name) return out({ ok: false, reason: "name", why: "The buyer's name." }, 400);
+  if (b.email && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return out({ ok: false, reason: "email", why: "That email does not look right. Leave it empty if you do not have one." }, 400);
+  if (String(b.phone || "").trim() && !phone) return out({ ok: false, reason: "phone", why: "That phone number does not look right." }, 400);
+  if (!email && !phone) return out({ ok: false, reason: "contact", why: "Their email or phone, so the order can reach them." }, 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paid) || paid > today) return out({ ok: false, reason: "paid", why: "The day they paid, not in the future." }, 400);
+  if (del && (!/^\d{4}-\d{2}-\d{2}$/.test(del) || del > today || del < paid)) return out({ ok: false, reason: "delivered", why: "The delivery day: after they paid, not in the future." }, 400);
+  const s = await sellable(env, n);
+  if (s.why) return out({ ok: false, reason: s.reason, why: s.why }, s.code);
+  const p = s.p;
+  const series = await env.DB.prepare("SELECT price_paise, return_days FROM series WHERE code = ?1").bind(p.series).first();
+  const rupees = String(b.amount_rupees == null ? "" : b.amount_rupees).replace(/[₹,\s]/g, "");
+  const amount = rupees ? Math.round(parseFloat(rupees) * 100) : ((series && series.price_paise) || 0);
+  if (!(amount >= 100)) return out({ ok: false, reason: "amount", why: "The amount they paid, in rupees." }, 400);
+  const status = del ? "delivered" : "placed";
+  const paidAt = paid === today ? iso() : iso(Date.parse(paid + "T12:00:00.000+05:30"));
+  const row = await env.DB.prepare(
+    `INSERT INTO orders (series, piece_id, razorpay_order_id, razorpay_payment_id, buyer_name, email, phone, address_line1, address_line2, city, state, pincode,
+       gift, gift_note, amount_paise, status, paid_at, delivered_on, return_window_ends_at, paid_via, paid_ref, paid_note, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?23) RETURNING *`
+  ).bind(p.series, p.id, rzp, "manual:" + crypto.randomUUID(), name, email || null, phone || null, clean(b.line1, 120) || null, clean(b.line2, 120) || null,
+    clean(b.city, 60) || null, clean(b.state, 40) || null, String(b.pin || "").replace(/\D/g, "").slice(0, 6) || null, b.gift ? 1 : 0, clean(b.gift_note, 300) || null,
+    amount, status, paidAt, del || null, del ? windowEnds(del, (series && series.return_days) || 7) : null, via, ref || null, note || null, iso()).first();
+  const placed = await placeByHand(env, p, row.id, status);
+  if (!placed) {
+    await env.DB.prepare("DELETE FROM orders WHERE id = ?1").bind(row.id).run();
+    return out({ ok: false, reason: "taken", why: `No. ${pad2(n)} was given an order a moment ago. It is in Orders.` }, 409);
+  }
+  await audit(env, actor, "order.paid_by_hand", "order:" + row.id, { piece: p.status },
+    { piece: p.id, status, amount, via: PAID_VIA[via], ref: ref || null, email: email || null, phone: phone || null, checkout: rzp, visitor: parseInt(b.k, 10) || null, letter: !!b.send }, p.series);
+  /* The shop, the live view and their history, as a sale through the checkout. */
+  if (T && T.soldByHand) await T.soldByHand(ctx, { n, paise: amount, pid: row.razorpay_payment_id, rzp, email, phone, k: parseInt(b.k, 10) || 0 });
+  /* Their confirmation, the same Placed letter a checkout sends: only when asked, only with an email, never for one already delivered. */
+  let letter = "";
+  if (b.send && email && !del) {
+    const q = await queuePlaced(env, T.siteUrl(env), row);
+    if (q > 0) kick(env, ctx, T, [q]);
+    letter = q > 0 || q === -1 ? "queued" : "off";
+  }
+  return out({ ok: true, id: row.id, n, letter, via: PAID_VIA[via] });
+}
+
+/* What the sheet starts from: what they typed at their checkout (kept for
+   that checkout), the number's state, and the price. Nothing is written. */
+async function paidPrefill(env, q) {
+  const n = parseInt(q.get("n"), 10) || 0, rzp = /^order_\w{6,40}$/.test(String(q.get("rzp") || "")) ? String(q.get("rzp")) : "";
+  const ship = rzp && env.KAAL_STATE ? await env.KAAL_STATE.get("ship:" + rzp, "json").catch(() => null) : null;
+  const who = (ship && ship.buyer) || {};
+  const s = n ? await sellable(env, n) : null;
+  const series = await env.DB.prepare("SELECT price_paise FROM series WHERE code = ?1").bind(SERIES).first();
+  const heldNow = !!(s && s.p && !s.why && s.p.status === "held" && s.p.held_until && s.p.held_until > Date.now());
+  return { ok: true, today: istDay(), price: (series && series.price_paise) || 0, n, colorway: s && s.p ? s.p.colorway : "",
+    free: s ? !s.why : null, why: s ? s.why || "" : "", heldNow,
+    buyer: { name: who.name || (ship && ship.name) || "", email: who.email || "", phone: who.phone || "",
+      line1: (ship && ship.line1) || "", line2: (ship && ship.line2) || "", city: (ship && ship.city) || "", state: (ship && ship.state) || "", pin: (ship && ship.pin) || "",
+      gift: !!(ship && ship.gift), gift_note: (ship && ship.gift_note) || "" } };
 }
 
 /* Returned: only while the return window is open and the piece is not
@@ -784,7 +891,7 @@ function csvCell(v) {
 }
 async function exportCsv(env, what) {
   const sql = {
-    orders: "SELECT id, series, piece_id, status, cancel_reason, buyer_name, email, phone, address_line1, address_line2, city, state, pincode, gift, gift_note, amount_paise, razorpay_order_id, razorpay_payment_id, paid_at, inspected_at, packed_at, dispatched_at, courier, tracking_number, tracking_url, delivered_on, return_window_ends_at, registered_at, refund_id, refunded_at FROM orders ORDER BY id",
+    orders: "SELECT id, series, piece_id, status, cancel_reason, buyer_name, email, phone, address_line1, address_line2, city, state, pincode, gift, gift_note, amount_paise, razorpay_order_id, razorpay_payment_id, paid_at, inspected_at, packed_at, dispatched_at, courier, tracking_number, tracking_url, delivered_on, return_window_ends_at, registered_at, refund_id, refunded_at, paid_via, paid_ref, paid_note FROM orders ORDER BY id",
     owners: "SELECT id, email, name, phone, city, state, show_city_publicly, role, data_consent_at, city_consent_at, created_at FROM owners WHERE deleted_at IS NULL ORDER BY id",
     pieces: "SELECT p.id, p.series, p.number, p.colorway, p.status, p.photo_url, p.notes, r.state, r.owner_no, r.owner_since FROM pieces p JOIN public_registry r ON r.series = p.series AND r.number = p.number ORDER BY p.series, p.number"
   }[what];

@@ -63,15 +63,19 @@ await pg.waitForSelector("#app:not([hidden]) .kpi");
 ok(W.mails.some(m => /New sign-in to the KAAL command centre/.test(m.subject)), "gate: the first sign-in on this device emails the admin");
 
 /* Today */
-await pg.waitForFunction(() => /Hot leads|hot lead/.test(document.getElementById("view").textContent));
+await pg.waitForFunction(() => /Interested today/.test(document.getElementById("view").textContent) && document.querySelector("#intCard .prow"));
 let text = await pg.textContent("#view");
 ok(/Visits/.test(text) && /Add to cart/.test(text) && /Checkouts/.test(text) && /Orders/.test(text) && /Revenue/.test(text) && /Conversion/.test(text) && /Needs you/.test(text) && /Right now/.test(text) && /path to a sale/.test(text),
   "today: visits, add to cart, checkouts, orders, revenue, conversion; what needs you, right now, the path to a sale");
+const intText = await pg.textContent("#intCard");
+ok(/Priya Mehta/.test(intText) && /Visitor 2/.test(intText) && !/Visitor 4/.test(intText) && /gave details/.test(intText) && /opened checkout/.test(intText) && /WhatsApp/.test(intText),
+  "today: who is interested today, the one who gave their details first, with WhatsApp and Call, and nobody who only browsed");
+ok((await pg.$$eval("#intCard .prow b", els => els.map(e => e.textContent)))[0] === "Priya Mehta", "today: the interested are in the order to call them");
 const kv = async () => pg.$$eval(".kpis .kpi", (els) => Object.fromEntries(els.map(e => [e.querySelector(".l").textContent, e.querySelector(".v").textContent])));
 let K = await kv();
 ok(K.Visits === String(seededToday) && K["Add to cart"] === "6" && K.Checkouts === "3" && /Yesterday/.test(text) && /The last fourteen days/.test(text) && (await pg.locator(".chart .cday").count()) === 14,
   "today: today's visits, add to cart counted once per visit, against yesterday, with the fortnight's chart " + JSON.stringify(K));
-ok(/Nos\. 01, 02 sold on the shop, with no order in the registry/.test(text) && /Record a past sale/.test(text), "today: numbers sold on the shop with no registry order are flagged, with the button to record them");
+ok(/Nos\. 01, 02 sold on the shop, with no order in the registry/.test(text) && /Record a past sale/.test(text) && /Mark as paid/.test(text), "today: numbers sold on the shop with no registry order are flagged, with the buttons to record them");
 ok(/4 gone · 16 open/.test(text), "today: the twenty count what the shop shows (01, 02, the registry's 07, the withheld 09)");
 ok(await flat(), "today: nothing wider than a phone");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/1-today-phone.png", fullPage: true });
@@ -89,20 +93,56 @@ ok((await pg.locator(".chart .cday").count()) === 7 && (await pg.locator(".kpis 
 await pg.click('[data-act="tset"][data-v="today"]');
 await pg.waitForFunction(() => /Yesterday/.test(document.getElementById("view").textContent));
 
-/* Visitors: the hot list, then one visitor */
-await pg.click('.tabs [data-go="visitors"]');
-await pg.waitForSelector("#vlist .lrow");
+/* Live: everyone on the site now, by name where known, and the feed */
+await pg.click('.tabs [data-go="live"]');
+await pg.waitForFunction(() => document.querySelectorAll("#lvHere .lcard").length >= 7 && document.querySelector("#lvFeed .arow"));
 text = await pg.textContent("#view");
-ok(/Visitor 1/.test(text) && /Priya Mehta/.test(text) && /S01 Launch \/ Emerald 15s/.test(text) && /Pune/.test(text), "visitors: the hot lead, with their name, the ad that brought them and where");
-await pg.click('#vlist .lrow');
-await pg.waitForFunction(() => /Roughly where/.test(document.getElementById("sheetB").textContent));
-text = await pg.textContent("#sheetB");
-ok(/Hot: close to buying/.test(text) && /WhatsApp/.test(text) && /S01 Launch/.test(text) && /Opened checkout|Chose No\. 05/.test(text), "visitor: score, WhatsApp/Call/Email, the ad, and every step");
-if (SHOTS) await pg.screenshot({ path: SHOTS + "/2-visitor-phone.png" });
-await pg.keyboard.press("Escape");
-await pg.click('[data-act="vset"][data-v="all"]');
-await pg.waitForFunction(() => document.querySelectorAll("#vlist .lrow").length >= 7);
-ok(true, "visitors: Everyone lists all seven");
+ok(/7\s*people on the site now/.test(text) && /Priya Mehta/.test(text) && /Pune, Maharashtra/.test(text) && /Bengaluru, Karnataka/.test(text) && /Twenty/.test(text) && /at the twenty/.test(text),
+  "live: everyone on the site now, by name where they gave it, with where they are from and where on the page");
+ok(/Chose No\. 05/.test(await pg.textContent("#lvFeed")) && /Priya/.test(await pg.textContent("#lvFeed")), "live: every step as it happens, with who took it");
+ok(await flat(), "live: nothing wider than a phone");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/2a-live-phone.png", fullPage: true });
+await pg.click('[data-act="lf"][data-v="buy"]');
+ok(!/Played the box film/.test(await pg.textContent("#lvFeed")) && /Pressed buy/.test(await pg.textContent("#lvFeed")), "live: Buying signals leaves out the browsing");
+
+/* People: everyone today, narrowed, then one person's whole journey */
+await pg.click('.tabs [data-go="visitors"]');
+await pg.waitForFunction(() => document.querySelectorAll("#vlist .prow").length >= 7);
+text = await pg.textContent("#view");
+ok(/7 people today/.test(text) && /Everyone · 7/.test(text) && /Gave details · 1/.test(text) && /Priya Mehta/.test(text) && /S01 Launch/.test(text) && /Pune/.test(text), "people: everyone who came today, with how many each narrowing holds");
+ok(await flat(), "people: nothing wider than a phone");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/2b-people-phone.png", fullPage: true });
+await pg.click('[data-act="vset"][data-k="f"][data-v="interested"]');
+await pg.waitForFunction(() => /people today · interested/.test(document.getElementById("view").textContent) && document.querySelectorAll("#vlist .prow").length === 2);
+ok((await pg.$$eval("#vlist .prow b", els => els.map(e => e.textContent)))[0] === "Priya Mehta", "people: Interested, in the order to call them");
+await pg.click('#vlist .prow button');
+await pg.waitForFunction(() => /How far they got/.test(document.getElementById("view").textContent) && /Everything they did/.test(document.getElementById("view").textContent));
+text = await pg.textContent("#view");
+ok(/#person\?k=1/.test(pg.url()) && /Hot: close to buying/.test(text) && /WhatsApp/.test(text) && /Roughly where/.test(text) && /Pune/.test(text) && /S01 Launch/.test(text) && /Chose No\. 05/.test(text) && /Pressed buy/.test(text) && /Mark as paid/.test(text),
+  "person: their whole journey on its own page: how far they got, who they are, every step, and the buttons to reach them");
+ok((await pg.textContent("#title")) === "Priya Mehta", "person: the page is named after them");
+ok(await flat(), "person: nothing wider than a phone");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/2c-person-phone.png", fullPage: true });
+
+/* Mark as paid, from their journey: paid by UPI after the checkout */
+await pg.click('[data-act="paid"][data-src="person"]');
+await pg.waitForFunction(() => /is free to sell/.test((document.getElementById("pfState") || {}).textContent || ""));
+ok(await pg.inputValue("#pnm") === "Priya Mehta" && await pg.inputValue("#pem") === "priya@example.com" && await pg.inputValue("#pnum") === "5", "mark paid: the sheet starts from what they gave: name, email, the number they chose");
+await pg.selectOption("#pvia", "upi"); await pg.fill("#pref", "UPI 99887766");
+await pg.fill("#pa1", "12 Koregaon Park"); await pg.fill("#pst", "Maharashtra"); await pg.fill("#ppin", "411001");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/2d-mark-paid-phone.png" });
+W.mails.length = 0;
+await pg.click('[data-act="paidGo"]');
+await pg.waitForFunction(() => /No\. 05 is marked paid/.test(document.getElementById("toast").textContent));
+const o5 = W.DB.raw.prepare("SELECT o.* FROM orders o WHERE o.piece_id = 'S01-05'").get();
+ok(o5 && o5.paid_via === "upi" && o5.paid_ref === "UPI 99887766" && o5.email === "priya@example.com" && o5.pincode === "411001" && o5.city === "Pune" && o5.state === "Maharashtra" && JSON.parse(W.KV.store.get("sold")).includes(5),
+  "mark paid: the order is made, how it was paid is kept, and No. 05 is gone from the shop");
+ok(W.mails.some(m => m.to.includes("priya@example.com") && /No\. 05/.test(m.subject)), "mark paid: their order confirmation goes to them");
+await pg.waitForFunction(() => /Bought/.test(document.getElementById("view").textContent) && /Their orders/.test(document.getElementById("view").textContent));
+ok(/Paid ₹5,999 for No\. 05/.test(await pg.textContent("#view")) && /UPI/.test(await pg.textContent("#view")), "mark paid: their journey now ends in Paid, with the order beside it");
+await pg.click('[data-act="back"]');
+await pg.waitForFunction(() => document.querySelector("#vlist .prow"));
+ok(/#visitors/.test(pg.url()), "person: Back returns to the list");
 
 /* Insights */
 await pg.goto(URL0 + "#insights");
@@ -125,8 +165,8 @@ await pg.waitForSelector('#sheet:not([hidden]) [data-go="ai"]');
 await pg.click('#sheet [data-go="ai"]');
 await pg.waitForFunction(() => /What answer engines are told/.test(document.getElementById("view").textContent));
 ok(/Ask ChatGPT/.test(await pg.textContent("#view")) && /ChatGPT/.test(await pg.textContent("#view")), "ai search: what crawlers are told, and the visitors AI sent");
-/* Activity, live: everything on one line of time */
-await pg.click('.tabs [data-go="activity"]');
+/* The activity log: everything on one line of time */
+await pg.goto(URL0 + "#activity");
 await pg.waitForSelector("#alist .arow");
 text = await pg.textContent("#view");
 ok(/Chose No\. 05/.test(text) && /Priya/.test(text) && /Instagram/.test(text) && /people/.test(text), "activity: every visitor's steps, newest first, with who it was and where from");
@@ -137,9 +177,8 @@ ok(/Pressed buy/.test(text) && !/Played the box film/.test(text), "activity: Mon
 ok(await flat(), "activity: nothing wider than a phone");
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/6-activity-phone.png", fullPage: true });
 await pg.click("#alist button.arow");
-await pg.waitForFunction(() => /Roughly where/.test(document.getElementById("sheetB").textContent));
-ok(true, "activity: tapping a line opens that visitor");
-await pg.keyboard.press("Escape");
+await pg.waitForFunction(() => /Roughly where/.test(document.getElementById("view").textContent));
+ok(/#person\?k=/.test(pg.url()), "activity: tapping a line opens that person");
 
 /* The command bar: in words, read back, then done */
 const piece = (n) => W.DB.raw.prepare("SELECT status FROM pieces WHERE number = ?").get(n).status;
@@ -210,16 +249,23 @@ await pg.keyboard.press("5");
 await pg.waitForFunction(() => /Where they come from/.test(document.getElementById("view").textContent));
 ok((await pg.textContent("#title")) === "Insights", "desktop: 5 opens Insights");
 await pg.keyboard.press("2");
-await pg.waitForSelector("#alist .arow");
-if (SHOTS) await pg.screenshot({ path: SHOTS + "/10-activity-desktop.png", fullPage: true });
-ok((await pg.textContent("#title")) === "Activity, live", "desktop: 2 opens the live Activity");
+await pg.waitForSelector("#lvHere .lcard");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/10-live-desktop.png", fullPage: true });
+ok((await pg.textContent("#title")) === "Live", "desktop: 2 opens Live");
+await pg.keyboard.press("3");
+await pg.waitForSelector("#vlist .prow");
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/11-people-desktop.png", fullPage: true });
+ok((await pg.textContent("#title")) === "People", "desktop: 3 opens People");
+await pg.click('#vlist .prow button');
+await pg.waitForFunction(() => /Everything they did/.test(document.getElementById("view").textContent));
+if (SHOTS) await pg.screenshot({ path: SHOTS + "/12-person-desktop.png", fullPage: true });
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/4-insights-desktop.png", fullPage: true });
 await pg.goto(URL0 + "#today?r=30d");
 await pg.waitForFunction(() => /vs previous 30 days/.test(document.getElementById("view").textContent));
 if (SHOTS) await pg.screenshot({ path: SHOTS + "/5-today-desktop.png", fullPage: true });
 await pg.setViewportSize({ width: 768, height: 1000 });
 await pg.goto(URL0 + "#visitors?f=all&r=7d");
-await pg.waitForSelector("#vlist .lrow");
+await pg.waitForSelector("#vlist .prow");
 ok(await flat(), "tablet: nothing wider than the screen");
 
 ok(!B.log.errors.length, "no script errors " + JSON.stringify(B.log.errors));

@@ -743,6 +743,29 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   const e4 = await (await go("/desk/visitors?r=90d&src=instagram", { headers: jar })).json();
   ok(d.total === 1 && e2.total === 1 && e3.total === 1 && e4.total === 1 && e4.rows[0].k === 1, "intel: the visitor list narrows to hot leads, one campaign, one city, one source");
 
+  /* People: one day's list, what each did that day, who to call first, the counts, and who is here now. */
+  let pp = await (await go("/desk/visitors?r=today&f=interested&sort=intent", { headers: jar })).json();
+  ok(pp.ok && pp.day === "2026-10-16" && pp.total === 2 && pp.rows[0].k === 3 && pp.rows[1].k === 1 && pp.rows[0].day && pp.rows[0].day.co === true,
+    "people: today's interested, the open checkout first and the buyer after, each with what they did today");
+  ok(pp.counts && pp.counts.all === 3 && pp.counts.interested === 2 && pp.counts.bought === 1 && pp.counts.checkout === 2 && pp.counts.details === 1 && pp.counts.failed === 1,
+    "people: how many each narrowing would show (" + JSON.stringify(pp.counts) + ")");
+  pp = await (await go("/desk/visitors?r=day&d=2026-10-14", { headers: jar })).json();
+  ok(pp.total === 1 && pp.day === "2026-10-14" && pp.rows[0].k === 1 && pp.rows[0].day.nums.join() === "03" && !pp.rows[0].day.paid && pp.counts.all === 1,
+    "people: a past day is who was here that day, with only what they did that day");
+  pp = await (await go("/desk/visitors?r=yesterday", { headers: jar })).json();
+  ok(pp.ok && pp.total === 0 && pp.day === "2026-10-15", "people: yesterday, nobody came");
+  let lv = await (await go("/desk/live", { headers: jar })).json();
+  const me3 = lv.live && lv.live.here.find(v => v.vk === 3);
+  ok(me3 && me3.who && me3.who.place === "Bengaluru, Karnataka" && me3.who.score === 65 && me3.who.co === true && me3.w === "pay",
+    "live: each person on the site says who they are from their history: where, how close to buying, where on the page");
+  pp = await (await go("/desk/visitors?r=today&f=live", { headers: jar })).json();
+  ok(pp.rows.some(v => v.k === 3 && v.live && v.live.w === "pay") && pp.counts.live >= 1, "people: Live now narrows the list to who is on the site this minute");
+  pp = await (await go("/desk/person?k=1", { headers: jar })).json();
+  ok(pp.ok && pp.v.k === 1 && pp.checkouts.includes("order_HISTA0001") && pp.v.steps.length > 5, "person: the whole history, and the checkouts they opened");
+  ok(Array.isArray(pp.orders) && Array.isArray(pp.emails), "person: with their orders and the emails sent to them (" + pp.orders.length + " orders, " + pp.emails.length + " emails)");
+  pp = await (await go("/desk/person?k=999", { headers: jar })).json();
+  ok(!pp.ok, "person: someone not kept says so");
+
   /* The Today dashboard: a period against the one before, once per visit where the page says so. */
   const cnt = (c) => go("/e", { method: "POST", headers: { Origin: "https://thekaal.co", "User-Agent": IPHONE, "Content-Type": "text/plain" }, body: JSON.stringify({ c }) });
   await cnt({ visit: 1, visitor: 1, view: 3, s_view: 1, number: 4, s_number: 1, checkout: 2, s_checkout: 1, details: 1, s_details: 1 });

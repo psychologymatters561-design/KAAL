@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════ */
 import { createHash } from "node:crypto";
 import w from "../worker/kaal-sold-sync.js";
+import * as R from "../worker/registry.js";
 import { d1, kv, ctx } from "./d1-shim.mjs";
 
 let failed = 0;
@@ -32,13 +33,14 @@ const pays = [
   { id: "pay_I10b", order_id: "order_I10b", status: "captured", amount: 599900, currency: "INR", email: "twice@example.com", created_at: at("2026-10-21T08:00:00Z") }
 ];
 const numOf = { order_I09: "09", order_I10: "10", order_I07: "07", order_IREF: "05", order_ISMALL: "06", order_I10b: "10" };
-let rzpUp = true;
+let rzpUp = true, openOrders = [];
 globalThis.fetch = async (url, init) => {
   url = String(url);
   if (url.includes("api.resend.com")) { mails.push(JSON.parse(init.body)); return new Response("{}"); }
   if (url.includes("api.github.com")) return new Response(JSON.stringify({ content: Buffer.from("var KAAL = {\n  sold:     [1, 2, 7, 9, 10],\n};").toString("base64"), sha: "x" }));
   if (/\/v1\/payments\?from=/.test(url)) return rzpUp ? new Response(JSON.stringify({ items: /skip=0/.test(url) ? pays : [] })) : new Response("{}", { status: 500 });
-  if (/\/v1\/(refunds|orders)\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
+  if (/\/v1\/orders\?/.test(url)) return new Response(JSON.stringify({ items: /skip=[1-9]/.test(url) ? [] : openOrders }));
+  if (/\/v1\/refunds\?/.test(url)) return new Response(JSON.stringify({ items: [] }));
   let m = /\/v1\/payments\/(pay_\w+)\/refund$/.exec(url);
   if (m) { refunds.push(m[1]); return new Response(JSON.stringify({ id: "rfnd_" + m[1] })); }
   m = /\/v1\/orders\/(order_\w+)$/.exec(url);
@@ -108,6 +110,59 @@ const piece = (n) => DB.raw.prepare("SELECT status, order_ref, notes FROM pieces
   r = await call("POST", `/control/api/orders/${id2}/stage`, { to: "delivered", silent: true, reason: "Delivered before the registry", day: "2026-09-27" });
   ok(r.j.ok && DB.raw.prepare("SELECT delivered_on FROM orders WHERE id = ?").get(id2).delivered_on === "2026-09-27" && mails.length === 0, "correction: delivered on a past day, no email");
   ok(today >= "2026-09-27", "(sanity) the test's dates are in the past");
+}
+
+/* ── 2b. Marked as paid: a checkout whose payment failed, paid by UPI ── */
+{
+  const now = Math.floor(Date.now() / 1000);
+  /* No. 12: someone opened checkout (held, the ten minutes long over), the card failed, they paid on GPay. */
+  DB.raw.prepare("UPDATE pieces SET status = 'held', held_by = 'someone', held_until = ? WHERE number = 12").run(Date.now() - 3600000);
+  KV.store.set("ship:order_N12aBcDe9", JSON.stringify({ src: "checkout", name: "Meera Iyer", line1: "4 Lake Road", city: "Chennai", state: "Tamil Nadu", pin: "600001", buyer: { name: "Meera Iyer", email: "meera@example.com", phone: "+919840000012" } }));
+  openOrders = [{ id: "order_N12aBcDe9", status: "attempted", amount: 599900, created_at: now - 600, notes: { kaal_no: "12" } }];
+  let r = await call("GET", "/desk/data");
+  ok(r.j.ok && r.j.unfinished.some(u => u.orderId === "order_N12aBcDe9"), "mark paid: before, the checkout is in Nearly bought");
+  r = await call("GET", "/control/api/orders/prefill?n=12&rzp=order_N12aBcDe9");
+  ok(r.j.ok && r.j.free === true && r.j.buyer.name === "Meera Iyer" && r.j.buyer.line1 === "4 Lake Road" && r.j.buyer.email === "meera@example.com" && r.j.price === 599900,
+    "mark paid: the sheet starts from what they gave at checkout, and No. 12 is free to sell (held, but the hold is long over)");
+  r = await call("POST", "/control/api/orders/paid", { n: 12, name: "Meera Iyer", rzp: "order_N12aBcDe9" });
+  ok(r.status === 400 && /email or phone/.test(r.j.why), "mark paid: refused without an email or a phone");
+  r = await call("POST", "/control/api/orders/paid", { n: 12, name: "Meera Iyer", email: "meera@example" });
+  ok(r.status === 400 && r.j.reason === "email", "mark paid: an email that is not one is said plainly");
+  r = await call("POST", "/control/api/orders/paid", { n: 12, name: "Meera Iyer", email: "meera@example.com", paid_on: "2099-01-01" });
+  ok(r.status === 400 && r.j.reason === "paid", "mark paid: not paid in the future");
+  r = await call("POST", "/control/api/orders/paid", { n: 7, name: "Someone", email: "s@example.com" });
+  ok(r.status === 409 && /already has an order/.test(r.j.why), "mark paid: refused for a number with a live order, and says which");
+  mails.length = 0;
+  r = await call("POST", "/control/api/orders/paid", { n: 12, name: "Meera Iyer", email: "Meera@Example.com", phone: "98400 00012", line1: "4 Lake Road", city: "Chennai", state: "Tamil Nadu", pin: "600001",
+    via: "upi", ref: "UPI 4471 2290", note: "Card failed twice; paid on GPay", rzp: "order_N12aBcDe9", send: true });
+  const o12 = r.j && r.j.ok ? DB.raw.prepare("SELECT * FROM orders WHERE id = ?").get(r.j.id) : {};
+  ok(r.j.ok && o12.status === "placed" && o12.amount_paise === 599900 && o12.paid_via === "upi" && o12.paid_ref === "UPI 4471 2290" && o12.razorpay_order_id === "order_N12aBcDe9" &&
+    /^manual:/.test(o12.razorpay_payment_id) && o12.email === "meera@example.com" && o12.phone === "919840000012" && o12.city === "Chennai",
+    "mark paid: an order at the series price, how it was paid and its reference, tied to their checkout (the old past-sale refusal of a held number is gone)");
+  ok(piece(12).status === "placed" && piece(12).order_ref === o12.id, "mark paid: No. 12 is placed with it");
+  ok(JSON.parse(KV.store.get("sold")).includes(12), "mark paid: and gone from the shop at once");
+  ok(r.j.letter === "queued" && mails.some(m => m.to.includes("meera@example.com") && /No\. 12/.test(m.subject)), "mark paid: the buyer is sent the order confirmation");
+  ok(DB.raw.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'order.paid_by_hand'").get().c === 1, "mark paid: in the audit log");
+  r = await call("GET", "/desk/data");
+  ok(!r.j.unfinished.some(u => u.orderId === "order_N12aBcDe9"), "mark paid: and out of Nearly bought");
+  r = await call("GET", "/control/api/orders");
+  ok(r.j.orders.some(o => o.number === 12 && o.paid_via === "upi" && o.paid_ref === "UPI 4471 2290"), "mark paid: Orders shows it, with how it was paid");
+  r = await call("POST", `/control/api/orders/${o12.id}/refund`, { confirm: "12" });
+  ok(r.status === 409, "mark paid: never refunded through Razorpay (the money did not come through it)");
+  const fate = await R.recordPayment(env, { series: "S01", n: 12, paymentId: "pay_N12late", orderId: "order_N12aBcDe9", amount: 599900, email: "meera@example.com", paidAt: new Date().toISOString() });
+  ok(fate.outcome === "duplicate", "mark paid: a late Razorpay payment for the same checkout is a second payment for one watch (the webhook refunds it)");
+  r = await call("POST", "/control/api/orders/paid", { n: 12, name: "Again", phone: "9811100012" });
+  ok(r.status === 409, "mark paid: never twice for one number");
+  mails.length = 0;
+  r = await call("POST", "/control/api/orders/paid", { n: 9, name: "Kept For", phone: "9811100009", via: "cash", send: true });
+  ok(r.j.ok && piece(9).status === "placed" && r.j.letter === "" && mails.length === 0, "mark paid: a number kept back (withheld) can be sold by hand; with no email, nobody is written to");
+  DB.raw.prepare("UPDATE pieces SET status = 'retired' WHERE number = 13").run();
+  r = await call("POST", "/control/api/orders/paid", { n: 13, name: "R", phone: "9811100013" });
+  ok(r.status === 409 && /retired/.test(r.j.why), "mark paid: a retired number is refused, with what to do");
+  DB.raw.prepare("UPDATE pieces SET status = 'held', held_by = 'old', held_until = ? WHERE number = 14").run(Date.now() - 3600000);
+  r = await call("POST", "/control/api/orders/manual", { n: 14, name: "Old Sale", email: "old@example.com", paid_on: "2026-09-10" });
+  ok(r.j.ok && piece(14).status === "placed", "past sale: a number left held by an abandoned checkout can be recorded now (it used to be refused)");
+  openOrders = [];
 }
 
 /* ── 3. On its own, once ── */

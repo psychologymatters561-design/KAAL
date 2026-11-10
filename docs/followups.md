@@ -4,6 +4,10 @@ Someone chooses a number, reaches checkout and stops. Three hours or more
 later (between 10 am and 8 pm India time) one note goes to them, once, ever.
 Nothing else is ever sent to them about it.
 
+**On WhatsApp:** once WhatsApp is set up, this note goes on WhatsApp
+instead of email, never both, and every one waits for your approval in
+Follow-ups first, whatever the mode below (docs/whatsapp.md).
+
 ## Who writes it
 
 Command centre, **Follow-ups**, three choices:

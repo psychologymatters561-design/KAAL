@@ -1021,20 +1021,30 @@ var FU_MODES = [["auto","Claude writes and sends"],["review","Claude drafts, I a
 LOAD.followups = function(put){ api("GET", "/control/api/followups").then(function(j){ if(!j.ok){ put(failed(j)); return; } DATA.fu = j; setBadge("followups", j.queue.length); put(RENDER.followups(j)); }); };
 RENDER.followups = function(j){
   var seg = FU_MODES.map(function(m){ return '<button data-act="fuMode" data-v="' + m[0] + '" aria-pressed="' + (j.mode === m[0]) + '">' + m[1] + "</button>"; }).join("");
-  var h = '<div class="card"><h3>Who writes the one note</h3><p class="muted small" style="margin:0 0 12px">When someone reaches checkout and stops, one note goes to them, once, ever, three hours or more later, between 10 am and 8 pm. ' +
-    "Claude writes it for that one person: from whether their number is still open, the same dial's other numbers, how many are left, and how they came to it. The offer is only the truth: the piece is unclaimed and there is one of it, seven days to send it back, two years' warranty, free delivery, help if paying went wrong. No discount, no deadline. " +
-    "Every draft is checked before it can go (no invented numbers, none of the words the house never uses, no links, no dashes); one that fails sends the standard note instead.</p>" +
-    '<div class="seg" role="group" aria-label="Who writes the note">' + seg + "</div>" +
-    '<p class="note" style="margin-bottom:0">' + (j.connected ? "Claude is connected (" + esc(j.model) + ")." : "Claude is not connected yet, so the standard note goes. To connect it: GitHub, Settings, Secrets and variables, Actions, New repository secret, name ANTHROPIC_API_KEY, paste the key from console.anthropic.com, then Actions, setup-worker, Run workflow (mode live).") +
-    (j.on ? "" : " The nearly-bought email is switched off in wrangler.toml (ABANDON_EMAIL), so nothing goes at all.") + "</p>" +
-    '<div class="row" style="margin-top:12px"><button class="btn sm" data-act="fuSample"' + (j.connected ? "" : " disabled") + ">Write a sample now</button><span class=\"muted small\">For the most recent unfinished checkout. Nothing is sent.</span></div></div>";
+  var h = "";
+  if(j.whatsapp) h += '<div class="card"><h3>WhatsApp is on</h3><p class="muted small" style="margin:0">Everyone who gave their details and stopped at payment gets the note on WhatsApp, written from their visit. Every one waits here for you: read it, change the words or the name if you like, then Approve. Nothing goes on WhatsApp without that. If WhatsApp refuses it, your same words go by email.</p></div>';
   if(j.queue.length) h += "<h2>Waiting for you<span class=\"count\">" + j.queue.length + "</span></h2>" + j.queue.map(function(q){
+    if(q.channel === "whatsapp") return '<div class="card"><div class="ohead"><b>' + esc(q.name || q.email) + '</b><span class="pill">WhatsApp</span><span class="muted small">' + esc(q.waTo || "") + '</span><span class="sp"></span>' + (q.n ? '<span class="pill gold">No. ' + pad(q.n) + "</span>" : "") + "</div>" +
+      '<p class="small faint" style="margin:6px 0 0">' + esc(q.stage || "") + " \u00b7 " + esc(String(q.draft.angle || "").replace("_", " ")) + ": " + esc(q.draft.why || "") + "</p>" +
+      (q.seen ? '<p class="note small">On the site (for you only, never sent): ' + esc(q.seen) + "</p>" : "") +
+      '<label for="ff_' + q.id + '">Their first name</label><input id="ff_' + q.id + '" value="' + esc((q.d && q.d.first) || "") + '" placeholder="there">' +
+      '<label for="fb_' + q.id + '">The message (the hello, the seven days, the only-message line and the button are fixed by the template)</label><textarea id="fb_' + q.id + '" style="min-height:140px">' + esc(q.draft.paragraphs.join(" ")) + "</textarea>" +
+      '<details style="margin-top:8px"><summary class="small muted">As they will see it</summary><div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6;margin-top:8px">' + esc(q.preview || "") + "</div></details>" +
+      '<div class="oact"><button class="btn go" data-act="fuSend" data-wa="1" data-id="' + q.id + '">Approve and send on WhatsApp</button><button class="btn ghost" data-act="fuSkip" data-id="' + q.id + '">Skip (no message, ever)</button></div></div>';
     return '<div class="card"><div class="ohead"><b>' + esc(q.name || q.email) + '</b><span class="muted small">' + esc(q.email) + '</span><span class="sp"></span>' + (q.n ? '<span class="pill gold">No. ' + pad(q.n) + "</span>" : "") + "</div>" +
       '<p class="small faint" style="margin:6px 0 0">' + esc(q.stage || "") + " \u00b7 " + esc(q.draft.angle.replace("_", " ")) + ": " + esc(q.draft.why) + "</p>" +
       '<label for="fs_' + q.id + '">Subject</label><input id="fs_' + q.id + '" value="' + esc(q.draft.subject) + '">' +
       '<label for="fb_' + q.id + '">The note (the greeting, link, signature and P.S. are added)</label><textarea id="fb_' + q.id + '" style="min-height:220px">' + esc(q.draft.paragraphs.join("\n\n")) + "</textarea>" +
       '<div class="oact"><button class="btn go" data-act="fuSend" data-id="' + q.id + '">Send it</button><button class="btn ghost" data-act="fuSkip" data-id="' + q.id + '">Skip (no note, ever)</button></div></div>';
   }).join("");
+  var modeCard = '<div class="card"><h3>Who writes the one note</h3><p class="muted small" style="margin:0 0 12px">When someone reaches checkout and stops, one note goes to them, once, ever, three hours or more later, between 10 am and 8 pm. ' +
+    "Claude writes it for that one person: from whether their number is still open, the same dial's other numbers, how many are left, and how they came to it. The offer is only the truth: the piece is unclaimed and there is one of it, seven days to send it back, two years' warranty, free delivery, help if paying went wrong. No discount, no deadline. " +
+    "Every draft is checked before it can go (no invented numbers, none of the words the house never uses, no links, no dashes); one that fails sends the standard note instead.</p>" +
+    '<div class="seg" role="group" aria-label="Who writes the note">' + seg + "</div>" +
+    '<p class="note" style="margin-bottom:0">' + (j.connected ? "Claude is connected (" + esc(j.model) + ")." : "Claude is not connected yet, so the standard note goes. To connect it: GitHub, Settings, Secrets and variables, Actions, New repository secret, name ANTHROPIC_API_KEY, paste the key from console.anthropic.com, then Actions, setup-worker, Run workflow (mode live).") +
+    (j.on ? "" : " The nearly-bought email is switched off in wrangler.toml (ABANDON_EMAIL), so nothing goes at all.") + "</p>" +
+    '<div class="row" style="margin-top:12px"><button class="btn sm" data-act="fuSample"' + (j.connected ? "" : " disabled") + ">Write a sample now</button><span class=\"muted small\">For the most recent unfinished checkout. Nothing is sent.</span></div></div>";
+  h += modeCard;
   h += "<h2>Every note that went</h2>" + (j.log.length ? '<div class="card tight list">' + j.log.map(function(x, i){
     return '<button class="lrow" data-act="fuOpen" data-i="' + i + '"><div class="t"><b>' + esc(x.name || x.email || "") + (x.n ? ' <span class="muted">No. ' + pad(x.n) + "</span>" : "") + '</b><span class="pill' + (x.status === "sent" ? " ok" : x.status === "waiting" ? " gold" : x.status === "failed" ? " bad" : "") + '">' + esc(x.status) + "</span></div>" +
       '<div class="m">' + esc(when(x.at)) + " \u00b7 " + (/^claude/.test(x.how) ? "written by Claude" + (x.angle ? ", " + esc(x.angle.replace("_", " ")) : "") : "standard note") + " \u00b7 " + esc(x.subject || "") + "</div></button>"; }).join("") + "</div>"
@@ -1871,8 +1881,12 @@ document.addEventListener("click", function(e){
       if(!j.draft && !j.standard){ say(j.why || "Could not write one just now.", true); return; }
       sheet("A sample, for " + (j.for || "a recent checkout"), (j.ok ? '<p class="note" style="margin-top:0">' + esc(j.draft.angle.replace("_", " ")) + ": " + esc(j.draft.why) + '</p><div class="card" style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + esc(j.claude) + "</div>"
         : '<p class="err">' + esc(j.why) + "</p>") + "<h2>The standard note, for comparison</h2>" + '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--mute)">' + esc(j.standard) + "</div>"); }); }
-  else if(a === "fuSend"){ var fid = el.getAttribute("data-id"); if(!confirm("Send this note now?")) return;
-    api("POST", "/control/api/followups/" + fid + "/send", { subject: $("fs_" + fid).value, body: $("fb_" + fid).value }).then(function(j){ say(j.ok ? "Sent." : (j.why || "Not sent."), !j.ok); load(); }); }
+  else if(a === "fuSend"){ var fid = el.getAttribute("data-id"), fwa = el.getAttribute("data-wa") === "1"; if(!confirm(fwa ? "Send this on WhatsApp now?" : "Send this note now?")) return;
+    var fbody = { body: $("fb_" + fid).value };
+    if($("fs_" + fid)) fbody.subject = $("fs_" + fid).value;
+    if($("ff_" + fid)) fbody.first = $("ff_" + fid).value;
+    el.disabled = true;
+    api("POST", "/control/api/followups/" + fid + "/send", fbody).then(function(j){ el.disabled = false; say(j.ok ? (j.channel === "email" ? (j.why || "Sent by email.") : "Sent.") : (j.why || "Not sent."), !j.ok); load(); }); }
   else if(a === "fuSkip"){ var sid = el.getAttribute("data-id"); if(!confirm("Skip? This person will never get the note.")) return;
     api("POST", "/control/api/followups/" + sid + "/skip", {}).then(function(j){ say(j.ok ? "Skipped." : (j.why || "Not changed."), !j.ok); load(); }); }
   else if(a === "fuOpen"){ var x = DATA.fu.log[+el.getAttribute("data-i")]; sheet(x.subject || "Follow-up", '<p class="muted small" style="margin-top:0">' + esc(when(x.at)) + " \u00b7 " + esc(x.email || "") + " \u00b7 " + esc(x.how || "") + "</p>" + (x.why ? '<p class="note">' + esc(x.why) + "</p>" : "") + '<div class="card" style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + esc(x.text || "") + "</div>"); }

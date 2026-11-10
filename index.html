@@ -2495,7 +2495,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
           <p class="det-msg" id="detMsg" role="alert"></p>
           <button class="buy" type="submit" id="detGo">Continue to payment</button>
           <button class="det-back" type="button" id="detBack">Back</button>
-          <p class="det-note">Used to deliver this watch and to reach you about this order, and kept with what you looked at on this site. If the payment does not go through, they are deleted after 90 days. <a href="legal.html#privacy">Privacy</a></p>
+          <p class="det-note">Used to deliver this watch and to reach you about this order, by email or WhatsApp, and kept with what you looked at on this site. If the payment does not go through, they are deleted after 90 days. <a href="legal.html#privacy">Privacy</a></p>
         </form>
       </dialog>
       <ul class="assure">
@@ -5051,8 +5051,12 @@ paintCtx();
 /* ── #nX. A link that names a number opens the twenty on it: the email
       that says "it is here: thekaal.co/#n7" has to land on 07 and nowhere
       else. A number that has gone since opens its dial instead. ────── */
+var qsNUsed = false;
 function fromHash(){
-  var m = /^#n(\d{1,2})$/.exec(location.hash || "");
+  /* ?n=7 too, on arrival only: WhatsApp's button can add to a link's
+     end, not its #. A later #twenty or #choose must not jump back to it. */
+  var m = /^#n(\d{1,2})$/.exec(location.hash || "") || (!qsNUsed && /^(\d{1,2})$/.exec(qs.get("n") || ""));
+  qsNUsed = true;
   if(!m) return;
   var n = parseInt(m[1], 10);
   if(!n || n < 1 || n > KAAL.edition) return;

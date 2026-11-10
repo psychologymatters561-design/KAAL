@@ -74,6 +74,10 @@ jobs:
           DESK_PASSCODE: ${{ secrets.DESK_PASSCODE }}
           META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_ID: ${{ secrets.WHATSAPP_PHONE_ID }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
           SHIPROCKET_TOKEN: ${{ secrets.SHIPROCKET_TOKEN }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}

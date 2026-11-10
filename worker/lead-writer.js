@@ -141,6 +141,53 @@ export function check(w, d) {
 
 /* One call. { ok, draft, usage } or { ok:false, why }, and never throws. */
 export async function writeNote(env, d) {
+  const r = await ask(env, SYSTEM, SCHEMA, "Write the note. The facts, as JSON:\n" + JSON.stringify(factsFor(d), null, 2));
+  if (!r.ok) return r;
+  const problems = check(r.draft, d);
+  if (problems.length) return { ok: false, why: "failed the check: " + problems.slice(0, 4).join("; "), draft: r.draft };
+  return r;
+}
+
+/* ── The same note, as one WhatsApp message (worker/whatsapp.js) ──
+
+   WhatsApp lets a business write first only in words Meta approved in
+   advance (a template), with blanks filled in at send time. KAAL's
+   template fixes the greeting, the offer, the "only time" line and the
+   button; Claude writes the one blank in the middle, a single short
+   paragraph. Same facts, same rules, same check as the email. */
+const WA_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["line", "angle", "why"],
+  properties: {
+    line: { type: "string", description: "One paragraph, two or three short sentences, under 320 characters. No line breaks. No greeting, no sign-off, no links." },
+    angle: SCHEMA.properties.angle,
+    why: SCHEMA.properties.why
+  }
+};
+const WA_SYSTEM = SYSTEM.replace("You write one short email", "You write the middle of one short WhatsApp message") +
+  `
+
+This is WhatsApp, not email: one paragraph, two or three sentences, under 320 characters, no line breaks. The message around it already says hello with their first name, says this is KAAL, lists the seven days, the two years and the free delivery, says this is the only message about it, and carries the one button. So do not repeat those; say only the one thing that is theirs: the number they chose and the one reason that fits them.`;
+
+/* { ok, line, angle, why } or { ok:false, why }, and never throws. */
+export async function writeWaLine(env, d) {
+  const r = await ask(env, WA_SYSTEM, WA_SCHEMA, "Write the line. The facts, as JSON:\n" + JSON.stringify(factsFor(d), null, 2));
+  if (!r.ok) return r;
+  const problems = checkWaLine(r.draft, d);
+  if (problems.length) return { ok: false, why: "failed the check: " + problems.slice(0, 4).join("; "), draft: r.draft };
+  return Object.assign({}, r, { line: r.draft.line.trim() });
+}
+/* The email's check, on a one-paragraph message, plus WhatsApp's own:
+   no line breaks, nothing a template blank refuses, short. */
+export function checkWaLine(w, d) {
+  if (!w || typeof w.line !== "string") return ["no line"];
+  const bad = check({ subject: "WhatsApp", preheader: "", button: "Take it", paragraphs: [w.line] }, d);
+  if (/[\r\n\t]| {4,}/.test(w.line)) bad.push("line breaks");
+  if (w.line.trim().length > 420) bad.push("too long for WhatsApp");
+  return [...new Set(bad)];
+}
+
+async function ask(env, system, schema, content) {
   if (!env.ANTHROPIC_API_KEY) return { ok: false, why: "no key" };
   let res, j;
   try {
@@ -158,9 +205,9 @@ export async function writeNote(env, d) {
         model: env.WRITER_MODEL || WRITER_MODEL,
         max_tokens: 8000,
         fallbacks: "default",
-        system: SYSTEM,
-        output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
-        messages: [{ role: "user", content: "Write the note. The facts, as JSON:\n" + JSON.stringify(factsFor(d), null, 2) }]
+        system,
+        output_config: { effort: "medium", format: { type: "json_schema", schema } },
+        messages: [{ role: "user", content }]
       })
     });
     j = await res.json().catch(() => null);
@@ -174,8 +221,6 @@ export async function writeNote(env, d) {
   const block = (j.content || []).filter(b => b.type === "text").pop();
   let draft;
   try { draft = JSON.parse(block ? block.text : ""); } catch (e) { return { ok: false, why: "not JSON" }; }
-  const problems = check(draft, d);
-  if (problems.length) return { ok: false, why: "failed the check: " + problems.slice(0, 4).join("; "), draft };
   return { ok: true, draft, model: j.model, usage: j.usage || null };
 }
 

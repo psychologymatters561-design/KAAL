@@ -70,3 +70,6 @@ jobs:
 
       - name: Test the command centre's controls (sale switch, paid recording, phone alerts, activity)
         run: node --no-warnings tools/test-command.mjs
+
+      - name: Test the nearly-bought note on WhatsApp (the tick, the template, the fallback email, the webhook, stop)
+        run: node --no-warnings tools/test-whatsapp.mjs

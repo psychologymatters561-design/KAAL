@@ -1019,9 +1019,39 @@ setInterval(function(){
    that went, word for word. */
 var FU_MODES = [["auto","Claude writes and sends"],["review","Claude drafts, I approve"],["standard","The standard note only"]];
 LOAD.followups = function(put){ api("GET", "/control/api/followups").then(function(j){ if(!j.ok){ put(failed(j)); return; } DATA.fu = j; setBadge("followups", j.queue.length); put(RENDER.followups(j)); }); };
+/* The WhatsApp connection, step by step, with the button for each step
+   the worker can do itself (worker/whatsapp.js, waConnection). */
+AFTER.followups = function(){ waConnLoad(); };
+function waConnLoad(){
+  var box = $("waConn"); if(!box) return;
+  box.innerHTML = '<div class="card"><h3>WhatsApp connection</h3><p class="muted small" style="margin:0">Checking with Meta\u2026</p></div>';
+  api("GET", "/control/api/followups/wa").then(function(j){ if($("waConn")) $("waConn").innerHTML = waConnHtml(j); });
+}
+function waConnHtml(j){
+  if(!j || !j.ok) return '<div class="card"><h3>WhatsApp connection</h3><p class="muted small">' + esc((j && j.why) || "Could not check just now.") + '</p><button class="btn sm" data-act="waCheck">Check again</button></div>';
+  var h = '<div class="card"><h3>WhatsApp connection' + (j.ready ? ' <span class="pill gold">Connected</span>' : "") + '</h3><p class="muted small" style="margin:0 0 8px">' + esc(j.number || "") +
+    (j.ready ? ": every step is done. Messages wait below for your approval." : ": do the first step that is not ticked, then press Check again.") + "</p>";
+  var first = true;
+  h += j.steps.map(function(st){
+    var act = "";
+    if(!st.done && first){
+      if(st.action === "verify") act = '<div class="oact"><button class="btn sm" data-act="waSend">Send code by SMS</button><input id="waCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="max-width:140px"><button class="btn sm go" data-act="waVerify">Verify</button></div>';
+      else if(st.action === "register") act = '<div class="oact"><input id="waPin" inputmode="numeric" maxlength="6" placeholder="choose a 6-digit PIN" style="max-width:190px"><button class="btn sm go" data-act="waRegister">Register</button></div>';
+      else if(st.action === "replies") act = '<div class="oact"><button class="btn sm go" data-act="waReplies">Connect replies</button></div>';
+      else if(st.action === "template") act = '<div class="oact"><button class="btn sm go" data-act="waTemplate">Create template</button></div>';
+    }
+    if(!st.done) first = false;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line,rgba(255,255,255,.08))"><span aria-hidden="true" style="flex:none;width:1.2em">' + (st.done ? "\u2713" : "\u25cb") + '</span><div style="flex:1"><b class="small">' + esc(st.title) + '</b><p class="muted small" style="margin:2px 0 0">' + esc(st.detail || "") + "</p>" + act + "</div></div>";
+  }).join("");
+  return h + '<div class="oact"><button class="btn sm ghost" data-act="waCheck">Check again</button></div></div>';
+}
+function waDo(path, body, el){
+  if(el) el.disabled = true;
+  api("POST", "/control/api/followups/wa/" + path, body || {}).then(function(j){ if(el) el.disabled = false; say((j && j.why) || (j && j.ok ? "Done." : "Not done."), !(j && j.ok)); if(path !== "verify-send") waConnLoad(); });
+}
 RENDER.followups = function(j){
   var seg = FU_MODES.map(function(m){ return '<button data-act="fuMode" data-v="' + m[0] + '" aria-pressed="' + (j.mode === m[0]) + '">' + m[1] + "</button>"; }).join("");
-  var h = "";
+  var h = '<div id="waConn"></div>';
   if(j.whatsapp) h += '<div class="card"><h3>WhatsApp is on</h3><p class="muted small" style="margin:0">Everyone who gave their details and stopped at payment gets the note on WhatsApp, written from their visit. Every one waits here for you: read it, change the words or the name if you like, then Approve. Nothing goes on WhatsApp without that. If WhatsApp refuses it, your same words go by email.</p></div>';
   if(j.queue.length) h += "<h2>Waiting for you<span class=\"count\">" + j.queue.length + "</span></h2>" + j.queue.map(function(q){
     if(q.channel === "whatsapp") return '<div class="card"><div class="ohead"><b>' + esc(q.name || q.email) + '</b><span class="pill">WhatsApp</span><span class="muted small">' + esc(q.waTo || "") + '</span><span class="sp"></span>' + (q.n ? '<span class="pill gold">No. ' + pad(q.n) + "</span>" : "") + "</div>" +
@@ -1887,6 +1917,12 @@ document.addEventListener("click", function(e){
     if($("ff_" + fid)) fbody.first = $("ff_" + fid).value;
     el.disabled = true;
     api("POST", "/control/api/followups/" + fid + "/send", fbody).then(function(j){ el.disabled = false; say(j.ok ? (j.channel === "email" ? (j.why || "Sent by email.") : "Sent.") : (j.why || "Not sent."), !j.ok); load(); }); }
+  else if(a === "waCheck") waConnLoad();
+  else if(a === "waSend") waDo("verify-send", {}, el);
+  else if(a === "waVerify") waDo("verify-code", { code: ($("waCode") || {}).value || "" }, el);
+  else if(a === "waRegister"){ var pin = ($("waPin") || {}).value || ""; if(!/^\d{6}$/.test(pin)){ say("Choose exactly 6 digits for the PIN.", true); return; } if(!confirm("Register the number with PIN " + pin + "? Write the PIN down.")) return; waDo("register", { pin: pin }, el); }
+  else if(a === "waReplies") waDo("replies", {}, el);
+  else if(a === "waTemplate") waDo("template", {}, el);
   else if(a === "fuSkip"){ var sid = el.getAttribute("data-id"); if(!confirm("Skip? This person will never get the note.")) return;
     api("POST", "/control/api/followups/" + sid + "/skip", {}).then(function(j){ say(j.ok ? "Skipped." : (j.why || "Not changed."), !j.ok); load(); }); }
   else if(a === "fuOpen"){ var x = DATA.fu.log[+el.getAttribute("data-i")]; sheet(x.subject || "Follow-up", '<p class="muted small" style="margin-top:0">' + esc(when(x.at)) + " \u00b7 " + esc(x.email || "") + " \u00b7 " + esc(x.how || "") + "</p>" + (x.why ? '<p class="note">' + esc(x.why) + "</p>" : "") + '<div class="card" style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + esc(x.text || "") + "</div>"); }

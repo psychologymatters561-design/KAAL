@@ -93,7 +93,7 @@ import { buyerDuplicate, ownerDuplicate, esc, actName, inWords, waNumber } from 
 import { control } from "./control.js";
 import { notifyOwner } from "./push.js";
 import { writeNote, writeWaLine, WRITER_MODEL } from "./lead-writer.js";
-import { waOn, waWebhook, waStopped, sendNearlyWa, waStandardLine, waPreview, rememberPhone, rememberSent } from "./whatsapp.js";
+import { waOn, waReady, waConnection, waFix, waWebhook, waStopped, sendNearlyWa, waStandardLine, waPreview, rememberPhone, rememberSent } from "./whatsapp.js";
 import { writtenNote } from "./mail.js";
 import { flushOutbox } from "./outbox.js";
 import { queuePlaced, queueAddressAsk } from "./orders.js";
@@ -2100,7 +2100,8 @@ async function nearlyRound(R) {
     /* WhatsApp (worker/whatsapp.js): written here from their visit, then it
        WAITS for the owner, always, whatever the mode: nothing goes on
        WhatsApp until he reads it, edits it if he likes, and presses Send. */
-    const waTo = waOn(env) && u.waPhone && !(await waStopped(env, u.waPhone)) ? u.waPhone : "";
+    if (R.waPid === undefined) R.waPid = await waReady(env);
+    const waTo = R.waPid && u.waPhone && !(await waStopped(env, u.waPhone)) ? u.waPhone : "";
     if (waTo) {
       const hash = once.slice(7);
       if (await env.KAAL_STATE.get("fuq:" + hash).catch(() => null)) continue;   // already waiting for him
@@ -2201,8 +2202,12 @@ async function followupsApi(env, method, sub, b) {
     const [mode, log, list] = await Promise.all([followMode(env), K.get("fu:log", "json").catch(() => null), K.list({ prefix: "fuq:" }).catch(() => ({ keys: [] }))]);
     const queue = (await Promise.all((list.keys || []).slice(0, 30).map(k => K.get(k.name, "json").catch(() => null)))).filter(Boolean)
       .map(q => Object.assign({}, q, { preview: q.channel === "whatsapp" ? waPreview(q.d, q.draft.paragraphs.join(" "), siteUrl(env)) : writtenNote(q.d, q.draft).text }));
-    return { http: 200, body: { ok: true, mode, connected: !!env.ANTHROPIC_API_KEY, model: env.WRITER_MODEL || WRITER_MODEL, on: env.ABANDON_EMAIL === "on", whatsapp: waOn(env), queue, log: log || [] } };
+    return { http: 200, body: { ok: true, mode, connected: !!env.ANTHROPIC_API_KEY, model: env.WRITER_MODEL || WRITER_MODEL, on: env.ABANDON_EMAIL === "on", whatsapp: !!(await waReady(env)), queue, log: log || [] } };
   }
+  /* The WhatsApp connection check and its buttons (worker/whatsapp.js). */
+  if (sub === "wa" && method === "GET") return { http: 200, body: await waConnection(env, siteUrl(env), workerUrl(env)) };
+  const fx = /^wa\/(verify-send|verify-code|register|replies|template)$/.exec(sub || "");
+  if (fx && method === "POST") { const r = await waFix(env, fx[1], b, workerUrl(env)); return { http: r.ok ? 200 : 409, body: r }; }
   if (method !== "POST") return { http: 404, body: { ok: false } };
   if (sub === "mode") {
     if (FOLLOW_MODES.indexOf(b.mode) < 0) return { http: 400, body: { ok: false, why: "Unknown mode." } };
@@ -2264,7 +2269,7 @@ async function followupsApi(env, method, sub, b) {
    and it comes back to him to read again, because "still unclaimed" and
    "eight are left" have to be true when it lands. */
 async function approveWa(env, K, hash, once, q, draft, b) {
-  if (!waOn(env)) return { http: 409, body: { ok: false, why: "WhatsApp is not set up on the worker yet (docs/whatsapp.md). Nothing was sent." } };
+  if (!(await waReady(env))) return { http: 409, body: { ok: false, why: "WhatsApp is not connected yet (Follow-ups, WhatsApp connection). Nothing was sent." } };
   const now = Math.floor(Date.now() / 1000);
   const pays = await listPayments(env, now - PAID_DAYS * 86400, now, 2000);
   if (!pays) return { http: 502, body: { ok: false, why: "Razorpay did not answer, so it could not be checked that they have not paid since. Try again in a minute." } };

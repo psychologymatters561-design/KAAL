@@ -139,7 +139,7 @@ export async function control(request, env, ctx, path, T) {
     if ((route === "/followups" || route.startsWith("/followups/")) && T.followups) {
       const sub = route.slice("/followups".length).replace(/^\//, ""), b = method === "POST" ? (await body(request) || {}) : {};
       const r = await T.followups(method, sub, b);
-      if (method === "POST" && r.body && r.body.ok && sub) await audit(env, actor, /\/send$/.test(sub) ? "followup.send" : /\/skip$/.test(sub) ? "followup.skip" : sub === "mode" ? "followup.mode" : "followup.sample", "followups", null, { mode: b.mode, edited: !!(b.subject || b.body) || undefined });
+      if (method === "POST" && r.body && r.body.ok && sub) await audit(env, actor, /^wa\//.test(sub) ? "whatsapp." + sub.slice(3) : /\/send$/.test(sub) ? "followup.send" : /\/skip$/.test(sub) ? "followup.skip" : sub === "mode" ? "followup.mode" : "followup.sample", "followups", null, { mode: b.mode, edited: !!(b.subject || b.body) || undefined });
       return out(r.body, r.http);
     }
     if (route.startsWith("/push/")) return pushRoute(request, env, s, actor, route.slice(6));

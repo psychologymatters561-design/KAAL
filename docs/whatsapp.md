@@ -38,115 +38,79 @@ in India (WhatsApp Manager, Billing, shows the current rate). Replies to
 someone who wrote to you in the last 24 hours are free. Claude's line costs a
 few rupees, the same as the email's.
 
-## Setting it up (once, about an hour, mostly waiting for Meta)
+## Setting it up
 
-A computer makes the Meta steps much easier than a phone.
+Most of Meta's setup is done for you by the worker. You make one app and
+one token in Meta, put three keys in GitHub, and press buttons in the
+command centre.
 
-### 1. The number
+### 1. In Meta (about 15 minutes, on a laptop)
 
-Use KAAL's number, +91 93114 16678. **If it is on the WhatsApp Business
-app:** when Meta asks while you add it (step 3), choose to **connect the
-existing WhatsApp Business app**. That way the app keeps working, the notes
-the worker sends show up in it, and you reply from your phone as you do
-now. **If it is on ordinary WhatsApp:** move it to the WhatsApp Business app
-first. Adding a number that is on ordinary WhatsApp takes it off that app.
+1. **developers.facebook.com, My Apps, Create app.** Name "KAAL Website";
+   use case **Connect with customers through WhatsApp**; portfolio **KAAL**.
+   If you already made an app with WhatsApp in its menu, use that one.
+2. In the app, **App settings, Basic**: Privacy policy URL
+   `https://thekaal.co/legal.html#privacy`, Category **Shopping**, an app
+   icon, **Save changes**. Then next to **App secret** press **Show** and
+   copy it. That is `WHATSAPP_APP_SECRET`.
+3. **business.facebook.com/settings, Users, System users, Add**:
+   `kaal-worker`, **Admin**. **Assign assets**: the app (full control) and
+   KAAL's WhatsApp account (full control). **Generate token**: the app,
+   expiry **Never**, tick `whatsapp_business_messaging` and
+   `whatsapp_business_management`. Copy it (starts with EAA). That is
+   `WHATSAPP_TOKEN`.
+4. **WhatsApp Manager (business.facebook.com/wa/manage), Payment methods**:
+   add a card, currency INR.
 
-### 2. The app
+You do not need the Phone number ID or the template screens: the worker
+finds the number from the token and makes the template itself.
 
-1. developers.facebook.com, My Apps, **Create app**. Use case: **Connect with
-   customers through WhatsApp**. Business portfolio: KAAL's (the one with the
-   Facebook Page and Instagram).
-2. In the app, **App settings, Basic**: copy the **App secret**. That is
-   `WHATSAPP_APP_SECRET`. Set the Privacy policy URL to
-   `https://thekaal.co/legal.html#privacy`.
+### 2. In GitHub (5 minutes)
 
-### 3. WhatsApp
-
-1. In the app, **WhatsApp, API Setup**, **Add phone number**: +91 93114 16678,
-   display name **KAAL** (Meta approves the name, usually within a day).
-2. Copy the **Phone number ID** (a long number, not the phone number). That is
-   `WHATSAPP_PHONE_ID`.
-3. **WhatsApp Manager, Payment methods**: add a card. Marketing messages are
-   not sent without one.
-
-### 4. A token that never expires
-
-The token on API Setup lasts 24 hours. Do not use it.
-
-business.facebook.com, **Settings, Users, System users**, **Add**: name
-`kaal-worker`, role **Admin**. **Assign assets**: the app (full control) and
-the WhatsApp account (full control). **Generate token**: the app, expiry
-**Never**, permissions `whatsapp_business_messaging` and
-`whatsapp_business_management`. Copy it. That is `WHATSAPP_TOKEN`.
-
-### 5. The template (word for word)
-
-WhatsApp Manager, **Message templates, Create template**.
-
-- Category **Marketing**, type **Default**
-- Name **kaal_nearly**
-- Language **English**
-- Header: none
-- Body, exactly this, with the blank lines:
-
-```
-Hello {{1}}, this is KAAL.
-
-{{2}}
-
-Seven days to live with it, and every rupee back if it is not for you. Two years on the movement. Delivery across India included.
-
-This is the only message we will send about it. If paying went wrong, reply here and a person will answer.
-```
-
-- Samples Meta asks for: `{{1}}` Rohan; `{{2}}` You chose No. 13, the
-  Champagne dial, and stopped at payment. It is still unclaimed, eight of the
-  twenty are left, and the design is never made again.
-- Footer: none
-- Buttons, in this order:
-  1. **Visit website**, text **See the number**, URL type **Dynamic**:
-     `https://thekaal.co/?utm_source=whatsapp&utm_medium=nearly&n={{1}}`,
-     sample `13`
-  2. **Custom** (quick reply), text **Stop**
-
-Submit. Approval usually takes minutes to a day. If you change any word, the
-worker's preview (worker/whatsapp.js, `waPreview`) should be changed to match.
-
-### 6. The four secrets
-
-GitHub, the KAAL repository, **Settings, Secrets and variables, Actions, New
-repository secret**, four times:
+Settings, Secrets and variables, Actions, New repository secret:
 
 | Name | Value |
 |---|---|
-| `WHATSAPP_TOKEN` | the never-expiring token (step 4) |
-| `WHATSAPP_PHONE_ID` | the Phone number ID (step 3) |
-| `WHATSAPP_APP_SECRET` | the App secret (step 2) |
-| `WHATSAPP_VERIFY_TOKEN` | any long text you make up, e.g. three random words and a number |
+| `WHATSAPP_TOKEN` | the EAA... token |
+| `WHATSAPP_APP_SECRET` | the App secret |
+| `WHATSAPP_VERIFY_TOKEN` | any long text you make up |
 
-Then **Actions, setup-worker, Run workflow**, mode **live**.
+Then **Actions, setup-worker, Run workflow**, mode **live**, and wait for
+the green tick.
 
-### 7. The webhook (replies, stop, failures)
+### 3. In the command centre (5 minutes)
 
-In the app, **WhatsApp, Configuration, Webhook, Edit**:
+**Follow-ups, WhatsApp connection** checks every step with Meta and shows
+the button for the next one:
 
-- Callback URL: `https://kaal-edition.kaal-edition-hq.workers.dev/wa/webhook`
-- Verify token: the same text as `WHATSAPP_VERIFY_TOKEN`
+- **Send code / Verify**: if Meta has not verified the number, a code comes
+  by SMS to it; type it in.
+- **Register**: switches the number on for sending, with a 6-digit PIN you
+  choose (write it down). A number that also runs the WhatsApp Business app
+  is already on and is left alone.
+- **Connect replies**: subscribes the app to the account and points Meta's
+  webhook at the worker, so replies and Stop come back.
+- **Create template**: sends `kaal_nearly` to Meta, word for word.
+  Approval takes minutes to a day; press **Check again**.
 
-**Verify and save**, then **Manage** and subscribe to **messages**. Finally,
-switch the app from Development to **Live** (top of the app's page). Meta
-sends real replies only to a live app.
+When every line is ticked it says **Connected**. Last, in the app at
+developers.facebook.com, switch **App mode** to **Live**.
 
-### 8. Try it on yourself
+If the number is not found, the check says which numbers the token can see:
+add 9311416678 to the WhatsApp account in WhatsApp Manager, Phone numbers,
+or give kaal-worker that account in Assign assets. If the token sees no
+account at all, add a fourth secret `WHATSAPP_WABA_ID` (WhatsApp Manager
+shows it as the WhatsApp Business Account ID).
 
-On a second phone (not KAAL's own number): choose a number, fill the
-details, open payment and close it. Three hours later (between 10 am and
-8 pm) your phone alerts you; Follow-ups shows the message waiting. Edit it,
-approve it, and it arrives on that phone. Reply "stop" to see the stop work.
-That marks the number stop, so use another for your next test.
+### 4. Try it
+
+From a second phone: choose a number, fill the details, open payment and
+close it. Three hours later (10 am to 8 pm) your phone alerts you; the
+message waits in Follow-ups. Edit it, approve it, and it arrives. Reply
+"stop" to see the stop work.
 
 ## Until Meta verifies the business
 
-An unverified business can write first to only a small number of people a
+An unverified business can write first to a limited number of people a
 day, far more than KAAL's checkouts. Business verification (Business
 settings, Security centre) lifts it. It is not needed to start.

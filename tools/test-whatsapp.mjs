@@ -16,7 +16,9 @@ import { createHmac } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import w, { Stats } from "../worker/kaal-sold-sync.js";
 import { checkWaLine } from "../worker/lead-writer.js";
-import { waStandardLine, waPreview, blank, buttonNumber } from "../worker/whatsapp.js";
+import { waStandardLine, waPreview, blank, buttonNumber, TEMPLATE_BODY } from "../worker/whatsapp.js";
+/* The template's body must read exactly as the preview the owner approves. */
+const waPreviewBodyCheck = () => { const pv = waPreview({ first: "{{1}}" }, "{{2}}"); return pv.slice(0, pv.indexOf("\n\n[See the number]")) === TEMPLATE_BODY ? TEMPLATE_BODY : "MISMATCH"; };
 import { d1, kv, ctx } from "./d1-shim.mjs";
 
 let failed = 0;
@@ -24,7 +26,7 @@ const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) failed+
 
 /* ── The world outside ── */
 const payments = [], rzpOrders = [], mails = [], graph = [], claudeCalls = [];
-let graphReply = null, claudeReply = null;
+let graphReply = null, claudeReply = null, metaApi = null;
 globalThis.fetch = async (url, init = {}) => {
   url = String(url);
   if (url.includes("api.resend.com")) { mails.push(JSON.parse(init.body)); return new Response("{}"); }
@@ -46,6 +48,7 @@ globalThis.fetch = async (url, init = {}) => {
     claudeCalls.push(JSON.parse(init.body));
     return Response.json(claudeReply);
   }
+  if (metaApi && url.includes("graph.facebook.com")) { const r = metaApi(new URL(url), init); if (r) return r; }
   if (url.includes("graph.facebook.com") || url.includes("api.github.com")) return Response.json({});
   return new Response("{}", { status: 404 });
 };
@@ -288,7 +291,83 @@ ok(qz && /You chose No\. 18/.test(qz.draft.paragraphs[0]) && !/off/.test(qz.draf
   ok(!graph.length && mails.some(m => m.to.includes("off@example.com")), "no WhatsApp keys: the email goes on its own, exactly as before");
 }
 
-/* ── 8. The page ── */
+/* ── 8. The connection check: everything found from the token alone ── */
+{
+  const M = { phone: { id: "PN777", display_phone_number: "+91 93114 16678", verified_name: "KAAL", status: "PENDING", code_verification_status: "NOT_VERIFIED", platform_type: "NOT_APPLICABLE", name_status: "APPROVED" },
+    subscribed: false, hook: null, template: null, calls: [] };
+  metaApi = (u, init) => {
+    const m = init.method || "GET", path = u.pathname.replace(/^\/v23\.0\//, "");
+    M.calls.push(m + " " + path);
+    const tok = u.searchParams.get("access_token");
+    if (path === "debug_token") return Response.json({ data: { is_valid: true, app_id: "APP555", expires_at: 0, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"],
+      granular_scopes: [{ scope: "whatsapp_business_management", target_ids: ["WABA9"] }, { scope: "whatsapp_business_messaging", target_ids: ["WABA9"] }] } });
+    if (path === "WABA9/phone_numbers") return Response.json({ data: [{ id: "PN111", display_phone_number: "+1 555 0100" }, M.phone] });
+    if (path === "WABA9/subscribed_apps" && m === "GET") return Response.json({ data: M.subscribed ? [{ whatsapp_business_api_data: { id: "APP555" } }] : [] });
+    if (path === "WABA9/subscribed_apps" && m === "POST") { M.subscribed = true; return Response.json({ success: true }); }
+    if (path === "APP555/subscriptions" && m === "GET") return tok === "APP555|appsecret" ? Response.json({ data: M.hook ? [M.hook] : [] }) : Response.json({ error: { message: "bad app token" } }, { status: 400 });
+    if (path === "APP555/subscriptions" && m === "POST") {
+      const f = new URLSearchParams(init.body);
+      if (f.get("access_token") !== "APP555|appsecret" || f.get("verify_token") !== "verify-me") return Response.json({ error: { message: "bad" } }, { status: 400 });
+      M.hook = { object: "whatsapp_business_account", active: true, callback_url: f.get("callback_url"), fields: [{ name: f.get("fields") }] };
+      return Response.json({ success: true });
+    }
+    if (path === "WABA9/message_templates" && m === "GET") return Response.json({ data: M.template ? [M.template] : [] });
+    if (path === "WABA9/message_templates" && m === "POST") { M.templateSent = JSON.parse(init.body); M.template = { name: "kaal_nearly", status: "PENDING" }; return Response.json({ id: "T1", status: "PENDING" }); }
+    if (path === "PN777/request_code") { M.codeAsked = JSON.parse(init.body); return Response.json({ success: true }); }
+    if (path === "PN777/verify_code") { if (JSON.parse(init.body).code !== "123456") return Response.json({ error: { message: "Wrong code" } }, { status: 400 }); M.phone.code_verification_status = "VERIFIED"; return Response.json({ success: true }); }
+    if (path === "PN777/register") { M.pin = JSON.parse(init.body).pin; M.phone.status = "CONNECTED"; M.phone.platform_type = "CLOUD_API"; return Response.json({ success: true }); }
+    if (path === "PN777/messages") { M.sentFrom = "PN777"; return Response.json({ messages: [{ id: "wamid.C1" }] }); }
+    return null;
+  };
+  const e3 = Object.assign({}, env); delete e3.WHATSAPP_PHONE_ID;
+  KV.store.delete("wa:phoneid");
+  let c = (await call("GET", "/control/api/followups/wa", undefined, e3)).j;
+  const st = (id) => c.steps.find(x => x.id === id) || {};
+  ok(c.ok && !c.ready && st("keys").done && st("token").done && st("number").done && /\+91 93114 16678/.test(st("number").detail), "check: from the token alone it finds the account and +91 93114 16678 among the numbers");
+  ok(KV.store.get("wa:phoneid") === "PN777", "check: and keeps its Phone number ID, so WHATSAPP_PHONE_ID is not needed");
+  ok(!st("verify").done && st("verify").action === "verify" && !st("register").done, "check: not verified, not registered: the next step is Send code");
+  let r = await call("POST", "/control/api/followups/wa/verify-send", {}, e3);
+  ok(r.j.ok && M.codeAsked && M.codeAsked.code_method === "SMS", "Send code: Meta sends the code by SMS");
+  r = await call("POST", "/control/api/followups/wa/verify-code", { code: "111111" }, e3);
+  ok(!r.j.ok && /Wrong code/.test(r.j.why), "a wrong code is refused in plain words");
+  r = await call("POST", "/control/api/followups/wa/verify-code", { code: "123 456" }, e3);
+  ok(r.j.ok, "the right code verifies it (spaces ignored)");
+  r = await call("POST", "/control/api/followups/wa/register", { pin: "12" }, e3);
+  ok(!r.j.ok && !M.pin, "Register: a PIN that is not 6 digits is refused before Meta is asked");
+  r = await call("POST", "/control/api/followups/wa/register", { pin: "424242" }, e3);
+  ok(r.j.ok && M.pin === "424242", "Register: the number is switched on with his PIN");
+  c = (await call("GET", "/control/api/followups/wa", undefined, e3)).j;
+  ok(st("verify").done && st("register").done && !st("replies").done && st("replies").action === "replies", "check: verified and registered; next, Connect replies");
+  r = await call("POST", "/control/api/followups/wa/replies", {}, e3);
+  ok(r.j.ok && M.subscribed && M.hook && M.hook.callback_url === ORIGIN + "/wa/webhook", "Connect replies: the app is subscribed to the account and the webhook points at this worker");
+  r = await call("POST", "/control/api/followups/wa/template", {}, e3);
+  ok(r.j.ok && M.templateSent.name === "kaal_nearly" && M.templateSent.category === "MARKETING" && M.templateSent.components[0].text === waPreviewBodyCheck() && M.templateSent.components[1].buttons[1].text === "Stop",
+    "Create template: kaal_nearly goes to Meta word for word, with both buttons");
+  c = (await call("GET", "/control/api/followups/wa", undefined, e3)).j;
+  ok(!c.ready && st("replies").done && /waiting for approval/.test(st("template").detail), "check: replies connected; the template waits for Meta");
+  M.template.status = "APPROVED";
+  c = (await call("GET", "/control/api/followups/wa", undefined, e3)).j;
+  ok(c.ready && c.steps.every(x => x.done), "check: every step done once Meta approves: Connected");
+  const fu = (await call("GET", "/control/api/followups", undefined, e3)).j;
+  ok(fu.whatsapp === true, "and Follow-ups says WhatsApp is on, with no WHATSAPP_PHONE_ID set");
+  /* A coexistence number (also on the Business app) is never registered again. */
+  M.pin = null; M.phone.platform_type = "CLOUD_API"; M.phone.status = "CONNECTED";
+  r = await call("POST", "/control/api/followups/wa/register", { pin: "999999" }, e3);
+  ok(r.j.ok && M.pin === null, "a number already switched on is left alone: Register does nothing");
+  /* A token that expires, or lacks a permission, is named. */
+  const save = metaApi;
+  metaApi = (u, init) => u.pathname.endsWith("/debug_token") ? Response.json({ data: { is_valid: true, app_id: "APP555", expires_at: 1790000000, scopes: ["whatsapp_business_messaging"], granular_scopes: [] } }) : save(u, init);
+  c = (await call("GET", "/control/api/followups/wa", undefined, e3)).j;
+  ok(!st("token").done && /missing whatsapp_business_management/.test(st("token").detail), "check: a token missing a permission is named");
+  metaApi = save;
+  /* No token at all: says exactly which keys are missing. */
+  const e4 = Object.assign({}, e3); delete e4.WHATSAPP_TOKEN; delete e4.WHATSAPP_APP_SECRET;
+  c = (await call("GET", "/control/api/followups/wa", undefined, e4)).j;
+  ok(!c.ready && /WHATSAPP_TOKEN, WHATSAPP_APP_SECRET/.test(c.steps[0].detail), "check: no keys: it names the missing ones");
+  metaApi = null;
+}
+
+/* ── 9. The page ── */
 {
   const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   ok(!/name="wa"/.test(page) && /reach you about this order, by email or WhatsApp/.test(page), "page: no tick; the details step says WhatsApp plainly");

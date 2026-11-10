@@ -1,10 +1,12 @@
 /* ══════════════════════════════════════════════════════════════════
    The nearly-bought note on WhatsApp (worker/whatsapp.js and section 3e
-   of kaal-sold-sync.js): who gets it (only those who ticked it), what
-   Meta is sent (the approved template, two blanks, the button's number),
-   Claude's line and its check, the email when WhatsApp refuses, the
-   webhook (Meta's handshake, the signature, "stop", replies, a message
-   that failed later), and the checkout's tick on the page.
+   of kaal-sold-sync.js): every one written from the visit and held for
+   the owner's approval; his edits; the truth checked again when he sends
+   (paid since, sold since, the count moved); what Meta is sent (the
+   approved template, two blanks, the button's number); Claude's line and
+   its check; his words by email when WhatsApp refuses; the webhook
+   (handshake, signature, "stop", replies, a message that failed later);
+   and the page.
 
      node --no-warnings tools/test-whatsapp.mjs
    Exits non-zero if anything fails. CI runs it on every pull request.
@@ -63,11 +65,22 @@ const ORIGIN = "https://kaal-edition.kaal-edition-hq.workers.dev";
 const base = {
   DB, KAAL_STATE: KV, STATS, STAGING: "", EDITION: "20", PRICE_PAISE: "599900", CURRENCY: "INR", SITE_URL: "https://thekaal.co", WORKER_URL: ORIGIN,
   ALLOW_ORIGIN: "https://thekaal.co", RAZORPAY_KEY_ID: "rzp_live_x", RAZORPAY_KEY_SECRET: "sek", RAZORPAY_WEBHOOK_SECRET: "wh", RESEND_API_KEY: "re",
-  GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", REGISTRY: "off", DIGEST: "off", ABANDON_EMAIL: "on", FOLLOW_GAP_MS: "0",
-  DIALS: '{"9":"Midnight","10":"Midnight","12":"Champagne","13":"Champagne","14":"Champagne","16":"Ivory","17":"Ivory","18":"Ivory","20":"Ivory"}'
+  GITHUB_TOKEN: "t", GITHUB_OWNER: "o", GITHUB_REPO: "r", REGISTRY: "on", ADMIN_2FA: "off", AUTH_SECRET: "a".repeat(48), DESK_PASSCODE: "brass quiet lantern 42", OWNER_OPS: "off", DIGEST: "off", ABANDON_EMAIL: "on", FOLLOW_GAP_MS: "0",
+  DIALS: '{"1":"Emerald","2":"Emerald","3":"Emerald","4":"Emerald","5":"Emerald","6":"Emerald","7":"Midnight","8":"Midnight","9":"Midnight","10":"Midnight","11":"Champagne","12":"Champagne","13":"Champagne","14":"Champagne","15":"Ivory","16":"Ivory","17":"Ivory","18":"Ivory","19":"Ivory","20":"Ivory"}'
 };
 const WA = { WHATSAPP_NEARLY: "on", WHATSAPP_TOKEN: "EAAG-test", WHATSAPP_PHONE_ID: "PHONE123", WHATSAPP_APP_SECRET: "appsecret", WHATSAPP_VERIFY_TOKEN: "verify-me" };
 const env = Object.assign({}, base, WA);
+let jar = "";
+async function call(method, path, body, e = env) {
+  const k = ctx();
+  const r = await w.fetch(new Request(ORIGIN + path, { method, headers: { "X-KAAL": "1", "X-Desk": "1", Origin: ORIGIN, Cookie: jar, "cf-connecting-ip": "203.0.113.9", "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body) }), e, k);
+  await k.done();
+  const set = r.headers.get("Set-Cookie");
+  if (set) { const c = /^kaal_s=([^;]*)/.exec(set); if (c) jar = c[1] ? "kaal_s=" + c[1] : ""; }
+  const text = await r.text(); let j = null; try { j = JSON.parse(text); } catch (x) { j = null; }
+  return { status: r.status, j, text };
+}
 async function cron(e = env) { const k = ctx(); await w.scheduled({ cron: "*/30 * * * *" }, e, k); await k.done(); }
 async function hookWa(payload, opts = {}) {
   const raw = JSON.stringify(payload);
@@ -80,7 +93,7 @@ async function hookWa(payload, opts = {}) {
 const inbound = (from, msg) => ({ object: "whatsapp_business_account", entry: [{ id: "WABA", changes: [{ field: "messages", value: {
   messaging_product: "whatsapp", metadata: { phone_number_id: "PHONE123" }, contacts: [{ wa_id: from, profile: { name: "Rohan" } }], messages: [Object.assign({ from, id: "wamid.IN" + Math.random(), timestamp: "1" }, msg)] } }] }] });
 
-KV.store.set("sold", "[1,2,3,4,5,6,7,8,11,15,19]");      /* nine left: 09 10 12 13 14 16 17 18 20 */
+KV.store.set("sold", "[1,2,3,4,5,6,7,8,11,15,19]");      /* with No. 09 withheld in the registry (as live): eight left */
 const T0 = Date.parse("2026-11-10T08:00:00Z");            /* 1:30 pm in India */
 const realNow = Date.now;
 Date.now = () => T0;
@@ -107,99 +120,181 @@ function checkout(id, n, h, who, pay) {
   ok(/^Hello Rohan, this is KAAL\.\n\n/.test(waPreview(d, line)) && /n=13/.test(waPreview(d, line)), "preview: reads as the buyer will see it, with the button to No. 13");
 }
 
-/* ── 2. Through the real run ── */
-checkout("order_WaTick13aa", 13, 4, { name: "rohan mehta", phone: "9810012345", email: "rohan@example.com", wa: "2026-11-10T03:00:00Z" });
-checkout("order_NoTick14aa", 14, 4, { name: "Sana Kapoor", phone: "9810054321", email: "sana@example.com" });
-checkout("order_WaTick16aa", 16, 1, { name: "Too Soon", phone: "9810011111", email: "soon@example.com", wa: "2026-11-10T07:00:00Z" });
+/* ── 2. Through the real run: written, then held for the owner ── */
+{
+  const r = await call("POST", "/auth/passcode", { passcode: "brass quiet lantern 42" });
+  ok(r.j && r.j.ok && jar, "sign-in: the owner's passcode opens the command centre");
+}
+const queue = async (e = env) => (await call("GET", "/control/api/followups", undefined, e)).j;
+const qFor = (j, n) => j.queue.find(q => q.n === n);
+const send = (id, body, e = env) => call("POST", "/control/api/followups/" + id + "/send", body || {}, e);
+
+checkout("order_Wa13aaaaaa", 13, 4, { name: "rohan mehta", phone: "9810012345", email: "rohan@example.com" });
+checkout("order_Wa16aaaaaa", 16, 1, { name: "Too Soon", phone: "9810011111", email: "soon@example.com" });
 await cron();
-const g13 = graph.find(x => x.body.to === "919810012345");
-ok(g13 && g13.headers.authorization === "Bearer EAAG-test" && g13.body.type === "template" && g13.body.template.name === "kaal_nearly" && g13.body.template.language.code === "en",
-  "WhatsApp: the approved template, to +91 and the ten digits they typed, with the token");
-const params = g13 ? g13.body.template.components : [];
-ok(params[0].parameters[0].text === "Rohan" && /You chose No\. 13/.test(params[0].parameters[1].text) && params[1].sub_type === "url" && params[1].parameters[0].text === "13" && params[2].parameters[0].payload === "STOP",
-  "WhatsApp: first name in title case, the line, the button on No. 13, and the Stop button");
-ok(!mails.some(m => m.to.includes("rohan@example.com")), "WhatsApp: one note, never both: no email to the person who got WhatsApp");
-ok(mails.some(m => m.to.includes("sana@example.com")) && !graph.some(x => x.body.to === "919810054321"), "no tick, no WhatsApp: the email goes, as before");
-ok(!graph.some(x => x.body.to === "919810011111") && !mails.some(m => m.to.includes("soon@example.com")), "under three hours: nothing yet, either way");
+let j = await queue();
+let q13 = qFor(j, 13);
+ok(!graph.length && !mails.some(m => /rohan@/.test(m.to.join())), "nothing goes on its own: no WhatsApp, no email");
+ok(j.whatsapp === true && q13 && q13.channel === "whatsapp" && q13.waTo === "9810012345" && q13.d.first === "Rohan" && /You chose No\. 13/.test(q13.draft.paragraphs[0]),
+  "the note is written and waits in Follow-ups, marked WhatsApp, with their phone and first name");
+ok(/^Hello Rohan, this is KAAL\.\n\nYou chose No\. 13/.test(q13.preview) && /n=13\n\[Stop\]$/.test(q13.preview), "the owner sees it exactly as they will, button and Stop included");
+ok(!qFor(j, 16), "under three hours: not yet");
+ok(/1 WhatsApp message is written and waiting for your approval/.test(JSON.parse(KV.store.get("followrun")).msg), "the command centre's Health line says one is waiting for approval");
 let log = JSON.parse(KV.store.get("fu:log"));
-ok(log.some(l => l.channel === "whatsapp" && l.status === "sent" && /Hello Rohan, this is KAAL/.test(l.text)), "the command centre's log shows the WhatsApp note, word for word");
-graph.length = 0; mails.length = 0;
+ok(log[0].status === "waiting" && log[0].channel === "whatsapp", "the log says it is waiting for you");
+graph.length = 0;
 await cron();
-ok(!graph.length && !mails.some(m => /rohan@|sana@/.test(m.to.join())), "once, ever: the next run sends nothing to either");
+j = await queue();
+ok(j.queue.filter(q => q.n === 13).length === 1 && !graph.length, "the next run neither repeats it nor sends it");
 
-/* ── 3. WhatsApp refuses: the email goes instead, at once ── */
-checkout("order_WaTick17aa", 17, 5, { name: "Neel", phone: "9810022222", email: "neel@example.com", wa: "2026-11-10T02:00:00Z" });
+/* The owner edits the words and the name, and approves. */
+let r = await send(q13.id, { body: "Rohan sir, No. 13 is still here.\n\nThe Champagne dial, one of one.", first: "Mr. Mehta" });
+const g13 = graph.find(x => x.body.to === "919810012345");
+ok(r.j.ok && r.j.channel === "whatsapp" && g13 && g13.headers.authorization === "Bearer EAAG-test" && g13.body.template.name === "kaal_nearly" && g13.body.template.language.code === "en",
+  "Approve: the approved template goes to +91 and the ten digits they typed, with the token");
+const p13 = g13 ? g13.body.template.components : [];
+ok(p13[0].parameters[0].text === "Mr. Mehta" && p13[0].parameters[1].text === "Rohan sir, No. 13 is still here. The Champagne dial, one of one." && p13[1].parameters[0].text === "13" && p13[2].parameters[0].payload === "STOP",
+  "his edits go as he wrote them: his name, his words on one line, the button on No. 13, the Stop button");
+ok(!mails.some(m => /rohan@/.test(m.to.join())), "one message, never both: no email to Rohan");
+j = await queue();
+ok(!qFor(j, 13) && j.log[0].status === "sent" && j.log[0].channel === "whatsapp" && /Hello Mr\. Mehta, this is KAAL\.\n\nRohan sir/.test(j.log[0].text), "it leaves the queue, and the log keeps it word for word");
+r = await send(q13.id, {});
+ok(r.status === 404 && graph.filter(x => x.body.to === "919810012345").length === 1, "it cannot be sent twice");
+graph.length = 0;
+await cron();
+ok(!graph.length && !qFor(await queue(), 13), "once, ever: never written again");
+
+/* Skip */
+checkout("order_Wa14aaaaaa", 14, 4, { name: "Sana Kapoor", phone: "9810054321", email: "sana@example.com" });
+await cron();
+let q14 = qFor(await queue(), 14);
+r = await call("POST", "/control/api/followups/" + q14.id + "/skip", {});
+await cron();
+ok(r.j.ok && !graph.length && !mails.some(m => /sana@/.test(m.to.join())) && !qFor(await queue(), 14), "Skip: no message to her, ever, by either way");
+
+/* ── 3. The truth, checked again when he presses Send ── */
+checkout("order_Wa17aaaaaa", 17, 5, { name: "Neel", phone: "9810022222", email: "neel@example.com" });
+checkout("order_Wa18aaaaaa", 18, 5, { name: "Ira", phone: "9810033333", email: "ira@example.com" });
+checkout("order_Wa20aaaaaa", 20, 5, { name: "Om", phone: "9810055555", email: "om@example.com" });
+await cron();
+j = await queue();
+const q17 = qFor(j, 17), q18 = qFor(j, 18), q20 = qFor(j, 20);
+ok(q17 && q18 && q20 && /eight of the twenty are left/.test(q17.draft.paragraphs[0]), "three waiting, each stating the count as it was");
+/* No. 17 sells to someone else; then one more piece sells. */
+KV.store.set("sold", "[1,2,3,4,5,6,7,8,11,15,17,19]");
+graph.length = 0;
+r = await send(q17.id, {});
+ok(r.status === 409 && r.j.refreshed && /No\. 17 has sold since/.test(r.j.why) && !graph.length, "sold since: nothing goes; he is told why");
+const q17b = qFor(await queue(), 17);
+ok(q17b && /someone else completed it/.test(q17b.draft.paragraphs[0]) && /No\. 16, No\. 18 and No\. 20 still carry it/.test(q17b.draft.paragraphs[0]) && /seven are left/.test(q17b.draft.paragraphs[0]),
+  "and the draft is rewritten with today's facts: sold, the same dial's open numbers, the new count");
+r = await send(q17.id, {});
+const g17 = graph.find(x => x.body.to === "919810022222");
+ok(r.j.ok && g17 && g17.body.template.components[1].parameters[0].text === "16", "sent on his second look; the button opens the lowest open Ivory, No. 16");
+r = await send(q18.id, {});
+ok(r.status === 409 && /7 are left now/.test(r.j.why) && /seven of the twenty/.test(qFor(await queue(), 18).draft.paragraphs[0]), "the count moved and the words state it: rewritten, back to him");
+r = await send(q20.id, { body: "No. 20 is still unclaimed, the last Ivory number on the list. One of one." });
+ok(r.j.ok && graph.some(x => x.body.to === "919810055555"), "the count moved but his words do not state it: it goes as he wrote it");
+/* Their number had sold already; the words offer others of the dial, and one of those sells. */
+checkout("order_Wa19aaaaaa", 19, 5, { name: "Tara", phone: "9810013131", email: "tara@example.com" });
+await cron();
+const q19 = (await queue()).queue.find(q => q.email === "tara@example.com");
+ok(q19 && /No\. 16, No\. 18 and No\. 20 still carry it/.test(q19.draft.paragraphs[0]), "a sold number: the note offers the dial's open numbers");
+KV.store.set("sold", "[1,2,3,4,5,6,7,8,11,15,16,17,19]");
+graph.length = 0;
+r = await send(q19.id, {});
+const q19b = (await queue()).queue.find(q => q.email === "tara@example.com");
+ok(r.status === 409 && /A number it offers has sold since/.test(r.j.why) && !graph.length && /No\. 18 and No\. 20 still carry it/.test(q19b.draft.paragraphs[0]), "one of those sells: rewritten without it, back to him");
+r = await send(q19.id, {});
+ok(r.j.ok && graph.some(x => x.body.to === "919810013131" && x.body.template.components[1].parameters[0].text === "18"), "and on his second look it goes, its button on No. 18");
+
+/* Paid since */
+checkout("order_Wa12aaaaaa", 12, 5, { name: "Dev", phone: "9810077777", email: "dev@example.com" });
+await cron();
+const q12 = qFor(await queue(), 12);
+payments.push({ id: "pay_Dev12ok", order_id: "order_Wa12xxxxxx", status: "captured", email: "dev@example.com", amount: 599900, currency: "INR", created_at: ago(1), notes: {} });
+graph.length = 0;
+r = await send(q12.id, {});
+ok(r.status === 409 && /paid since/.test(r.j.why) && !graph.length && !qFor(await queue(), 12), "paid since: never sent, and cleared from the queue");
+
+/* Paid already, from the same phone under another email: never queued. */
+payments.push({ id: "pay_Twin14ok", order_id: "order_Twin14xxxx", status: "captured", email: "other@example.com", contact: "+919810012121", amount: 599900, currency: "INR", created_at: ago(2), notes: {} });
+checkout("order_Wa14bbbbbb", 14, 4, { name: "Twin", phone: "98100 12121", email: "twin@example.com" });
+await cron();
+ok(!(await queue()).queue.some(q => q.email === "twin@example.com"), "paid from the same phone under another email: nothing is written for them");
+
+/* ── 4. WhatsApp refuses: his words go by email ── */
+checkout("order_Wa09aaaaaa", 9, 4, { name: "Kabir", phone: "9810044444", email: "kabir@example.com" });
+await cron();
+const q09 = qFor(await queue(), 9);
 graphReply = { status: 400, json: { error: { message: "Recipient phone number not in allowed list", code: 131030 } } };
-await cron();
+mails.length = 0;
+r = await send(q09.id, { body: "No. 09 is still yours to take, Kabir. The Midnight dial." });
 graphReply = null;
-ok(graph.some(x => x.body.to === "919810022222") && mails.some(m => m.to.includes("neel@example.com") && /No\. 17/.test(m.subject)), "WhatsApp refused (131030): the standard email goes instead, in the same run");
-log = JSON.parse(KV.store.get("fu:log"));
-ok(log.some(l => l.channel === "whatsapp" && l.status === "failed" && /131030/.test(l.why)), "and the log says why");
+const m09 = mails.find(m => m.to.includes("kabir@example.com"));
+ok(r.j.ok && r.j.channel === "email" && /131030/.test(r.j.why) && m09 && /No\. 09 is still yours to take, Kabir/.test(m09.text) && /P\.S\. This is the only time/.test(m09.text),
+  "WhatsApp refused (131030): his same words go by email at once, in the email's frame, and he is told");
 
-/* ── 4. Claude writes the line ── */
-checkout("order_WaTick18aa", 18, 4, { name: "Ira", phone: "+91 98100 33333", email: "ira@example.com", wa: "2026-11-10T02:00:00Z" }, { id: "pay_Ira18", status: "failed", email: "ira@example.com", error_description: "card declined" });
+/* ── 5. Claude writes the line from the visit ── */
+checkout("order_Wa10aaaaaa", 10, 4, { name: "Asha", phone: "9810066666", email: "asha@example.com" }, { id: "pay_Asha10", status: "failed", email: "asha@example.com", error_description: "card declined" });
 const e2 = Object.assign({}, env, { ANTHROPIC_API_KEY: "sk-ant-test" });
-claudeReply = { model: "claude-opus-5-5", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ line: "The card did not go through for No. 18, and the Ivory piece is still unclaimed. If you reply, a person will help you finish.", angle: "payment_help", why: "Their payment failed." }) }] };
-graph.length = 0;
+claudeReply = { model: "claude-opus-5-5", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ line: "The card did not go through for No. 10, and the Midnight piece is still unclaimed. A person can help you finish.", angle: "payment_help", why: "Their payment failed." }) }] };
 await cron(e2);
-const g18 = graph.find(x => x.body.to === "919810033333");
-ok(g18 && /The card did not go through for No\. 18/.test(g18.body.template.components[0].parameters[1].text), "Claude's line goes in the template's blank");
-ok(claudeCalls.length === 1 && /WhatsApp/.test(claudeCalls[0].system) && claudeCalls[0].output_config.format.schema.required.includes("line") && !/9810033333|ira@/.test(JSON.stringify(claudeCalls[0])),
-  "one Claude call for the WhatsApp line, and Claude is never sent their phone or email");
-checkout("order_WaTick20aa", 20, 4, { name: "Kabir", phone: "9810044444", email: "kabir@example.com", wa: "2026-11-10T02:00:00Z" });
-claudeReply = { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ line: "No. 20 is yours, 20% off, today only", angle: "still_open", why: "x" }) }] };
-graph.length = 0;
+const q10 = qFor(await queue(e2), 10);
+ok(q10 && q10.how === "claude" && /The card did not go through for No\. 10/.test(q10.draft.paragraphs[0]) && q10.draft.angle === "payment_help" && /failed/.test(q10.draft.why), "Claude's line waits for him, with its angle and why");
+ok(claudeCalls.length === 1 && /WhatsApp/.test(claudeCalls[0].system) && claudeCalls[0].output_config.format.schema.required.includes("line") && !/9810066666|asha@/.test(JSON.stringify(claudeCalls[0])),
+  "one Claude call, and Claude is never sent their phone or email");
+await call("POST", "/control/api/followups/" + q10.id + "/skip", {}, e2);
+checkout("order_Wa18bbbbbb", 18, 4, { name: "Zoya", phone: "9810088888", email: "zoya@example.com" });
+claudeReply = { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ line: "No. 18 is yours, 20% off, today only", angle: "still_open", why: "x" }) }] };
 await cron(e2);
-const g20 = graph.find(x => x.body.to === "919810044444");
-ok(g20 && /You chose No\. 20/.test(g20.body.template.components[0].parameters[1].text) && !/off/.test(g20.body.template.components[0].parameters[1].text), "a line that fails the check never goes; the standard line does");
+const qz = (await queue(e2)).queue.find(q => q.email === "zoya@example.com");
+ok(qz && /You chose No\. 18/.test(qz.draft.paragraphs[0]) && !/off/.test(qz.draft.paragraphs[0]) && /failed the check/.test(qz.draft.why), "a Claude line that fails the check is replaced by the standard line, and he is told why");
 
-/* ── 5. The webhook ── */
+/* ── 6. The webhook ── */
 {
   let k = ctx();
-  let r = await w.fetch(new Request(ORIGIN + "/wa/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=12345"), env, k);
-  ok(r.status === 200 && await r.text() === "12345", "webhook: Meta's handshake answered with the challenge");
-  r = await w.fetch(new Request(ORIGIN + "/wa/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=12345"), env, k);
-  ok(r.status === 403, "webhook: a wrong verify token is refused");
-  r = await hookWa(inbound("919810012345", { type: "text", text: { body: "stop" } }), { sig: "sha256=" + "0".repeat(64) });
-  ok(r.status === 401 && !graph.some(x => x.body.type === "text"), "webhook: a body not signed with the app secret is refused, and nothing happens");
-
+  let rr = await w.fetch(new Request(ORIGIN + "/wa/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=12345"), env, k);
+  ok(rr.status === 200 && await rr.text() === "12345", "webhook: Meta's handshake answered with the challenge");
+  rr = await w.fetch(new Request(ORIGIN + "/wa/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=12345"), env, k);
+  ok(rr.status === 403, "webhook: a wrong verify token is refused");
   graph.length = 0;
-  r = await hookWa(inbound("919810012345", { type: "button", button: { payload: "STOP", text: "Stop" } }));
-  const hash = [...KV.store.keys()].find(x => x.startsWith("nearly:") && JSON.parse(KV.store.get(x)).order === "order_WaTick13aa").slice(7);
-  ok(r.status === 200 && KV.store.has("stop:" + hash), "webhook: the Stop button marks the person stop, the same key the email and the desk keep");
-  ok(graph.some(x => x.body.type === "text" && x.body.to === "919810012345" && /will not write to you again/.test(x.body.text.body)), "webhook: and tells them so, once, in the free reply window");
+  rr = await hookWa(inbound("919810012345", { type: "text", text: { body: "stop" } }), { sig: "sha256=" + "0".repeat(64) });
+  ok(rr.status === 401 && !graph.length, "webhook: a body not signed with the app secret is refused, and nothing happens");
+  rr = await hookWa(inbound("919810012345", { type: "button", button: { payload: "STOP", text: "Stop" } }));
+  const hash = q13.id;
+  ok(rr.status === 200 && KV.store.has("stop:" + hash), "webhook: the Stop button marks the person stop, the same key the email and the desk keep");
+  ok(graph.some(x => x.body.type === "text" && x.body.to === "919810012345" && /will not write to you again/.test(x.body.text.body)), "webhook: and tells them so, once");
   graph.length = 0;
-  r = await hookWa(inbound("919810033333", { type: "text", text: { body: "Is the strap adjustable?" } }));
-  ok(r.status === 200 && !graph.length, "webhook: an ordinary reply is the owner's to answer: nothing automatic goes back");
-
-  /* Meta took the note, then could not deliver it: the email goes. */
-  checkout("order_WaTick09aa", 9, 4, { name: "Om", phone: "9810055555", email: "om@example.com", wa: "2026-11-10T02:00:00Z" });
-  graph.length = 0; mails.length = 0;
-  await cron();
-  const id = graph.find(x => x.body.to === "919810055555") && "wamid.T1";
-  ok(!!id && !mails.some(m => m.to.includes("om@example.com")), "Om's note went by WhatsApp");
-  r = await hookWa({ entry: [{ changes: [{ value: { metadata: { phone_number_id: "PHONE123" }, statuses: [{ id, status: "failed", recipient_id: "919810055555", errors: [{ code: 131049, title: "This message was not delivered to maintain healthy ecosystem engagement." }] }] } }] }] });
-  ok(r.status === 200 && mails.some(m => m.to.includes("om@example.com") && /No\. 09/.test(m.subject)), "webhook: a note Meta later could not deliver (131049) is sent by email instead");
+  rr = await hookWa(inbound("919810055555", { type: "text", text: { body: "Is the strap adjustable?" } }));
+  ok(rr.status === 200 && !graph.length, "webhook: an ordinary reply is his to answer: nothing automatic goes back");
+  /* Meta took Om's message, then could not deliver it: the email goes. */
+  const omId = [...KV.store.keys()].filter(x => x.startsWith("wamsg:")).map(x => [x.slice(6), JSON.parse(KV.store.get(x))]).find(([, v]) => v.email === "om@example.com")[0];
   mails.length = 0;
-  await hookWa({ entry: [{ changes: [{ value: { metadata: { phone_number_id: "PHONE123" }, statuses: [{ id, status: "failed", recipient_id: "919810055555", errors: [{ code: 131049 }] }] } }] }] });
+  rr = await hookWa({ entry: [{ changes: [{ value: { metadata: { phone_number_id: "PHONE123" }, statuses: [{ id: omId, status: "failed", recipient_id: "919810055555", errors: [{ code: 131049, title: "This message was not delivered to maintain healthy ecosystem engagement." }] }] } }] }] });
+  const mOm = mails.find(m => m.to.includes("om@example.com"));
+  ok(rr.status === 200 && mOm && /No\. 20 is still unclaimed, the last Ivory number/.test(mOm.text), "webhook: a message Meta later could not deliver (131049) goes by email, in his words");
+  mails.length = 0;
+  await hookWa({ entry: [{ changes: [{ value: { metadata: { phone_number_id: "PHONE123" }, statuses: [{ id: omId, status: "failed", recipient_id: "919810055555", errors: [{ code: 131049 }] }] } }] }] });
   ok(!mails.length, "webhook: and only once, however often Meta repeats it");
 }
 
-/* ── 6. Off means off ── */
+/* ── 7. Off means off; not set up means email as before ── */
 {
-  checkout("order_WaTick10aa", 10, 4, { name: "Off", phone: "9810066666", email: "off@example.com", wa: "2026-11-10T02:00:00Z" });
+  checkout("order_Wa18cccccc", 18, 4, { name: "Off", phone: "9810099999", email: "off@example.com" });
   graph.length = 0; mails.length = 0;
-  await cron(Object.assign({}, env, { WHATSAPP_NEARLY: "off" }));
-  ok(!graph.length && mails.some(m => m.to.includes("off@example.com")), "WHATSAPP_NEARLY off: email, as before, even for someone who ticked it");
+  const off = Object.assign({}, base, { ADMIN_2FA: "off", AUTH_SECRET: "a".repeat(48), DESK_PASSCODE: "brass quiet lantern 42" });
+  await cron(off);
+  ok(!graph.length && mails.some(m => m.to.includes("off@example.com")), "no WhatsApp keys: the email goes on its own, exactly as before");
 }
 
-/* ── 7. The page: the tick is there, unticked, and ?n= lands on the number ── */
+/* ── 8. The page ── */
 {
   const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  const tick = /<input name="wa" type="checkbox"[^>]*>/.exec(page);
-  ok(tick && !/checked/.test(tick[0]) && /KAAL may send one WhatsApp message about this number/.test(page), "page: the WhatsApp tick is on the details step, unticked, in plain words");
-  ok(/b\.wa = !!\(f\.wa && f\.wa\.checked\);/.test(page), "page: the tick goes with the details to /order");
+  ok(!/name="wa"/.test(page) && /reach you about this order, by email or WhatsApp/.test(page), "page: no tick; the details step says WhatsApp plainly");
   ok(/qs\.get\("n"\)/.test(page) && /qsNUsed/.test(page), "page: ?n=7 opens No. 07 on arrival, once");
+  const cp = readFileSync(new URL("../worker/control-page.js", import.meta.url), "utf8");
+  ok(/Approve and send on WhatsApp/.test(cp) && /ff_/.test(cp) && /For you only, never sent|for you only, never sent/.test(cp), "command centre: the name, the words, what they did on the site, Approve");
 }
 
 Date.now = realNow;

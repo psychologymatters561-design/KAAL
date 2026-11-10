@@ -54,11 +54,12 @@ SERIES02_EMAIL = "on"
 ARRIVAL_EMAIL  = "on"
 SETTLED_EMAIL  = "on"
 YEAR_EMAIL     = "on"
-# The nearly-bought note on WhatsApp instead of email, for someone who
-# ticked "one WhatsApp message" at checkout (worker/whatsapp.js,
-# docs/whatsapp.md). Still one note, ever; the email goes if WhatsApp
-# refuses it. Needs ABANDON_EMAIL "on" and the four WHATSAPP_ secrets;
-# until they are set it does nothing. "off" and deploy to stop it.
+# The nearly-bought note on WhatsApp instead of email (worker/whatsapp.js,
+# docs/whatsapp.md). Each one is written, then WAITS for the owner's
+# approval in Follow-ups; nothing goes on WhatsApp without it. Still one
+# note, ever; his words go by email if WhatsApp refuses it. Needs
+# ABANDON_EMAIL "on" and the four WHATSAPP_ secrets; until they are set it
+# does nothing. "off" and deploy to stop it.
 WHATSAPP_NEARLY   = "on"
 # The template Meta approved, its language, and the Graph API version.
 WHATSAPP_TEMPLATE = "kaal_nearly"

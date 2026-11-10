@@ -1,12 +1,15 @@
 /* ══════════════════════════════════════════════════════════════════
    THE NEARLY-BOUGHT NOTE, ON WHATSAPP (Meta's WhatsApp Cloud API).
 
-   Someone chose a number, gave their name and phone, reached payment and
-   stopped. If they ticked "you may send one WhatsApp message about this
-   number" in the details step, the one note (section 3e of
-   kaal-sold-sync.js) goes to their WhatsApp instead of their inbox. Still
-   one note, once, ever: never both. If WhatsApp refuses it, the email
-   goes instead, in the same run.
+   Someone chose a number, gave their name and phone on the details step
+   (under the line that says KAAL may reach them about this order by email
+   or WhatsApp), reached payment and stopped. Three hours later the worker
+   writes the one note for WhatsApp (section 3e of kaal-sold-sync.js), from
+   their visit, and it WAITS in the command centre's Follow-ups. The owner
+   reads it, edits the words or the name, and presses Approve; nothing goes
+   on WhatsApp without that. Before it goes the truth is checked again
+   (paid since, their number sold since, the count moved). Still one note,
+   once, ever: if WhatsApp refuses it, his same words go by email.
 
    WhatsApp lets a business write first only with words Meta approved in
    advance: a template. KAAL's template (docs/whatsapp.md has it, word for

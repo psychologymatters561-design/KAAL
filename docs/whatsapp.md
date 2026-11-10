@@ -1,24 +1,35 @@
 # The nearly-bought note, on WhatsApp
 
-Someone gives their details, reaches payment and stops. If they ticked
-**"KAAL may send one WhatsApp message about this number"** on the details
-step, the one note goes to their WhatsApp instead of their inbox. Same
-rules as the email (docs/followups.md): three hours after, between 10 am
-and 8 pm, once per person, ever. Claude writes the middle for that person;
-the rest is fixed.
+Someone gives their details, reaches payment and stops. Three hours later
+(between 10 am and 8 pm) the worker writes the one note for WhatsApp, from
+their visit: the number and dial they chose, whether it is still open, how
+they came to it. Then it **waits for you** in the command centre,
+**Follow-ups, Waiting for you**, and your phone gets an alert.
 
-- **One note, never both.** If WhatsApp refuses it (no WhatsApp on that
-  number, Meta's limits), the email goes instead, in the same run. If Meta
+- **Nothing goes without you.** Read it, change the words or the name
+  (write "Mr. Sharma" if you like), then **Approve and send on WhatsApp**,
+  or **Skip** (no message to them, ever). Next to it, for your eyes only:
+  what they did on the site (visits, numbers and dials looked at, the
+  engraving, minutes).
+- **The truth is checked again when you press it.** Paid since: never sent,
+  cleared. Their number sold since, or the count moved and your words
+  state the old count: the message is rewritten with today's facts and
+  comes back to you to read again.
+- **One message, never both.** If WhatsApp refuses it (no WhatsApp on that
+  number, Meta's limits), your same words go by email at once. If Meta
   takes it and reports later that it could not deliver it, the email goes
   then (within six hours, and not if they paid or said stop).
 - **"Stop"** (the button, or the word, or "band karo") stops everything,
   WhatsApp and email, and they are told so once.
 - **Any other reply** comes to your phone as an alert. Answer it yourself
   from KAAL's WhatsApp. Within 24 hours of their reply you can write freely.
-- **No tick, no WhatsApp.** The tick starts unticked. Meta's rules and
-  India's DPDP Act both need their own yes, and the worker keeps the time
-  they gave it.
+- **What the buyer is told:** the details step says their details are used
+  "to reach you about this order, by email or WhatsApp", and the Privacy
+  section names WhatsApp (Meta). Meta asks that people know a business may
+  message them on WhatsApp; this line is that notice.
 - **Off switch:** `WHATSAPP_NEARLY = "off"` in wrangler.toml, then merge.
+  Without the four `WHATSAPP_` secrets it does nothing and the email goes
+  on its own as before.
 
 ## What it costs
 
@@ -128,11 +139,11 @@ sends real replies only to a live app.
 
 ### 8. Try it on yourself
 
-On your own phone: choose a number, fill the details, **tick the WhatsApp
-box**, open payment and close it. Three hours later (between 10 am and 8 pm)
-the note arrives. The command centre's Follow-ups shows it word for word,
-marked WhatsApp. Reply "stop" to see the stop work. That marks you stop, so
-use a second number for your next test.
+On a second phone (not KAAL's own number): choose a number, fill the
+details, open payment and close it. Three hours later (between 10 am and
+8 pm) your phone alerts you; Follow-ups shows the message waiting. Edit it,
+approve it, and it arrives on that phone. Reply "stop" to see the stop work.
+That marks the number stop, so use another for your next test.
 
 ## Until Meta verifies the business
 

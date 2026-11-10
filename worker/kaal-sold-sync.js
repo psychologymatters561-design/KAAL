@@ -89,7 +89,7 @@ import { buyerConfirmation, buyerNearlyBought, nearlyWhatsApp, seriesTwoNote, af
   stepText, sourceName, deviceName } from "./mail.js";
 import { deskPage } from "./desk.js";
 import { registryOn, SERIES, HOLD_MS, holdPiece, releaseHold, unavailable, isBlocked, recordPayment, claimRefund, refundDone, refundFailed, paymentFate } from "./registry.js";
-import { buyerDuplicate, ownerDuplicate, esc, actName } from "./mail.js";
+import { buyerDuplicate, ownerDuplicate, esc, actName, inWords, waNumber } from "./mail.js";
 import { control } from "./control.js";
 import { notifyOwner } from "./push.js";
 import { writeNote, writeWaLine, WRITER_MODEL } from "./lead-writer.js";
@@ -791,10 +791,6 @@ function cleanBuyer(src) {
   const email = String(src.email || "").trim().toLowerCase().slice(0, 254);
   const who = { name: cleanField(src.name, 80), phone: String(src.phone || "").replace(/[^\d+]/g, "").slice(0, 15), email };
   if (!who.name || who.phone.replace(/\D/g, "").length < 10 || !validEmail(email)) return null;
-  /* Their own tick, "one WhatsApp message about this number" (unticked
-     by default): when they gave it, as the proof Meta and the DPDP Act ask
-     for. Without it, nothing ever goes to their WhatsApp on its own. */
-  if (src.wa === true || src.wa === "yes") who.wa = new Date().toISOString();
   const parcel = cleanAddress(Object.assign({}, src, {
     name: src.to_name ? src.to_name : src.name,
     phone: src.to_phone ? src.to_phone : src.phone
@@ -1959,7 +1955,8 @@ async function followUps(env) {
   await told(failed ? `Stopped by an error after ${R.run} sent: ${failed}`
     : R.sold === null ? "The sold list could not be read, so nothing that states a count was sent."
     : `${R.run} sent this run; ${R.count.total || 0} today${kinds ? " (" + kinds + ")" : ""}.` +
-      (R.run ? "" : ` Checked ${R.payments.length} payments and ${(R.checkouts || []).length} unpaid checkouts; nobody new was due.`), !!failed);
+      (R.queued ? ` ${R.queued} WhatsApp ${R.queued === 1 ? "message is" : "messages are"} written and waiting for your approval in Follow-ups.` : "") +
+      (R.run || R.queued ? "" : ` Checked ${R.payments.length} payments and ${(R.checkouts || []).length} unpaid checkouts; nobody new was due.`), !!failed);
   if (R.run) {
     await env.KAAL_STATE.put(countKey, JSON.stringify(count), { expirationTtl: 40 * 86400 }).catch(() => null);
     console.log(`Follow-up emails sent: ${R.run}; ${count.total} today.`);
@@ -2016,23 +2013,6 @@ async function followSend(R, kind, email, mail, once, record) {
   return sendEmail(R.env, email, mail.subject, mail.text, mail.html, undefined, mail.headers);
 }
 
-/* The WhatsApp twin of followSend: the once-key first, then the send. It
-   counts toward the run and the day only when Meta takes it. */
-async function followSendWa(R, email, once, to, d, line, record) {
-  if (R.run > 0 && R.gap > 0) await new Promise(r => setTimeout(r, R.gap));
-  await R.env.KAAL_STATE.put(once, JSON.stringify(Object.assign({ at: indiaTime(new Date(R.nowMs)), subject: "WhatsApp", channel: "whatsapp" }, record)),
-    { expirationTtl: ONCE_TTL });
-  const r = await sendNearlyWa(R.env, to, d, line);
-  if (!r.ok) return r;
-  R.run++;
-  R.count.total = (R.count.total || 0) + 1;
-  R.count.nearly = (R.count.nearly || 0) + 1;
-  R.count.wa = (R.count.wa || 0) + 1;
-  R.written.add(email);
-  await rememberPhone(R.env, to, once.slice(7), d.n);
-  await rememberSent(R.env, r.id, { email, once, at: Date.now(), d: Object.assign({}, d, { history: undefined }), line, how: record.how });
-  return r;
-}
 /* One WhatsApp line in the email's shape, so the email fallback, the
    review queue and its edits all work the same. */
 function lineDraft(d, line, w) {
@@ -2048,7 +2028,7 @@ async function waFallbackEmail(env, rec, why) {
   if (await stopped(env, rec.email)) return false;
   const now = Math.floor(Date.now() / 1000);
   const pays = (await listPayments(env, now - PAID_DAYS * 86400, now, 2000)) || null;
-  if (!pays || (await paidEmails(env, pays)).has(rec.email)) return false;
+  if (!pays || (await paidEmails(env, pays)).has(rec.email) || paidByPhone(pays, rec.to)) return false;
   const mail = rec.how === "claude" && rec.line ? writtenNote(rec.d, lineDraft(rec.d, rec.line)) : buyerNearlyBought(rec.d);
   const sent = await sendEmail(env, rec.email, mail.subject, mail.text, mail.html, undefined, mail.headers);
   await followLog(env, { status: sent ? "sent" : "failed", channel: "email", email: rec.email, n: rec.d.n, how: rec.how || "standard", why: "WhatsApp could not deliver it: " + why + ". This email went instead.", subject: mail.subject, text: mail.text });
@@ -2091,15 +2071,38 @@ async function nearlyRound(R) {
     }
     const d = { site: R.site, first: firstNameOf(u.name), when: nearlyWhen(u.ts, nowMs), n, open, dial, sold: sold.length, left, sameDial: same, stage: u.stage };
     let mail = buyerNearlyBought(d), how = "standard", w = null;
-    /* WhatsApp instead of email, for someone who ticked it (worker/whatsapp.js).
-       Still the one note: the email goes only if WhatsApp refuses it. */
+    if (R.mode === undefined) R.mode = await followMode(env);
+    /* WhatsApp (worker/whatsapp.js): written here from their visit, then it
+       WAITS for the owner, always, whatever the mode: nothing goes on
+       WhatsApp until he reads it, edits it if he likes, and presses Send. */
     const waTo = waOn(env) && u.waPhone && !(await waStopped(env, u.waPhone)) ? u.waPhone : "";
-    let line = waTo ? waStandardLine(d) : "";
+    if (waTo) {
+      const hash = once.slice(7);
+      if (await env.KAAL_STATE.get("fuq:" + hash).catch(() => null)) continue;   // already waiting for him
+      if (paidByPhone(R.payments, waTo)) continue;                               // paid, under another email
+      d.history = await leadHistory(env, u.orderId);
+      if (d.history && d.history.gift) d.gift = true;
+      let line = waStandardLine(d), why = "The standard line.";
+      if (R.mode !== "standard" && env.ANTHROPIC_API_KEY) {
+        R.writes = (R.writes || 0) + 1;
+        if (R.writes > WRITES_PER_RUN) continue;                                  // the next run writes it
+        w = await writeWaLine(env, d);
+        if (w.ok) { line = w.line; how = "claude"; why = w.draft.why; }
+        else why = "The standard line: Claude's draft " + w.why + ".";
+      }
+      const draft = lineDraft(d, line, { angle: w && w.ok ? w.draft.angle : "standard", why });
+      R.queued = (R.queued || 0) + 1;
+      await env.KAAL_STATE.put("fuq:" + hash, JSON.stringify({ id: hash, at: new Date(nowMs).toISOString(), email, name: u.name || "", n, order: u.orderId,
+        d: Object.assign({}, d, { history: undefined }), draft, stage: u.stage, channel: "whatsapp", waTo, how, seen: seenText(d.history) }), { expirationTtl: 30 * 86400 });
+      await followLog(env, { status: "waiting", channel: "whatsapp", email, name: u.name, n, how, angle: draft.angle, why, subject: "WhatsApp", text: waPreview(d, line, R.site) });
+      await notifyOwner(env, { kind: "checkout", title: `WhatsApp to approve${n ? ", No. " + pad2(n) : ""}`,
+        body: `${firstNameOf(u.name) || "Someone"} stopped at payment. The message is written and waiting for you.`, url: "/control#followups", tag: "fuq-" + hash });
+      continue;
+    }
     /* Claude writes it for this one person (worker/lead-writer.js), a few a
        run; past that the rest wait for the next run rather than get the
        standard note. A draft that fails its check, or any error, sends the
        standard note, as before. In review mode it waits for the owner. */
-    if (R.mode === undefined) R.mode = await followMode(env);
     if (R.mode !== "standard" && env.ANTHROPIC_API_KEY) {
       const hash = once.slice(7);
       if (R.mode === "review" && await env.KAAL_STATE.get("fuq:" + hash).catch(() => null)) continue;
@@ -2107,29 +2110,14 @@ async function nearlyRound(R) {
       if (R.writes > WRITES_PER_RUN) continue;
       d.history = await leadHistory(env, u.orderId);
       if (d.history && d.history.gift) d.gift = true;
-      if (waTo) {
-        w = await writeWaLine(env, d);
-        if (w.ok) { line = w.line; w.draft = lineDraft(d, w.line, w.draft); mail = writtenNote(d, w.draft); how = "claude"; }
-      } else {
-        w = await writeNote(env, d);
-        if (w.ok) { mail = writtenNote(d, w.draft); how = "claude"; }
-      }
+      w = await writeNote(env, d);
+      if (w.ok) { mail = writtenNote(d, w.draft); how = "claude"; }
       if (R.mode === "review" && w.ok) {
         await env.KAAL_STATE.put("fuq:" + hash, JSON.stringify({ id: hash, at: new Date(nowMs).toISOString(), email, name: u.name || "", n, order: u.orderId,
-          d: Object.assign({}, d, { history: undefined }), draft: w.draft, stage: u.stage, channel: waTo ? "whatsapp" : "email", waTo }), { expirationTtl: 14 * 86400 });
-        await followLog(env, { status: "waiting", channel: waTo ? "whatsapp" : "email", email, name: u.name, n, how, angle: w.draft.angle, why: w.draft.why, subject: mail.subject, text: waTo ? waPreview(d, line, R.site) : mail.text });
+          d: Object.assign({}, d, { history: undefined }), draft: w.draft, stage: u.stage }), { expirationTtl: 14 * 86400 });
+        await followLog(env, { status: "waiting", email, name: u.name, n, how, angle: w.draft.angle, why: w.draft.why, subject: mail.subject, text: mail.text });
         continue;
       }
-    }
-    if (waTo) {
-      const sent = await followSendWa(R, email, once, waTo, d, line, { n, order: u.orderId, how, angle: w && w.ok ? w.draft.angle : "" });
-      if (sent.ok) {
-        await followLog(env, { status: "sent", channel: "whatsapp", email, name: u.name, n, how, angle: w && w.ok ? w.draft.angle : "", why: w ? (w.ok ? w.draft.why : "Standard line: Claude's draft " + w.why) : "", subject: "WhatsApp", text: waPreview(d, line, R.site) });
-        continue;
-      }
-      /* Refused (no WhatsApp on that number, Meta's limits, the template):
-         the email goes instead, now. */
-      await followLog(env, { status: "failed", channel: "whatsapp", email, name: u.name, n, how, why: sent.why + ". The email went instead.", subject: "WhatsApp", text: waPreview(d, line, R.site) });
     }
     await followSend(R, "nearly", email, mail, once, { n, order: u.orderId, how, angle: w && w.ok ? w.draft.angle : "" });
     await followLog(env, { status: "sent", email, name: u.name, n, how, angle: w && w.ok ? w.draft.angle : "", why: w ? (w.ok ? w.draft.why : "Standard note: Claude's draft " + w.why) : "", subject: mail.subject, text: mail.text });
@@ -2156,6 +2144,20 @@ async function leadHistory(env, orderId) {
   return { visits: v.visits || 1, returned: (v.visits || 1) > 1, numbers: v.numbers || [], dials: v.dials || [],
     caseback: st.some(e => e.e === "caseback_view"), film: !!v.film, story: st.some(e => e.e === "act"),
     gift: st.some(e => e.e === "gift"), minutes: Math.round((v.time || 0) / 60000) };
+}
+/* What they did on the site, in one line, for the owner's eyes only (the
+   review queue): never sent to them, never sent to Claude as text. */
+function seenText(h) {
+  if (!h) return "";
+  const out = [h.visits > 1 ? `${h.visits} visits${h.returned ? ", came back on another day" : ""}` : "one visit"];
+  if ((h.numbers || []).length) out.push("looked at " + h.numbers.slice(0, 6).map(x => "No. " + pad2(parseInt(x, 10) || 0)).join(", "));
+  if ((h.dials || []).length) out.push("dials: " + h.dials.slice(0, 4).join(", "));
+  if (h.caseback) out.push("turned it over to the engraving");
+  if (h.film) out.push("watched the film to the end");
+  if (h.story) out.push("read the story");
+  if (h.gift) out.push("buying it as a gift");
+  if (h.minutes) out.push(`${h.minutes} min on the site`);
+  return out.join(" · ");
 }
 async function followLog(env, x) {
   if (!env.KAAL_STATE) return;
@@ -2222,26 +2224,81 @@ async function followupsApi(env, method, sub, b) {
   if (typeof b.subject === "string" && b.subject.trim()) draft.subject = b.subject.trim().slice(0, 80);
   if (typeof b.body === "string" && b.body.trim()) draft.paragraphs = b.body.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).slice(0, 6);
   if (await stopped(env, q.email)) { await K.delete("fuq:" + m[1]); return { http: 409, body: { ok: false, why: "They asked not to be written to." } }; }
+  if (q.channel === "whatsapp") return approveWa(env, K, m[1], once, q, draft, b);
   const mail = writtenNote(q.d, draft);
-  if (q.channel === "whatsapp" && q.waTo && waOn(env)) {
-    const line = draft.paragraphs.join(" ");
-    await K.put(once, JSON.stringify({ at: indiaTime(new Date()), subject: "WhatsApp", channel: "whatsapp", n: q.n, order: q.order, how: "claude, approved" }), { expirationTtl: ONCE_TTL });
-    const r = await sendNearlyWa(env, q.waTo, q.d, line);
-    if (r.ok) {
-      await rememberPhone(env, q.waTo, m[1], q.n);
-      await rememberSent(env, r.id, { email: q.email, once, at: Date.now(), d: q.d, line, how: "claude" });
-      await K.delete("fuq:" + m[1]);
-      await followLog(env, { status: "sent", channel: "whatsapp", email: q.email, name: q.name, n: q.n, how: "claude, approved by you", angle: draft.angle, subject: "WhatsApp", text: waPreview(q.d, line, siteUrl(env)) });
-      return { http: 200, body: { ok: true, channel: "whatsapp" } };
-    }
-    await followLog(env, { status: "failed", channel: "whatsapp", email: q.email, name: q.name, n: q.n, how: "claude, approved by you", why: r.why + ". The email went instead.", subject: "WhatsApp" });
-  }
   await K.put(once, JSON.stringify({ at: indiaTime(new Date()), subject: mail.subject, n: q.n, order: q.order, how: "claude, approved" }), { expirationTtl: ONCE_TTL });
   const sent = await sendEmail(env, q.email, mail.subject, mail.text, mail.html, undefined, mail.headers);
   await K.delete("fuq:" + m[1]);
   await followLog(env, { status: sent ? "sent" : "failed", email: q.email, name: q.name, n: q.n, how: "claude, approved by you", angle: draft.angle, subject: mail.subject, text: mail.text });
   return { http: sent ? 200 : 502, body: { ok: !!sent, why: sent ? "" : "The email service refused it." } };
 }
+
+/* The owner pressed Send on a WhatsApp note. Before it goes, today's truth:
+   paid since means it never goes; their number sold since, or the count
+   moved, means the facts are refreshed and the draft rewritten to match,
+   and it comes back to him to read again, because "still unclaimed" and
+   "eight are left" have to be true when it lands. */
+async function approveWa(env, K, hash, once, q, draft, b) {
+  if (!waOn(env)) return { http: 409, body: { ok: false, why: "WhatsApp is not set up on the worker yet (docs/whatsapp.md). Nothing was sent." } };
+  const now = Math.floor(Date.now() / 1000);
+  const pays = await listPayments(env, now - PAID_DAYS * 86400, now, 2000);
+  if (!pays) return { http: 502, body: { ok: false, why: "Razorpay did not answer, so it could not be checked that they have not paid since. Try again in a minute." } };
+  if ((await paidEmails(env, pays)).has(String(q.email).toLowerCase()) || paidByPhone(pays, q.waTo)) {
+    await K.put(once, JSON.stringify({ at: indiaTime(new Date()), skipped: true, why: "paid" }), { expirationTtl: ONCE_TTL });
+    await K.delete("fuq:" + hash);
+    await followLog(env, { status: "skipped", channel: "whatsapp", email: q.email, name: q.name, n: q.n, how: q.how || "standard", why: "They paid before it was sent.", subject: "WhatsApp" });
+    return { http: 409, body: { ok: false, why: "They have paid since. Nothing was sent, and it is cleared." } };
+  }
+  const sold = await knownSold(env);
+  if (!sold) return { http: 502, body: { ok: false, why: "The sold list could not be read, so the counts could not be checked. Try again in a minute." } };
+  const edition = parseInt(env.EDITION || "20", 10), left = Math.max(0, edition - sold.length);
+  const d = Object.assign({}, q.d);
+  /* The name is his to write as he likes ("Mr. Sharma"); a template blank
+     only refuses line breaks. Empty means "Hello there". */
+  if (typeof b.first === "string") d.first = b.first.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, 40);
+  const line = blankLine(draft.paragraphs.join(" "));
+  if (!line) return { http: 400, body: { ok: false, why: "The message is empty." } };
+  const nowOpen = !!d.n && sold.indexOf(d.n) === -1;
+  /* A count only matters if the words state it: the old count, in words
+     or figures. Otherwise the new count is simply kept with it. */
+  const statesOld = d.left !== left && new RegExp("\\b(" + inWords(d.left) + "|" + d.left + ")\\b", "i").test(line);
+  /* Their number had sold already and the words offer the same dial's
+     other numbers: one of those named has sold since. */
+  const namesGone = !d.open && (d.sameDial || []).some(k => sold.indexOf(k) > -1 && new RegExp("\\bNo\\.?\\s?0?" + k + "\\b", "i").test(line));
+  if ((d.n && d.open && !nowOpen) || statesOld || namesGone) {
+    const same = [];
+    if (d.n && !nowOpen && d.dial) for (let k = 1; k <= edition; k++) if (k !== d.n && DIAL_OF(env, k) === d.dial && sold.indexOf(k) === -1) same.push(k);
+    Object.assign(d, { open: nowOpen, left, sold: sold.length, sameDial: nowOpen ? [] : same });
+    const line = waStandardLine(d);
+    const what = q.d.open && !nowOpen ? `No. ${pad2(d.n)} has sold since this was written.` : namesGone ? "A number it offers has sold since this was written." : `The count has moved: ${left} are left now.`;
+    const fresh = Object.assign({}, q, { d, draft: lineDraft(d, line, { angle: "standard", why: "Rewritten with today's facts. " + what }), how: "standard" });
+    await K.put("fuq:" + hash, JSON.stringify(fresh), { expirationTtl: 30 * 86400 });
+    return { http: 409, body: { ok: false, refreshed: true, why: what + " The message is rewritten with today's facts. Read it again, edit it if you like, then send." } };
+  }
+  Object.assign(d, { left, sold: sold.length });
+  await K.put(once, JSON.stringify({ at: indiaTime(new Date()), subject: "WhatsApp", channel: "whatsapp", n: q.n, order: q.order, how: (q.how || "standard") + ", approved" }), { expirationTtl: ONCE_TTL });
+  const r = await sendNearlyWa(env, q.waTo, d, line);
+  const text = waPreview(d, line, siteUrl(env));
+  if (r.ok) {
+    await rememberPhone(env, q.waTo, hash, q.n);
+    await rememberSent(env, r.id, { email: q.email, to: q.waTo, once, at: Date.now(), d, line, how: "claude" });
+    await K.delete("fuq:" + hash);
+    await followLog(env, { status: "sent", channel: "whatsapp", email: q.email, name: q.name, n: q.n, how: (q.how === "claude" ? "claude, " : "") + "approved by you", angle: draft.angle, subject: "WhatsApp", text });
+    return { http: 200, body: { ok: true, channel: "whatsapp" } };
+  }
+  /* WhatsApp refused it: the same words, approved by him, go by email. */
+  const mail = writtenNote(d, lineDraft(d, line, draft));
+  const sent = await sendEmail(env, q.email, mail.subject, mail.text, mail.html, undefined, mail.headers);
+  await K.delete("fuq:" + hash);
+  await followLog(env, { status: sent ? "sent" : "failed", channel: "email", email: q.email, name: q.name, n: q.n, how: "approved by you", why: r.why + (sent ? ". Your words went by email instead." : ". The email was refused too."), subject: mail.subject, text: mail.text });
+  return { http: sent ? 200 : 502, body: { ok: !!sent, channel: "email", why: sent ? r.why + ". Your words went by email instead." : r.why + ". The email was refused too." } };
+}
+/* Paid for a piece from the same phone, whatever email they used. */
+function paidByPhone(pays, phone) {
+  const wa = waNumber(phone);
+  return !!wa && (pays || []).some(p => (p.status === "captured" || p.status === "authorized" || p.status === "refunded") && waNumber(p.contact) === wa);
+}
+const blankLine = (s) => String(s || "").replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, 600);
 
 async function seriesTwoRound(R) {
   const { env } = R;
@@ -3204,8 +3261,9 @@ async function unfinishedBetween(env, pays, from, to) {
     return ({ n, dial: n ? DIAL_OF(env, n) : "", orderId: o.id, ts: o.created_at, at: indiaTime(new Date(o.created_at * 1000)),
       name: who.name || "", city: given ? [given.city, given.state].filter(Boolean).join(", ") : "",
       email, contact: has("contact") || who.phone || "", followed,
-      /* The phone they ticked WhatsApp for, and only then (worker/whatsapp.js). */
-      waPhone: who.wa && who.phone ? who.phone : "",
+      /* The phone typed into our details step, under the line that says
+         KAAL may reach them on WhatsApp about this order (worker/whatsapp.js). */
+      waPhone: who.phone || "",
       stage: t ? (t.status === "failed" ? "Payment failed" + (why ? `: ${String(why).slice(0, 80)}` : "") + (tries.length > 1 ? ` (${tries.length} tries)` : "") : `Payment ${t.status}`)
                : "Closed checkout before paying" });
   }));

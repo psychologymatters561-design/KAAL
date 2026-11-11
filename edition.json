@@ -5,11 +5,9 @@
   "edition": 20,
   "priceINR": 5999,
   "status": "on sale",
-  "available": 8,
-  "gone": 12,
+  "available": 6,
+  "gone": 14,
   "availableNumbers": [
-    9,
-    12,
     13,
     14,
     16,
@@ -26,8 +24,10 @@
     6,
     7,
     8,
+    9,
     10,
     11,
+    12,
     15,
     19
   ],
@@ -39,16 +39,13 @@
     },
     "Midnight": {
       "made": 4,
-      "available": 1,
-      "availableNumbers": [
-        9
-      ]
+      "available": 0,
+      "availableNumbers": []
     },
     "Champagne": {
       "made": 4,
-      "available": 3,
+      "available": 2,
       "availableNumbers": [
-        12,
         13,
         14
       ]
@@ -64,5 +61,5 @@
       ]
     }
   },
-  "asOf": "2026-11-01"
+  "asOf": "2026-11-11"
 }

@@ -17,11 +17,11 @@ marketing line.
 Rewritten automatically in the same commit as every sale, so it always
 matches the shop. The same facts as data: https://thekaal.co/edition.json
 
-- **Available now**: 6 of 20 (Nos. 13, 14, 16, 17, 18, 20)
-- **No longer available**: 14 of 20 (Nos. 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 15, 19)
-- **Available by dial**: Emerald 0 of 6; Midnight 0 of 4; Champagne 2 of 4 (Nos. 13, 14); Ivory 4 of 6 (Nos. 16, 17, 18, 20)
+- **Available now**: 5 of 20 (Nos. 13, 14, 17, 18, 20)
+- **No longer available**: 15 of 20 (Nos. 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 15, 16, 19)
+- **Available by dial**: Emerald 0 of 6; Midnight 0 of 4; Champagne 2 of 4 (Nos. 13, 14); Ivory 3 of 6 (Nos. 17, 18, 20)
 - **Status**: on sale at thekaal.co, ₹5,999 each
-- **As of**: 11 November 2026
+- **As of**: 12 November 2026
 
 ## The facts, stated once
 

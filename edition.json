@@ -5,12 +5,11 @@
   "edition": 20,
   "priceINR": 5999,
   "status": "on sale",
-  "available": 6,
-  "gone": 14,
+  "available": 5,
+  "gone": 15,
   "availableNumbers": [
     13,
     14,
-    16,
     17,
     18,
     20
@@ -29,6 +28,7 @@
     11,
     12,
     15,
+    16,
     19
   ],
   "dials": {
@@ -52,14 +52,13 @@
     },
     "Ivory": {
       "made": 6,
-      "available": 4,
+      "available": 3,
       "availableNumbers": [
-        16,
         17,
         18,
         20
       ]
     }
   },
-  "asOf": "2026-11-11"
+  "asOf": "2026-11-12"
 }

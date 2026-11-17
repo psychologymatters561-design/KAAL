@@ -5,11 +5,10 @@
   "edition": 20,
   "priceINR": 5999,
   "status": "on sale",
-  "available": 5,
-  "gone": 15,
+  "available": 4,
+  "gone": 16,
   "availableNumbers": [
     13,
-    14,
     17,
     18,
     20
@@ -27,6 +26,7 @@
     10,
     11,
     12,
+    14,
     15,
     16,
     19
@@ -44,10 +44,9 @@
     },
     "Champagne": {
       "made": 4,
-      "available": 2,
+      "available": 1,
       "availableNumbers": [
-        13,
-        14
+        13
       ]
     },
     "Ivory": {
@@ -60,5 +59,5 @@
       ]
     }
   },
-  "asOf": "2026-11-12"
+  "asOf": "2026-11-17"
 }

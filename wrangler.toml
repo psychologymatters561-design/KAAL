@@ -19,7 +19,17 @@ CURRENCY      = "INR"
 # two ever disagree. Change the price on the page and this line and the
 # deployed secret have to move with it — in that order, and before the
 # next sale.
-PRICE_PAISE   = "599900"          # ₹5,999
+PRICE_PAISE   = "699900"          # ₹6,999, the last pieces
+#
+# The price ladder (worker: priceFor, floorPaise). The closing piece, the
+# one left when every other number is gone, is LAST_PRICE_PAISE; /order
+# decides that from the edition's own state, never from the page. It is a
+# second copy of `lastPrice` in index.html, checked the same way.
+# FLOOR_PAISE is the price Series 01 opened at: the lowest amount the
+# webhook, the import and Meta's catch-up accept as a full-price sale, so
+# the sales already made at ₹5,999 stay sales.
+LAST_PRICE_PAISE = "899900"       # ₹8,999, the closing piece
+FLOOR_PAISE   = "599900"          # ₹5,999, where Series 01 opened
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"
 
@@ -227,7 +237,9 @@ name = "kaal-edition-staging"
 STAGING       = "on"
 EDITION       = "20"
 CURRENCY      = "INR"
-PRICE_PAISE   = "599900"
+PRICE_PAISE   = "699900"
+LAST_PRICE_PAISE = "899900"
+FLOOR_PAISE   = "599900"
 ALLOW_ORIGIN  = "https://kaal-edition-staging.kaal-edition-hq.workers.dev"
 MAIL_FROM     = "KAAL <connect@thekaal.co>"
 MAIL_REPLY_TO = "connect@thekaal.co"

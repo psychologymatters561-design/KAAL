@@ -390,6 +390,60 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   globalThis.fetch = orderFetch;
 }
 
+/* ── 10b. The price ladder ──
+   ₹6,999 while two or more are left, ₹8,999 for the one piece left, by the
+   edition's own state and never the page's; a payment is a sale when it
+   covers the order the worker priced and is at least where Series 01
+   opened, so the ₹5,999 sales already made stay sales. */
+{
+  const posted = [];
+  const base = globalThis.fetch;
+  const amountOf = {};
+  globalThis.fetch = async (url, init) => {
+    url = String(url);
+    if (/\/v1\/orders$/.test(url) && init && init.method === "POST") {
+      const b = JSON.parse(init.body); posted.push(b);
+      const id = "order_LADDER" + posted.length; amountOf[id] = b.amount;
+      return new Response(JSON.stringify({ id, amount: b.amount, currency: "INR" }));
+    }
+    const got = /\/v1\/orders\/(order_LADDER\w+)$/.exec(url);
+    if (got) return new Response(JSON.stringify({ id: got[1], status: "paid", amount: amountOf[got[1]], currency: "INR", notes: { kaal_no: got[1] === "order_LADDERX" ? "18" : "20" } }));
+    return base(url, init);
+  };
+  const envL = Object.assign({}, env, { PRICE_PAISE: "699900", LAST_PRICE_PAISE: "899900", FLOOR_PAISE: "599900" });
+  const allBut = (...keep) => JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1).filter(n => keep.indexOf(n) < 0));
+  const order = (b, e) => w.fetch(new Request("https://w/order", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://thekaal.co" }, body: JSON.stringify(b) }), e || envL, ctx());
+
+  KV.store.set("sold", allBut(13, 17, 18, 20)); KV.store.delete("hold:17"); KV.store.delete("hold:20");
+  r = await order({ n: 17, by: "lad1" }); d = await r.json();
+  ok(d.ok && d.amount === 699900 && posted[posted.length - 1].amount === 699900, "ladder: four left, the order is ₹6,999");
+  KV.store.set("sold", allBut(17, 20));
+  r = await order({ n: 20, by: "lad2", amount: 100 }); d = await r.json();
+  ok(d.ok && posted[posted.length - 1].amount === 699900, "ladder: two left, still ₹6,999, and the body cannot name a price");
+  KV.store.set("sold", allBut(20)); KV.store.delete("hold:20");
+  r = await order({ n: 20, by: "lad3" }); d = await r.json();
+  ok(d.ok && d.amount === 899900 && posted[posted.length - 1].amount === 899900, "ladder: one left, the closing piece is ₹8,999");
+  r = await order({ n: 20, by: "lad3" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "" }));
+  ok((await r.json()).ok && posted[posted.length - 1].amount === 699900, "ladder: with no closing price set, the last one is the list price, never guessed");
+  r = await order({ n: 20, by: "lad3" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "100000" }));
+  ok((await r.json()).ok && posted[posted.length - 1].amount === 699900, "ladder: a closing price below the list price is ignored; it only rises");
+
+  /* The webhook: an order priced ₹8,999 paid ₹6,999 is not a sale; paid in full it is. */
+  KV.store.set("sold", allBut(20));
+  const id = "order_LADDER" + (posted.length - 2);
+  const pay = (amount, oid, pid) => hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: pid, order_id: oid, amount, currency: "INR", email: "last.buyer@example.com", contact: "+919800000020", created_at: 1790000000, notes: { kaal_no: "20" } } } } }), envL);
+  r = await pay(699900, id, "pay_LADDERSHORT");
+  ok(!JSON.parse(KV.store.get("sold")).includes(20) && /not the price/i.test(await r.text()), "ladder: the closing piece paid at the list price is not recorded as a sale");
+  r = await pay(899900, id, "pay_LADDERFULL");
+  ok(JSON.parse(KV.store.get("sold")).includes(20), "ladder: paid in full at ₹8,999, No. 20 is sold");
+  /* And a ₹5,999 order from before the ladder still records as the sale it was. */
+  amountOf["order_LADDERX"] = 599900;
+  KV.store.set("sold", allBut(18, 20));
+  await pay(599900, "order_LADDERX", "pay_LADDEROLD");
+  ok(JSON.parse(KV.store.get("sold")).includes(18), "ladder: a ₹5,999 order made before the ladder is still a sale");
+  globalThis.fetch = base;
+}
+
 /* ── 11. Refunds, found on their own ── */
 {
   const base = globalThis.fetch;

@@ -33,12 +33,14 @@ export function configOf(html) {
   const sold = /sold:\s*\[([^\]]*)\]/.exec(html);
   const edition = parseInt((/edition:\s*(\d+)/.exec(html) || [])[1], 10) || 20;
   const price = parseInt(String((/price:\s*"([^"]+)"/.exec(html) || [])[1] || "5,999").replace(/[^0-9]/g, ""), 10) || 5999;
+  /* The closing piece's price, when the page names one (KAAL.lastPrice). */
+  const lastPrice = parseInt(String((/lastPrice:\s*"([^"]+)"/.exec(html) || [])[1] || "").replace(/[^0-9]/g, ""), 10) || 0;
   const dials = {};
   const block = /dials:\s*\{([^}]*)\}/.exec(html);
   if (block) for (const m of block[1].matchAll(/(\d+)\s*:\s*"([a-z]+)"/g)) dials[parseInt(m[1], 10)] = m[2];
   if (!sold) return null;
   const list = sold[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => n >= 1 && n <= edition);
-  return { sold: [...new Set(list)].sort((a, b) => a - b), edition, price, dials };
+  return { sold: [...new Set(list)].sort((a, b) => a - b), edition, price, lastPrice, dials };
 }
 
 /* Everything the counts are made of. */
@@ -53,7 +55,11 @@ export function stockOf(cfg) {
     byDial[d].made++;
     if (!soldSet.has(n)) byDial[d].open.push(n);
   }
-  return { edition: cfg.edition, price: cfg.price, dials: cfg.dials, gone, open, remaining: open.length, byDial };
+  /* What one watch costs right now: the closing price once a single piece
+     is left, the same rule the worker's /order prices by (priceFor). */
+  const lastPrice = cfg.lastPrice > cfg.price ? cfg.lastPrice : 0;
+  const now = open.length === 1 && lastPrice ? lastPrice : cfg.price;
+  return { edition: cfg.edition, price: cfg.price, lastPrice, now, dials: cfg.dials, gone, open, remaining: open.length, byDial };
 }
 
 /* ── index.html ──
@@ -75,6 +81,15 @@ export function applyStockHtml(html) {
   one(/(<title>KAAL Watches India · Series 01 · )[^<]*(<\/title>)/, m => `${m[1]}${w.toLowerCase()} of ${total} remain${m[2]}`);
   for (const id of ["navRem", "remWord", "dockRem"]) one(new RegExp(`(<span id="${id}">)[^<]*(</span>)`), m => `${m[1]}${w}${m[2]}`);
   one(/(<span id="heroLeft">)[^<]*(<\/span>)/, m => `${m[1]}${st.remaining}${m[2]}`);
+
+  /* Every printed price, and the ladder's step: which rung is live, and
+     how many are left on the one before the closing piece. */
+  for (const m of html.matchAll(/(<span data-price>)[^<]*(<\/span>)/g)) edits.push([m.index, m.index + m[0].length, `${m[1]}&#8377;${inr(st.now)}${m[2]}`]);
+  if (st.lastPrice) {
+    const step = st.remaining > 1 ? "list" : st.remaining === 1 ? "last" : "closed";
+    one(/(<div class="ladder" id="ladder" data-step=")[a-z]*(")/, m => `${m[1]}${step}${m[2]}`);
+    one(/(<em id="ladNow">)[^<]*(<\/em>)/, m => `${m[1]}${st.remaining > 1 ? word(st.remaining - 1) + " at this price" : "All placed"}${m[2]}`);
+  }
 
   /* Each dial: the early pick ("4 left" / "Gone") and the story's link. */
   for (const d of DIALS) {
@@ -104,7 +119,7 @@ export function applyStockHtml(html) {
     if (!group || !group.offers) return all;
     const o = group.offers, rest = Object.assign({}, o);
     for (const k of ["@type", "price", "priceCurrency", "availability", "inventoryLevel"]) delete rest[k];
-    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: o.price, priceCurrency: o.priceCurrency,
+    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: String(st.now), priceCurrency: o.priceCurrency,
       availability: SCHEMA + (st.remaining ? "InStock" : "OutOfStock"),
       inventoryLevel: { "@type": "QuantitativeValue", value: st.remaining } }, rest);
     group.hasVariant = (group.hasVariant || []).map(v => {
@@ -112,7 +127,7 @@ export function applyStockHtml(html) {
       if (!k || !v.offers) return v;
       const vo = v.offers, vrest = Object.assign({}, vo);
       for (const key of ["@type", "price", "priceCurrency", "availability"]) delete vrest[key];
-      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: vo.price, priceCurrency: vo.priceCurrency,
+      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: String(st.now), priceCurrency: vo.priceCurrency,
         availability: SCHEMA + (gone.has(k) ? "SoldOut" : "InStock") }, vrest) });
     });
     return open + JSON.stringify(g, null, 2) + "\n" + close;
@@ -154,7 +169,9 @@ export function llmsStatus(st, day) {
     `- **Available now**: ${st.remaining} of ${st.edition}${st.remaining ? " (" + nos(st.open) + ")" : ""}`,
     `- **No longer available**: ${st.gone.length} of ${st.edition}${st.gone.length ? " (" + nos(st.gone) + ")" : ""}`,
     `- **Available by dial**: ${dial}`,
-    `- **Status**: ${st.remaining ? `on sale at thekaal.co, ₹${inr(st.price)} each` : "retired: all twenty are gone and the design will not be made again"}`,
+    `- **Status**: ${!st.remaining ? "retired: all twenty are gone and the design will not be made again"
+      : st.remaining === 1 && st.lastPrice ? `one piece left, the closing piece of Series 01, on sale at thekaal.co at ₹${inr(st.now)}`
+      : `on sale at thekaal.co, ₹${inr(st.price)} each${st.lastPrice ? `; the closing piece, the last one left, ₹${inr(st.lastPrice)}` : ""}`}`,
     `- **As of**: ${longDate(day)}`,
     ""
   ].join("\n");
@@ -177,7 +194,8 @@ export function editionJson(st, day) {
     series: "Series 01",
     url: "https://thekaal.co/",
     edition: st.edition,
-    priceINR: st.price,
+    priceINR: st.now,
+    ...(st.lastPrice ? { closingPieceINR: st.lastPrice } : {}),
     status: st.remaining ? "on sale" : "retired",
     available: st.remaining,
     gone: st.gone.length,

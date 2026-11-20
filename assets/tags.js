@@ -51,7 +51,12 @@ var TAGS = {
   ga4:   ""
 };
 
-var PRICE = 5999, CUR = "INR";
+var CUR = "INR";
+/* What one watch costs right now. The shop page writes window.KAAL_PRICE
+   from its price ladder (paintPrice in index.html); every other page sends
+   the list price for the last pieces, which is what /order charges until a
+   single piece is left. */
+function price(){ var v = window.KAAL_PRICE; return typeof v === "number" && v > 0 ? v : 6999; }
 
 if(TAGS.pixel && !window.fbq){
   /* Meta's own loader, unchanged apart from layout. */
@@ -124,15 +129,15 @@ function send(name, d){
   }
 
   if(TAGS.pixel && window.fbq){
-    var p = { content_ids:[item], content_type:"product", value:PRICE, currency:CUR };
+    var p = { content_ids:[item], content_type:"product", value:price(), currency:CUR };
     if(d.dial) p.content_name = "KAAL Series 01 " + d.dial;
     var opt = d.eventID ? { eventID: String(d.eventID) } : {};
     window.fbq(m[2] ? "track" : "trackCustom", m[0], p, opt);
   }
   if(TAGS.ga4 && window.gtag){
-    var it = { item_id:item, item_name:"KAAL Series 01", price:PRICE, quantity:1 };
+    var it = { item_id:item, item_name:"KAAL Series 01", price:price(), quantity:1 };
     if(d.dial) it.item_variant = d.dial;
-    var g = { currency:CUR, value:PRICE, items:[it] };
+    var g = { currency:CUR, value:price(), items:[it] };
     if(d.eventID) g.transaction_id = String(d.eventID);
     window.gtag("event", m[1], g);
   }

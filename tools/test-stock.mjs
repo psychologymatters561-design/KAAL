@@ -1,7 +1,7 @@
 /* What is left, for readers that run no script (worker/stock.js): the
    edges a sale can reach. node tools/test-stock.mjs */
 import { readFileSync } from "node:fs";
-import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, llmsAgrees, editionAgrees } from "../worker/stock.js";
+import { applyStockHtml, applyStockLlms, editionJson, configOf, stockOf, llmsAgrees, editionAgrees, inr } from "../worker/stock.js";
 
 let failed = 0;
 /* The page update as it was written first (twenty replace() calls in a
@@ -24,6 +24,11 @@ function referenceApply(html) {
   out = out.replace(/(<title>KAAL Watches India · Series 01 · )[^<]*(<\/title>)/, `$1${w.toLowerCase()} of ${total} remain$2`);
   for (const id of ["navRem", "remWord", "dockRem"]) out = out.replace(new RegExp(`(<span id="${id}">)[^<]*(</span>)`), `$1${w}$2`);
   out = out.replace(/(<span id="heroLeft">)[^<]*(<\/span>)/, `$1${st.remaining}$2`);
+  out = out.replace(/(<span data-price>)[^<]*(<\/span>)/g, `$1&#8377;${inr(st.now)}$2`);
+  if (st.lastPrice) {
+    out = out.replace(/(<div class="ladder" id="ladder" data-step=")[a-z]*(")/, `$1${st.remaining > 1 ? "list" : st.remaining === 1 ? "last" : "closed"}$2`);
+    out = out.replace(/(<em id="ladNow">)[^<]*(<\/em>)/, `$1${st.remaining > 1 ? word(st.remaining - 1) + " at this price" : "All placed"}$2`);
+  }
 
   /* Each dial: the early pick ("4 left" / "Gone") and the story's link. */
   for (const d of DIALS) {
@@ -54,7 +59,7 @@ function referenceApply(html) {
     if (!group || !group.offers) return all;
     const o = group.offers, rest = Object.assign({}, o);
     for (const k of ["@type", "price", "priceCurrency", "availability", "inventoryLevel"]) delete rest[k];
-    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: o.price, priceCurrency: o.priceCurrency,
+    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: String(st.now), priceCurrency: o.priceCurrency,
       availability: SCHEMA + (st.remaining ? "InStock" : "OutOfStock"),
       inventoryLevel: { "@type": "QuantitativeValue", value: st.remaining } }, rest);
     group.hasVariant = (group.hasVariant || []).map(v => {
@@ -62,7 +67,7 @@ function referenceApply(html) {
       if (!k || !v.offers) return v;
       const vo = v.offers, vrest = Object.assign({}, vo);
       for (const key of ["@type", "price", "priceCurrency", "availability"]) delete vrest[key];
-      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: vo.price, priceCurrency: vo.priceCurrency,
+      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: String(st.now), priceCurrency: vo.priceCurrency,
         availability: SCHEMA + (gone.has(k) ? "SoldOut" : "InStock") }, vrest) });
     });
     return open + JSON.stringify(g, null, 2) + "\n" + close;
@@ -98,6 +103,27 @@ ok(group.offers.availability === "https://schema.org/OutOfStock" && group.offers
 ok(/retired: all twenty are gone/.test(applyStockLlms(llms, st, "2027-01-01")) && JSON.parse(editionJson(st, "2027-01-01")).status === "retired", "sold out: llms.txt and edition.json say retired");
 const grid = /<ul class="twenty" id="grid"[\s\S]*?<\/ul>/.exec(all)[0];
 ok((grid.match(/already gone/g) || []).length === 20 && (grid.match(/ disabled\n/g) || []).length === 20 && !/Choose number/.test(grid), "sold out: all twenty in the grid read already gone, disabled");
+
+/* The price ladder: the list price while two or more are left, the closing
+   price on every printed price, the ladder, the schema, llms.txt and
+   edition.json once one is, and the list price's rung spent. */
+{
+  const all20 = Array.from({ length: 20 }, (_, i) => i + 1);
+  const two = withSold(all20.filter(n => n !== 17 && n !== 20)), one = withSold(all20.filter(n => n !== 20));
+  const prices = (h) => [...h.matchAll(/<span data-price>([^<]*)<\/span>/g)].map(m => m[1]);
+  const ldOf = (h) => JSON.parse(/<script type="application\/ld\+json" id="ld">\n?([\s\S]*?)<\/script>/.exec(h)[1])["@graph"].find(x => x["@type"] === "ProductGroup");
+  ok(prices(html).length >= 4 && prices(two).every(p => p === "&#8377;6,999") && /data-step="list"/.test(two) && /<em id="ladNow">One at this price<\/em>/.test(two),
+    "ladder: two left, every printed price is the list price and one is left at it");
+  const g1 = ldOf(one), st1 = stockOf(configOf(one));
+  ok(prices(one).every(p => p === "&#8377;8,999") && /data-step="last"/.test(one) && /<em id="ladNow">All placed<\/em>/.test(one) &&
+    g1.offers.price === "8999" && g1.hasVariant.every(v => v.offers.price === "8999"),
+    "ladder: one left, every printed price, the ladder and the schema move to the closing price");
+  ok(/closing piece of Series 01, on sale at thekaal\.co at ₹8,999/.test(applyStockLlms(llms, st1, "2026-11-21")) && JSON.parse(editionJson(st1, "2026-11-21")).priceINR === 8999,
+    "ladder: one left, llms.txt and edition.json say ₹8,999");
+  ok(JSON.parse(editionJson(stockOf(configOf(two)), "2026-11-21")).priceINR === 6999 && /₹6,999 each; the closing piece, the last one left, ₹8,999/.test(applyStockLlms(llms, stockOf(configOf(two)), "2026-11-21")),
+    "ladder: two left, llms.txt and edition.json name both prices");
+  ok(/data-step="closed"/.test(withSold(all20)), "ladder: none left, every rung is spent");
+}
 
 /* The checks that guard a push. */
 const st3 = stockOf(configOf(once));

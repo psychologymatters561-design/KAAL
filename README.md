@@ -40,7 +40,8 @@ the commercial behaviour of the entire page.
 var KAAL = {
   checkout: "",            // the live Razorpay payment-page URL
   pay:      "",            // "" = payment page above, "standard" = checkout modal
-  price:    "5,999",       // every price on the page reads from this
+  price:    "6,999",       // the last pieces; every price on the page reads from this
+  lastPrice: "8,999",      // the closing piece, shown and charged once one is left
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
   heroPush:  0.18,         // how far the hero camera pushes in while the
@@ -77,6 +78,29 @@ looking. Choose another."* rather than becoming a refund and an apology.
 Setting `api` to the deployed URL turns it on. Leaving it empty is not a
 degraded mode — it is exactly how this site has always run, and every fallback
 is tested that way.
+
+### 2a. The price ladder
+
+Series 01 opened at ₹5,999. The last pieces are ₹6,999 and the closing
+piece, the one left when every other number has gone, is ₹8,999. It is
+decided by the count, never by a clock, and in one place: `/order` prices
+from the edition's own state (`priceFor` in the worker), so a stale page
+cannot buy the closing piece at the earlier price; if it tries, the page is
+told the real price and asks for a second tap before any payment opens.
+
+| what | page (`index.html`) | worker (`wrangler.toml`) |
+|---|---|---|
+| the last pieces | `price: "6,999"` | `PRICE_PAISE = "699900"` |
+| the closing piece | `lastPrice: "8,999"` | `LAST_PRICE_PAISE = "899900"` |
+| where it opened | (copy only) | `FLOOR_PAISE = "599900"` |
+
+`FLOOR_PAISE` is the lowest amount the webhook, the import and Meta's
+catch-up accept as a full-price sale, so sales made at ₹5,999 stay sales;
+each payment is also checked against the amount of the order the worker
+priced. `tools/check.mjs` fails the build if the page and the worker
+disagree on either price. `worker/stock.js` moves every printed price
+(`<span data-price>`), the ladder's live rung, the structured data,
+`llms.txt` and `edition.json` to ₹8,999 in the commit that leaves one.
 
 ### 2b. The other way to take money: Standard Checkout
 

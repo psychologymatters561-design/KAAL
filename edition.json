@@ -3,7 +3,8 @@
   "series": "Series 01",
   "url": "https://thekaal.co/",
   "edition": 20,
-  "priceINR": 5999,
+  "priceINR": 6999,
+  "closingPieceINR": 8999,
   "status": "on sale",
   "available": 4,
   "gone": 16,
@@ -59,5 +60,5 @@
       ]
     }
   },
-  "asOf": "2026-11-17"
+  "asOf": "2026-11-20"
 }

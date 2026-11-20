@@ -119,6 +119,27 @@ const KEY_SOLD = "sold";
 const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
+
+/* THE PRICE LADDER. Series 01 opened at FLOOR_PAISE (₹5,999), the last
+   pieces sell at PRICE_PAISE (₹6,999), and the closing piece, the one
+   that retires the design, at LAST_PRICE_PAISE (₹8,999). The step is
+   decided by how many are left, never by a clock, and only ever here:
+   /order prices from the edition's own state, so no page, however stale,
+   can buy the closing piece at the earlier price.
+
+   Every check of "was this paid in full" uses the floor, because a sale
+   made at ₹5,999 last week is still a sale: the order the worker priced
+   is the authority on what each buyer owed, and the payment is checked
+   against that order. */
+function paiseOf(v) { const p = parseInt(v || "0", 10); return isNaN(p) ? 0 : p; }
+function priceFor(env, open) {
+  const list = paiseOf(env.PRICE_PAISE), last = paiseOf(env.LAST_PRICE_PAISE);
+  return open === 1 && list >= MIN_PAISE && last >= list ? last : list;
+}
+function floorPaise(env) {
+  const list = paiseOf(env.PRICE_PAISE), floor = paiseOf(env.FLOOR_PAISE);
+  return floor >= MIN_PAISE && floor < list ? floor : list;
+}
 const LEAD_DAYS = 90;           /* details from a checkout that was never paid */
 
 export default {
@@ -461,14 +482,20 @@ async function postOrder(request, env, ctx) {
   /* The price is read here and nowhere else. Nothing in the request body
      can reach it, so a hand-rolled POST asking to pay one rupee gets an
      order for ₹5,999 the same as everybody else. */
-  const amount = parseInt(env.PRICE_PAISE || "0", 10);
-  if (isNaN(amount) || amount < MIN_PAISE) {
+  if (paiseOf(env.PRICE_PAISE) < MIN_PAISE) {
     console.log("PRICE_PAISE is missing or below the floor:", String(env.PRICE_PAISE).slice(0, 20));
     return json(request, env, { ok: false, reason: "not-configured" }, {}, 503);
   }
 
   const sold = await knownSold(env);
   if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" }, {}, 409);
+
+  /* Which step of the ladder this order is on: the closing price only when
+     this number is the one piece left. An edition whose state could not be
+     read is priced at the list price, never guessed upward. */
+  let open = 0;
+  if (sold) { for (let i = 1; i <= edition; i++) if (sold.indexOf(i) < 0) open++; }
+  const amount = priceFor(env, sold ? open : 0);
 
   /* Somebody else's hold stops an order exactly as it stops a hold. Your
      own does not, so reloading the page and trying again still works. */
@@ -1000,7 +1027,7 @@ async function webhook(request, env, ctx) {
      stranger "No. 07 is yours". A sale needs the full price, in the
      shop's currency; anything less reaches the owner as a payment to
      look at, and is never recorded as a sale. */
-  const price = parseInt(env.PRICE_PAISE || "0", 10);
+  const price = floorPaise(env);
   const currency = String(env.CURRENCY || "INR").toUpperCase();
   /* Without a price to compare (PRICE_PAISE is in wrangler.toml, and
      tools/check.mjs fails the build if it disagrees with the page), a real
@@ -1010,7 +1037,7 @@ async function webhook(request, env, ctx) {
   if (!priced) console.log("PRICE_PAISE is not set: the amount of this payment could not be checked.");
   const paidInFull = !priced || ((entity.amount || 0) >= price &&
     String(entity.currency || "INR").toUpperCase() === currency &&
-    !(order && (order.amount || 0) < price));
+    !(order && ((order.amount || 0) < price || (entity.amount || 0) < (order.amount || 0))));
   let short = null;
   if (!paidInFull) {
     short = { claimed: isNaN(chosen) ? 0 : chosen };
@@ -1251,7 +1278,7 @@ async function importPaid(env) {
   const now = Math.floor(Date.now() / 1000);
   const pays = await listPayments(env, now - 400 * 86400, now + 60, 2000);
   if (!pays) return { ok: false, reason: "razorpay" };
-  const price = parseInt(env.PRICE_PAISE || "0", 10), edition = parseInt(env.EDITION || "20", 10);
+  const price = floorPaise(env), edition = parseInt(env.EDITION || "20", 10);
   const currency = String(env.CURRENCY || "INR").toUpperCase();
   const r = { ok: true, imported: [], already: [], dispatched: [], withheld: [], released: [], duplicates: [], needsRecord: [], skipped: 0 };
   for (const p of pays.sort((a, b) => a.created_at - b.created_at)) {
@@ -4310,7 +4337,7 @@ async function metaCatchUp(env) {
     const now = Math.floor(Date.now() / 1000);
     const pays = await listPayments(env, now - META_LOOKBACK, now + 60, 300);
     if (!pays) return;
-    const price = parseInt(env.PRICE_PAISE || "0", 10), edition = parseInt(env.EDITION || "20", 10);
+    const price = floorPaise(env), edition = parseInt(env.EDITION || "20", 10);
     const currency = String(env.CURRENCY || "INR").toUpperCase();
     let tried = 0;
     for (const p of pays.sort((a, b) => a.created_at - b.created_at)) {

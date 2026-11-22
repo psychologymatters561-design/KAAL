@@ -197,7 +197,7 @@ export function welcomeSteps(n, arrive, gift) {
   return [
     ["Today", `No. ${n} comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.`],
     ["Next", `Its box is finished by hand for it, and No. ${n} is set inside with its warranty card.`],
-    ["Within five working days", `It is dispatched${gift ? "" : " to your door"}. Tracking comes to this email the day it leaves.${arrive ? ` It ${gift ? "arrives" : "reaches you"} by ${arrive}.` : ""}`]
+    ["Within five working days", `It is finished at the bench and dispatched${gift ? "" : " to your door"}, free. Tracking comes to this email the day it leaves.${arrive ? ` It leaves us by ${arrive}.` : ""}`]
   ];
 }
 export const WELCOME_RETURN = "At your door, you have seven days to live with it. If it isn't you, send it back unworn for a full refund.";
@@ -228,7 +228,7 @@ export function buyerConfirmation(d) {
       ["Paid", esc(d.amount)],
       ["Payment reference", `<span style="font-family:Menlo,Consolas,monospace;font-size:13px;">${esc(d.paymentId)}</span>`],
       ["Ordered", esc(d.when)],
-      ["Arrives by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Free delivery, anywhere in India</span>`],
+      ["Leaves the bench by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Then free, tracked delivery, anywhere in India</span>`],
       d.gift ? ["Gift", giftCard(d.giftNote)] : null
     ]),
     steps("What happens now", next),
@@ -248,7 +248,7 @@ export function buyerConfirmation(d) {
     `Paid: ${d.amount}`,
     `Payment reference: ${d.paymentId}`,
     `Ordered: ${d.when}`,
-    `Arrives by: ${d.arriveBy} (free delivery, anywhere in India)`,
+    `Leaves the bench by: ${d.arriveBy} (then free, tracked delivery anywhere in India)`,
     d.gift ? `Gift: handwritten card, no price in the box${d.giftNote ? `. Card: "${d.giftNote}"` : ""}` : "", "",
     "WHAT HAPPENS NOW",
     ...next.map(([k, v], i) => `${i + 1}. ${k}: ${/^No\. /.test(v) ? v : v.charAt(0).toLowerCase() + v.slice(1)}`), "",
@@ -365,7 +365,7 @@ export function ownerShip(d) {
 export function buyerShip(d) {
   const n = pad2(d.n), site = d.site, a = d.address;
   const subject = `No. ${n} will come to you here`;
-  const preheader = `${a.city}, ${a.state} ${a.pin}. Arrives by ${d.arriveBy}.`;
+  const preheader = `${a.city}, ${a.state} ${a.pin}. Leaves the bench by ${d.arriveBy}.`;
   const body = [
     image(`${site}/assets/email/caseback-${n}.png`, `Your caseback, engraved: Limited edition No. ${n}`, 160, 160),
     h1(`It will come to you here.`),
@@ -374,13 +374,13 @@ export function buyerShip(d) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:4px;">
 <tr><td style="padding:22px 24px;font-family:${SANS};font-size:16px;line-height:26px;color:${C.bone};">${addressBlock(a)}<br><span style="color:${C.mute};">${esc(a.phone)}</span></td></tr></table></td></tr>`,
     card("", [
-      ["Arrives by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Tracking comes to this email the day it leaves</span>`]
+      ["Leaves the bench by", `${esc(d.arriveBy)}<br><span style="color:${C.faint};font-size:13px;">Tracking comes to this email the day it leaves</span>`]
     ], { pad: "0 32px 22px" }),
     para(`Questions? Reply to this email.`, { size: 14, lh: 22, pad: "0 32px 0" })
   ].join("\n");
   const text = [
     `No. ${n} will come to you here:`, "", addressText(a), "",
-    `Arrives by ${d.arriveBy}. Tracking comes to this email the day it leaves.`, "",
+    `Leaves the bench by ${d.arriveBy}. Tracking comes to this email the day it leaves.`, "",
     "If anything in the address is wrong, reply to this email before it is dispatched and we will correct it.", "",
     `Questions? Reply to this email.`, "", "KAAL · thekaal.co"
   ].join("\n");
@@ -395,7 +395,7 @@ export function buyerDispatched(d) {
   const n = pad2(d.n), site = d.site;
   const subject = `No. ${n} is on its way`;
   const went = d.courier ? `handed to ${d.courier}` : "sent";
-  const preheader = `${d.courier ? d.courier + " " : ""}${d.tracking ? "tracking " + d.tracking + ". " : ""}${d.arriveBy ? `Arrives by ${d.arriveBy}.` : ""}`;
+  const preheader = `${d.courier ? d.courier + " " : ""}${d.tracking ? "tracking " + d.tracking + ". " : ""}`;
   const body = [
     image(`${site}/assets/email/caseback-${n}.png`, `Your caseback, engraved: Limited edition No. ${n}`, 160, 160),
     h1(`No. ${n} is on its way.`),
@@ -404,7 +404,6 @@ export function buyerDispatched(d) {
     card("", [
       d.courier ? ["Courier", esc(d.courier)] : null,
       d.tracking ? ["Tracking number", `<span style="font-family:Menlo,Consolas,monospace;font-size:14px;">${esc(d.tracking)}</span>`] : null,
-      d.arriveBy ? ["Arrives by", esc(d.arriveBy)] : null,
       d.address ? ["Going to", addressBlock(d.address)] : null
     ], { pad: "0 32px 22px" }),
     para("When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", { size: 14, lh: 22 }),
@@ -416,7 +415,6 @@ export function buyerDispatched(d) {
     d.courier ? `Courier: ${d.courier}` : null,
     d.tracking ? `Tracking number: ${d.tracking}` : null,
     d.url ? `Track it: ${d.url}` : null,
-    d.arriveBy ? `Arrives by: ${d.arriveBy}` : null,
     d.address ? `Going to:\n${addressText(d.address)}` : null, "",
     "When it arrives: seven days to decide. If it is not you, send it back unworn and unmarked for a full refund.", "",
     `Questions? Reply to this email.`, "", "KAAL · thekaal.co"

@@ -142,7 +142,7 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
       <div class="row" id="numberRow" hidden><h2>Number</h2><p id="numberVal"></p></div>
       <div class="row" id="amountRow" hidden><h2>Paid</h2><p id="amountVal"></p></div>
       <div class="row" id="refRow" hidden><h2>Payment reference</h2><p id="refVal"></p></div>
-      <div class="row"><h2>Arrives</h2><p id="arriveVal">Within five working days, anywhere in India</p></div>
+      <div class="row"><h2>Leaves the bench</h2><p id="arriveVal">Within five working days, then free tracked delivery</p></div>
       <div class="row" id="giftRow" hidden><h2>Gift</h2><p>Handwritten card, no price in the box</p></div>
       <div class="row" id="remainRow" hidden><h2>Edition</h2><p id="remainVal"></p></div>
     </section>
@@ -171,7 +171,7 @@ main{padding:clamp(3rem,9vh,6rem) var(--gut) calc(4rem + env(safe-area-inset-bot
       <ol class="next">
         <li><div><b>Today</b><span id="step1">Your piece comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.</span></div></li>
         <li><div><b>Next</b><span id="step2">Its box is finished by hand for it, and it is set inside with its warranty card.</span></div></li>
-        <li><div><b>Within five working days</b><span id="step3">It is dispatched to your door. Tracking comes to the email you paid with, the day it leaves.</span></div></li>
+        <li><div><b>Within five working days</b><span id="step3">It is finished at the bench and dispatched to your door, free. Tracking comes to the email you paid with, the day it leaves.</span></div></li>
       </ol>
     </section>
 
@@ -206,7 +206,7 @@ function showSteps(num){
   var no = num ? "No. " + pad(num) : "";
   if(no) $("step1").textContent = no + " comes out of the edition and is re-inspected by hand, from the movement to the last link of the bracelet. Nothing leaves us unseen.";
   if(no) $("step2").textContent = "Its box is finished by hand for it, and " + no + " is set inside with its warranty card.";
-  $("step3").textContent = "It is dispatched" + (GIFT ? "" : " to your door") + ". Tracking comes to the email you paid with, the day it leaves. It " + (GIFT ? "arrives" : "reaches you") + " by " + arriveBy() + ".";
+  $("step3").textContent = "It is finished at the bench and dispatched" + (GIFT ? "" : " to your door") + ", free. Tracking comes to the email you paid with, the day it leaves. It leaves us by " + arriveBy() + ".";
   if(GIFT){
     $("sub").textContent = "Of everyone who will ever wear a KAAL, the person you give it to is the only one who will wear this one.";
     $("returnLine").textContent = "Once it arrives, there are seven days to live with it. If it isn't right, send it back unworn for a full refund.";
@@ -256,7 +256,7 @@ showNumber(n);
 showSteps(n);
 showRef(pid);
 if(pid) showPaid("");
-$("arriveVal").textContent = "By " + arriveBy();
+$("arriveVal").textContent = "By " + arriveBy() + ", then free tracked delivery";
 
 /* Purchase, once per payment: the payment id is the event id, so the
    worker's server-side copy of the same purchase is counted with it. */

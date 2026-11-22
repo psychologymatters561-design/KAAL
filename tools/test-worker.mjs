@@ -110,7 +110,7 @@ const sale = mails.find(m => /^New order · No\. 03 Emerald · ₹5,999$/.test(m
 ok(sale && sale.to.join() === "owner@thekaal.co,me@example.org" && /Buyer email: rahul.sharma@example.com/.test(sale.text) && /wa\.me\/919999999999/.test(sale.text) && /dashboard\.razorpay\.com\/app\/payments\/pay_WEBHOOK1/.test(sale.text), "owner email: number, dial, buyer contact, WhatsApp and Razorpay links");
 ok(sale && sale.reply_to === "rahul.sharma@example.com" && /<html/.test(sale.html), "owner email: branded HTML, and Reply writes to the buyer");
 const mine = mails.find(m => m.to[0] === "rahul.sharma@example.com");
-ok(mine && mine.subject === "No. 03 is yours" && /caseback-03\.png/.test(mine.html) && /claimed\.html\?o=order_TESTORDER2&n=03#ship/.test(mine.text) && /Arrives by:/.test(mine.text), "buyer email: engraved number, arrival date, address link");
+ok(mine && mine.subject === "No. 03 is yours" && /caseback-03\.png/.test(mine.html) && /claimed\.html\?o=order_TESTORDER2&n=03#ship/.test(mine.text) && /Leaves the bench by:/.test(mine.text), "buyer email: engraved number, arrival date, address link");
 ok(mine && mine.reply_to === "connect@thekaal.co", "buyer email: replies go to the shop");
 ok(!/—/.test(mails.map(m => m.text + m.subject + m.html).join("")), "no em dashes in any email");
 let before = mails.length; await hook();
@@ -1091,14 +1091,14 @@ const person = (s) => sha(s).slice(0, 32);
   /* That order was a gift: bought by one person, worn by another. */
   ok(/^Hello,\n\nNo\. 03 is yours to give\. Of everyone who will ever wear a KAAL, the person you give it to is the only one who will wear this one\./.test(welcome.text) &&
     /₹5,999 received\. Here is what happens now\./.test(welcome.html) && /WHAT HAPPENS NOW\n1\. Today: No\. 03 comes out of the edition/.test(welcome.text) &&
-    /3\. Within five working days: it is dispatched\. Tracking comes to this email the day it leaves\. It arrives by /.test(welcome.text) &&
+    /3\. Within five working days: it is finished at the bench and dispatched, free\. Tracking comes to this email the day it leaves\. It leaves us by /.test(welcome.text) &&
     /Once it arrives, there are seven days to live with it\./.test(welcome.text) &&
     /Rare pieces find rare people\. This one found you\./.test(welcome.text) && /\nKAAL$/.test(welcome.text), "welcome: 'Hello,' without a name; a gift is the buyer's to give; the three steps; signed KAAL");
   ok(!welcome.headers && clean(welcome), "welcome: no List-Unsubscribe on an order email, and nothing it must not say");
   const M = await import("../worker/mail.js");
   const g = M.buyerConfirmation({ site: "https://thekaal.co", n: 7, dial: "Midnight", first: "Rahul", amount: "₹5,999", paymentId: "pay_X", when: "x", arriveBy: "Tue, 27 Oct", hasAddress: true });
   ok(/^Rahul,\n\nNo\. 07 is yours\. Of everyone who will ever wear a KAAL, you are the only one who will wear this one\./.test(g.text) &&
-    /3\. Within five working days: it is dispatched to your door\. Tracking comes to this email the day it leaves\. It reaches you by Tue, 27 Oct\./.test(g.text) &&
+    /3\. Within five working days: it is finished at the bench and dispatched to your door, free\. Tracking comes to this email the day it leaves\. It leaves us by Tue, 27 Oct\./.test(g.text) &&
     /At your door, you have seven days to live with it\. If it isn't you, send it back unworn for a full refund\./.test(g.text) && /dial-midnight\.jpg/.test(g.html),
     "welcome: their first name, the words for the one who will wear it, the Midnight dial for No. 07");
   /* With a name given before paying, the webhook's email uses it. */

@@ -317,7 +317,7 @@ let oid;
 {
   const d = { n: 7, size: 20, courier: "Delhivery", tracking: "DL1", trackingUrl: "https://x.example/t", claimUrl: "https://thekaal.co/claim?t=x", ownerNo: 1, registeredOn: "26 October 2026", warrantyEnd: "24 October 2028" };
   const want = {
-    placed: ["No. 07 is spoken for", "Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step.\n\nThe day it reaches you, we will send one last link: the step that writes your name beside No. 07 in the KAAL registry."],
+    placed: ["No. 07 is spoken for", "Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, finished at the bench, boxed by hand and dispatched to you within five working days. You will hear from us at each step.\n\nThe day it reaches you, we will send one last link: the step that writes your name beside No. 07 in the KAAL registry."],
     packed: ["No. 07 is boxed", "Every KAAL box is made for the one piece it carries. No. 07's is finished, and the piece is resting inside it with its letter."],
     dispatched: ["No. 07 is on its way to you", "Somewhere between here and you is a piece that will not be made again. When it arrives, open it slowly."],
     delivered: ["No. 07 is with you. One step makes it yours.", "Each of the twenty has one line in the KAAL registry, and No. 07's is still blank. Registering writes your name into it as Owner I of No. 07 of 20. That record stays with the piece for as long as it exists. If it is ever passed on, its history begins with you."],

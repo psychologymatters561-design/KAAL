@@ -59,7 +59,7 @@ matches the shop. The same facts as data: https://thekaal.co/edition.json
   glass. Two tone stainless steel bracelet, gold tone bezel. Water resistant.
   Every case finished by hand and every piece opened, checked and closed again
   before dispatch.
-- **Delivery**: five working days, order to door, anywhere in India.
+- **Delivery**: five working days at the bench (engraved, finished by hand, inspected and sealed), then dispatched free with tracking, anywhere in India.
 - **Payment**: collected by Razorpay, an RBI authorised payment aggregator.
   Card, UPI and net banking credentials go directly to Razorpay and are never
   seen or stored by KAAL.

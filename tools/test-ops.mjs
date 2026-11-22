@@ -62,7 +62,7 @@ const realFetch = globalThis.fetch;
   const placed = W.mails.filter(m => m.to.includes("asha@example.com"));
   const p = placed.find(m => m.subject === "No. 07 is spoken for");
   ok(placed.length === 1 && p, "Placed: the buyer gets exactly one email, 'No. 07 is spoken for'");
-  ok(p && p.text.includes("Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step."),
+  ok(p && p.text.includes("Your payment is received and No. 07 of 20 is now set aside for you alone. Before it leaves, it will be inspected again, finished at the bench, boxed by hand and dispatched to you within five working days. You will hear from us at each step."),
     "Placed: the brief's words, verbatim");
   ok(p && /^Owner,/.test(p.text) && /\nKAAL\n/.test(p.text) && /Follow No\. 07's journey: https:\/\/thekaal\.co\/track\?o=\d+&s=[0-9a-f]{24}/.test(p.text), "Placed: addressed to Owner, signed KAAL, ending with the journey link");
   ok(!/—/.test(p.text + p.html) && !/[\u{1F300}-\u{1FAFF}]/u.test(p.text), "Placed: no em dash, no emoji");

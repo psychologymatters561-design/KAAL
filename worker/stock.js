@@ -33,7 +33,7 @@ export function configOf(html) {
   const sold = /sold:\s*\[([^\]]*)\]/.exec(html);
   const edition = parseInt((/edition:\s*(\d+)/.exec(html) || [])[1], 10) || 20;
   const price = parseInt(String((/price:\s*"([^"]+)"/.exec(html) || [])[1] || "5,999").replace(/[^0-9]/g, ""), 10) || 5999;
-  /* The closing piece's price, when the page names one (KAAL.lastPrice). */
+  /* No. 20's price, when the page names one (KAAL.lastPrice). */
   const lastPrice = parseInt(String((/lastPrice:\s*"([^"]+)"/.exec(html) || [])[1] || "").replace(/[^0-9]/g, ""), 10) || 0;
   const dials = {};
   const block = /dials:\s*\{([^}]*)\}/.exec(html);
@@ -55,11 +55,13 @@ export function stockOf(cfg) {
     byDial[d].made++;
     if (!soldSet.has(n)) byDial[d].open.push(n);
   }
-  /* What one watch costs right now: the closing price once a single piece
-     is left, the same rule the worker's /order prices by (priceFor). */
+  /* What each number costs: the list price, and No. 20, the number that
+     retires the design, at lastPrice. The worker's /order prices by the
+     same rule (priceFor); it does not depend on how many are left. */
   const lastPrice = cfg.lastPrice > cfg.price ? cfg.lastPrice : 0;
-  const now = open.length === 1 && lastPrice ? lastPrice : cfg.price;
-  return { edition: cfg.edition, price: cfg.price, lastPrice, now, dials: cfg.dials, gone, open, remaining: open.length, byDial };
+  const priceOf = (n) => n === cfg.edition && lastPrice ? lastPrice : cfg.price;
+  const closingOpen = open.indexOf(cfg.edition) > -1;
+  return { edition: cfg.edition, price: cfg.price, lastPrice, priceOf, closingOpen, dials: cfg.dials, gone, open, remaining: open.length, byDial };
 }
 
 /* ── index.html ──
@@ -82,14 +84,10 @@ export function applyStockHtml(html) {
   for (const id of ["navRem", "remWord", "dockRem"]) one(new RegExp(`(<span id="${id}">)[^<]*(</span>)`), m => `${m[1]}${w}${m[2]}`);
   one(/(<span id="heroLeft">)[^<]*(<\/span>)/, m => `${m[1]}${st.remaining}${m[2]}`);
 
-  /* Every printed price, and the ladder's step: which rung is live, and
-     how many are left on the one before the closing piece. */
-  for (const m of html.matchAll(/(<span data-price>)[^<]*(<\/span>)/g)) edits.push([m.index, m.index + m[0].length, `${m[1]}&#8377;${inr(st.now)}${m[2]}`]);
-  if (st.lastPrice) {
-    const step = st.remaining > 1 ? "list" : st.remaining === 1 ? "last" : "closed";
-    one(/(<div class="ladder" id="ladder" data-step=")[a-z]*(")/, m => `${m[1]}${step}${m[2]}`);
-    one(/(<em id="ladNow">)[^<]*(<\/em>)/, m => `${m[1]}${st.remaining > 1 ? word(st.remaining - 1) + " at this price" : "All placed"}${m[2]}`);
-  }
+  /* Every printed price is the list price; No. 20's block says whether the
+     number that retires the design is still open. */
+  for (const m of html.matchAll(/(<span data-price>)[^<]*(<\/span>)/g)) edits.push([m.index, m.index + m[0].length, `${m[1]}&#8377;${inr(st.price)}${m[2]}`]);
+  if (st.lastPrice) one(/(<div class="twentieth" id="twentieth" data-open=")[a-z]*(")/, m => `${m[1]}${st.closingOpen ? "yes" : "no"}${m[2]}`);
 
   /* Each dial: the early pick ("4 left" / "Gone") and the story's link. */
   for (const d of DIALS) {
@@ -119,7 +117,7 @@ export function applyStockHtml(html) {
     if (!group || !group.offers) return all;
     const o = group.offers, rest = Object.assign({}, o);
     for (const k of ["@type", "price", "priceCurrency", "availability", "inventoryLevel"]) delete rest[k];
-    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: String(st.now), priceCurrency: o.priceCurrency,
+    group.offers = Object.assign({ "@type": o["@type"] || "Offer", price: String(st.price), priceCurrency: o.priceCurrency,
       availability: SCHEMA + (st.remaining ? "InStock" : "OutOfStock"),
       inventoryLevel: { "@type": "QuantitativeValue", value: st.remaining } }, rest);
     group.hasVariant = (group.hasVariant || []).map(v => {
@@ -127,7 +125,7 @@ export function applyStockHtml(html) {
       if (!k || !v.offers) return v;
       const vo = v.offers, vrest = Object.assign({}, vo);
       for (const key of ["@type", "price", "priceCurrency", "availability"]) delete vrest[key];
-      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: String(st.now), priceCurrency: vo.priceCurrency,
+      return Object.assign({}, v, { offers: Object.assign({ "@type": vo["@type"] || "Offer", price: String(st.priceOf(k)), priceCurrency: vo.priceCurrency,
         availability: SCHEMA + (gone.has(k) ? "SoldOut" : "InStock") }, vrest) });
     });
     return open + JSON.stringify(g, null, 2) + "\n" + close;
@@ -170,8 +168,7 @@ export function llmsStatus(st, day) {
     `- **No longer available**: ${st.gone.length} of ${st.edition}${st.gone.length ? " (" + nos(st.gone) + ")" : ""}`,
     `- **Available by dial**: ${dial}`,
     `- **Status**: ${!st.remaining ? "retired: all twenty are gone and the design will not be made again"
-      : st.remaining === 1 && st.lastPrice ? `one piece left, the closing piece of Series 01, on sale at thekaal.co at ₹${inr(st.now)}`
-      : `on sale at thekaal.co, ₹${inr(st.price)} each${st.lastPrice ? `; the closing piece, the last one left, ₹${inr(st.lastPrice)}` : ""}`}`,
+      : `on sale at thekaal.co, ₹${inr(st.price)} each${st.lastPrice ? `; No. ${st.edition}, the number that retires the design, ₹${inr(st.lastPrice)}${st.closingOpen ? "" : " (already placed)"}` : ""}`}`,
     `- **As of**: ${longDate(day)}`,
     ""
   ].join("\n");
@@ -194,8 +191,8 @@ export function editionJson(st, day) {
     series: "Series 01",
     url: "https://thekaal.co/",
     edition: st.edition,
-    priceINR: st.now,
-    ...(st.lastPrice ? { closingPieceINR: st.lastPrice } : {}),
+    priceINR: st.price,
+    ...(st.lastPrice ? { closingNumber: st.edition, closingNumberINR: st.lastPrice } : {}),
     status: st.remaining ? "on sale" : "retired",
     available: st.remaining,
     gone: st.gone.length,

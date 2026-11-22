@@ -19,16 +19,15 @@ CURRENCY      = "INR"
 # two ever disagree. Change the price on the page and this line and the
 # deployed secret have to move with it — in that order, and before the
 # next sale.
-PRICE_PAISE   = "699900"          # ₹6,999, the last pieces
+PRICE_PAISE   = "699900"          # ₹6,999, every number but the twentieth
 #
-# The price ladder (worker: priceFor, floorPaise). The closing piece, the
-# one left when every other number is gone, is LAST_PRICE_PAISE; /order
-# decides that from the edition's own state, never from the page. It is a
-# second copy of `lastPrice` in index.html, checked the same way.
-# FLOOR_PAISE is the price Series 01 opened at: the lowest amount the
-# webhook, the import and Meta's catch-up accept as a full-price sale, so
-# the sales already made at ₹5,999 stay sales.
-LAST_PRICE_PAISE = "899900"       # ₹8,999, the closing piece
+# No. 20, the number that retires the design, is LAST_PRICE_PAISE whenever
+# it is bought (worker: priceFor). The price belongs to the number, never
+# to how many are left. It is a second copy of `lastPrice` in index.html,
+# checked the same way. FLOOR_PAISE is where Series 01 opened: the lowest
+# amount the webhook, the import and Meta's catch-up accept as a
+# full-price sale, so earlier sales stay sales.
+LAST_PRICE_PAISE = "899900"       # ₹8,999, No. 20
 FLOOR_PAISE   = "599900"          # ₹5,999, where Series 01 opened
 
 ALLOW_ORIGIN  = "https://thekaal.co,https://www.thekaal.co"

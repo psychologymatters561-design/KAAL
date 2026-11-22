@@ -49,7 +49,7 @@ const SYSTEM = `You write one short email for KAAL, a watch house in India, to o
 What KAAL is (only these facts; never add others):
 - Series 01: twenty numbered watches. One case design, four dials: Emerald, Midnight, Champagne, Ivory. Each number is engraved on one caseback, once. When the twenty are gone the design is retired and never made again.
 - Japanese Seiko Epson five hand quartz movement. Made in India, finished by hand. Day ring, twenty four hour counter, pointer date. Mineral glass, two tone stainless steel bracelet, gold tone bezel, water resistant.
-- Price: exactly as the facts give it (price). Series 01 rises with the count, never with a clock: ₹6,999 for the last pieces, and ₹8,999 for the closing piece, the one left when every other number has gone. Delivery across India included, in a handmade box.
+- Price: exactly as the facts give it (price). Every number is ₹6,999 except No. 20, the number that retires the design, which is ₹8,999. Delivery across India included, in a handmade box.
 - Seven days to live with it: if it is not for them, they send it back unworn and every rupee comes back.
 - Two years' warranty on the movement, from delivery.
 - Each owner is written into the KAAL registry with their place in the watch's line (Owner I, Owner II...). Owners of Series 01 hear about Series 02 first.
@@ -82,7 +82,7 @@ export function factsFor(d) {
     their_number_is_still_open: d.n ? !!d.open : null,
     same_dial_numbers_still_open: (d.sameDial || []).map(n => `No. ${pad(n)}`),
     left_of_twenty: d.left,
-    price: d.left === 1 ? `₹${LAST_PRICE}, the closing piece of Series 01` : `₹${LIST_PRICE}`,
+    price: Number(d.n) === 20 ? `₹${LAST_PRICE}, for No. 20, the number that retires the design` : `₹${LIST_PRICE}`,
     already_worn: d.sold || 0,
     was_a_gift: !!d.gift
   };
@@ -95,15 +95,15 @@ export function factsFor(d) {
   return f;
 }
 
-/* The two prices left on the Series 01 ladder, as wrangler.toml charges
-   them (PRICE_PAISE, LAST_PRICE_PAISE). A note names only the one that
-   applies to the reader's moment: the closing price once one is left. */
+/* The two Series 01 prices, as wrangler.toml charges them (PRICE_PAISE,
+   LAST_PRICE_PAISE). A note names only the one for the reader's number:
+   No. 20 is the closing price, every other number the list price. */
 const LIST_PRICE = "6,999", LAST_PRICE = "8,999";
 
 /* The numbers a note may state, and nothing else. */
 function allowedNumbers(d) {
   const a = new Set(["20", "7", "2", "24", "4", "01", "02", "1"]);
-  const p = d.left === 1 ? LAST_PRICE : LIST_PRICE;
+  const p = Number(d.n) === 20 ? LAST_PRICE : LIST_PRICE;
   a.add(p); a.add(p.replace(/,/g, ""));
   const add = (n) => { if (n || n === 0) { a.add(String(n)); a.add(pad(n)); } };
   add(d.n); (d.sameDial || []).forEach(add); add(d.left); add(d.sold || 0);

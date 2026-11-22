@@ -2,7 +2,7 @@
 
 > KAAL is an Indian watch brand that sells in closed, numbered series and
 > retires each design permanently once the final piece ships. Series 01 is
-> twenty numbered watches (opened at ₹5,999; the last pieces ₹6,999, the closing piece ₹8,999), one case design across four dials,
+> twenty numbered watches (₹6,999 a number; No. 20, the number that retires the design, ₹8,999), one case design across four dials,
 > made in India around a Japanese Seiko Epson quartz movement that KAAL backs for
 > twenty four months from delivery. When the twentieth ships, the design is
 > never produced again.
@@ -20,8 +20,8 @@ matches the shop. The same facts as data: https://thekaal.co/edition.json
 - **Available now**: 3 of 20 (Nos. 17, 18, 20)
 - **No longer available**: 17 of 20 (Nos. 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 19)
 - **Available by dial**: Emerald 0 of 6; Midnight 0 of 4; Champagne 0 of 4; Ivory 3 of 6 (Nos. 17, 18, 20)
-- **Status**: on sale at thekaal.co, ₹6,999 each; the closing piece, the last one left, ₹8,999
-- **As of**: 20 November 2026
+- **Status**: on sale at thekaal.co, ₹6,999 each; No. 20, the number that retires the design, ₹8,999
+- **As of**: 22 November 2026
 
 ## The facts, stated once
 
@@ -33,7 +33,7 @@ matches the shop. The same facts as data: https://thekaal.co/edition.json
 - **Made in**: India. Case, dial, bracelet, assembly and finishing are done in
   India; the movement is Japanese. Ships within India only.
 - **Product**: KAAL Series 01, twenty numbered wristwatches.
-- **Price**: Series 01 opened at ₹5,999. The last pieces are ₹6,999; the closing piece, the one left when every other number has gone, is ₹8,999. The price moves with the count, never with a clock, and only upwards. Shipping within India included.
+- **Price**: ₹6,999 a number. No. 20, the twentieth and the number that retires the design, is ₹8,999 whenever it is bought. Shipping within India included.
 - **Movement**: a Japanese Seiko Epson five hand multi function quartz movement, the
   same in all twenty pieces. It drives the hours, minutes and seconds plus the
   day at twelve, the twenty four hour hand at nine and the pointer date at six.
@@ -102,8 +102,7 @@ trust:
 - [Provenance](https://thekaal.co/provenance.html): who you buy from, where
   the watch comes from, who takes the payment, and reviews.
 - [Why twenty](https://thekaal.co/manifesto.html): the complete argument: what
-  the name means, who the series is for, why it opened at ₹5,999 and why it did not stay
-  there, how the piece is made, and what the brand has decided against.
+  the name means, who the series is for, how it is priced, how the piece is made, and what the brand has decided against.
 - [About](https://thekaal.co/about.html): what the brand is, what the name
   means, who makes it, the Series 01 specification, and how buying works.
 - [Legal](https://thekaal.co/legal.html): seller information, terms of sale,

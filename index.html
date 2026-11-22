@@ -8,7 +8,7 @@
      rewritten on load by countsFromRemaining(), so it is never stale. Both strings are the same shape on purpose: brand,
      country, series, then the one fact that decides the click. If you change
      one, change the other. -->
-<meta name="description" content="Series 01: twenty numbered luxury watches, made in India around a Japanese Seiko Epson movement backed twenty four months. ₹6,999 for the last pieces, free delivery in India, seven day return. When the last one ships, the design retires.">
+<meta name="description" content="Series 01: twenty numbered luxury watches, made in India around a Japanese Seiko Epson movement backed twenty four months. ₹6,999, free delivery in India, seven day return. When No. 20 ships, the design retires.">
 <meta name="theme-color" content="#080908">
 <!-- The defaults cap a text snippet at roughly 160 characters and an image
      preview at a thumbnail. This brand's argument does not survive being cut
@@ -143,7 +143,7 @@
       "@id": "https://thekaal.co/#webpage",
       "url": "https://thekaal.co/",
       "name": "KAAL Watches India · Series 01",
-      "description": "Twenty numbered watches, made in India around a Japanese Seiko Epson quartz movement, backed twenty four months. Opened at ₹5,999; the last pieces are ₹6,999 and the closing piece ₹8,999. When the twentieth ships, the design retires permanently.",
+      "description": "Twenty numbered watches, made in India around a Japanese Seiko Epson quartz movement, backed twenty four months. ₹6,999 a number; No. 20, the number that retires the design, ₹8,999. When the twentieth ships, the design retires permanently.",
       "inLanguage": "en-IN",
       "isPartOf": {
         "@id": "https://thekaal.co/#website"
@@ -660,7 +660,7 @@
           "color": "Ivory",
           "offers": {
             "@type": "Offer",
-            "price": "6999",
+            "price": "8999",
             "priceCurrency": "INR",
             "availability": "https://schema.org/InStock",
             "seller": {
@@ -1041,31 +1041,27 @@ a{color:inherit}
 .assure li::before{content:"";position:absolute;left:0;top:.66em;
   width:6px;height:1px;background:var(--gold);opacity:.7}
 
-/* ── THE LADDER and WHAT IT CARRIES. The price is shown as a direction,
-      not a number: where it opened, where it is, where it ends. The rung
-      that is live is the only one in gold; the ones behind it are spent.
-      data-step is written by worker/stock.js and moved by paintPrice(). */
-.ladder,.beyond{grid-column:1/-1;margin:.4rem 0 0;padding-top:1.1rem;border-top:1px solid var(--line)}
-.ladder-h,.beyond-h{margin:0 0 .8rem;font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
-.ladder ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
-.ladder li{display:flex;flex-direction:column;gap:.2rem;padding:.7rem .75rem;border:1px solid var(--line);border-radius:4px;color:var(--mute)}
-.ladder .r-what{font-size:.6875rem;letter-spacing:.06em}
-.ladder b{font-weight:400;font-size:1.05rem;color:var(--bone);letter-spacing:.01em}
-.ladder em{font-style:normal;font-size:.75rem;color:var(--faint)}
-.ladder .r-open b{text-decoration:line-through;text-decoration-thickness:1px;color:var(--mute)}
-.ladder[data-step="list"] .r-list,.ladder[data-step="last"] .r-last{border-color:var(--gold)}
-.ladder[data-step="list"] .r-list b,.ladder[data-step="last"] .r-last b{color:var(--gold-lit)}
-.ladder[data-step="list"] .r-list em,.ladder[data-step="last"] .r-last em{color:var(--gold)}
-.ladder[data-step="last"] .r-list b,.ladder[data-step="closed"] li b{text-decoration:line-through;text-decoration-thickness:1px;color:var(--mute)}
-.ladder-why{margin:.8rem 0 0;font-size:.8125rem;color:var(--mute);line-height:1.55}
+/* ── THE TWENTIETH and WHAT IT CARRIES. One number set apart by what it
+      does, not by a discount or a countdown: gold only on the price that
+      is the comparison, quiet everywhere else. data-open is written by
+      worker/stock.js and moved by paintPrice(). */
+.twentieth,.beyond{grid-column:1/-1;margin:.4rem 0 0;padding-top:1.1rem;border-top:1px solid var(--line)}
+.tw-h,.beyond-h{margin:0 0 .8rem;font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+.twentieth[data-open="yes"] .tw-h{color:var(--gold)}
+.tw-line{margin:0 0 .55rem;font-size:1.02rem;color:var(--bone);line-height:1.4}
+.tw-body{margin:0;font-size:.8125rem;color:var(--mute);line-height:1.6;max-width:62ch}
+.tw-price{display:flex;flex-wrap:wrap;gap:.5rem;margin:.9rem 0 0}
+.tw-price span{display:flex;flex-direction:column;gap:.15rem;padding:.6rem .8rem;border:1px solid var(--line);border-radius:4px;font-size:1rem;color:var(--bone)}
+.tw-price span:first-child{border-color:var(--gold);color:var(--gold-lit)}
+.tw-price b{font-weight:400;font-size:.6875rem;letter-spacing:.08em;color:var(--faint)}
+.tw-go{display:inline-block;margin-top:.8rem;font-size:.8125rem;color:var(--gold-lit)}
+.twentieth[data-open="yes"] .tw-gone,.twentieth[data-open="no"] .tw-open{display:none}
+.twenty .pick[data-n="20"]:not(:disabled){box-shadow:inset 0 0 0 1px rgba(198,161,91,.55)}
 .beyond ul{margin:0;padding:0;list-style:none;display:grid;gap:.6rem}
 .beyond li{position:relative;padding-left:1rem;font-size:.8125rem;color:var(--mute);line-height:1.55}
 .beyond li::before{content:"";position:absolute;left:0;top:.7em;width:6px;height:1px;background:var(--gold);opacity:.7}
 .beyond b{font-weight:400;color:var(--bone)}
-.ladder-cue{color:var(--mute)}
-@media (max-width:32rem){.ladder ol{grid-template-columns:1fr}
-  .ladder li{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:.2rem .7rem}
-  .ladder em{flex-basis:100%}}
+.closing-cue{color:var(--mute)}
 
 /* ── HERO. The stage is sticky inside a tall scroller; scroll position
       inside that scroller is the video's transport. ─────────────── */
@@ -2077,7 +2073,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
       </dl></li>
       <li><dl>
         <dt>The price</dt>
-        <dd><span data-price>&#8377;6,999</span> all in<small>Series 01 opened at &#8377;5,999 and only moves up: the closing piece is &#8377;8,999. Free delivery anywhere in India, sold direct, never a marketplace.</small></dd>
+        <dd><span data-price>&#8377;6,999</span> all in<small>No. 20, the number that retires the design, is &#8377;8,999. Free delivery anywhere in India, sold direct, never a marketplace.</small></dd>
       </dl></li>
     </ul>
   </div>
@@ -2357,7 +2353,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
     <p class="label rise">11 · The twenty</p>
     <h2 class="statement rise"><span id="remWord">Three</span> remain.</h2>
     <p class="sub rise">Every number is engraved on one caseback, once.</p>
-    <p class="sub ladder-cue rise">Series 01 opened at &#8377;5,999. The price rises with the count, never with a clock, and whoever takes the last one retires the design.</p>
+    <p class="sub closing-cue rise">Series 01 was drawn from dark to light: Emerald first, Ivory last. The final six numbers were always Ivory, and the twentieth is the one that retires the design.</p>
 
     <p class="step" id="choose">1 &nbsp;·&nbsp; Choose a dial</p>
     <div class="dials" id="dials" role="radiogroup" aria-label="Choose a dial">
@@ -2470,21 +2466,26 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
           <dt>Glass</dt><dd>Mineral glass</dd>
           <dt>Bracelet</dt><dd>Two tone stainless steel</dd>
           <dt>Warranty</dt><dd>Twenty four months on the movement, from delivery</dd>
-          <dt>Price</dt><dd><span data-price>&#8377;6,999</span>, shipping within India included</dd>
+          <dt>Price</dt><dd><span id="piecePrice">&#8377;6,999</span>, shipping within India included</dd>
         </dl>
-        <!-- THE LADDER. Three rungs, one direction. The worker prices every
-             order by the same rule (priceFor): the closing price only when a
-             single piece is left. worker/stock.js keeps data-step and ladNow
-             true for readers that run no script; paintPrice() moves them on
-             between commits. -->
-        <div class="ladder" id="ladder" data-step="list" role="group" aria-labelledby="ladderH">
-          <p class="ladder-h" id="ladderH">How the price of Series 01 moves</p>
-          <ol>
-            <li class="r-open"><span class="r-what">Where it opened</span><b>&#8377;5,999</b><em>Sixteen placed</em></li>
-            <li class="r-list"><span class="r-what">The last pieces</span><b>&#8377;6,999</b><em id="ladNow">Two at this price</em></li>
-            <li class="r-last"><span class="r-what">The closing piece</span><b>&#8377;8,999</b><em>The last of this design, ever</em></li>
-          </ol>
-          <p class="ladder-why">Nothing here is discounted, nothing ends at midnight, and nobody who comes later pays less. Series 02 will be priced for what it is, not to introduce a name. <a href="manifesto.html#price">Why the price was always going to move</a>.</p>
+        <!-- THE TWENTIETH. The price belongs to the number: every number is
+             KAAL.price, and No. 20, the number that retires the design, is
+             KAAL.lastPrice whenever it is bought (worker: priceFor). No old
+             price is shown anywhere: nothing here is a comparison with the
+             past, only with the number beside it. worker/stock.js keeps
+             data-open true for readers that run no script; paintPrice()
+             moves it between commits. -->
+        <div class="twentieth" id="twentieth" data-open="yes" role="group" aria-labelledby="twH">
+          <p class="tw-h" id="twH">No. 20 &middot; The twentieth</p>
+          <div class="tw-open">
+            <p class="tw-line">Nineteen numbers belong to Series 01. The twentieth closes it.</p>
+            <p class="tw-body">The same case, the same Ivory dial, the same movement. What it carries that no other piece can: when No. 20 leaves, the design is retired and the twenty are complete. Its owner wears the last number of the first KAAL series ever made. It is priced once, for that.</p>
+            <p class="tw-price"><span><b>No. 20</b>&#8377;8,999</span><span><b>Every other number</b>&#8377;6,999</span></p>
+            <a class="tw-go" href="#n20">See No. 20 &rarr;</a>
+          </div>
+          <div class="tw-gone">
+            <p class="tw-line">No. 20 has been placed. Series 01 already has its last word.</p>
+          </div>
         </div>
         <!-- WHAT THE PRICE CARRIES BEYOND THE WATCH. Facts about the piece
              and the edition, never services or promises: nothing here costs
@@ -2572,7 +2573,7 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
         <h3>The piece</h3>
         <p>KAAL Series 01. Twenty numbered watches, one case design, four dials.</p>
         <p>Day ring, twenty four hour counter, pointer date. Mineral glass. Water resistant. Two tone stainless steel bracelet, gold tone bezel.</p>
-        <p><span id="priceFoot"><span data-price>&#8377;6,999</span></span> per piece; the closing piece of Series 01 is &#8377;8,999.
+        <p><span id="priceFoot"><span data-price>&#8377;6,999</span></span> per piece; No. 20, the number that retires the design, is &#8377;8,999.
           Shipping within India included.</p>
       </div>
       <div>
@@ -2683,8 +2684,8 @@ h1,h2,h3,.statement,.cap,.hero-line{text-wrap:balance}
 var KAAL = {
   checkout: "",
   pay:      "standard",
-  price:    "6,999",   // the last pieces; wrangler.toml PRICE_PAISE agrees
-  lastPrice: "8,999",  // the closing piece, once one is left; LAST_PRICE_PAISE agrees
+  price:    "6,999",   // every number but No. 20; wrangler.toml PRICE_PAISE agrees
+  lastPrice: "8,999",  // No. 20, the number that retires the design; LAST_PRICE_PAISE agrees
   edition:  20,
 
   /* The deployed edition worker, or "". Empty is not a degraded mode: it
@@ -4411,23 +4412,23 @@ var grid = $("#grid"), chosen = 0;
 var soldSet = {}; KAAL.sold.forEach(function(n){ soldSet[n] = 1; });
 var remaining = KAAL.edition - KAAL.sold.length;
 
-/* ── THE PRICE LADDER. One rule, the worker's own (priceFor): the closing
-      price once a single piece is left, the list price before. /order is
-      the authority and charges by the edition's state, not this page's;
-      livePrice is what it last said, so a page that fell behind is
-      corrected by the first order it asks for (see the /order answer). */
-var livePrice = "";
-function priceNow(){
-  if(livePrice) return livePrice;
-  return remaining === 1 && KAAL.lastPrice ? KAAL.lastPrice : KAAL.price;
+/* ── WHAT A NUMBER COSTS. The worker's own rule (priceFor): every number is
+      KAAL.price, and No. 20, the twentieth, is KAAL.lastPrice. It never
+      depends on how many are left. /order is the authority; livePrices is
+      what it last said for a number, so a page that disagrees is corrected
+      by the first order it asks for (see the /order answer). */
+var livePrices = {};
+function priceOf(n){
+  if(n && livePrices[n]) return livePrices[n];
+  return n === KAAL.edition && KAAL.lastPrice ? KAAL.lastPrice : KAAL.price;
 }
+function priceNow(){ return priceOf(chosen); }
 function paintPrice(){
-  var p = priceNow(), els = document.querySelectorAll("[data-price]");
-  for(var i = 0; i < els.length; i++) els[i].textContent = "\u20b9" + p;
-  window.KAAL_PRICE = parseInt(String(p).replace(/[^0-9]/g, ""), 10) || 0;   /* assets/tags.js values events by it */
-  var lad = $("#ladder"), now = $("#ladNow");
-  if(lad && KAAL.lastPrice) lad.setAttribute("data-step", remaining > 1 ? "list" : remaining === 1 ? "last" : "closed");
-  if(now) now.textContent = remaining > 1 ? (WORDS[remaining - 1] || String(remaining - 1)) + " at this price" : "All placed";
+  var els = document.querySelectorAll("[data-price]"), pp = $("#piecePrice"), tw = $("#twentieth");
+  for(var i = 0; i < els.length; i++) els[i].textContent = "\u20b9" + KAAL.price;
+  if(pp) pp.textContent = "\u20b9" + priceNow();
+  window.KAAL_PRICE = parseInt(String(priceNow()).replace(/[^0-9]/g, ""), 10) || 0;   /* assets/tags.js values events by it */
+  if(tw && KAAL.lastPrice) tw.setAttribute("data-open", soldSet[KAAL.edition] ? "no" : "yes");
 }
 
 /* ── THE REGISTER. A number that has gone reads "Placed", engraved into
@@ -4644,6 +4645,7 @@ function paintDials(){
 
 function choose(n){
   chosen = n;
+  paintPrice();
   if(n) face = KAAL.dials[n] || "ivory";
   $$(".pick", grid).forEach(function(el){
     el.setAttribute("aria-pressed", parseInt(el.dataset.n, 10) === chosen ? "true" : "false");
@@ -5236,7 +5238,7 @@ function driveSchema(){
       "color": face.name,
       "offers": {
         "@type": "Offer",
-        "price": String(priceNow()).replace(/[^0-9]/g, ""),
+        "price": String(priceOf(n)).replace(/[^0-9]/g, ""),
         "priceCurrency": "INR",
         "availability": gone ? "https://schema.org/SoldOut"
                              : "https://schema.org/InStock",
@@ -5481,9 +5483,9 @@ function openDetails(n, el, msg){
     if(!f[k].value && saved[k]) f[k].value = saved[k];
     f[k].removeAttribute("aria-invalid");
   });
-  $("#detEyebrow").textContent = "No. " + pad(n) + "  \u00b7  " + face.name + "  \u00b7  \u20b9" + priceNow();
+  $("#detEyebrow").textContent = "No. " + pad(n) + "  \u00b7  " + face.name + "  \u00b7  \u20b9" + priceOf(n);
   $("#detTitle").textContent = "Where should No. " + pad(n) + " go?";
-  $("#detGo").textContent = "Continue to payment  \u00b7  \u20b9" + priceNow();
+  $("#detGo").textContent = "Continue to payment  \u00b7  \u20b9" + priceOf(n);
   $$(".det-gift", detForm).forEach(function(l){ l.hidden = !g.on; });
   $("#detWhere").textContent = g.on ? "Their address. It is a gift, so it goes to them" : "Delivery address";
   $("#detMsg").textContent = msg || "";
@@ -5598,22 +5600,16 @@ function startCheckout(n, el, buyer){
     return r.json().catch(function(){ return null; });
   }).then(function(d){
     if(d && d.ok && d.order_id && d.key_id){
-      /* The worker priced this order from the edition as it stands. If that
-         is more than this page has been showing, the page fell behind (the
-         other numbers went while it was open): it says so, shows the price,
-         and waits for a second tap rather than opening a payment for an
-         amount the buyer never saw. The number stays held for them. */
-      var asked = Math.round((d.amount || 0) / 100), shown = parseInt(String(priceNow()).replace(/[^0-9]/g, ""), 10) || 0;
+      /* The worker priced this order itself. If that is more than this page
+         showed for the number, the page says so, shows the price, and waits
+         for a second tap rather than opening a payment for an amount the
+         buyer never saw. The number stays held for them. */
+      var asked = Math.round((d.amount || 0) / 100), shown = parseInt(String(priceOf(n)).replace(/[^0-9]/g, ""), 10) || 0;
       if(asked > 0 && asked !== shown){
-        /* The closing price means this is the one piece left: the rest of
-           the grid is told so too, before the sentence that explains it. */
-        if(asked === (parseInt(String(KAAL.lastPrice || "").replace(/[^0-9]/g, ""), 10) || -1)){
-          for(var o = 1; o <= KAAL.edition; o++) if(o !== n && !soldSet[o]) markSold(o);
-        }
-        livePrice = asked.toLocaleString("en-IN");
+        livePrices[n] = asked.toLocaleString("en-IN");
         paintPrice(); paintCta();
         if(asked > shown){
-          done("Every other number has gone while you were deciding. No. " + pad(n) + " is the closing piece of Series 01, at \u20b9" + livePrice + ". Nothing has been charged. Tap again to continue.");
+          done("No. " + pad(n) + " is \u20b9" + livePrices[n] + ". Nothing has been charged. Tap again to continue.");
           return;
         }
       }

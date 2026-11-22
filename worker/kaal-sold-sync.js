@@ -120,21 +120,23 @@ const HOLD_PREFIX = "hold:";
 const RZP_API = "https://api.razorpay.com/v1";
 const MIN_PAISE = 100;          /* Razorpay rejects anything under this */
 
-/* THE PRICE LADDER. Series 01 opened at FLOOR_PAISE (₹5,999), the last
-   pieces sell at PRICE_PAISE (₹6,999), and the closing piece, the one
-   that retires the design, at LAST_PRICE_PAISE (₹8,999). The step is
-   decided by how many are left, never by a clock, and only ever here:
-   /order prices from the edition's own state, so no page, however stale,
-   can buy the closing piece at the earlier price.
+/* WHAT A NUMBER COSTS. Every number is PRICE_PAISE (₹6,999) except the
+   twentieth: No. 20 is the number that retires the design, and it is
+   LAST_PRICE_PAISE (₹8,999) whenever it is bought, first or last. The
+   price belongs to the number, not to how many are left, so no buyer is
+   ever charged more for being late, and the piece that costs most is the
+   one that means most. Decided here and only here: the page shows the
+   same rule (priceOf in index.html) and is never trusted to state it.
 
-   Every check of "was this paid in full" uses the floor, because a sale
-   made at ₹5,999 last week is still a sale: the order the worker priced
-   is the authority on what each buyer owed, and the payment is checked
-   against that order. */
+   Every check of "was this paid in full" uses the floor, FLOOR_PAISE
+   (₹5,999, where Series 01 opened), so earlier sales stay sales: the
+   order the worker priced is the authority on what each buyer owed, and
+   the payment is checked against that order. */
 function paiseOf(v) { const p = parseInt(v || "0", 10); return isNaN(p) ? 0 : p; }
-function priceFor(env, open) {
+function priceFor(env, n) {
   const list = paiseOf(env.PRICE_PAISE), last = paiseOf(env.LAST_PRICE_PAISE);
-  return open === 1 && list >= MIN_PAISE && last >= list ? last : list;
+  const closing = parseInt(env.EDITION || "20", 10);
+  return n === closing && list >= MIN_PAISE && last >= list ? last : list;
 }
 function floorPaise(env) {
   const list = paiseOf(env.PRICE_PAISE), floor = paiseOf(env.FLOOR_PAISE);
@@ -490,12 +492,8 @@ async function postOrder(request, env, ctx) {
   const sold = await knownSold(env);
   if (sold && sold.indexOf(n) > -1) return json(request, env, { ok: false, reason: "sold" }, {}, 409);
 
-  /* Which step of the ladder this order is on: the closing price only when
-     this number is the one piece left. An edition whose state could not be
-     read is priced at the list price, never guessed upward. */
-  let open = 0;
-  if (sold) { for (let i = 1; i <= edition; i++) if (sold.indexOf(i) < 0) open++; }
-  const amount = priceFor(env, sold ? open : 0);
+  /* The number's own price: No. 20 is the twentieth, every other is the list. */
+  const amount = priceFor(env, n);
 
   /* Somebody else's hold stops an order exactly as it stops a hold. Your
      own does not, so reloading the page and trying again still works. */

@@ -106,7 +106,7 @@ export const LETTERS = {
     const n = pad2(d.n);
     return render(`No. ${n} is spoken for`, [
       "Owner,",
-      `Your payment is received and No. ${n} of ${d.size} is now set aside for you alone. Before it leaves, it will be inspected again, boxed by hand and sent to you within five days. You will hear from us at each step.`,
+      `Your payment is received and No. ${n} of ${d.size} is now set aside for you alone. Before it leaves, it will be inspected again, finished at the bench, boxed by hand and dispatched to you within five working days. You will hear from us at each step.`,
       `The day it reaches you, we will send one last link: the step that writes your name beside No. ${n} in the KAAL registry.`,
       "KAAL", ...journey(d)
     ], { preheader: `No. ${n} of ${d.size} is set aside for you alone.` });

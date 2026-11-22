@@ -52,10 +52,9 @@ var TAGS = {
 };
 
 var CUR = "INR";
-/* What one watch costs right now. The shop page writes window.KAAL_PRICE
-   from its price ladder (paintPrice in index.html); every other page sends
-   the list price for the last pieces, which is what /order charges until a
-   single piece is left. */
+/* What the chosen watch costs. The shop page writes window.KAAL_PRICE for
+   the number chosen (paintPrice in index.html: No. 20 is the closing
+   price); every other page sends the list price. */
 function price(){ var v = window.KAAL_PRICE; return typeof v === "number" && v > 0 ? v : 6999; }
 
 if(TAGS.pixel && !window.fbq){

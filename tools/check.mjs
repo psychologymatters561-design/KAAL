@@ -130,14 +130,14 @@ if (existsSync(join(root, "wrangler.toml"))) {
   } else if (Number.isFinite(rupees) && rupees > 0 && +paise !== rupees * 100) {
     bad(`price is ₹${cfg.price} but wrangler.toml charges ${paise} paise (₹${+paise / 100}) — they must agree`);
   }
-  /* The closing piece's price, the same way: the page shows lastPrice once
-     one piece is left, and /order charges LAST_PRICE_PAISE then. */
+  /* No. 20's price, the same way: the page shows lastPrice for No. 20,
+     and /order charges LAST_PRICE_PAISE for it. */
   const lastPaise = toml.match(/^\s*LAST_PRICE_PAISE\s*=\s*"(\d+)"/m)?.[1];
   const lastRupees = cfg.lastPrice ? +cfg.lastPrice.replace(/[^\d]/g, "") : 0;
-  if (lastRupees && !lastPaise) bad(`lastPrice is ₹${cfg.lastPrice} but wrangler.toml sets no LAST_PRICE_PAISE — the closing piece would be charged the list price`);
-  else if (lastPaise && !lastRupees) bad(`wrangler.toml charges the closing piece ${lastPaise} paise but index.html has no lastPrice to show it`);
-  else if (lastPaise && +lastPaise !== lastRupees * 100) bad(`lastPrice is ₹${cfg.lastPrice} but wrangler.toml charges ${lastPaise} paise for the closing piece — they must agree`);
-  else if (lastPaise && Number.isFinite(rupees) && lastRupees < rupees) bad(`lastPrice ₹${cfg.lastPrice} is below price ₹${cfg.price}; the ladder only rises`);
+  if (lastRupees && !lastPaise) bad(`lastPrice is ₹${cfg.lastPrice} but wrangler.toml sets no LAST_PRICE_PAISE — No. 20 would be charged the list price`);
+  else if (lastPaise && !lastRupees) bad(`wrangler.toml charges No. 20 ${lastPaise} paise but index.html has no lastPrice to show it`);
+  else if (lastPaise && +lastPaise !== lastRupees * 100) bad(`lastPrice is ₹${cfg.lastPrice} but wrangler.toml charges ${lastPaise} paise for No. 20 — they must agree`);
+  else if (lastPaise && Number.isFinite(rupees) && lastRupees < rupees) bad(`lastPrice ₹${cfg.lastPrice} is below price ₹${cfg.price}; No. 20 is never the cheaper number`);
   const floor = toml.match(/^\s*FLOOR_PAISE\s*=\s*"(\d+)"/m)?.[1];
   if (floor && paise && +floor > +paise) bad(`FLOOR_PAISE ${floor} is above PRICE_PAISE ${paise}: a full-price sale would be refused`);
 } else if (payMode === "standard") {
@@ -431,9 +431,8 @@ for (const f of pages) {
         bad("ProductGroup.hasVariant is empty — it is seeded so that crawlers which do not execute JavaScript still see the twenty; an empty array ships the edition to none of them");
       else if (vs.length !== edition)
         bad(`ProductGroup.hasVariant holds ${vs.length} pieces but the edition is ${edition}`);
-      /* What a watch costs right now, by the ladder's own rule (worker/stock.js). */
-      const S0 = await import("../worker/stock.js"), c0 = S0.configOf(html);
-      const nowPrice$ = c0 ? String(S0.stockOf(c0).now) : (cfg.price ? cfg.price.replace(/[^0-9]/g, "") : "");
+      /* What each number costs, by the worker's own rule (worker/stock.js). */
+      const S0 = await import("../worker/stock.js"), c0 = S0.configOf(html), st0 = c0 ? S0.stockOf(c0) : null;
       for (const v of vs) {
         const n = +String(v.sku || "").replace(/\D/g, "");
         if (!n || n < 1 || n > edition) { bad(`hasVariant has sku "${v.sku}", which is not a number in 1..${edition}`); continue; }
@@ -441,7 +440,7 @@ for (const f of pages) {
         if (want && v.color !== want) bad(`hasVariant says No. ${n} is ${v.color}; KAAL.dials says ${want}`);
         if (want && !String(v.name || "").includes(want)) bad(`hasVariant name for No. ${n} does not name its dial: "${v.name}"`);
         const paid = v.offers && String(v.offers.price || "");
-        const want$ = nowPrice$;
+        const want$ = st0 ? String(st0.priceOf(n)) : (cfg.price ? cfg.price.replace(/[^0-9]/g, "") : "");
         if (want$ && paid !== want$) bad(`hasVariant No. ${n} is priced ${paid}; the config says ${want$}`);
       }
     }
@@ -476,7 +475,7 @@ else {
   const llms = readFileSync(join(root, "llms.txt"), "utf8");
   if (!/thekaal\.co/.test(llms)) bad("llms.txt does not name the site");
   if (cfg.price && !llms.includes(cfg.price)) bad(`llms.txt does not carry the current price (${cfg.price})`);
-  if (cfg.lastPrice && !llms.includes(cfg.lastPrice)) bad(`llms.txt does not carry the closing piece's price (${cfg.lastPrice})`);
+  if (cfg.lastPrice && !llms.includes(cfg.lastPrice)) bad(`llms.txt does not carry No. 20's price (${cfg.lastPrice})`);
 }
 if (!existsSync(join(root, "sitemap.xml"))) soft("no sitemap.xml");
 else {

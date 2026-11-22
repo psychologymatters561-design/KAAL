@@ -390,9 +390,9 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   globalThis.fetch = orderFetch;
 }
 
-/* ── 10b. The price ladder ──
-   ₹6,999 while two or more are left, ₹8,999 for the one piece left, by the
-   edition's own state and never the page's; a payment is a sale when it
+/* ── 10b. The price of a number ──
+   ₹6,999 for every number, ₹8,999 for No. 20 whenever it is bought, never by
+   how many are left and never from the page; a payment is a sale when it
    covers the order the worker priced and is at least where Series 01
    opened, so the ₹5,999 sales already made stay sales. */
 {
@@ -413,34 +413,36 @@ ok(mails.length === 1 && mails[0].to[0] === "rahul.sharma@example.com" && mails[
   const envL = Object.assign({}, env, { PRICE_PAISE: "699900", LAST_PRICE_PAISE: "899900", FLOOR_PAISE: "599900" });
   const allBut = (...keep) => JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1).filter(n => keep.indexOf(n) < 0));
   const order = (b, e) => w.fetch(new Request("https://w/order", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://thekaal.co" }, body: JSON.stringify(b) }), e || envL, ctx());
+  const last = () => posted[posted.length - 1].amount;
 
-  KV.store.set("sold", allBut(13, 17, 18, 20)); KV.store.delete("hold:17"); KV.store.delete("hold:20");
-  r = await order({ n: 17, by: "lad1" }); d = await r.json();
-  ok(d.ok && d.amount === 699900 && posted[posted.length - 1].amount === 699900, "ladder: four left, the order is ₹6,999");
-  KV.store.set("sold", allBut(17, 20));
-  r = await order({ n: 20, by: "lad2", amount: 100 }); d = await r.json();
-  ok(d.ok && posted[posted.length - 1].amount === 699900, "ladder: two left, still ₹6,999, and the body cannot name a price");
+  KV.store.set("sold", allBut(17, 18, 20)); ["hold:17", "hold:18", "hold:20"].forEach(k => KV.store.delete(k));
+  r = await order({ n: 20, by: "p1" }); d = await r.json();
+  ok(d.ok && d.amount === 899900 && last() === 899900, "price: No. 20 is ₹8,999 with three left");
+  r = await order({ n: 17, by: "p2", amount: 100 }); d = await r.json();
+  ok(d.ok && d.amount === 699900 && last() === 699900, "price: No. 17 is ₹6,999, and the body cannot name a price");
+  KV.store.set("sold", allBut(18)); KV.store.delete("hold:18");
+  r = await order({ n: 18, by: "p3" }); d = await r.json();
+  ok(d.ok && last() === 699900, "price: the last one left is still ₹6,999 when it is not No. 20; nobody pays more for arriving late");
+  r = await order({ n: 20, by: "p1" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "" }));
+  ok(r.status === 409 || last() === 699900, "price: No. 20 sold is refused before any price is named");
   KV.store.set("sold", allBut(20)); KV.store.delete("hold:20");
-  r = await order({ n: 20, by: "lad3" }); d = await r.json();
-  ok(d.ok && d.amount === 899900 && posted[posted.length - 1].amount === 899900, "ladder: one left, the closing piece is ₹8,999");
-  r = await order({ n: 20, by: "lad3" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "" }));
-  ok((await r.json()).ok && posted[posted.length - 1].amount === 699900, "ladder: with no closing price set, the last one is the list price, never guessed");
-  r = await order({ n: 20, by: "lad3" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "100000" }));
-  ok((await r.json()).ok && posted[posted.length - 1].amount === 699900, "ladder: a closing price below the list price is ignored; it only rises");
+  r = await order({ n: 20, by: "p1" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "" }));
+  ok((await r.json()).ok && last() === 699900, "price: with no closing price set, No. 20 is the list price, never guessed");
+  r = await order({ n: 20, by: "p1" }, Object.assign({}, envL, { LAST_PRICE_PAISE: "100000" }));
+  ok((await r.json()).ok && last() === 699900, "price: a closing price below the list price is ignored");
 
-  /* The webhook: an order priced ₹8,999 paid ₹6,999 is not a sale; paid in full it is. */
-  KV.store.set("sold", allBut(20));
-  const id = "order_LADDER" + (posted.length - 2);
+  /* The webhook: No. 20 priced ₹8,999 and paid ₹6,999 is not a sale; paid in full it is. */
+  r = await order({ n: 20, by: "p1" }); await r.json();
+  const id = "order_LADDER" + posted.length;
   const pay = (amount, oid, pid) => hook(JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: pid, order_id: oid, amount, currency: "INR", email: "last.buyer@example.com", contact: "+919800000020", created_at: 1790000000, notes: { kaal_no: "20" } } } } }), envL);
   r = await pay(699900, id, "pay_LADDERSHORT");
-  ok(!JSON.parse(KV.store.get("sold")).includes(20) && /not the price/i.test(await r.text()), "ladder: the closing piece paid at the list price is not recorded as a sale");
+  ok(!JSON.parse(KV.store.get("sold")).includes(20) && /not the price/i.test(await r.text()), "price: No. 20 paid at the list price is not recorded as a sale");
   r = await pay(899900, id, "pay_LADDERFULL");
-  ok(JSON.parse(KV.store.get("sold")).includes(20), "ladder: paid in full at ₹8,999, No. 20 is sold");
-  /* And a ₹5,999 order from before the ladder still records as the sale it was. */
+  ok(JSON.parse(KV.store.get("sold")).includes(20), "price: paid in full at ₹8,999, No. 20 is sold");
   amountOf["order_LADDERX"] = 599900;
   KV.store.set("sold", allBut(18, 20));
   await pay(599900, "order_LADDERX", "pay_LADDEROLD");
-  ok(JSON.parse(KV.store.get("sold")).includes(18), "ladder: a ₹5,999 order made before the ladder is still a sale");
+  ok(JSON.parse(KV.store.get("sold")).includes(18), "price: a ₹5,999 order made before is still a sale");
   globalThis.fetch = base;
 }
 

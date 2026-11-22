@@ -40,8 +40,8 @@ the commercial behaviour of the entire page.
 var KAAL = {
   checkout: "",            // the live Razorpay payment-page URL
   pay:      "",            // "" = payment page above, "standard" = checkout modal
-  price:    "6,999",       // the last pieces; every price on the page reads from this
-  lastPrice: "8,999",      // the closing piece, shown and charged once one is left
+  price:    "6,999",       // every number but No. 20; every price on the page reads from this
+  lastPrice: "8,999",      // No. 20, the number that retires the design
   edition:  20,
   api:      "",            // the deployed edition worker, or "" for none
   heroPush:  0.18,         // how far the hero camera pushes in while the
@@ -79,28 +79,30 @@ Setting `api` to the deployed URL turns it on. Leaving it empty is not a
 degraded mode — it is exactly how this site has always run, and every fallback
 is tested that way.
 
-### 2a. The price ladder
+### 2a. What a number costs
 
-Series 01 opened at ₹5,999. The last pieces are ₹6,999 and the closing
-piece, the one left when every other number has gone, is ₹8,999. It is
-decided by the count, never by a clock, and in one place: `/order` prices
-from the edition's own state (`priceFor` in the worker), so a stale page
-cannot buy the closing piece at the earlier price; if it tries, the page is
-told the real price and asks for a second tap before any payment opens.
+Every number is ₹6,999. No. 20, the twentieth and the number that retires
+the design, is ₹8,999 whenever it is bought, first or last. The price
+belongs to the number, never to how many are left, so nobody pays more for
+arriving late, and no old price is shown anywhere on the shop page. It is
+decided in one place: `/order` prices by number (`priceFor` in the worker);
+the page shows the same rule (`priceOf`), and if the two ever disagree the
+page shows the worker's price and asks for a second tap before any payment
+opens.
 
 | what | page (`index.html`) | worker (`wrangler.toml`) |
 |---|---|---|
-| the last pieces | `price: "6,999"` | `PRICE_PAISE = "699900"` |
-| the closing piece | `lastPrice: "8,999"` | `LAST_PRICE_PAISE = "899900"` |
-| where it opened | (copy only) | `FLOOR_PAISE = "599900"` |
+| every number but No. 20 | `price: "6,999"` | `PRICE_PAISE = "699900"` |
+| No. 20 | `lastPrice: "8,999"` | `LAST_PRICE_PAISE = "899900"` |
+| where Series 01 opened | (not shown) | `FLOOR_PAISE = "599900"` |
 
 `FLOOR_PAISE` is the lowest amount the webhook, the import and Meta's
 catch-up accept as a full-price sale, so sales made at ₹5,999 stay sales;
 each payment is also checked against the amount of the order the worker
 priced. `tools/check.mjs` fails the build if the page and the worker
-disagree on either price. `worker/stock.js` moves every printed price
-(`<span data-price>`), the ladder's live rung, the structured data,
-`llms.txt` and `edition.json` to ₹8,999 in the commit that leaves one.
+disagree on either price. `worker/stock.js` keeps the structured data
+(No. 20 at ₹8,999), the "No. 20 · The twentieth" block's `data-open`,
+`llms.txt` and `edition.json` true in the commit of every sale.
 
 ### 2b. The other way to take money: Standard Checkout
 
